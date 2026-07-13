@@ -55,12 +55,26 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Build Vercel preview
-        run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" build --target=preview
+        run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" build
 
       - name: Deploy Vercel preview
         id: deploy
         run: |
-          deployment_url="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" deploy --prebuilt --target=preview --yes --token="$VERCEL_TOKEN")"
+          deployment_url="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" deploy --prebuilt --yes --token="$VERCEL_TOKEN")"
+
+          if ! deployment_json="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" inspect "$deployment_url" --format=json --token="$VERCEL_TOKEN")"; then
+            pnpm dlx "vercel@${VERCEL_CLI_VERSION}" remove "$deployment_url" --yes --token="$VERCEL_TOKEN" || true
+            echo "::error::Unable to verify the Vercel deployment target; deployment removed."
+            exit 1
+          fi
+
+          deployment_target="$(jq -r '.target' <<< "$deployment_json")"
+          if [[ "$deployment_target" != "preview" ]]; then
+            pnpm dlx "vercel@${VERCEL_CLI_VERSION}" remove "$deployment_url" --yes --token="$VERCEL_TOKEN" || true
+            echo "::error::Expected a Vercel preview deployment, received '$deployment_target'; deployment removed."
+            exit 1
+          fi
+
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "### Vercel Preview" >> "$GITHUB_STEP_SUMMARY"
           echo "[$deployment_url]($deployment_url)" >> "$GITHUB_STEP_SUMMARY"
