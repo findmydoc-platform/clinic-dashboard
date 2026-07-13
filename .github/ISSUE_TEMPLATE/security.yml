@@ -1,0 +1,31 @@
+name: Security concern
+description: Report a suspected vulnerability without publishing sensitive details.
+title: "[Security]: "
+labels:
+  - security
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, exploit details, personal data, or production identifiers here. Prefer GitHub Private Vulnerability Reporting or the internal security contact from SECURITY.md.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Provide a short, non-sensitive description of the concern.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Potential impact
+      description: Explain who or what may be affected without including exploit instructions.
+    validations:
+      required: true
+  - type: input
+    id: private-contact
+    attributes:
+      label: Private contact reference
+      description: State how the security team can reach you privately.
+    validations:
+      required: true

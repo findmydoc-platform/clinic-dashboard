@@ -1,0 +1,27 @@
+schema_version = 1
+
+[bootstrap]
+status = "complete"
+
+[project]
+purpose = "Standalone clinic staff workspace foundation"
+audience = "Clinic staff; platform staff continue to use Payload Admin"
+
+[auth]
+profile = "supabase-payload"
+status = "planned"
+
+[storage]
+mode = "none"
+
+[access]
+public_routes = ["/", "/api/health"]
+preview_indexing = "disabled"
+
+[modules]
+active = ["storybook", "github-actions", "vercel-preview"]
+
+[delivery]
+vercel_setup_status = "preview"
+production_enabled = false
+production_domain = "clinics.findmydoc.eu"

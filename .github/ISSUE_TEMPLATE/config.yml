@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/findmydoc-platform
+    about: Use GitHub Private Vulnerability Reporting or the internal security contact. Do not disclose vulnerabilities publicly.

@@ -1,0 +1,25 @@
+name: Feature request
+description: Describe a user outcome that needs product or technical work.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the current user problem and why it matters.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the result from the user's perspective without prescribing implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and evidence
+      description: Add relevant access, data, design, or delivery constraints.
