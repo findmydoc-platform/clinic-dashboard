@@ -1,0 +1,60 @@
+name: Workflow Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+  schedule:
+    - cron: "50 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflow-security:
+    name: Workflow Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Workflow lint
+        uses: reviewdog/action-actionlint@0d952c597ef8459f634d7145b0b044a9699e5e43 # v1.71.0
+        with:
+          reporter: github-check
+          filter_mode: nofilter
+          fail_level: error
+
+      - name: Workflow security audit
+        uses: zizmorcore/zizmor-action@0dce2577a4760a2749d8cfb7a84b7d5585ebcb7d # v0.5.0
+        with:
+          advanced-security: "false"
+          annotations: "true"
+          persona: regular
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Detect secrets
+        run: | # pragma: allowlist secret
+          python -m pip install --upgrade pip
+          python -m pip install detect-secrets==1.5.0
+          report="$RUNNER_TEMP/detected-secrets.json"
+          detect-secrets scan --exclude-files '^pnpm-lock\.yaml$' > "$report"
+          if [ "$(jq '.results | length' "$report")" -gt 0 ]; then
+            cat "$report"
+            exit 1
+          fi

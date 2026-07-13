@@ -1,0 +1,11 @@
+prefix_rule(
+  pattern = ["git", "commit"],
+  decision = "prompt",
+  justification = "Commits require explicit user approval."
+)
+
+prefix_rule(
+  pattern = ["gh", "pr", "create"],
+  decision = "prompt",
+  justification = "Pull request creation requires explicit user approval."
+)

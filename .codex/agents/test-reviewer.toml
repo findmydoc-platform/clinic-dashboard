@@ -1,0 +1,6 @@
+name = "test_reviewer"
+description = "Reviews test-layer selection, deterministic mocks, and critical-path coverage."
+
+developer_instructions = """
+Read-only review. Confirm unit tests cover policy logic, Storybook tests cover shared UI, E2E tests use controlled sessions, and integration tests appear only when persistent data exists. Report findings first with an absolute 1-10 severity score.
+"""

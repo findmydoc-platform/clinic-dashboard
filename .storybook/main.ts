@@ -1,0 +1,23 @@
+import type { StorybookConfig } from "@storybook/nextjs-vite"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+
+const dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const config: StorybookConfig = {
+  addons: ["@storybook/addon-a11y", "@storybook/addon-docs", "@storybook/addon-vitest"],
+  framework: "@storybook/nextjs-vite",
+  stories: ["../src/stories/**/*.stories.@(ts|tsx)"],
+  viteFinal: async (viteConfig) => {
+    viteConfig.resolve ??= {}
+    viteConfig.resolve.tsconfigPaths = true
+    viteConfig.resolve.alias = {
+      ...(viteConfig.resolve.alias as Record<string, string>),
+      "@": path.resolve(dirname, "../src"),
+    }
+
+    return viteConfig
+  },
+}
+
+export default config

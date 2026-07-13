@@ -1,0 +1,25 @@
+name: Technical task
+description: Track focused maintenance, infrastructure, documentation, or engineering work.
+title: "[Task]: "
+labels:
+  - chore
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: State the current situation and why the task matters.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance evidence
+      description: Describe the observable evidence that will make this task complete.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope boundaries
+      description: Record explicit out-of-scope work to prevent accidental expansion.
