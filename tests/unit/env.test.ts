@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { validateEnvironment } from "@/lib/env"
 
 describe("environment contract", () => {
-  it("accepts the data-less production foundation without auth secrets", () => {
+  it("accepts the data-less production foundation without a password override", () => {
     expect(validateEnvironment({ NODE_ENV: "production", VERCEL_ENV: "production" })).toMatchObject({
       NODE_ENV: "production",
       VERCEL_ENV: "production",

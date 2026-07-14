@@ -1,23 +1,34 @@
+import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
+import {
+  DASHBOARD_AUTH_COOKIE,
+  getDashboardRedirectUrl,
+  isValidDashboardSessionToken,
+} from "@/lib/security/dashboard-auth"
 import { validateEnvironment } from "@/lib/env"
-
-function isPreviewDeployment() {
-  return process.env.VERCEL_ENV === "preview" || process.env.NEXT_PUBLIC_DEPLOYMENT_ENV === "preview"
-}
+import { isPublicPath } from "@/lib/security/public-routes"
 
 function withDeploymentHeaders(response: NextResponse) {
-  if (isPreviewDeployment()) {
-    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive")
-  }
+  response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive")
 
   return response
 }
 
-export function proxy() {
+export function proxy(request: NextRequest) {
   validateEnvironment()
-  return withDeploymentHeaders(NextResponse.next())
+
+  if (isPublicPath(request.nextUrl.pathname)) {
+    return withDeploymentHeaders(NextResponse.next())
+  }
+
+  const sessionToken = request.cookies.get(DASHBOARD_AUTH_COOKIE)?.value
+  if (isValidDashboardSessionToken(sessionToken)) {
+    return withDeploymentHeaders(NextResponse.next())
+  }
+
+  return withDeploymentHeaders(NextResponse.redirect(getDashboardRedirectUrl(request, "/login")))
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
+  matcher: ["/((?!_next/static|_next/image|brand/|favicon.ico|fonts/|icon.svg|robots.txt|sitemap.xml).*)"],
 }

@@ -8,6 +8,14 @@ export const metadata: Metadata = {
   robots: {
     follow: false,
     index: false,
+    noarchive: true,
+    noimageindex: true,
+    googleBot: {
+      follow: false,
+      index: false,
+      noarchive: true,
+      noimageindex: true,
+    },
   },
   title: "Clinic Dashboard foundation | findmydoc",
 }
