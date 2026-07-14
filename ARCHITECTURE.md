@@ -14,7 +14,7 @@ Atomic Design defines the UI boundary:
 
 ## Current Access Boundary
 
-The foundation exposes only `/` and `/api/health`. Both endpoints are data-less and the preview emits `noindex` headers. There is no application login in this release, and Vercel Deployment Protection is not the planned application security boundary.
+The unauthenticated surface exposes only `/login`, `/api/auth/login`, `/api/health`, and `/robots.txt`. The data-less dashboard route `/` uses a temporary server-side password guard, and all application responses emit `noindex` headers. Vercel Deployment Protection remains a separate optional layer and is currently disabled.
 
 Future clinic access will use a Supabase session and server-authorized Payload API requests. Authorization must be checked at the server-side data boundary, not only in Next.js proxy logic.
 

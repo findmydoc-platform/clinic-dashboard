@@ -13,9 +13,10 @@ const foundationItems = [
     title: "Preview delivery",
   },
   {
-    description: "Supabase sign-in and authorized Payload API access remain planned follow-up work.",
+    description:
+      "The temporary first-access guard is active; Supabase sign-in remains planned follow-up work.",
     icon: ShieldCheck,
-    title: "Authentication planned",
+    title: "Temporary access guard",
   },
 ] as const
 
@@ -34,7 +35,7 @@ export function FoundationHome() {
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--muted-foreground)]">
               The independent workspace for clinic teams is being prepared. This preview contains no clinic
-              data and does not provide sign-in yet.
+              data and is protected by a temporary first-access guard.
             </p>
           </div>
           <div className="inline-flex w-fit items-center gap-2 border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-bold text-[var(--secondary)]">
@@ -59,7 +60,7 @@ export function FoundationHome() {
 
       <section aria-label="Clinic modules" className="mt-8">
         <EmptyState
-          description="Clinic data, workflows, and sign-in are intentionally outside this foundation release."
+          description="Clinic data and workflows are intentionally outside this foundation release."
           title="No clinic modules connected"
         />
       </section>

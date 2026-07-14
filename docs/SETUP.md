@@ -53,9 +53,11 @@ The preview workflow accepts only non-draft, same-repository, non-Dependabot pul
 - Framework: Next.js
 - Node.js: 24.x
 - Automatic Git deployments: disabled
-- Vercel Deployment Protection: disabled for the public foundation preview
+- Vercel Deployment Protection: disabled; the application-level temporary password guard is enabled
 - Preview deployments: enabled through GitHub Actions
 - Production deployments: disabled
+
+The application guard reads `DASHBOARD_PASSWORD` from the Vercel environment. If it is unset, the initial temporary password is `findmydoc`. Vercel Deployment Protection is a separate additional layer and can be enabled later without changing the application code.
 
 The dedicated team-scoped Vercel token is handed to GitHub through the clipboard or standard input. Never paste it into issues, pull requests, shell arguments, files, or logs.
 

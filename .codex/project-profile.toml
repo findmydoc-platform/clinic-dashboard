@@ -8,14 +8,14 @@ purpose = "Standalone clinic staff workspace foundation"
 audience = "Clinic staff; platform staff continue to use Payload Admin"
 
 [auth]
-profile = "supabase-payload"
-status = "planned"
+profile = "temporary-password-guard"
+status = "active-temporary"
 
 [storage]
 mode = "none"
 
 [access]
-public_routes = ["/", "/api/health"]
+public_routes = ["/api/auth/login", "/api/health", "/login", "/robots.txt"]
 preview_indexing = "disabled"
 
 [modules]

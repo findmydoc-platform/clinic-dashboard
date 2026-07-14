@@ -6,16 +6,17 @@ Do not open public issues for vulnerabilities or suspected data exposure. Use Gi
 
 ## Current Security Posture
 
-- The public preview is data-less and exposes only `/` and `/api/health`.
-- Preview responses and metadata use `noindex`.
-- No authentication, clinic data, database connection, or Payload credentials exist in this foundation.
+- The preview is data-less and exposes `/api/health`, `/login`, and `/api/auth/login` without a dashboard session.
+- All application responses and metadata use `noindex`; `robots.txt` disallows crawling.
+- The dashboard uses a temporary server-side password guard. `DASHBOARD_PASSWORD` overrides the initial `findmydoc` fallback.
+- No clinic data, database connection, or Payload credentials exist in this foundation.
 - GitHub Actions use read-only permissions by default and pin third-party actions to commit SHAs.
 - Vercel credentials are repository secrets and are never available to fork pull requests or Dependabot.
 - Production deployment is disabled through `VERCEL_PRODUCTION_DEPLOYMENTS_ENABLED=false`.
 
 ## Planned Access Boundary
 
-The future login will use a Supabase session and server-authorized Payload API access. Do not add direct database access, service-role credentials, or client-only authorization checks.
+The temporary guard must be replaced by a Supabase session and server-authorized Payload API access before clinic data is connected. Do not add direct database access, service-role credentials, or client-only authorization checks.
 
 ## GitHub Plan Limitation
 
