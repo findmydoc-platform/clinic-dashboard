@@ -78,8 +78,10 @@
   --secondary: #07004c;
   --accent: #42e2b7;
   --border: #e2e8f0;
-  --muted-foreground: #6b7280;
+  --muted-foreground: #596170;
   --destructive: #b91c1c;
+  --error: #ffc3b8;
+  --warning: #fbddb7;
 }
 
 .dark {
@@ -94,6 +96,8 @@
   --border: #30303d;
   --muted-foreground: #b0b0c2;
   --destructive: #ffb4a9;
+  --error: #5b2020;
+  --warning: #594421;
 }
 
 @theme inline {
@@ -118,4 +122,36 @@ body {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+.dashboard-dialog {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.dashboard-dialog[open] {
+  display: grid;
+}
+
+.dashboard-dialog::backdrop {
+  background: rgb(0 0 0 / 0.68);
+  backdrop-filter: blur(3px);
+}
+
+.dashboard-dialog-left[open] {
+  animation: dashboard-drawer-enter 160ms ease-out;
+}
+
+@keyframes dashboard-drawer-enter {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-dialog-left[open] {
+    animation: none;
+  }
 }

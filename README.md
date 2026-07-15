@@ -1,10 +1,10 @@
 # findmydoc Clinic Dashboard
 
-Standalone Next.js foundation for the future clinic staff workspace.
+Standalone Next.js preview of the future clinic staff workspace.
 
-The current release is a data-less preview protected by a temporary password guard. It has no clinic data, database connection, or Payload API integration. Supabase authentication and business modules remain follow-up work.
+The current release is a fixture-backed presentation app protected by a temporary password guard. Its four workspaces and three dialogs use deterministic demo content only. It has no clinic data, database connection, analytics provider, or Payload API integration. Supabase authentication and business modules remain follow-up work.
 
-## Foundation
+## Preview app shell
 
 - Next.js App Router, React, TypeScript, Node 24, pnpm 10, and Tailwind CSS 4
 - Atomic Design, shadcn/ui primitives, DM Sans, and Storybook
@@ -12,6 +12,8 @@ The current release is a data-less preview protected by a temporary password gua
 - Advisory GitHub Actions checks and Vercel preview deployments
 - `noindex` metadata, `robots.txt`, and Vercel `X-Robots-Tag` headers
 - Temporary password guard; set `DASHBOARD_PASSWORD` in Vercel to override the initial `findmydoc` password
+- In-app navigation between Dashboard, Messages, Reviews, and Clinic profile without route reloads
+- `presentation` mode at `/` and complete `visual-reference` coverage in Storybook
 - Template source: `findmydoc-platform/findmydoc-codex-web-template@140506999206dd2d9cade862e218e9b489eebad4`
 
 ## Local Development

@@ -1,7 +1,6 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { FoundationHome } from "@/components/organisms/AppShell/FoundationHome"
-import { ClinicDashboardTemplate } from "@/components/templates/ClinicDashboardTemplate"
+import { ClinicDashboardApp } from "@/components/organisms/ClinicDashboard/ClinicDashboardApp"
 import { DASHBOARD_AUTH_COOKIE, isValidDashboardSessionToken } from "@/lib/security/dashboard-auth"
 
 export default async function HomePage() {
@@ -10,9 +9,5 @@ export default async function HomePage() {
     redirect("/login")
   }
 
-  return (
-    <ClinicDashboardTemplate>
-      <FoundationHome />
-    </ClinicDashboardTemplate>
-  )
+  return <ClinicDashboardApp persistInterfaceModeInSession showInterfaceModeToggle variant="presentation" />
 }
