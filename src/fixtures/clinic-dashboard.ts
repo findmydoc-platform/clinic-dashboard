@@ -1,4 +1,5 @@
 import type { ClinicDashboardSection } from "@/lib/clinic-dashboard/visibility"
+import type { ClinicMessagesFixture } from "@/lib/clinic-dashboard/messages"
 import {
   createDashboardReportingSnapshot,
   type DashboardReportingSnapshots,
@@ -207,6 +208,7 @@ export const clinicDashboardFixture = {
         preview: "Hello, I am interested in a hair transplant…",
         section: "New inquiries",
         time: "10:45",
+        treatment: { name: "Hair transplant" },
         unread: 1,
       },
       {
@@ -229,7 +231,6 @@ export const clinicDashboardFixture = {
       },
     ],
     dateLabel: "Today, October 12",
-    interest: "Hair transplant",
     messages: [
       {
         body: "Hello, I am interested in a hair transplant at your clinic. Which documents should I prepare for an initial consultation?",
@@ -245,6 +246,7 @@ export const clinicDashboardFixture = {
         time: "10:52",
       },
       {
+        attachmentSummary: "3 photos",
         body: "Here are the requested photos. I hope they help with the initial assessment.",
         id: "message-3",
         sender: "patient",
@@ -253,7 +255,7 @@ export const clinicDashboardFixture = {
     ],
     patientAvatar: lukasWeberAvatar,
     patientName: "Lukas Weber",
-  },
+  } satisfies ClinicMessagesFixture,
   notifications: [
     {
       createdAt: "2023-10-12T10:45:00.000Z",
