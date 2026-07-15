@@ -18,7 +18,12 @@ export const navigationItems = [
 ] as const satisfies ReadonlyArray<{ id: ClinicDashboardSection; label: string }>
 
 export const clinicDashboardFixture = {
-  admin: { avatar: sarahSchmidtAvatar, initials: "AD", name: "Admin" },
+  admin: {
+    avatar: sarahSchmidtAvatar,
+    initials: "SS",
+    name: "Sarah Schmidt",
+    role: "Clinic administrator",
+  },
   clinicName: "Berlin Health Clinic",
   dashboard: {
     profileTasks: [

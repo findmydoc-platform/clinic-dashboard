@@ -1,10 +1,12 @@
 import { expect, test, type Page } from "@playwright/test"
 
+const testDashboardPassword = "clinic-dashboard-test"
+
 async function signIn(page: Page) {
   const response = await page.goto("/")
   expect(response?.headers()["x-robots-tag"]).toContain("noindex")
   await expect(page).toHaveURL(/\/login$/)
-  await page.getByLabel("Password").fill("findmydoc")
+  await page.getByLabel("Password").fill(testDashboardPassword)
   await page.getByRole("button", { name: "Sign in" }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
@@ -148,6 +150,22 @@ test("switches complete reporting snapshots and manages local notifications", as
   await page.reload()
   await expect(page.getByRole("switch", { name: "Full interface" })).toBeChecked()
   await expect(page.getByRole("button", { name: "Notifications, no new notifications" })).toBeVisible()
+})
+
+test("opens the account menu and signs out", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+
+  const trigger = page.getByRole("button", { name: "Open account menu for Sarah Schmidt" })
+  await trigger.click()
+
+  const menu = page.getByRole("dialog", { name: "Account menu" })
+  await expect(menu.getByText("Sarah Schmidt")).toBeVisible()
+  await expect(menu.getByText("Clinic administrator")).toBeVisible()
+  await menu.getByRole("button", { name: "Sign out" }).click()
+
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible()
 })
 
 test("supports the complete responsive and keyboard presentation matrix", async ({ page }) => {

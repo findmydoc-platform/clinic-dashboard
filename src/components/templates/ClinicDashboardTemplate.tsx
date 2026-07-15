@@ -1,9 +1,9 @@
 "use client"
 
 import { useRef, useState, type ReactNode } from "react"
-import { Building2, Headphones, LayoutDashboard, LogOut, Menu, MessageSquare, Star } from "lucide-react"
-import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
+import { Building2, Headphones, LayoutDashboard, Menu, MessageSquare, Star } from "lucide-react"
 import { BrandMark } from "@/components/atoms/BrandMark"
+import { AccountMenu } from "@/components/molecules/AccountMenu"
 import { InterfaceModeSwitch } from "@/components/molecules/InterfaceModeSwitch"
 import { NotificationCenter } from "@/components/molecules/NotificationCenter"
 import { Button } from "@/components/ui/button"
@@ -125,9 +125,6 @@ export function ClinicDashboardTemplate({
               <Button className="w-full justify-start gap-3" variant="ghost">
                 <Headphones aria-hidden="true" className="size-5" /> <span>Contact support</span>
               </Button>
-              <Button className="w-full justify-start gap-3" variant="ghost">
-                <LogOut aria-hidden="true" className="size-5" /> <span>Sign out</span>
-              </Button>
             </div>
           ) : null}
           {showInterfaceModeToggle && onShowFullInterfaceChange ? (
@@ -191,11 +188,12 @@ export function ClinicDashboardTemplate({
                 readNotificationIds={notificationReadIds}
               />
             ) : null}
-            <AvatarInitials
+            <AccountMenu
+              avatar={clinicDashboardFixture.admin.avatar}
               initials={clinicDashboardFixture.admin.initials}
-              src={clinicDashboardFixture.admin.avatar}
+              name={clinicDashboardFixture.admin.name}
+              role={clinicDashboardFixture.admin.role}
             />
-            <span className="hidden text-sm font-bold xl:inline">{clinicDashboardFixture.admin.name}</span>
           </div>
         </header>
         {headerActions ? (
