@@ -21,7 +21,7 @@ const buttonVariants = cva(
         primary:
           "bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] focus-visible:outline-[var(--primary)]",
         secondary:
-          "bg-[var(--secondary)] text-white hover:bg-[#110a69] focus-visible:outline-[var(--secondary)]",
+          "bg-[var(--background)] text-[var(--primary)] hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
         ghost:
           "bg-transparent text-[var(--foreground)] hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
         outline:

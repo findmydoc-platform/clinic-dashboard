@@ -50,7 +50,7 @@ export function WorkspaceHeading({
     <div>
       <h1 className="text-3xl font-bold tracking-tight text-[var(--secondary)] sm:text-4xl">{children}</h1>
       {description ? (
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted-foreground)]">{description}</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--foreground)]">{description}</p>
       ) : null}
     </div>
   )

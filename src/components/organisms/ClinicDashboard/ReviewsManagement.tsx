@@ -50,7 +50,7 @@ export function ReviewsManagement({ variant }: { variant: ClinicDashboardVariant
                     />
                   </div>
                 </dd>
-                <dd className="text-right text-sm text-[var(--muted-foreground)]">
+                <dd className="text-right text-sm text-[var(--foreground)]">
                   {entry.count.toLocaleString("en-US")}
                 </dd>
               </div>
@@ -63,7 +63,7 @@ export function ReviewsManagement({ variant }: { variant: ClinicDashboardVariant
         <SurfaceCard className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
           {["Period", "Rating", "Treatment", "Status"].map((label) => (
             <label
-              className="grid gap-1 text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase"
+              className="grid gap-1 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase"
               key={label}
             >
               {label}
@@ -100,7 +100,7 @@ export function ReviewsManagement({ variant }: { variant: ClinicDashboardVariant
                   <h2 className="font-bold">{review.author}</h2>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <RatingStars value={review.rating} />
-                    <span className="text-xs text-[var(--muted-foreground)]">{review.age}</span>
+                    <span className="text-xs text-[var(--foreground)]">{review.age}</span>
                   </div>
                 </div>
               </div>
@@ -123,7 +123,7 @@ export function ReviewsManagement({ variant }: { variant: ClinicDashboardVariant
             <p className="mt-4 text-sm leading-6">{review.body}</p>
             {"response" in review && review.response ? (
               <div className="mt-5 border-l-4 border-[var(--primary)] bg-[var(--surface)] p-4">
-                <div className="text-xs font-bold text-[var(--muted-foreground)]">Clinic response</div>
+                <div className="text-xs font-bold text-[var(--foreground)]">Clinic response</div>
                 <p className="mt-2 text-sm italic">{review.response}</p>
               </div>
             ) : null}
@@ -148,7 +148,7 @@ export function ReviewsManagement({ variant }: { variant: ClinicDashboardVariant
       </section>
       {showManagement ? (
         <nav aria-label="Review pages" className="flex items-center justify-between gap-4">
-          <span className="text-sm text-[var(--muted-foreground)]">Showing 1–10 of 1,248 reviews</span>
+          <span className="text-sm text-[var(--foreground)]">Showing 1–10 of 1,248 reviews</span>
           <div className="flex gap-2">
             {[1, 2, 3].map((page) => (
               <Button

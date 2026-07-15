@@ -73,7 +73,7 @@ function PrototypeBrandMark({ className }: { className?: string }) {
   return (
     <span className={cn("relative inline-flex pb-4", className)}>
       <BrandMark priority />
-      <span className="absolute top-6 left-[76px] z-10 inline-flex rounded-full bg-[#b42318] px-1.5 py-1 text-[8px] leading-none font-bold tracking-wide text-white uppercase">
+      <span className="absolute top-6 left-[76px] z-10 inline-flex rounded-full bg-[var(--destructive)] px-1.5 py-1 text-[8px] leading-none font-bold tracking-wide text-white uppercase">
         Prototype
       </span>
     </span>
@@ -107,7 +107,7 @@ export function ClinicDashboardTemplate({
         <div className="relative mb-8 min-h-20">
           <div className="absolute top-11 left-1/2 flex -translate-x-1/2 items-start lg:left-0 lg:translate-x-0">
             <PrototypeBrandMark />
-            <span className="sr-only lg:not-sr-only lg:ml-4 lg:text-xs lg:font-bold lg:text-[var(--muted-foreground)]">
+            <span className="sr-only lg:not-sr-only lg:ml-4 lg:text-xs lg:font-bold lg:text-[var(--foreground)]">
               Clinic workspace
             </span>
           </div>
@@ -173,7 +173,7 @@ export function ClinicDashboardTemplate({
               <div className="truncate text-sm font-bold sm:text-base">
                 {clinicDashboardFixture.clinicName}
               </div>
-              <div className="truncate text-xs text-[var(--muted-foreground)] lg:hidden">
+              <div className="truncate text-xs text-[var(--foreground)] lg:hidden">
                 Clinic workspace
               </div>
             </div>

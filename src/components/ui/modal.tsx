@@ -76,7 +76,7 @@ export function Modal({
             {title}
           </h2>
           {description ? (
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]" id={descriptionId}>
+            <p className="mt-1 text-sm text-[var(--foreground)]" id={descriptionId}>
               {description}
             </p>
           ) : null}

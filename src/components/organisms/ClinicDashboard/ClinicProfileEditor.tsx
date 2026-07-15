@@ -28,7 +28,7 @@ export function ClinicProfileEditor({
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="mb-1 text-sm text-[var(--muted-foreground)]">Clinics / Edit profile</p>
+          <p className="mb-1 text-sm text-[var(--foreground)]">Clinics / Edit profile</p>
           <WorkspaceHeading>Clinic profile</WorkspaceHeading>
         </div>
         <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export function ClinicProfileEditor({
         <div className="space-y-6">
           <SurfaceCard className="p-5 sm:p-6">
             <div className="grid gap-5">
-              <label className="grid gap-2 text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase">
+              <label className="grid gap-2 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
                 Clinic name
                 <input
                   className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-base font-bold text-[var(--foreground)] disabled:bg-[var(--surface)]"
@@ -99,7 +99,7 @@ export function ClinicProfileEditor({
                   disabled={readOnly}
                 />
               </label>
-              <label className="grid gap-2 text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase">
+              <label className="grid gap-2 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
                 Description
                 <textarea
                   className="min-h-32 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-sm leading-6 text-[var(--foreground)] disabled:bg-[var(--surface)]"
@@ -108,7 +108,7 @@ export function ClinicProfileEditor({
                 />
               </label>
               <div>
-                <div className="text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase">
+                <div className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
                   Specialties
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -146,7 +146,7 @@ export function ClinicProfileEditor({
                   <AvatarInitials className="size-14" initials={member.initials} src={member.avatar} />
                   <div>
                     <strong>{member.name}</strong>
-                    <p className="mt-1 text-sm text-[var(--muted-foreground)]">{member.specialty}</p>
+                    <p className="mt-1 text-sm text-[var(--foreground)]">{member.specialty}</p>
                   </div>
                 </div>
               ))}
@@ -161,7 +161,7 @@ export function ClinicProfileEditor({
               </Button>
             </div>
             <div className="p-5">
-              <div className="hidden grid-cols-[1fr_7rem_7rem_2rem] gap-3 bg-[var(--surface)] px-4 py-3 text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase sm:grid">
+              <div className="hidden grid-cols-[1fr_7rem_7rem_2rem] gap-3 bg-[var(--surface)] px-4 py-3 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase sm:grid">
                 <span>Treatment</span>
                 <span>Duration</span>
                 <span>From</span>
@@ -173,7 +173,7 @@ export function ClinicProfileEditor({
                   key={treatment.name}
                 >
                   <strong className="text-sm">{treatment.name}</strong>
-                  <span className="text-sm text-[var(--muted-foreground)]">{treatment.duration}</span>
+                  <span className="text-sm text-[var(--foreground)]">{treatment.duration}</span>
                   <span className="font-bold text-[var(--primary)]">{treatment.price}</span>
                   <GripHorizontal aria-hidden="true" className="hidden size-4 sm:block" />
                 </div>
@@ -187,23 +187,23 @@ export function ClinicProfileEditor({
             <h2 className="text-xl font-bold text-[var(--secondary)]">Address</h2>
             <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
               <div className="col-span-2">
-                <dt className="text-xs font-bold text-[var(--muted-foreground)] uppercase">Street</dt>
+                <dt className="text-xs font-bold text-[var(--foreground)] uppercase">Street</dt>
                 <dd className="mt-1">{data.address.street}</dd>
               </div>
               <div>
-                <dt className="text-xs font-bold text-[var(--muted-foreground)] uppercase">City</dt>
+                <dt className="text-xs font-bold text-[var(--foreground)] uppercase">City</dt>
                 <dd className="mt-1">{data.address.city}</dd>
               </div>
               <div>
-                <dt className="text-xs font-bold text-[var(--muted-foreground)] uppercase">Postal code</dt>
+                <dt className="text-xs font-bold text-[var(--foreground)] uppercase">Postal code</dt>
                 <dd className="mt-1">{data.address.postalCode}</dd>
               </div>
               <div className="col-span-2">
-                <dt className="text-xs font-bold text-[var(--muted-foreground)] uppercase">Phone</dt>
+                <dt className="text-xs font-bold text-[var(--foreground)] uppercase">Phone</dt>
                 <dd className="mt-1">{data.address.phone}</dd>
               </div>
             </dl>
-            <div className="mt-5 flex h-40 items-center justify-center rounded-lg bg-[var(--surface)] text-[var(--muted-foreground)]">
+            <div className="mt-5 flex h-40 items-center justify-center rounded-lg bg-[var(--surface)] text-[var(--foreground)]">
               <MapPin aria-hidden="true" className="mr-2 size-5" /> Map preview
             </div>
           </SurfaceCard>
@@ -212,7 +212,7 @@ export function ClinicProfileEditor({
             <dl className="mt-5 space-y-3">
               {data.openingHours.map((entry) => (
                 <div className="flex justify-between gap-4 text-sm" key={entry.days}>
-                  <dt className="text-[var(--muted-foreground)]">{entry.days}</dt>
+                  <dt className="text-[var(--foreground)]">{entry.days}</dt>
                   <dd className="font-bold">{entry.hours}</dd>
                 </div>
               ))}
