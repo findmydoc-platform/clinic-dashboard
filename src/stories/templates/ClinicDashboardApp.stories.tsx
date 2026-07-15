@@ -13,6 +13,7 @@ const meta = {
         mobile320Compact: { name: "Mobile 320 compact", styles: { height: "500px", width: "320px" } },
         mobile320Short: { name: "Mobile 320 short", styles: { height: "700px", width: "320px" } },
         mobile375Short: { name: "Mobile 375 short", styles: { height: "700px", width: "375px" } },
+        mobile390Tall: { name: "Mobile 390 tall", styles: { height: "844px", width: "390px" } },
         tablet768: { name: "Tablet 768", styles: { height: "1024px", width: "768px" } },
       },
     },
@@ -261,6 +262,72 @@ export const DashboardHeaderMobileFullInterface: Story = {
 
 export const MessagesVisualReference: Story = {
   args: { initialSection: "messages", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getAllByText("Hair transplant").length).toBeGreaterThanOrEqual(1)
+    await expect(canvas.queryByText("Interest: Hair transplant")).not.toBeInTheDocument()
+    await expect(canvas.getByLabelText("Write a message")).toBeInTheDocument()
+  },
+}
+export const MessagesSearchAndPreview: Story = {
+  args: { initialSection: "messages", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByLabelText("Search conversations"), "Markus")
+    const conversation = canvas.getByRole("button", { name: /Markus Schmidt/ })
+    await userEvent.click(conversation)
+    await expect(canvas.getByRole("heading", { level: 2, name: "Markus Schmidt" })).toBeInTheDocument()
+    await expect(canvas.getByText("Conversation preview")).toBeInTheDocument()
+    await expect(
+      canvas.getByText("Full conversation details are not available in this prototype."),
+    ).toBeInTheDocument()
+    await expect(canvas.queryByRole("textbox", { name: "Write a message" })).not.toBeInTheDocument()
+  },
+}
+export const MessagesThreadInteraction: Story = {
+  args: { initialSection: "messages", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("1 new")).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Conversation menu" }))
+    await userEvent.click(canvas.getByRole("menuitem", { name: "Mark as read" }))
+    await expect(canvas.getByText("All read")).toBeInTheDocument()
+    await expect(canvas.queryByText("1 new")).not.toBeInTheDocument()
+    const composer = canvas.getByLabelText("Write a message")
+    await userEvent.type(composer, "We can review the photos tomorrow.{enter}")
+    await expect(canvas.getByText("We can review the photos tomorrow.")).toBeInTheDocument()
+    await expect(composer).toHaveValue("")
+    await userEvent.click(canvas.getByRole("button", { name: "Conversation menu" }))
+    await userEvent.click(canvas.getByRole("menuitem", { name: "Mark as unread" }))
+    await expect(canvas.getByText("1 new")).toBeInTheDocument()
+  },
+}
+export const MessagesMobileInbox: Story = {
+  args: { initialSection: "messages", variant: "visual-reference" },
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("heading", { level: 1, name: "Messages" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: /Lukas Weber/ })).toBeInTheDocument()
+    await expect(canvas.queryByRole("textbox", { name: "Write a message" })).not.toBeInTheDocument()
+  },
+}
+export const MessagesMobileThreadDraft: Story = {
+  args: { initialSection: "messages", variant: "visual-reference" },
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: /Lukas Weber/ }))
+    await expect(canvas.getByRole("button", { name: "Back to conversations" })).toBeInTheDocument()
+    const threadHeading = canvas.getByRole("heading", { level: 1, name: "Lukas Weber" })
+    await waitFor(() => expect(threadHeading).toHaveFocus())
+    await expect(canvas.getByText(/Treatment:/)).toBeInTheDocument()
+    const composer = canvas.getByLabelText("Write a message")
+    await userEvent.type(composer, "Thank you, we will review the photos.")
+    await userEvent.click(canvas.getByRole("button", { name: "Send message" }))
+    await expect(canvas.getByText("Thank you, we will review the photos.")).toBeInTheDocument()
+    await expect(composer).toHaveValue("")
+  },
 }
 export const MessagesPresentation: Story = {
   args: { initialSection: "messages", variant: "presentation" },

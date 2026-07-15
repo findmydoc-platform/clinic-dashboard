@@ -75,7 +75,7 @@ test("renders all fixture workspaces and dialogs without backend behavior", asyn
 
   await page.getByRole("button", { name: "Messages" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
-  await expect(page.getByLabel("Write a message")).toHaveCount(0)
+  await expect(page.getByRole("textbox", { name: "Write a message" })).toHaveCount(0)
   await page.waitForTimeout(200)
   await page.screenshot({ path: "output/playwright/clinic-dashboard/messages-desktop.png" })
 
@@ -228,6 +228,18 @@ test("switches themes without hydration or dark-mode contrast regressions", asyn
   expect(
     await getContrastRatio(activeConversation.locator("strong"), activeConversation),
   ).toBeGreaterThanOrEqual(4.5)
+  const totalUnread = page.getByText("1 new", { exact: true })
+  const conversationUnread = page.getByLabel("1 unread message")
+  const outgoingMessage = page.getByText(
+    "Hello Mr Weber, thank you for your interest. For an initial assessment we normally need photos of the affected areas.",
+    { exact: true },
+  )
+  await expect(totalUnread).toBeVisible()
+  await expect(conversationUnread).toBeVisible()
+  await expect(outgoingMessage).toBeVisible()
+  expect(await getContrastRatio(totalUnread)).toBeGreaterThanOrEqual(4.5)
+  expect(await getContrastRatio(conversationUnread)).toBeGreaterThanOrEqual(4.5)
+  expect(await getContrastRatio(outgoingMessage)).toBeGreaterThanOrEqual(4.5)
   await page.waitForTimeout(200)
   await page.screenshot({ path: "output/playwright/clinic-dashboard/messages-dark.png" })
 
@@ -251,6 +263,73 @@ test("switches themes without hydration or dark-mode contrast regressions", asyn
   await page.screenshot({ path: "output/playwright/clinic-dashboard/profile-dark.png" })
 
   expect(hydrationErrors).toEqual([])
+})
+
+test("supports the fixture-backed messages prototype across desktop and mobile", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("switch", { name: "Full interface" }).click()
+  await page.getByRole("button", { name: "Messages" }).click()
+
+  await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
+  await expect(page.getByText("1 new")).toBeVisible()
+  await expect(page.getByText("Hair transplant").first()).toBeVisible()
+  await expect(page.getByText(/Treatment:/)).toBeVisible()
+  await page.getByRole("button", { name: "Conversation menu" }).click()
+  await page.getByRole("menuitem", { name: "Mark as read" }).click()
+  await expect(page.getByText("All read")).toBeVisible()
+  await expect(page.getByText("1 new", { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel("1 unread message")).toHaveCount(0)
+  await page.screenshot({
+    path: "output/playwright/clinic-dashboard/messages-full-interface-desktop.png",
+  })
+
+  const search = page.getByLabel("Search conversations")
+  await search.fill("Markus")
+  await page.getByRole("button", { name: /Markus Schmidt/ }).click()
+  await expect(page.getByRole("heading", { level: 2, name: "Markus Schmidt" })).toBeVisible()
+  await expect(page.getByText("Conversation preview")).toBeVisible()
+  await expect(page.getByText("Full conversation details are not available in this prototype.")).toBeVisible()
+  await expect(page.getByLabel("Write a message")).toHaveCount(0)
+  await page.screenshot({
+    path: "output/playwright/clinic-dashboard/messages-search-preview-desktop.png",
+  })
+
+  await search.clear()
+  await page.getByRole("button", { name: /Lukas Weber/ }).click()
+  await expect(page.getByText("All read")).toBeVisible()
+  const composer = page.getByLabel("Write a message")
+  await composer.fill("We can review the photos tomorrow.")
+  await composer.press("Enter")
+  await expect(page.getByText("We can review the photos tomorrow.")).toBeVisible()
+  await expect(composer).toHaveValue("")
+
+  await page.getByRole("button", { name: "Conversation menu" }).click()
+  await page.getByRole("menuitem", { name: "Mark as unread" }).click()
+  await expect(page.getByText("1 new")).toBeVisible()
+
+  await page.setViewportSize({ height: 844, width: 390 })
+  const backButton = page.getByRole("button", { name: "Back to conversations" })
+  await expect(backButton).toBeVisible()
+  await backButton.click()
+  const activeConversation = page.getByRole("button", { name: /Lukas Weber/ })
+  await expect(activeConversation).toBeFocused()
+  await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Write a message" })).toHaveCount(0)
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/messages-mobile-inbox.png" })
+
+  await activeConversation.click()
+  const mobileThreadHeading = page.getByRole("heading", { level: 1, name: "Lukas Weber" })
+  await expect(mobileThreadHeading).toBeFocused()
+  await expect(page.getByText(/Treatment:/)).toBeVisible()
+  const mobileComposer = page.getByLabel("Write a message")
+  await mobileComposer.fill("Thank you, we will review the photos.")
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/messages-mobile-thread-draft.png" })
+  await page.getByRole("button", { name: "Send message" }).click()
+  await expect(page.getByText("Thank you, we will review the photos.")).toBeVisible()
+  await expect(mobileComposer).toHaveValue("")
 })
 
 test("supports the complete responsive and keyboard presentation matrix", async ({ page }) => {

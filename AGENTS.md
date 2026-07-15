@@ -17,6 +17,12 @@ The current application is a data-less foundation preview with a temporary passw
 - Treat GitHub checks as advisory while the repository remains private on the current Free plan.
 - Never place Vercel tokens, real auth secrets, clinic data, or private endpoints in repository content or logs. Configurable passwords belong in environment variables.
 
+## UI Design
+
+- Use pill-shaped labels and badges sparingly. Do not default to a pill whenever small contextual information needs emphasis.
+- Prefer typography, spacing, grouping, inline metadata, icons, or separators before introducing a pill.
+- Reserve pills for compact states, counts, or selectable filters when the enclosed shape communicates meaning or interaction. Do not use them for ordinary descriptive taxonomy or repeated labels unless an approved design specifically requires it.
+
 ## Codex Reviewers
 
 Recommend matching read-only reviewers before handoff and ask for confirmation before running them. Present all findings before applying reviewer-driven fixes.
