@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AccountMenu } from "@/components/molecules/AccountMenu"
+import { ThemeProvider } from "@/components/organisms/AppShell/ThemeProvider"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
 
 const meta = {
@@ -28,11 +29,15 @@ const defaultArgs = {
   role: account.role,
 } satisfies Story["args"]
 
-function renderAccountMenu(initialOpen = false) {
+function renderAccountMenu(initialOpen = false, theme: "dark" | "light" = "light") {
   return (
-    <div className="flex min-h-screen justify-end p-4">
-      <AccountMenu {...defaultArgs} initialOpen={initialOpen} />
-    </div>
+    <ThemeProvider attribute="class" enableSystem={false} forcedTheme={theme}>
+      <div className="min-h-screen bg-[var(--canvas)] p-4 text-[var(--foreground)]">
+        <div className="flex justify-end">
+          <AccountMenu {...defaultArgs} initialOpen={initialOpen} />
+        </div>
+      </div>
+    </ThemeProvider>
   )
 }
 
@@ -59,11 +64,24 @@ export const Open: Story = {
 
     await expect(within(menu).getByText(account.name)).toBeInTheDocument()
     await expect(within(menu).getByText(account.role)).toBeInTheDocument()
+    await expect(within(menu).getByRole("switch", { name: "Dark mode" })).not.toBeChecked()
     await expect(within(menu).getByRole("button", { name: "Sign out" })).toBeInTheDocument()
     await userEvent.keyboard("{Escape}")
     await waitFor(() =>
       expect(canvas.getByRole("button", { name: `Open account menu for ${account.name}` })).toHaveFocus(),
     )
+  },
+}
+
+export const OpenDark: Story = {
+  args: { ...defaultArgs, initialOpen: true },
+  render: () => renderAccountMenu(true, "dark"),
+  play: async ({ canvasElement }) => {
+    const menu = within(canvasElement).getByRole("dialog", { name: "Account menu" })
+
+    await waitFor(() => expect(within(menu).getByRole("switch", { name: "Dark mode" })).toBeChecked())
+    await expect(within(menu).getByText(account.name)).toBeInTheDocument()
+    await expect(within(menu).getByRole("button", { name: "Sign out" })).toBeInTheDocument()
   },
 }
 

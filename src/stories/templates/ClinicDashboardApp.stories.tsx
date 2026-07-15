@@ -42,6 +42,7 @@ export const DashboardAccountMenuOpen: Story = {
     const menu = canvas.getByRole("dialog", { name: "Account menu" })
     await expect(within(menu).getByText("Sarah Schmidt")).toBeInTheDocument()
     await expect(within(menu).getByText("Clinic administrator")).toBeInTheDocument()
+    await expect(within(menu).getByRole("switch", { name: "Dark mode" })).toBeInTheDocument()
     await expect(within(menu).getByRole("button", { name: "Sign out" })).toBeInTheDocument()
   },
 }

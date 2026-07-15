@@ -81,6 +81,7 @@
   --border: #e2e8f0;
   --muted-foreground: #999999;
   --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
   --error: #ffc3b8;
   --warning: #fbddb7;
 }
@@ -98,6 +99,7 @@
   --border: #30303d;
   --muted-foreground: #b0b0c2;
   --destructive: #ffb4a9;
+  --destructive-foreground: #07004c;
   --error: #5b2020;
   --warning: #594421;
 }

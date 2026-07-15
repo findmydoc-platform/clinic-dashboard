@@ -87,7 +87,7 @@ export function MessagesWorkspace({
                         className={cn(
                           "flex min-h-20 w-full items-center border-b border-[var(--border)] px-5 py-3 text-left",
                           active &&
-                            "border-l-4 border-l-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_6%,white)]",
+                            "border-l-4 border-l-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_8%,var(--background))]",
                         )}
                         key={conversation.id}
                         type="button"
@@ -100,7 +100,7 @@ export function MessagesWorkspace({
                         className={cn(
                           "flex min-h-20 items-center border-b border-[var(--border)] px-5 py-3",
                           active &&
-                            "border-l-4 border-l-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_6%,white)]",
+                            "border-l-4 border-l-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_8%,var(--background))]",
                         )}
                         key={conversation.id}
                       >
@@ -159,7 +159,7 @@ export function MessagesWorkspace({
                   >
                     {message.body}
                     {index === 2 ? (
-                      <div className="mt-3 flex items-center gap-2 rounded-lg bg-black/5 p-3">
+                      <div className="mt-3 flex items-center gap-2 rounded-lg bg-[var(--surface)] p-3">
                         <FileImage aria-hidden="true" className="size-5" /> 3 photos
                       </div>
                     ) : null}

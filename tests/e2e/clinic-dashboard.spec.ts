@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Locator, type Page } from "@playwright/test"
 
 const testDashboardPassword = "clinic-dashboard-test"
 
@@ -10,6 +10,7 @@ async function signIn(page: Page) {
   await page.getByRole("button", { name: "Sign in" }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  await page.waitForLoadState("networkidle")
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -17,6 +18,33 @@ async function expectNoHorizontalOverflow(page: Page) {
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   )
   expect(overflow).toBeLessThanOrEqual(1)
+}
+
+function parseSrgbColor(color: string) {
+  const srgb = color.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/)
+  if (srgb) return srgb.slice(1, 4).map(Number)
+
+  const rgb = color.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/)
+  if (rgb) return rgb.slice(1, 4).map((channel) => Number(channel) / 255)
+
+  throw new Error(`Unsupported computed color: ${color}`)
+}
+
+function relativeLuminance(color: string) {
+  const [red, green, blue] = parseSrgbColor(color).map((channel) =>
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  )
+
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+}
+
+async function getContrastRatio(foreground: Locator, background: Locator = foreground) {
+  const foregroundColor = await foreground.evaluate((element) => getComputedStyle(element).color)
+  const backgroundColor = await background.evaluate((element) => getComputedStyle(element).backgroundColor)
+  const lighter = Math.max(relativeLuminance(foregroundColor), relativeLuminance(backgroundColor))
+  const darker = Math.min(relativeLuminance(foregroundColor), relativeLuminance(backgroundColor))
+
+  return (lighter + 0.05) / (darker + 0.05)
 }
 
 test("renders all fixture workspaces and dialogs without backend behavior", async ({ page }) => {
@@ -162,10 +190,67 @@ test("opens the account menu and signs out", async ({ page }) => {
   const menu = page.getByRole("dialog", { name: "Account menu" })
   await expect(menu.getByText("Sarah Schmidt")).toBeVisible()
   await expect(menu.getByText("Clinic administrator")).toBeVisible()
+  await expect(menu.getByRole("switch", { name: "Dark mode" })).toBeVisible()
   await menu.getByRole("button", { name: "Sign out" }).click()
 
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible()
+})
+
+test("switches themes without hydration or dark-mode contrast regressions", async ({ page }) => {
+  const hydrationErrors: string[] = []
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().includes("Hydration failed")) {
+      hydrationErrors.push(message.text())
+    }
+  })
+  await page.emulateMedia({ colorScheme: "dark" })
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+
+  await page.getByRole("button", { name: "Open account menu for Sarah Schmidt" }).click()
+  const menu = page.getByRole("dialog", { name: "Account menu" })
+  const darkModeSwitch = menu.getByRole("switch", { name: "Dark mode" })
+  await expect(darkModeSwitch).toBeChecked()
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/account-menu-dark.png" })
+
+  await darkModeSwitch.click()
+  await expect(darkModeSwitch).not.toBeChecked()
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await darkModeSwitch.click()
+  await expect(darkModeSwitch).toBeChecked()
+  await expect(page.locator("html")).toHaveClass(/dark/)
+
+  await page.getByRole("button", { name: "Messages" }).click()
+  const activeConversation = page.getByRole("main").locator('[aria-current="page"]')
+  await expect(activeConversation).toBeVisible()
+  await expect(activeConversation.locator("strong")).toBeVisible()
+  expect(
+    await getContrastRatio(activeConversation.locator("strong"), activeConversation),
+  ).toBeGreaterThanOrEqual(4.5)
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/messages-dark.png" })
+
+  await page.getByRole("button", { name: "Reviews" }).click()
+  for (const status of ["Answered", "Open", "Under review"]) {
+    const statusBadge = page.getByRole("main").getByText(status, { exact: true })
+    await expect(statusBadge).toBeVisible()
+    expect(await getContrastRatio(statusBadge)).toBeGreaterThanOrEqual(4.5)
+  }
+  const underReviewCard = page.locator('[data-review-status="Under review"]')
+  const underReviewHeading = underReviewCard.getByRole("heading", { name: "Janine Doe" })
+  expect(await getContrastRatio(underReviewHeading, underReviewCard)).toBeGreaterThanOrEqual(4.5)
+  await page.waitForTimeout(200)
+  await page.screenshot({ fullPage: true, path: "output/playwright/clinic-dashboard/reviews-dark.png" })
+
+  await page.getByRole("button", { name: "Clinic profile" }).click()
+  const galleryBadge = page.getByText("+12 more images")
+  await expect(galleryBadge).toBeVisible()
+  expect(await getContrastRatio(galleryBadge)).toBeGreaterThanOrEqual(4.5)
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/profile-dark.png" })
+
+  expect(hydrationErrors).toEqual([])
 })
 
 test("supports the complete responsive and keyboard presentation matrix", async ({ page }) => {

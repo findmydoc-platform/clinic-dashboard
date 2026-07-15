@@ -47,7 +47,7 @@ export function MetricCard({
         <span className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
           {metric.label}
         </span>
-        <span className="rounded-lg bg-[color-mix(in_srgb,var(--primary)_10%,white)] p-2 text-[var(--primary)]">
+        <span className="rounded-lg bg-[color-mix(in_srgb,var(--primary)_10%,var(--background))] p-2 text-[var(--primary)]">
           <Icon aria-hidden="true" className="size-4" />
         </span>
       </div>

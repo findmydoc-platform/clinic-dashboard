@@ -114,8 +114,9 @@ export function ReviewsManagement({
             className={cn(
               "p-5 sm:p-6",
               review.status === "Under review" &&
-                "border-[color-mix(in_srgb,var(--destructive)_45%,white)] bg-[color-mix(in_srgb,var(--destructive)_3%,white)]",
+                "border-[color-mix(in_srgb,var(--destructive)_45%,var(--background))] bg-[color-mix(in_srgb,var(--destructive)_6%,var(--background))]",
             )}
+            data-review-status={review.status}
             key={review.author}
           >
             <div className="flex items-start justify-between gap-4">
@@ -133,7 +134,7 @@ export function ReviewsManagement({
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-bold",
                   review.status === "Answered"
-                    ? "bg-[color-mix(in_srgb,var(--accent)_28%,white)]"
+                    ? "bg-[color-mix(in_srgb,var(--accent)_28%,var(--background))]"
                     : review.status === "Open"
                       ? "bg-[var(--warning)]"
                       : "bg-[var(--error)]",
@@ -153,7 +154,7 @@ export function ReviewsManagement({
               </div>
             ) : null}
             {"notice" in review && review.notice ? (
-              <div className="mt-5 rounded-lg border border-[color-mix(in_srgb,var(--destructive)_35%,white)] bg-[var(--error)] p-4 text-sm">
+              <div className="mt-5 rounded-lg border border-[color-mix(in_srgb,var(--destructive)_35%,var(--background))] bg-[var(--error)] p-4 text-sm">
                 {review.notice}
               </div>
             ) : null}

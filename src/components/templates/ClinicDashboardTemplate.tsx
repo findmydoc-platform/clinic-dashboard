@@ -76,7 +76,7 @@ function PrototypeBrandMark({ className }: { className?: string }) {
   return (
     <span className={cn("relative inline-flex pb-4", className)}>
       <BrandMark priority />
-      <span className="absolute top-6 left-[76px] z-10 inline-flex rounded-full bg-[var(--destructive)] px-1.5 py-1 text-[8px] leading-none font-bold tracking-wide text-white uppercase">
+      <span className="absolute top-6 left-[76px] z-10 inline-flex rounded-full bg-[var(--destructive)] px-1.5 py-1 text-[8px] leading-none font-bold tracking-wide text-[var(--destructive-foreground)] uppercase">
         Prototype
       </span>
     </span>

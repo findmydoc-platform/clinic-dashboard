@@ -27,7 +27,7 @@ const buttonVariants = cva(
         outline:
           "border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
         destructive:
-          "bg-[var(--destructive)] text-white hover:opacity-90 focus-visible:outline-[var(--destructive)]",
+          "bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:opacity-90 focus-visible:outline-[var(--destructive)]",
       },
     },
   },

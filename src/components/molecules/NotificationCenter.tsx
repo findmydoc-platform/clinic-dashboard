@@ -96,7 +96,7 @@ export function NotificationCenter({
         {unreadCount > 0 ? (
           <span
             aria-hidden="true"
-            className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-[var(--destructive)] text-[10px] leading-none font-bold text-white"
+            className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-[var(--destructive)] text-[10px] leading-none font-bold text-[var(--destructive-foreground)]"
           >
             {unreadCount}
           </span>
