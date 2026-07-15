@@ -24,6 +24,24 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const DashboardVisualReference: Story = { args: { variant: "visual-reference" } }
+export const Dashboard7Days: Story = {
+  args: { initialReportingPeriod: "7 days", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getAllByText("4,680").length).toBeGreaterThanOrEqual(2)
+    await expect(canvas.getByText("+10.1% vs. previous 7 days")).toBeInTheDocument()
+    await expect(canvas.getByText("1 new review in the last 7 days")).toBeInTheDocument()
+  },
+}
+export const Dashboard90Days: Story = {
+  args: { initialReportingPeriod: "90 days", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getAllByText("53,680").length).toBeGreaterThanOrEqual(2)
+    await expect(canvas.getByText("+9.6% vs. previous 90 days")).toBeInTheDocument()
+    await expect(canvas.getByText("17 new reviews in the last 90 days")).toBeInTheDocument()
+  },
+}
 export const DashboardPresentation: Story = {
   args: { variant: "presentation" },
   play: async ({ canvasElement }) => {
@@ -44,7 +62,85 @@ export const DashboardWithInterfaceModeToggle: Story = {
     await userEvent.click(modeSwitch)
     await expect(modeSwitch).toBeChecked()
     await expect(canvas.getByRole("group", { name: "Reporting period" })).toBeInTheDocument()
-    await expect(canvas.getByRole("button", { name: "Notifications" })).toBeInTheDocument()
+    const notificationButton = canvas.getByRole("button", {
+      name: "Notifications, 2 new notifications",
+    })
+    await expect(notificationButton).toBeInTheDocument()
+    await expect(canvas.getByText("+12.0% vs. previous 30 days")).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
+    await expect(canvas.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true")
+    const sevenDayFunnelHeading = canvas.getByRole("heading", { name: "Conversion funnel (7 days)" })
+    const sevenDayFunnel = sevenDayFunnelHeading.closest("section")
+    await expect(sevenDayFunnel).not.toBeNull()
+    await expect(within(sevenDayFunnel as HTMLElement).getByText("4,680")).toBeInTheDocument()
+    await expect(within(sevenDayFunnel as HTMLElement).getByText("18.1% of impressions")).toBeInTheDocument()
+    const sevenDayChartHeading = canvas.getByRole("heading", { name: "Profile views over time" })
+    const sevenDayChart = sevenDayChartHeading.closest("section")
+    await expect(sevenDayChart).not.toBeNull()
+    await expect(
+      within(sevenDayChart as HTMLElement).getByRole("img", {
+        name: "Daily profile views across the selected 7 days total 848. The highest day has 135 profile views.",
+      }),
+    ).toBeInTheDocument()
+    await expect(within(sevenDayChart as HTMLElement).getByText("4,680")).toBeInTheDocument()
+    await expect(within(sevenDayChart as HTMLElement).getByText("848")).toBeInTheDocument()
+    await expect(
+      within(canvas.getByRole("region", { name: "Dashboard metrics" })).getByText("4,680"),
+    ).toBeInTheDocument()
+    await expect(canvas.getByText("+10.1% vs. previous 7 days")).toBeInTheDocument()
+    await expect(canvas.getByText("1 new review in the last 7 days")).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "90 days" }))
+    const ninetyDayFunnelHeading = canvas.getByRole("heading", { name: "Conversion funnel (90 days)" })
+    const ninetyDayFunnel = ninetyDayFunnelHeading.closest("section")
+    await expect(ninetyDayFunnel).not.toBeNull()
+    await expect(within(ninetyDayFunnel as HTMLElement).getByText("53,680")).toBeInTheDocument()
+    await expect(within(ninetyDayFunnel as HTMLElement).getByText("17.5% of impressions")).toBeInTheDocument()
+    const ninetyDayChartHeading = canvas.getByRole("heading", { name: "Profile views over time" })
+    const ninetyDayChart = ninetyDayChartHeading.closest("section")
+    await expect(ninetyDayChart).not.toBeNull()
+    await expect(
+      within(ninetyDayChart as HTMLElement).getByRole("img", {
+        name: "Weekly profile views across the selected 90 days total 9,410. The chart aggregates daily activity into 13 weekly points.",
+      }),
+    ).toBeInTheDocument()
+    await expect(within(ninetyDayChart as HTMLElement).getByText("53,680")).toBeInTheDocument()
+    await expect(within(ninetyDayChart as HTMLElement).getByText("9,410")).toBeInTheDocument()
+    await expect(canvas.getByText("+9.6% vs. previous 90 days")).toBeInTheDocument()
+    await userEvent.click(notificationButton)
+    const notifications = canvas.getByRole("dialog", { name: "Notifications" })
+    await expect(within(notifications).getByText("New message from Lukas Weber")).toBeInTheDocument()
+    await expect(within(notifications).getByText("New 3-star review needs a response")).toBeInTheDocument()
+    await userEvent.click(within(notifications).getByRole("button", { name: "Mark all as read" }))
+    const notificationStatus = within(notifications).getByRole("status")
+    await expect(within(notificationStatus).getByText("You're up to date")).toBeInTheDocument()
+    await waitFor(() => expect(notificationStatus).toHaveFocus())
+    await expect(
+      canvas.getByRole("button", { name: "Notifications, no new notifications" }),
+    ).toBeInTheDocument()
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(notificationButton).toHaveFocus())
+  },
+}
+
+export const DashboardNotificationsOpen: Story = {
+  args: { initialNotificationsOpen: true, variant: "visual-reference" },
+}
+
+export const DashboardNotificationsAllRead: Story = {
+  args: {
+    initialNotificationReadIds: ["message-lukas-weber", "review-response"],
+    initialNotificationsOpen: true,
+    variant: "visual-reference",
+  },
+}
+
+export const DashboardHeaderMobileFullInterface: Story = {
+  args: { initialNotificationsOpen: true, variant: "visual-reference" },
+  globals: { viewport: { value: "mobile375Short" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("dialog", { name: "Notifications" })).toBeInTheDocument()
+    await expect(canvas.getByRole("group", { name: "Reporting period" })).toBeInTheDocument()
   },
 }
 
@@ -104,7 +200,7 @@ export const NewTreatmentVisualReference: Story = {
 }
 export const NewTreatmentPresentation: Story = {
   args: { initialSection: "profile", variant: "presentation" },
-  parameters: { viewport: { defaultViewport: "mobile320Short" } },
+  globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)
     const trigger = page.getByRole("button", { name: "New treatment" })
@@ -126,7 +222,7 @@ export const AddTeamMemberVisualReference: Story = {
 }
 export const AddTeamMemberPresentation: Story = {
   args: { initialSection: "profile", variant: "presentation" },
-  parameters: { viewport: { defaultViewport: "mobile375Short" } },
+  globals: { viewport: { value: "mobile375Short" } },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)
     const trigger = page.getByRole("button", { name: "Add team member" })
@@ -143,7 +239,7 @@ export const AddTeamMemberPresentation: Story = {
 
 export const MobileNavigationPresentation: Story = {
   args: { variant: "presentation" },
-  parameters: { viewport: { defaultViewport: "mobile320Short" } },
+  globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)
     const trigger = page.getByRole("button", { name: "Open navigation" })
