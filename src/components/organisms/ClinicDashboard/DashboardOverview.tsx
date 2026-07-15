@@ -1,7 +1,9 @@
 "use client"
 
+import Image from "next/image"
 import { ArrowRight, CheckCircle2, Download, Lightbulb, MapPin } from "lucide-react"
-import { DemoPill, RatingStars, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
+import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
+import { RatingStars } from "@/components/atoms/DashboardPrimitives"
 import { MetricCard, SurfaceCard } from "@/components/molecules/DashboardCards"
 import { Button } from "@/components/ui/button"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
@@ -14,32 +16,23 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
 
   return (
     <div className="space-y-6" data-visibility-owner={getGateIssue("dashboardReporting")}>
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <WorkspaceHeading description="A deterministic overview of the clinic profile and patient journey.">
-          Dashboard
-        </WorkspaceHeading>
-        <div className="flex items-center gap-2">
-          <DemoPill />
-          {showReportingControls ? (
-            <div
-              aria-label="Reporting period"
-              className="flex rounded-lg bg-[var(--surface)] p-1"
-              role="group"
-            >
-              {["7 days", "30 days", "90 days"].map((period) => (
-                <Button
-                  className="h-9"
-                  key={period}
-                  size="small"
-                  variant={period === "30 days" ? "primary" : "ghost"}
-                >
-                  {period}
-                </Button>
-              ))}
-            </div>
-          ) : null}
+      <h1 className="sr-only">Dashboard</h1>
+      {showReportingControls ? (
+        <div className="flex justify-end">
+          <div aria-label="Reporting period" className="flex rounded-lg bg-[var(--surface)] p-1" role="group">
+            {["7 days", "30 days", "90 days"].map((period) => (
+              <Button
+                className="h-9"
+                key={period}
+                size="small"
+                variant={period === "30 days" ? "primary" : "ghost"}
+              >
+                {period}
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {data.metrics.map((metric) => (
@@ -53,7 +46,7 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
             Conversion funnel (30 days)
           </h2>
           <span className="inline-flex items-center gap-2 text-xs font-bold text-[var(--secondary)]">
-            <span className="size-2 rounded-full bg-[var(--accent)]" /> Demo optimization active
+            <span className="size-2 rounded-full bg-[var(--accent)]" /> Process optimization active
           </span>
         </div>
         <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-5">
@@ -106,7 +99,7 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
                 <Lightbulb aria-hidden="true" className="size-4" /> Tip
               </div>
               <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">
-                Complete profiles receive more qualified inquiries in this demonstration.
+                Complete profiles receive more qualified inquiries.
               </p>
             </div>
           </div>
@@ -126,7 +119,7 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
           </div>
           <div className="p-5">
             <svg
-              aria-label="Demo profile views line chart"
+              aria-label="Profile views line chart"
               className="h-64 w-full"
               role="img"
               viewBox="0 0 600 280"
@@ -182,7 +175,16 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
             </div>
           </SurfaceCard>
           <SurfaceCard className="overflow-hidden">
-            <div className="h-28 bg-gradient-to-br from-[var(--accent)] via-white to-[var(--primary)]" />
+            <div className="relative h-28">
+              <Image
+                alt="Exterior of Berlin Health Clinic"
+                className="object-cover"
+                fill
+                priority
+                sizes="(min-width: 1280px) 280px, 100vw"
+                src={exteriorImage}
+              />
+            </div>
             <div className="p-5">
               <div className="text-xs font-bold text-[var(--muted-foreground)]">Public clinic preview</div>
               <div className="mt-2 flex items-center justify-between">

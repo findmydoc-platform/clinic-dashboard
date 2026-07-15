@@ -1,12 +1,7 @@
 "use client"
 
 import { Download, Filter, Flag, MessageSquareReply, RefreshCw } from "lucide-react"
-import {
-  AvatarInitials,
-  DemoPill,
-  RatingStars,
-  WorkspaceHeading,
-} from "@/components/atoms/DashboardPrimitives"
+import { AvatarInitials, RatingStars, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
 import { RatingSummary, SurfaceCard } from "@/components/molecules/DashboardCards"
 import { Button } from "@/components/ui/button"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
@@ -20,17 +15,14 @@ export function ReviewsManagement({ variant }: { variant: ClinicDashboardVariant
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <WorkspaceHeading description="Review fixtures preserve the intended management layout without suggesting live moderation.">
+        <WorkspaceHeading description="Manage patient feedback and respond to reviews.">
           Reviews
         </WorkspaceHeading>
-        <div className="flex gap-2">
-          <DemoPill />
-          {showManagement ? (
-            <Button variant="outline">
-              <Download aria-hidden="true" className="size-4" /> Export
-            </Button>
-          ) : null}
-        </div>
+        {showManagement ? (
+          <Button variant="outline">
+            <Download aria-hidden="true" className="size-4" /> Export
+          </Button>
+        ) : null}
       </div>
 
       <section aria-label="Review summary" className="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
@@ -108,7 +100,7 @@ export function ReviewsManagement({ variant }: { variant: ClinicDashboardVariant
                   <h2 className="font-bold">{review.author}</h2>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <RatingStars value={review.rating} />
-                    <span className="text-xs text-[var(--muted-foreground)]">Demo review</span>
+                    <span className="text-xs text-[var(--muted-foreground)]">{review.age}</span>
                   </div>
                 </div>
               </div>

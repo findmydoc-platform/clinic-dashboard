@@ -1,7 +1,12 @@
 "use client"
 
+import Image from "next/image"
 import { GripHorizontal, MapPin, Plus, UserPlus } from "lucide-react"
-import { AvatarInitials, DemoPill, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
+import consultationImage from "@/assets/clinic-dashboard/consultation.jpg"
+import corridorImage from "@/assets/clinic-dashboard/corridor.jpg"
+import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
+import receptionImage from "@/assets/clinic-dashboard/reception.jpg"
+import { AvatarInitials, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
 import { SurfaceCard } from "@/components/molecules/DashboardCards"
 import { Button } from "@/components/ui/button"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
@@ -22,17 +27,11 @@ export function ClinicProfileEditor({
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <WorkspaceHeading
-          description={
-            readOnly
-              ? "Fixture-backed profile preview. Changes are not saved."
-              : "Complete visual reference for clinic profile management."
-          }
-        >
-          Clinic profile
-        </WorkspaceHeading>
+        <div>
+          <p className="mb-1 text-sm text-[var(--muted-foreground)]">Clinics / Edit profile</p>
+          <WorkspaceHeading>Clinic profile</WorkspaceHeading>
+        </div>
         <div className="flex items-center gap-2">
-          <DemoPill>{readOnly ? "Read-only demo" : "Visual reference"}</DemoPill>
           {!readOnly ? (
             <>
               <Button variant="outline">Cancel</Button>
@@ -44,12 +43,44 @@ export function ClinicProfileEditor({
 
       <section
         aria-label="Clinic image gallery"
-        className="grid h-72 grid-cols-2 grid-rows-2 gap-2 overflow-hidden rounded-xl sm:h-96 sm:grid-cols-4"
+        className="grid h-[32rem] grid-cols-2 grid-rows-4 gap-2 overflow-hidden rounded-xl sm:h-96 sm:grid-cols-4 sm:grid-rows-2"
       >
-        <div className="col-span-2 row-span-2 bg-gradient-to-br from-[var(--accent)] via-white to-[var(--primary)]" />
-        <div className="bg-gradient-to-br from-sky-100 to-blue-300" />
-        <div className="bg-gradient-to-br from-slate-100 to-slate-300" />
-        <div className="relative col-span-2 bg-gradient-to-br from-cyan-50 to-cyan-200">
+        <div className="relative col-span-2 row-span-2">
+          <Image
+            alt="Berlin Health Clinic reception"
+            className="object-cover"
+            fill
+            priority
+            sizes="(min-width: 768px) 50vw, 100vw"
+            src={receptionImage}
+          />
+        </div>
+        <div className="relative">
+          <Image
+            alt="Berlin Health Clinic exterior"
+            className="object-cover"
+            fill
+            sizes="(min-width: 768px) 25vw, 50vw"
+            src={exteriorImage}
+          />
+        </div>
+        <div className="relative">
+          <Image
+            alt="Patient consultation at Berlin Health Clinic"
+            className="object-cover"
+            fill
+            sizes="(min-width: 768px) 25vw, 50vw"
+            src={consultationImage}
+          />
+        </div>
+        <div className="relative col-span-2">
+          <Image
+            alt="Berlin Health Clinic corridor"
+            className="object-cover"
+            fill
+            sizes="(min-width: 768px) 50vw, 100vw"
+            src={corridorImage}
+          />
           <span className="absolute right-3 bottom-3 rounded-full bg-white px-3 py-1 text-xs font-bold shadow">
             +12 more images
           </span>
@@ -112,7 +143,7 @@ export function ClinicProfileEditor({
                   className="flex items-center gap-4 border-b border-[var(--border)] p-5 last:border-0"
                   key={member.name}
                 >
-                  <AvatarInitials className="size-14" initials={member.initials} />
+                  <AvatarInitials className="size-14" initials={member.initials} src={member.avatar} />
                   <div>
                     <strong>{member.name}</strong>
                     <p className="mt-1 text-sm text-[var(--muted-foreground)]">{member.specialty}</p>

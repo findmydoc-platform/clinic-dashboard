@@ -1,7 +1,7 @@
 "use client"
 
 import { Camera, Info, Mail } from "lucide-react"
-import { AvatarInitials, DemoPill } from "@/components/atoms/DashboardPrimitives"
+import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
@@ -34,11 +34,13 @@ export function PatientProfileDialog({ onOpenChange, open, triggerRef, variant }
     >
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <AvatarInitials className="size-16 text-base" initials="LW" />
+          <AvatarInitials className="size-16 text-base" initials="LW" src={patient.avatar} />
           <div>
             <strong className="text-lg">{patient.name}</strong>
             <div className="mt-2">
-              <DemoPill>Fixture inquiry</DemoPill>
+              <span className="inline-flex min-h-7 items-center rounded-full bg-[var(--warning)] px-3 text-xs font-bold text-[var(--secondary)]">
+                Inquiry
+              </span>
             </div>
           </div>
         </div>
@@ -93,9 +95,7 @@ export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: Dia
   const readOnly = getVisibilityBehavior(variant, "profileWrites") === "read-only"
   return (
     <Modal
-      description={
-        readOnly ? "Preview only. Values cannot be saved." : "Visual reference for adding a clinic treatment."
-      }
+      description="Add a treatment to the public clinic profile."
       footer={
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={() => onOpenChange(false)} variant="outline">
@@ -165,11 +165,7 @@ export function TeamMemberDialog({ onOpenChange, open, triggerRef, variant }: Di
   const readOnly = getVisibilityBehavior(variant, "teamWrites") === "read-only"
   return (
     <Modal
-      description={
-        readOnly
-          ? "Preview only. Values cannot be saved."
-          : "Visual reference for a public non-doctor team profile."
-      }
+      description="Add a team member to the public clinic profile."
       footer={
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={() => onOpenChange(false)} variant="outline">

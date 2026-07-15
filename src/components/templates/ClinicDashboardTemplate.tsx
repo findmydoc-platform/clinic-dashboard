@@ -2,8 +2,9 @@
 
 import { useRef, useState, type ReactNode } from "react"
 import { Bell, Building2, Headphones, LayoutDashboard, LogOut, Menu, MessageSquare, Star } from "lucide-react"
-import { AvatarInitials, DemoPill } from "@/components/atoms/DashboardPrimitives"
+import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
 import { BrandMark } from "@/components/atoms/BrandMark"
+import { InterfaceModeSwitch } from "@/components/molecules/InterfaceModeSwitch"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { clinicDashboardFixture, navigationItems } from "@/fixtures/clinic-dashboard"
@@ -25,7 +26,10 @@ type ClinicDashboardTemplateProps = Readonly<{
   activeSection: ClinicDashboardSection
   children: ReactNode
   headerActions?: ReactNode
+  onShowFullInterfaceChange?: (show: boolean) => void
   onNavigate: (section: ClinicDashboardSection) => void
+  showFullInterface?: boolean
+  showInterfaceModeToggle?: boolean
   variant: ClinicDashboardVariant
 }>
 
@@ -65,11 +69,25 @@ function Navigation({
   )
 }
 
+function PrototypeBrandMark({ className }: { className?: string }) {
+  return (
+    <span className={cn("relative inline-flex pb-4", className)}>
+      <BrandMark priority />
+      <span className="absolute top-6 left-[76px] z-10 inline-flex rounded-full bg-[#b42318] px-1.5 py-1 text-[8px] leading-none font-bold tracking-wide text-white uppercase">
+        Prototype
+      </span>
+    </span>
+  )
+}
+
 export function ClinicDashboardTemplate({
   activeSection,
   children,
   headerActions,
+  onShowFullInterfaceChange,
   onNavigate,
+  showFullInterface = false,
+  showInterfaceModeToggle = false,
   variant,
 }: ClinicDashboardTemplateProps) {
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
@@ -86,25 +104,36 @@ export function ClinicDashboardTemplate({
         aria-label="Desktop clinic navigation"
         className="fixed inset-y-0 left-0 z-40 hidden w-20 flex-col border-r border-[var(--border)] bg-[var(--background)] p-4 md:flex lg:w-64"
       >
-        <div className="mb-8 flex min-h-14 items-center justify-center lg:justify-start">
-          <BrandMark priority />
-          <span className="sr-only lg:not-sr-only lg:ml-2 lg:text-xs lg:font-bold lg:text-[var(--muted-foreground)]">
-            Clinic workspace
-          </span>
+        <div className="relative mb-8 min-h-20">
+          <div className="absolute top-11 left-1/2 flex -translate-x-1/2 items-start lg:left-0 lg:translate-x-0">
+            <PrototypeBrandMark />
+            <span className="sr-only lg:not-sr-only lg:ml-4 lg:text-xs lg:font-bold lg:text-[var(--muted-foreground)]">
+              Clinic workspace
+            </span>
+          </div>
         </div>
         <Navigation activeSection={activeSection} compact onNavigate={onNavigate} />
-        {showLaterScope ? (
-          <div className="mt-auto space-y-2 border-t border-[var(--border)] pt-4">
-            <Button className="w-full justify-start gap-3" variant="ghost">
-              <Headphones aria-hidden="true" className="size-5" />{" "}
-              <span className="sr-only lg:not-sr-only">Contact support</span>
-            </Button>
-            <Button className="w-full justify-start gap-3" variant="ghost">
-              <LogOut aria-hidden="true" className="size-5" />{" "}
-              <span className="sr-only lg:not-sr-only">Sign out</span>
-            </Button>
-          </div>
-        ) : null}
+        <div className="mt-auto space-y-3">
+          {showLaterScope ? (
+            <div className="space-y-2 border-t border-[var(--border)] pt-4">
+              <Button className="w-full justify-start gap-3" variant="ghost">
+                <Headphones aria-hidden="true" className="size-5" />{" "}
+                <span className="sr-only lg:not-sr-only">Contact support</span>
+              </Button>
+              <Button className="w-full justify-start gap-3" variant="ghost">
+                <LogOut aria-hidden="true" className="size-5" />{" "}
+                <span className="sr-only lg:not-sr-only">Sign out</span>
+              </Button>
+            </div>
+          ) : null}
+          {showInterfaceModeToggle && onShowFullInterfaceChange ? (
+            <InterfaceModeSwitch
+              checked={showFullInterface}
+              compact
+              onCheckedChange={onShowFullInterfaceChange}
+            />
+          ) : null}
+        </div>
       </aside>
 
       <Modal
@@ -114,8 +143,15 @@ export function ClinicDashboardTemplate({
         title="Clinic navigation"
         triggerRef={navigationTriggerRef}
       >
-        <BrandMark className="mb-7" priority />
+        <PrototypeBrandMark className="mb-7" />
         <Navigation activeSection={activeSection} onNavigate={navigate} />
+        {showInterfaceModeToggle && onShowFullInterfaceChange ? (
+          <InterfaceModeSwitch
+            checked={showFullInterface}
+            className="mt-8"
+            onCheckedChange={onShowFullInterfaceChange}
+          />
+        ) : null}
       </Modal>
 
       <div className="md:pl-20 lg:pl-64">
@@ -148,10 +184,11 @@ export function ClinicDashboardTemplate({
               <Button aria-label="Notifications" size="icon" variant="ghost">
                 <Bell aria-hidden="true" className="size-5" />
               </Button>
-            ) : (
-              <DemoPill />
-            )}
-            <AvatarInitials initials={clinicDashboardFixture.admin.initials} />
+            ) : null}
+            <AvatarInitials
+              initials={clinicDashboardFixture.admin.initials}
+              src={clinicDashboardFixture.admin.avatar}
+            />
             <span className="hidden text-sm font-bold xl:inline">{clinicDashboardFixture.admin.name}</span>
           </div>
         </header>

@@ -1,4 +1,7 @@
 import type { ClinicDashboardSection } from "@/lib/clinic-dashboard/visibility"
+import lukasWeberAvatar from "@/assets/clinic-dashboard/lukas-weber.jpg"
+import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
+import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
 
 export const navigationItems = [
   { id: "dashboard", label: "Dashboard" },
@@ -8,7 +11,7 @@ export const navigationItems = [
 ] as const satisfies ReadonlyArray<{ id: ClinicDashboardSection; label: string }>
 
 export const clinicDashboardFixture = {
-  admin: { initials: "AD", name: "Admin" },
+  admin: { avatar: sarahSchmidtAvatar, initials: "AD", name: "Admin" },
   clinicName: "Berlin Health Clinic",
   dashboard: {
     chart: {
@@ -33,7 +36,7 @@ export const clinicDashboardFixture = {
       { delta: "+5.2%", id: "impressions", label: "Impressions", note: "Shown in search", value: "18,420" },
       { delta: "+12%", id: "views", label: "Profile views", note: "Opened pages", value: "3,284" },
       { delta: "-2.1%", id: "contacts", label: "Contacts", note: "Chat conversations", value: "42" },
-      { delta: "+8.4%", id: "inquiries", label: "Inquiries", note: "Demo conversion", value: "16" },
+      { delta: "+8.4%", id: "inquiries", label: "Inquiries", note: "Bookings / reservations", value: "16" },
     ],
     profileTasks: [
       { label: "Missing images", priority: "High" },
@@ -51,6 +54,7 @@ export const clinicDashboardFixture = {
     activeConversationId: "lukas-weber",
     conversations: [
       {
+        avatar: lukasWeberAvatar,
         id: "lukas-weber",
         initials: "LW",
         name: "Lukas Weber",
@@ -60,6 +64,7 @@ export const clinicDashboardFixture = {
         unread: 1,
       },
       {
+        avatar: markusWeberAvatar,
         id: "markus-schmidt",
         initials: "MS",
         name: "Markus Schmidt",
@@ -68,6 +73,7 @@ export const clinicDashboardFixture = {
         time: "Yesterday",
       },
       {
+        avatar: sarahSchmidtAvatar,
         id: "sarah-meyer",
         initials: "SM",
         name: "Sarah Meyer",
@@ -99,9 +105,11 @@ export const clinicDashboardFixture = {
         time: "11:02",
       },
     ],
+    patientAvatar: lukasWeberAvatar,
     patientName: "Lukas Weber",
   },
   patient: {
+    avatar: lukasWeberAvatar,
     age: "32 years",
     email: "l.weber@example.com",
     gender: "Male",
@@ -123,8 +131,18 @@ export const clinicDashboardFixture = {
     ],
     specialties: ["Dentistry", "Dermatology"],
     team: [
-      { initials: "MW", name: "Dr Markus Weber", specialty: "Orthodontics specialist" },
-      { initials: "SS", name: "Dr Sarah Schmidt", specialty: "Dermatologist and laser specialist" },
+      {
+        avatar: markusWeberAvatar,
+        initials: "MW",
+        name: "Dr Markus Weber",
+        specialty: "Orthodontics specialist",
+      },
+      {
+        avatar: sarahSchmidtAvatar,
+        initials: "SS",
+        name: "Dr Sarah Schmidt",
+        specialty: "Dermatologist and laser specialist",
+      },
     ],
     treatments: [
       { duration: "60 min", name: "Laser teeth whitening", price: "€250" },
@@ -142,6 +160,7 @@ export const clinicDashboardFixture = {
     ],
     items: [
       {
+        age: "2 days ago",
         author: "Markus Schmidt",
         body: "Excellent consultation and treatment. The team was professional from the first appointment and the early result looks great.",
         initials: "MS",
@@ -151,6 +170,7 @@ export const clinicDashboardFixture = {
         treatment: "Hair transplant",
       },
       {
+        age: "5 days ago",
         author: "Anonymous patient",
         body: "The treatment was good, but the waiting time was longer than expected and communication at reception could improve.",
         initials: "AP",
@@ -159,6 +179,7 @@ export const clinicDashboardFixture = {
         treatment: "Dentistry",
       },
       {
+        age: "1 week ago",
         author: "Janine Doe",
         body: "This review is currently hidden while an appeal is assessed.",
         initials: "JD",

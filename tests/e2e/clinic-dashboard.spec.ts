@@ -21,7 +21,23 @@ test("renders all fixture workspaces and dialogs without backend behavior", asyn
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  await expect(page.getByRole("main").getByText("Demo data")).toBeVisible()
+  const interfaceModeSwitch = page.getByRole("switch", { name: "Full interface" })
+  await expect(interfaceModeSwitch).not.toBeChecked()
+  await expect(page.getByRole("main").getByText(/demo|fixture/i)).toHaveCount(0)
+  await expect(page.getByRole("group", { name: "Reporting period" })).toHaveCount(0)
+  await expect(
+    page.getByLabel("Desktop clinic navigation").getByText("Prototype", { exact: true }),
+  ).toBeVisible()
+
+  await interfaceModeSwitch.click()
+  await expect(interfaceModeSwitch).toBeChecked()
+  await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("switch", { name: "Full interface" })).toBeChecked()
+  await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
+  await page.getByRole("switch", { name: "Full interface" }).click()
+  await expect(page.getByRole("switch", { name: "Full interface" })).not.toBeChecked()
   await expect(page.getByRole("group", { name: "Reporting period" })).toHaveCount(0)
   await page.screenshot({ path: "output/playwright/clinic-dashboard/dashboard-desktop.png" })
 

@@ -34,6 +34,20 @@ export const DashboardPresentation: Story = {
   },
 }
 
+export const DashboardWithInterfaceModeToggle: Story = {
+  args: { showInterfaceModeToggle: true, variant: "presentation" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const modeSwitch = canvas.getByRole("switch", { name: "Full interface" })
+    await expect(modeSwitch).not.toBeChecked()
+    await expect(canvas.queryByRole("group", { name: "Reporting period" })).not.toBeInTheDocument()
+    await userEvent.click(modeSwitch)
+    await expect(modeSwitch).toBeChecked()
+    await expect(canvas.getByRole("group", { name: "Reporting period" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Notifications" })).toBeInTheDocument()
+  },
+}
+
 export const MessagesVisualReference: Story = {
   args: { initialSection: "messages", variant: "visual-reference" },
 }

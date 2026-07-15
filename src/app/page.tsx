@@ -9,5 +9,5 @@ export default async function HomePage() {
     redirect("/login")
   }
 
-  return <ClinicDashboardApp variant="presentation" />
+  return <ClinicDashboardApp persistInterfaceModeInSession showInterfaceModeToggle variant="presentation" />
 }

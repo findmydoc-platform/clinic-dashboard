@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/organisms/AppShell/ThemeProvider"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  description: "Fixture-backed preview of the independent findmydoc clinic workspace.",
+  description: "Independent findmydoc workspace for clinic teams.",
   robots: {
     follow: false,
     index: false,
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
       noimageindex: true,
     },
   },
-  title: "Clinic Dashboard preview | findmydoc",
+  title: "Clinic Dashboard | findmydoc",
 }
 
 type RootLayoutProps = Readonly<{

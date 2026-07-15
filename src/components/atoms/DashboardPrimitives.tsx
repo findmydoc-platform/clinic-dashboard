@@ -1,25 +1,26 @@
+import Image, { type StaticImageData } from "next/image"
 import type { ReactNode } from "react"
 import { Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export function AvatarInitials({ initials, className }: { initials: string; className?: string }) {
+export function AvatarInitials({
+  initials,
+  className,
+  src,
+}: {
+  initials: string
+  className?: string
+  src?: StaticImageData | string
+}) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-xs font-bold text-[var(--secondary)]",
+        "relative inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface)] text-xs font-bold text-[var(--secondary)]",
         className,
       )}
     >
-      {initials}
-    </span>
-  )
-}
-
-export function DemoPill({ children = "Demo data" }: { children?: ReactNode }) {
-  return (
-    <span className="inline-flex min-h-7 items-center rounded-full bg-[color-mix(in_srgb,var(--accent)_24%,white)] px-3 text-xs font-bold text-[var(--secondary)]">
-      {children}
+      {src ? <Image alt="" className="object-cover" fill sizes="64px" src={src} /> : initials}
     </span>
   )
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { FileImage, MoreVertical, Paperclip, Search, Send, Stethoscope } from "lucide-react"
-import { AvatarInitials, DemoPill, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
+import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
 import { Button } from "@/components/ui/button"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
 import { isGateVisible, type ClinicDashboardVariant } from "@/lib/clinic-dashboard/visibility"
@@ -18,13 +18,7 @@ export function MessagesWorkspace({
   const showMessaging = isGateVisible(variant, "messaging")
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between gap-4">
-        <WorkspaceHeading description="Fixture-backed inquiry conversations for presentation and design review.">
-          Messages
-        </WorkspaceHeading>
-        <DemoPill />
-      </div>
+    <div>
       <div className="grid min-h-[calc(100dvh-11rem)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-sm lg:grid-cols-[22rem_minmax(0,1fr)]">
         <section
           aria-labelledby="conversation-list-heading"
@@ -32,9 +26,9 @@ export function MessagesWorkspace({
         >
           <div className="space-y-4 border-b border-[var(--border)] p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold" id="conversation-list-heading">
-                Conversations
-              </h2>
+              <h1 className="text-xl font-bold" id="conversation-list-heading">
+                Messages
+              </h1>
               <span className="rounded-full bg-[var(--primary)] px-3 py-1 text-xs font-bold text-white">
                 3 new
               </span>
@@ -66,7 +60,11 @@ export function MessagesWorkspace({
                     const active = conversation.id === data.activeConversationId
                     const content = (
                       <>
-                        <AvatarInitials className="mr-3 size-12" initials={conversation.initials} />
+                        <AvatarInitials
+                          className="mr-3 size-12"
+                          initials={conversation.initials}
+                          src={conversation.avatar}
+                        />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center justify-between gap-2">
                             <strong className="truncate text-sm">{conversation.name}</strong>
@@ -123,7 +121,7 @@ export function MessagesWorkspace({
         >
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5">
             <div className="flex items-center gap-3">
-              <AvatarInitials className="size-12" initials="LW" />
+              <AvatarInitials className="size-12" initials="LW" src={data.patientAvatar} />
               <div>
                 <h2 className="text-xl font-bold">{data.patientName}</h2>
                 <p className="flex items-center gap-1 text-sm text-[var(--muted-foreground)]">
@@ -163,7 +161,7 @@ export function MessagesWorkspace({
                     {message.body}
                     {index === 2 ? (
                       <div className="mt-3 flex items-center gap-2 rounded-lg bg-black/5 p-3">
-                        <FileImage aria-hidden="true" className="size-5" /> 3 demo photos
+                        <FileImage aria-hidden="true" className="size-5" /> 3 photos
                       </div>
                     ) : null}
                   </div>
