@@ -1,7 +1,13 @@
 import type { ClinicDashboardSection } from "@/lib/clinic-dashboard/visibility"
+import {
+  createDashboardReportingSnapshot,
+  type DashboardReportingSnapshots,
+} from "@/lib/clinic-dashboard/reporting"
 import lukasWeberAvatar from "@/assets/clinic-dashboard/lukas-weber.jpg"
 import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
+
+const canonicalReviewTotal = 1_248
 
 export const navigationItems = [
   { id: "dashboard", label: "Dashboard" },
@@ -14,30 +20,6 @@ export const clinicDashboardFixture = {
   admin: { avatar: sarahSchmidtAvatar, initials: "AD", name: "Admin" },
   clinicName: "Berlin Health Clinic",
   dashboard: {
-    chart: {
-      labels: ["Oct 1", "Oct 10", "Oct 20", "Oct 30"],
-      points: [18, 43, 61, 50, 22, 57, 92, 86, 49, 45, 83],
-      summary: [
-        { label: "Impressions", value: "18.4k" },
-        { label: "Views", value: "3.2k" },
-        { label: "Visitors", value: "2.1k" },
-        { label: "Inquiries", value: "16" },
-      ],
-    },
-    funnel: [
-      { conversion: "17.8% CTR", label: "Impressions", value: "18,420" },
-      { conversion: "64.1% visitors", label: "Profile views", value: "3,284" },
-      { conversion: "1.3% conversion", label: "Visitors", value: "2,105" },
-      { conversion: "38% inquiries", label: "Contacts", value: "42" },
-      { label: "Inquiries", value: "16" },
-    ],
-    metrics: [
-      { id: "completion", label: "Profile completion", progress: 82, value: "82%" },
-      { delta: "+5.2%", id: "impressions", label: "Impressions", note: "Shown in search", value: "18,420" },
-      { delta: "+12%", id: "views", label: "Profile views", note: "Opened pages", value: "3,284" },
-      { delta: "-2.1%", id: "contacts", label: "Contacts", note: "Chat conversations", value: "42" },
-      { delta: "+8.4%", id: "inquiries", label: "Inquiries", note: "Bookings / reservations", value: "16" },
-    ],
     profileTasks: [
       { label: "Missing images", priority: "High" },
       { label: "Open doctor profiles", priority: "Medium" },
@@ -46,9 +28,133 @@ export const clinicDashboardFixture = {
     ],
     rating: {
       categories: ["Hair transplant", "Dental implants", "Laser eye surgery"],
-      count: 124,
+      count: canonicalReviewTotal,
       value: 4.8,
     },
+    reporting: {
+      "7 days": createDashboardReportingSnapshot({
+        changes: {
+          contacts: "-7.7%",
+          impressions: "+8.4%",
+          inquiries: "+25.0%",
+          profileViews: "+10.1%",
+        },
+        chart: {
+          comparison: "+10.1% vs. previous 7 days",
+          description:
+            "Daily profile views across the selected 7 days total 848. The highest day has 135 profile views.",
+          points: [
+            { axisLabel: "Oct 6", dateLabel: "October 6", value: 103 },
+            { axisLabel: "Oct 7", dateLabel: "October 7", value: 111 },
+            { axisLabel: "Oct 8", dateLabel: "October 8", value: 119 },
+            { axisLabel: "Oct 9", dateLabel: "October 9", value: 117 },
+            { axisLabel: "Oct 10", dateLabel: "October 10", value: 129 },
+            { axisLabel: "Oct 11", dateLabel: "October 11", value: 135 },
+            { axisLabel: "Oct 12", dateLabel: "October 12", value: 134 },
+          ],
+        },
+        period: "7 days",
+        reviewActivity: "1 new review in the last 7 days",
+        totals: {
+          contacts: 12,
+          impressions: 4_680,
+          inquiries: 5,
+          profileViews: 848,
+          uniqueVisitors: 543,
+        },
+      }),
+      "30 days": createDashboardReportingSnapshot({
+        changes: {
+          contacts: "-2.1%",
+          impressions: "+5.2%",
+          inquiries: "+8.4%",
+          profileViews: "+12.0%",
+        },
+        chart: {
+          comparison: "+12.0% vs. previous 30 days",
+          description:
+            "Daily profile views across the selected 30 days total 3,284. Date labels are shown at regular intervals to keep the chart readable.",
+          points: [
+            { axisLabel: "Sep 13", dateLabel: "September 13", value: 94 },
+            { dateLabel: "September 14", value: 98 },
+            { dateLabel: "September 15", value: 102 },
+            { dateLabel: "September 16", value: 99 },
+            { dateLabel: "September 17", value: 106 },
+            { dateLabel: "September 18", value: 105 },
+            { dateLabel: "September 19", value: 110 },
+            { dateLabel: "September 20", value: 101 },
+            { dateLabel: "September 21", value: 104 },
+            { axisLabel: "Sep 22", dateLabel: "September 22", value: 108 },
+            { dateLabel: "September 23", value: 104 },
+            { dateLabel: "September 24", value: 99 },
+            { dateLabel: "September 25", value: 101 },
+            { dateLabel: "September 26", value: 105 },
+            { dateLabel: "September 27", value: 108 },
+            { dateLabel: "September 28", value: 103 },
+            { dateLabel: "September 29", value: 110 },
+            { dateLabel: "September 30", value: 114 },
+            { dateLabel: "October 1", value: 107 },
+            { axisLabel: "Oct 2", dateLabel: "October 2", value: 111 },
+            { dateLabel: "October 3", value: 116 },
+            { dateLabel: "October 4", value: 112 },
+            { dateLabel: "October 5", value: 118 },
+            { dateLabel: "October 6", value: 122 },
+            { dateLabel: "October 7", value: 115 },
+            { dateLabel: "October 8", value: 120 },
+            { dateLabel: "October 9", value: 124 },
+            { dateLabel: "October 10", value: 119 },
+            { dateLabel: "October 11", value: 128 },
+            { axisLabel: "Oct 12", dateLabel: "October 12", value: 121 },
+          ],
+        },
+        period: "30 days",
+        reviewActivity: "5 new reviews in the last 30 days",
+        totals: {
+          contacts: 42,
+          impressions: 18_420,
+          inquiries: 16,
+          profileViews: 3_284,
+          uniqueVisitors: 2_105,
+        },
+      }),
+      "90 days": createDashboardReportingSnapshot({
+        changes: {
+          contacts: "+4.4%",
+          impressions: "+11.8%",
+          inquiries: "+6.7%",
+          profileViews: "+9.6%",
+        },
+        chart: {
+          comparison: "+9.6% vs. previous 90 days",
+          description:
+            "Weekly profile views across the selected 90 days total 9,410. The chart aggregates daily activity into 13 weekly points.",
+          points: [
+            { axisLabel: "Jul 14", dateLabel: "Week of July 14", value: 590 },
+            { dateLabel: "Week of July 21", value: 628 },
+            { axisLabel: "Jul 28", dateLabel: "Week of July 28", value: 655 },
+            { dateLabel: "Week of August 4", value: 674 },
+            { axisLabel: "Aug 11", dateLabel: "Week of August 11", value: 702 },
+            { dateLabel: "Week of August 18", value: 721 },
+            { axisLabel: "Aug 25", dateLabel: "Week of August 25", value: 735 },
+            { dateLabel: "Week of September 1", value: 748 },
+            { axisLabel: "Sep 8", dateLabel: "Week of September 8", value: 760 },
+            { dateLabel: "Week of September 15", value: 777 },
+            { axisLabel: "Sep 22", dateLabel: "Week of September 22", value: 791 },
+            { dateLabel: "Week of September 29", value: 806 },
+            { axisLabel: "Oct 6", dateLabel: "Week of October 6", value: 823 },
+          ],
+        },
+        period: "90 days",
+        reviewActivity: "17 new reviews in the last 90 days",
+        totals: {
+          contacts: 118,
+          impressions: 53_680,
+          inquiries: 45,
+          profileViews: 9_410,
+          uniqueVisitors: 6_006,
+        },
+      }),
+    } satisfies DashboardReportingSnapshots,
   },
   messages: {
     activeConversationId: "lukas-weber",
@@ -108,6 +214,26 @@ export const clinicDashboardFixture = {
     patientAvatar: lukasWeberAvatar,
     patientName: "Lukas Weber",
   },
+  notifications: [
+    {
+      createdAt: "2023-10-12T10:45:00.000Z",
+      detail: "Hair transplant inquiry",
+      id: "message-lukas-weber",
+      timestamp: "Today, 10:45",
+      title: "New message from Lukas Weber",
+      type: "message",
+      unread: true,
+    },
+    {
+      createdAt: "2023-10-11T16:30:00.000Z",
+      detail: "Anonymous patient",
+      id: "review-response",
+      timestamp: "Yesterday",
+      title: "New 3-star review needs a response",
+      type: "review",
+      unread: true,
+    },
+  ],
   patient: {
     avatar: lukasWeberAvatar,
     age: "32 years",

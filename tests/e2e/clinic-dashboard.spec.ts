@@ -32,7 +32,9 @@ test("renders all fixture workspaces and dialogs without backend behavior", asyn
   await interfaceModeSwitch.click()
   await expect(interfaceModeSwitch).toBeChecked()
   await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Notifications, 2 new notifications" })).toBeVisible()
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/dashboard-full-interface.png" })
   await page.reload()
   await expect(page.getByRole("switch", { name: "Full interface" })).toBeChecked()
   await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
@@ -89,6 +91,63 @@ test("renders all fixture workspaces and dialogs without backend behavior", asyn
     service: "clinic-dashboard",
     status: "ok",
   })
+})
+
+test("switches complete reporting snapshots and manages local notifications", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("switch", { name: "Full interface" }).click()
+
+  await expect(page.getByText("+12.0% vs. previous 30 days")).toBeVisible()
+  await expect(page.getByText("5 new reviews in the last 30 days")).toBeVisible()
+
+  await page.getByRole("button", { name: "7 days" }).click()
+  await expect(page.getByRole("heading", { name: "Conversion funnel (7 days)" })).toBeVisible()
+  await expect(page.getByText("+10.1% vs. previous 7 days")).toBeVisible()
+  await expect(page.getByText("1 new review in the last 7 days")).toBeVisible()
+  await expect(page.getByRole("main").getByText("4,680")).toHaveCount(3)
+
+  await page.getByRole("button", { name: "90 days" }).click()
+  await expect(page.getByRole("heading", { name: "Conversion funnel (90 days)" })).toBeVisible()
+  await expect(page.getByText("+9.6% vs. previous 90 days")).toBeVisible()
+  await expect(page.getByText("17 new reviews in the last 90 days")).toBeVisible()
+  await expect(page.getByRole("main").getByText("53,680")).toHaveCount(3)
+
+  const notificationButton = page.getByRole("button", {
+    name: "Notifications, 2 new notifications",
+  })
+  await notificationButton.click()
+  const notifications = page.getByRole("dialog", { name: "Notifications" })
+  await expect(notifications.getByText("New message from Lukas Weber")).toBeVisible()
+  await expect(notifications.getByText("New 3-star review needs a response")).toBeVisible()
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/dashboard-notifications-open.png" })
+  await page.setViewportSize({ height: 700, width: 320 })
+  await expectNoHorizontalOverflow(page)
+  await expect(notifications).toBeVisible()
+  const notificationBounds = await notifications.boundingBox()
+  expect(notificationBounds?.y).toBeGreaterThanOrEqual(0)
+  expect((notificationBounds?.y ?? 0) + (notificationBounds?.height ?? 0)).toBeLessThanOrEqual(684)
+  const periodButtons = page.getByRole("group", { name: "Reporting period" }).getByRole("button")
+  for (let index = 0; index < (await periodButtons.count()); index += 1) {
+    const bounds = await periodButtons.nth(index).boundingBox()
+    expect(bounds?.height).toBeGreaterThanOrEqual(44)
+  }
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/dashboard-notifications-mobile.png" })
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await notifications.getByRole("button", { name: "Mark all as read" }).click()
+  const notificationStatus = notifications.getByRole("status")
+  await expect(notificationStatus.getByText("You're up to date")).toBeVisible()
+  await expect(notificationStatus).toBeFocused()
+  const emptyNotificationButton = page.getByRole("button", {
+    name: "Notifications, no new notifications",
+  })
+  await expect(emptyNotificationButton).toBeVisible()
+
+  await page.keyboard.press("Escape")
+  await expect(emptyNotificationButton).toBeFocused()
+  await page.reload()
+  await expect(page.getByRole("switch", { name: "Full interface" })).toBeChecked()
+  await expect(page.getByRole("button", { name: "Notifications, no new notifications" })).toBeVisible()
 })
 
 test("supports the complete responsive and keyboard presentation matrix", async ({ page }) => {
