@@ -50,7 +50,7 @@ The captures below are fixture-backed. Visual presence does not imply a function
 
 ## Access, Data, and Storage Decision
 
-The current prototype is public, data-less, and fixture-backed. It contains no clinic or patient data, credentials, session, or dashboard-owned persistence. A later authenticated runtime must use only the website-owned authorization and data contracts; a UI gate never grants access.
+The current prototype is data-less, fixture-backed, and protected by the repository's temporary password guard. It contains no real clinic or patient data, Supabase session, Payload credentials, or dashboard-owned persistence. The unauthenticated route list remains unchanged. A later authenticated runtime must use only the website-owned authorization and data contracts; a UI gate never grants access.
 
 ## Prototype Variants and Temporary Visibility Gates
 
@@ -60,9 +60,8 @@ The complete prototype remains the visual and responsive reference. A missing ba
 | ------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `visual-reference` | Product/design review and implementation planning      | Show every defined prototype component with fixtures, including future and non-functional controls.                                                                 | Every screen and responsive state remains represented in Storybook and visual QA.                                   |
 | `presentation`     | Internal or external walkthrough before MVP completion | Show one owner-selected coherent slice. Temporary gates can hide unsupported controls or screen areas, while the component remains available in `visual-reference`. | Test selected desktop and mobile paths for no dead controls, layout gaps, overflow, or inaccessible hidden content. |
-| `mvp`              | Authenticated clinic user                              | Replace a temporary gate with the authorized server capability after its owning issue is complete.                                                                  | Test happy, empty, forbidden, and failure states at mobile and desktop widths.                                      |
 
-Gates are configuration selected by Storybook, a demo environment, or a later authorized runtime capability. They are not user-facing toggles, authorization mechanisms, or substitutes for server-side permission checks.
+Gates are typed configuration selected directly by Storybook or the app composition. They are not user-facing toggles, query parameters, authorization mechanisms, or substitutes for server-side permission checks. No artificial `mvp` mode exists; later server-authorized capabilities replace and remove their temporary gate branches.
 
 | UI group                                                               | `presentation` behavior                                                                        | Backend owner                                                                                                                                        | Removal trigger                                                    |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
@@ -91,4 +90,4 @@ Later reporting reads approved behavioural aggregates from PostHog server-side a
 
 ## Delivery, Rollout, and Risk
 
-This plan adds no runtime behavior. Its risk is documentation drift, mitigated by the synchronization rules above and the reciprocal links to existing owner issues. A future UI transfer may copy these captures and fixtures into Stories; it must not treat them as clinical, patient, analytics, or production data.
+The app-shell implementation adds only local navigation, dialog state, deterministic fixtures, and presentation visibility. Its risks are visual drift and capability confusion, mitigated by the preserved captures, paired Storybook variants, typed gates, and reciprocal links to existing owner issues. The fixtures must never be treated as clinical, patient, analytics, or production data.

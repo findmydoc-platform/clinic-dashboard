@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 
 export const DASHBOARD_AUTH_COOKIE = "clinic_dashboard_session"
-export const DASHBOARD_SESSION_MAX_AGE = 60 * 60 * 24 * 7
+const DASHBOARD_SESSION_MAX_AGE = 60 * 60 * 24 * 7
 
 const INITIAL_DASHBOARD_PASSWORD = "findmydoc"
 
@@ -13,7 +13,7 @@ function secureEqual(expected: string, actual: string) {
   return timingSafeEqual(digest(expected), digest(actual))
 }
 
-export function getDashboardPassword() {
+function getDashboardPassword() {
   return process.env.DASHBOARD_PASSWORD || INITIAL_DASHBOARD_PASSWORD
 }
 

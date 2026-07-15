@@ -2,7 +2,7 @@
 
 ## Application Shape
 
-The application uses the Next.js App Router and React Server Components by default. Client components are limited to interaction leaves such as the theme control.
+The application uses the Next.js App Router and React Server Components by default. The protected root page remains a server boundary; its fixture-backed app controller is a client component because navigation and dialogs are intentionally local UI state.
 
 Atomic Design defines the UI boundary:
 
@@ -20,7 +20,11 @@ Future clinic access will use a Supabase session and server-authorized Payload A
 
 ## Data Boundary
 
-The foundation has no persistence and no clinic data. Payload remains the planned source of truth. The clinic dashboard must not receive direct database access or service-role secrets.
+The app shell has no persistence and no clinic data. Its presentation content is deterministic fixture data, and its complete visual reference is isolated in Storybook. Payload remains the planned source of truth. The clinic dashboard must not receive direct database access or service-role secrets.
+
+## Prototype visibility boundary
+
+The app exposes only `visual-reference` and `presentation` variants. `/` always renders `presentation`; Storybook renders both. Visibility configuration is not authorization, has no user-facing toggle, and must be removed gate by gate when a server-authorized capability replaces it.
 
 ## Delivery Boundary
 
