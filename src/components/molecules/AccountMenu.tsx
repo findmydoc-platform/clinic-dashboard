@@ -4,6 +4,7 @@ import type { StaticImageData } from "next/image"
 import { useEffect, useId, useRef, useState } from "react"
 import { LogOut } from "lucide-react"
 import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
+import { ThemeToggle } from "@/components/molecules/ThemeToggle"
 import { Button } from "@/components/ui/button"
 
 type AccountMenuProps = Readonly<{
@@ -80,6 +81,9 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
           <div className="px-4 py-3">
             <p className="text-sm font-bold">{name}</p>
             <p className="mt-0.5 text-xs text-[var(--foreground)]">{role}</p>
+          </div>
+          <div className="border-t border-[var(--border)]">
+            <ThemeToggle variant="switch" />
           </div>
           <form action="/api/auth/logout" className="border-t border-[var(--border)]" method="post">
             <Button className="w-full justify-start rounded-none px-4" type="submit" variant="ghost">

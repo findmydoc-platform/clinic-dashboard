@@ -146,7 +146,7 @@ export function DashboardOverview({
                 ) : null}
               </div>
             ))}
-            <div className="rounded-xl border border-[color-mix(in_srgb,var(--primary)_25%,white)] bg-[color-mix(in_srgb,var(--primary)_6%,white)] p-4">
+            <div className="rounded-xl border border-[color-mix(in_srgb,var(--primary)_25%,var(--background))] bg-[color-mix(in_srgb,var(--primary)_6%,var(--background))] p-4">
               <div className="flex items-center gap-2 text-sm font-bold text-[var(--secondary)]">
                 <Lightbulb aria-hidden="true" className="size-4" /> Tip
               </div>

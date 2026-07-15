@@ -109,7 +109,7 @@ export function ClinicProfileEditor({
             sizes="(min-width: 768px) 50vw, 100vw"
             src={corridorImage}
           />
-          <span className="absolute right-3 bottom-3 rounded-full bg-white px-3 py-1 text-xs font-bold shadow">
+          <span className="absolute right-3 bottom-3 rounded-full bg-[var(--background)] px-3 py-1 text-xs font-bold text-[var(--foreground)] shadow">
             +12 more images
           </span>
         </div>

@@ -21,6 +21,13 @@ The current application is a data-less foundation preview with a temporary passw
 
 Recommend matching read-only reviewers before handoff and ask for confirmation before running them. Present all findings before applying reviewer-driven fixes.
 
+## Light And Dark Mode
+
+- Treat light and dark mode as supported states for every UI change.
+- Use light mode for the default handoff screenshot.
+- Account for both themes in colors, surfaces, borders, states, charts, and image overlays. A separate dark-mode screenshot is not required by default.
+- Require a dark-mode visual check and screenshot when a change affects theme behavior, colors, contrast, status states, overlays, or fixes a dark-mode regression.
+
 ## AI Anti-Slop Policy v2
 
 ### Priorities
