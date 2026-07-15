@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { Download, Filter, Flag, MessageSquareReply, RefreshCw } from "lucide-react"
 import { AvatarInitials, RatingStars, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
 import { RatingSummary, SurfaceCard } from "@/components/molecules/DashboardCards"
@@ -8,14 +9,38 @@ import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
 import { isGateVisible, type ClinicDashboardVariant } from "@/lib/clinic-dashboard/visibility"
 import { cn } from "@/lib/utils"
 
-export function ReviewsManagement({ variant }: { variant: ClinicDashboardVariant }) {
+export function ReviewsManagement({
+  focusHeading = false,
+  onFocusHandled,
+  variant,
+}: {
+  focusHeading?: boolean
+  onFocusHandled?: () => void
+  variant: ClinicDashboardVariant
+}) {
   const data = clinicDashboardFixture.reviews
   const showManagement = isGateVisible(variant, "reviewManagement")
+  const headingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    if (!focusHeading) return
+
+    const frame = requestAnimationFrame(() => {
+      headingRef.current?.focus()
+      onFocusHandled?.()
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [focusHeading, onFocusHandled])
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <WorkspaceHeading description="Manage patient feedback and respond to reviews.">
+        <WorkspaceHeading
+          description="Manage patient feedback and respond to reviews."
+          ref={headingRef}
+          tabIndex={-1}
+        >
           Reviews
         </WorkspaceHeading>
         {showManagement ? (

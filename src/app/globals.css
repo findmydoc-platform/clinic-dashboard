@@ -75,6 +75,7 @@
   --surface: #f8f9fa;
   --primary: #006de5;
   --primary-hover: #004ea5;
+  --on-primary: #ffffff;
   --secondary: #07004c;
   --accent: #42e2b7;
   --border: #e2e8f0;
@@ -91,6 +92,7 @@
   --surface: #1c1c29;
   --primary: #6eaaff;
   --primary-hover: #91c5ff;
+  --on-primary: #07004c;
   --secondary: #c9c4ff;
   --accent: #42e2b7;
   --border: #30303d;

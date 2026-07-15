@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { DashboardPeriodControl } from "@/components/molecules/DashboardPeriodControl"
+import { ProfileTaskDialog } from "@/components/molecules/ProfileTaskDialog"
 import { ClinicDashboardTemplate } from "@/components/templates/ClinicDashboardTemplate"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
 import { DashboardOverview } from "./DashboardOverview"
@@ -16,6 +17,7 @@ import type {
 } from "@/lib/clinic-dashboard/visibility"
 import { isClinicDashboardVariant } from "@/lib/clinic-dashboard/visibility"
 import { markAllNotificationsAsRead as getAllNotificationReadIds } from "@/lib/clinic-dashboard/notifications"
+import type { ClinicProfileDestination, DashboardProfileTask } from "@/lib/clinic-dashboard/profile-tasks"
 import type { DashboardReportingPeriod } from "@/lib/clinic-dashboard/reporting"
 
 const INTERFACE_MODE_SESSION_KEY = "clinic-dashboard-interface-mode"
@@ -129,9 +131,16 @@ export function ClinicDashboardApp({
     ? getNotificationReadIds(storedNotificationReadState)
     : localNotificationReadIds
   const [patientProfileOpen, setPatientProfileOpen] = useState(initialDialog === "patient-profile")
+  const [profileTaskOpen, setProfileTaskOpen] = useState(false)
+  const [selectedProfileTask, setSelectedProfileTask] = useState<DashboardProfileTask>(
+    clinicDashboardFixture.dashboard.profileTasks[0],
+  )
+  const [profileFocusTarget, setProfileFocusTarget] = useState<ClinicProfileDestination>()
+  const [reviewsFocusRequested, setReviewsFocusRequested] = useState(false)
   const [teamMemberOpen, setTeamMemberOpen] = useState(initialDialog === "team-member")
   const [treatmentOpen, setTreatmentOpen] = useState(initialDialog === "treatment")
   const patientTriggerRef = useRef<HTMLButtonElement>(null)
+  const profileTaskTriggerRef = useRef<HTMLButtonElement>(null)
   const teamTriggerRef = useRef<HTMLButtonElement>(null)
   const treatmentTriggerRef = useRef<HTMLButtonElement>(null)
 
@@ -141,7 +150,10 @@ export function ClinicDashboardApp({
 
   const setShowFullInterface = (show: boolean) => {
     const nextVariant = show ? "visual-reference" : "presentation"
-    if (!show) setNotificationsOpen(false)
+    if (!show) {
+      setNotificationsOpen(false)
+      if (selectedProfileTask.visibility === "full-interface") setProfileTaskOpen(false)
+    }
     if (persistInterfaceModeInSession) {
       window.sessionStorage.setItem(INTERFACE_MODE_SESSION_KEY, nextVariant)
       window.dispatchEvent(new Event(INTERFACE_MODE_CHANGE_EVENT))
@@ -153,6 +165,26 @@ export function ClinicDashboardApp({
 
   const showDashboardReportingControls = activeSection === "dashboard" && activeVariant === "visual-reference"
   const notifications = clinicDashboardFixture.notifications
+
+  const openProfileTask = (task: DashboardProfileTask, trigger: HTMLButtonElement) => {
+    profileTaskTriggerRef.current = trigger
+    setSelectedProfileTask(task)
+    setProfileTaskOpen(true)
+  }
+
+  const navigateToProfileTarget = (destination: ClinicProfileDestination) => {
+    setProfileTaskOpen(false)
+    setProfileFocusTarget(destination)
+    setActiveSection("profile")
+  }
+
+  const clearProfileFocusTarget = useCallback(() => setProfileFocusTarget(undefined), [])
+  const clearReviewsFocusRequest = useCallback(() => setReviewsFocusRequested(false), [])
+
+  const navigateToReviews = () => {
+    setReviewsFocusRequested(true)
+    setActiveSection("reviews")
+  }
 
   const markAllNotificationsAsRead = () => {
     const nextReadIds = getAllNotificationReadIds(notifications, notificationReadIds)
@@ -184,14 +216,27 @@ export function ClinicDashboardApp({
       variant={activeVariant}
     >
       {activeSection === "dashboard" ? (
-        <DashboardOverview period={reportingPeriod} variant={activeVariant} />
+        <DashboardOverview
+          onNavigateToReviews={navigateToReviews}
+          onOpenProfileTask={openProfileTask}
+          period={reportingPeriod}
+          variant={activeVariant}
+        />
       ) : null}
       {activeSection === "messages" ? (
         <MessagesWorkspace onOpenPatientProfile={() => setPatientProfileOpen(true)} variant={activeVariant} />
       ) : null}
-      {activeSection === "reviews" ? <ReviewsManagement variant={activeVariant} /> : null}
+      {activeSection === "reviews" ? (
+        <ReviewsManagement
+          focusHeading={reviewsFocusRequested}
+          onFocusHandled={clearReviewsFocusRequest}
+          variant={activeVariant}
+        />
+      ) : null}
       {activeSection === "profile" ? (
         <ClinicProfileEditor
+          focusTarget={profileFocusTarget}
+          onFocusTargetHandled={clearProfileFocusTarget}
           onOpenTeamDialog={() => setTeamMemberOpen(true)}
           onOpenTreatmentDialog={() => setTreatmentOpen(true)}
           variant={activeVariant}
@@ -202,6 +247,13 @@ export function ClinicDashboardApp({
         open={patientProfileOpen}
         triggerRef={patientTriggerRef}
         variant={activeVariant}
+      />
+      <ProfileTaskDialog
+        onNavigate={navigateToProfileTarget}
+        onOpenChange={setProfileTaskOpen}
+        open={profileTaskOpen}
+        task={selectedProfileTask}
+        triggerRef={profileTaskTriggerRef}
       />
       <TreatmentDialog
         onOpenChange={setTreatmentOpen}

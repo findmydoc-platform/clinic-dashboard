@@ -49,11 +49,24 @@ describe("dashboard reporting fixtures", () => {
       expect(snapshot.funnel.map(({ conversion }) => conversion)).toEqual(
         expectedConversions[snapshot.period],
       )
+      expect(snapshot.metrics.find(({ id }) => id === "completion")).toMatchObject({
+        progress: 82,
+        value: "82%",
+      })
     }
+
+    expect(clinicDashboardFixture.dashboard.profileTasks).toHaveLength(4)
   })
 
   it("keeps lifetime reputation stable while period review activity changes", () => {
-    expect(clinicDashboardFixture.dashboard.rating).toMatchObject({ count: 1_248, value: 4.8 })
+    expect(clinicDashboardFixture.dashboard.rating).toMatchObject({
+      count: 1_248,
+      pendingResponses: 1,
+      value: 4.8,
+    })
+    expect(clinicDashboardFixture.dashboard.rating.pendingResponses).toBe(
+      clinicDashboardFixture.reviews.items.filter(({ status }) => status === "Open").length,
+    )
     expect(clinicDashboardFixture.dashboard.reporting["7 days"].reviewActivity).toContain("1 new review")
     expect(clinicDashboardFixture.dashboard.reporting["30 days"].reviewActivity).toContain("5 new reviews")
     expect(clinicDashboardFixture.dashboard.reporting["90 days"].reviewActivity).toContain("17 new reviews")

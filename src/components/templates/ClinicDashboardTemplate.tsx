@@ -57,7 +57,7 @@ function Navigation({
             aria-current={active ? "page" : undefined}
             className={cn(
               "min-h-11 w-full justify-start gap-3",
-              active && "bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]",
+              active && "bg-[var(--primary)] text-[var(--on-primary)] hover:bg-[var(--primary-hover)]",
             )}
             key={item.id}
             onClick={() => onNavigate(item.id)}

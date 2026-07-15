@@ -9,6 +9,7 @@ type ModalProps = {
   children: ReactNode
   description?: string
   footer?: ReactNode
+  headerMeta?: ReactNode
   onOpenChange: (open: boolean) => void
   open: boolean
   panelClassName?: string
@@ -21,6 +22,7 @@ export function Modal({
   children,
   description,
   footer,
+  headerMeta,
   onOpenChange,
   open,
   panelClassName,
@@ -31,7 +33,6 @@ export function Modal({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const descriptionId = useId()
-  const wasOpen = useRef(false)
   const openerRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
@@ -42,13 +43,11 @@ export function Modal({
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       dialog.showModal()
     }
-    if (!open && dialog.open) dialog.close()
-  }, [open])
-
-  useEffect(() => {
-    if (wasOpen.current && !open)
-      requestAnimationFrame(() => (triggerRef?.current ?? openerRef.current)?.focus())
-    wasOpen.current = open
+    if (!open && dialog.open) {
+      dialog.close()
+      const focusTarget = triggerRef?.current ?? openerRef.current
+      focusTarget?.focus()
+    }
   }, [open, triggerRef])
 
   return (
@@ -57,6 +56,7 @@ export function Modal({
       aria-labelledby={titleId}
       className={cn(
         "dashboard-dialog max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] p-0 text-[var(--foreground)] shadow-2xl",
+        side === "center" && "m-auto",
         side === "left" &&
           "dashboard-dialog-left m-0 h-dvh max-h-dvh max-w-72 rounded-none border-y-0 border-l-0",
         panelClassName,
@@ -68,22 +68,30 @@ export function Modal({
       onClose={() => {
         if (open) onOpenChange(false)
       }}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return
+        event.preventDefault()
+        onOpenChange(false)
+      }}
       ref={dialogRef}
     >
-      <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--border)] p-5 sm:p-6">
-        <div>
-          <h2 className="text-xl font-bold text-[var(--secondary)]" id={titleId}>
-            {title}
-          </h2>
-          {description ? (
-            <p className="mt-1 text-sm text-[var(--foreground)]" id={descriptionId}>
-              {description}
-            </p>
-          ) : null}
+      <header className="relative shrink-0 border-b border-[var(--border)] p-5 pr-16">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-[var(--secondary)]" id={titleId}>
+              {title}
+            </h2>
+            {description ? (
+              <p className="mt-1 text-sm text-[var(--foreground)]" id={descriptionId}>
+                {description}
+              </p>
+            ) : null}
+          </div>
+          {headerMeta ? <div className="shrink-0 self-end sm:pt-1">{headerMeta}</div> : null}
         </div>
         <Button
           aria-label="Close"
-          className="shrink-0"
+          className="absolute top-4 right-4"
           onClick={() => onOpenChange(false)}
           size="icon"
           variant="ghost"

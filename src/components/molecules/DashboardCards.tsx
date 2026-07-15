@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { forwardRef, type ComponentPropsWithoutRef } from "react"
 import {
   ArrowDown,
   ArrowUp,
@@ -19,15 +19,18 @@ const metricIcons = {
   views: MousePointerClick,
 } as const
 
-export function SurfaceCard({ children, className }: { children: ReactNode; className?: string }) {
+export const SurfaceCard = forwardRef<HTMLElement, ComponentPropsWithoutRef<"section">>(function SurfaceCard(
+  { className, ...props },
+  ref,
+) {
   return (
     <section
       className={cn("rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-sm", className)}
-    >
-      {children}
-    </section>
+      ref={ref}
+      {...props}
+    />
   )
-}
+})
 
 export function MetricCard({
   metric,
