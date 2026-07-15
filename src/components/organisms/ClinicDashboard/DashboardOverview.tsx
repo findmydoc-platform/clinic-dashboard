@@ -1,13 +1,14 @@
 "use client"
 
 import Image from "next/image"
-import { useId } from "react"
-import { ArrowRight, CheckCircle2, Download, Lightbulb, MapPin } from "lucide-react"
+import { ArrowRight, CheckCircle2, Download, Lightbulb, MapPin, MessageSquareReply } from "lucide-react"
 import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
 import { RatingStars, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
 import { MetricCard, SurfaceCard } from "@/components/molecules/DashboardCards"
+import { ProfileViewsChart } from "@/components/molecules/ProfileViewsChart"
 import { Button } from "@/components/ui/button"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
+import type { DashboardProfileTask } from "@/lib/clinic-dashboard/profile-tasks"
 import { getGateIssue, isGateVisible, type ClinicDashboardVariant } from "@/lib/clinic-dashboard/visibility"
 import type { DashboardReportingPeriod } from "@/lib/clinic-dashboard/reporting"
 import { cn } from "@/lib/utils"
@@ -19,9 +20,13 @@ const taskPriorityStyles = {
 } as const
 
 export function DashboardOverview({
+  onNavigateToReviews,
+  onOpenProfileTask,
   period,
   variant,
 }: {
+  onNavigateToReviews: () => void
+  onOpenProfileTask: (task: DashboardProfileTask, trigger: HTMLButtonElement) => void
   period: DashboardReportingPeriod
   variant: ClinicDashboardVariant
 }) {
@@ -29,20 +34,6 @@ export function DashboardOverview({
   const reporting = data.reporting[period]
   const showReportingControls = isGateVisible(variant, "dashboardReporting")
   const showLaterScope = isGateVisible(variant, "laterScope")
-  const chartGradientId = useId().replaceAll(":", "")
-  const chartLeft = 30
-  const chartRight = 570
-  const chartTop = 25
-  const chartBottom = 235
-  const chartMaximum = Math.max(...reporting.chart.points.map((point) => point.value)) * 1.1
-  const chartCoordinates = reporting.chart.points.map((point, index, points) => {
-    const x = chartLeft + (index / Math.max(points.length - 1, 1)) * (chartRight - chartLeft)
-    const y = chartBottom - (point.value / chartMaximum) * (chartBottom - chartTop)
-
-    return { ...point, x, y }
-  })
-  const chartLine = chartCoordinates.map(({ x, y }) => `${x},${y}`).join(" ")
-  const chartArea = `${chartLeft},${chartBottom} ${chartLine} ${chartRight},${chartBottom}`
 
   return (
     <div className="space-y-6" data-visibility-owner={getGateIssue("dashboardReporting")}>
@@ -71,7 +62,7 @@ export function DashboardOverview({
               className={cn(
                 "relative rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-center",
                 index === reporting.funnel.length - 1 &&
-                  "border-[var(--primary)] bg-[var(--primary)] text-white",
+                  "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]",
               )}
               key={step.label}
             >
@@ -79,14 +70,14 @@ export function DashboardOverview({
                 aria-hidden="true"
                 className={cn(
                   "mx-auto size-6 text-[var(--primary)]",
-                  index === reporting.funnel.length - 1 && "text-white",
+                  index === reporting.funnel.length - 1 && "text-[var(--on-primary)]",
                 )}
               />
               {"conversion" in step && step.conversion ? (
                 <span
                   className={cn(
                     "mt-3 block text-xs font-bold text-[var(--primary)]",
-                    index === reporting.funnel.length - 1 && "text-white",
+                    index === reporting.funnel.length - 1 && "text-[var(--on-primary)]",
                   )}
                 >
                   {step.conversion}
@@ -96,7 +87,7 @@ export function DashboardOverview({
               <span
                 className={cn(
                   "text-[10px] tracking-wide text-[var(--foreground)] uppercase",
-                  index === reporting.funnel.length - 1 && "text-white",
+                  index === reporting.funnel.length - 1 && "text-[var(--on-primary)]",
                 )}
               >
                 {step.label}
@@ -113,7 +104,7 @@ export function DashboardOverview({
       </SurfaceCard>
 
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.7fr_0.8fr]">
-        <SurfaceCard>
+        <SurfaceCard className="min-w-0">
           <div className="flex items-center justify-between border-b border-[var(--border)] p-5">
             <h2 className="text-xl font-bold text-[var(--secondary)]">Profile progress</h2>
             <strong className="text-[var(--primary)]">82%</strong>
@@ -121,8 +112,10 @@ export function DashboardOverview({
           <div className="space-y-2 p-3 sm:p-4">
             {data.profileTasks.map((task) => (
               <div
+                aria-label={`${task.label} profile task`}
                 className="flex items-center justify-between gap-3 rounded-xl px-2 py-3 hover:bg-[var(--surface)]"
-                key={task.label}
+                key={task.id}
+                role="group"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span
@@ -130,16 +123,25 @@ export function DashboardOverview({
                     className={cn("size-2 shrink-0 rounded-full", taskPriorityStyles[task.priority])}
                   />
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-bold">{task.label}</div>
+                    <div className="text-sm leading-5 font-bold">{task.label}</div>
                     <div className="mt-0.5 text-[10px] font-bold tracking-wide text-[var(--foreground)] uppercase">
                       {task.priority} priority
                     </div>
                   </div>
                 </div>
-                {showReportingControls &&
-                (!task.label.toLowerCase().includes("certificate") || showLaterScope) ? (
-                  <Button size="small" variant="ghost">
-                    Resolve
+                {task.visibility === "always" || showLaterScope ? (
+                  <Button
+                    aria-label={
+                      task.visibility === "full-interface"
+                        ? `${task.actionLabel} for ${task.label}`
+                        : undefined
+                    }
+                    className="shrink-0 whitespace-nowrap"
+                    onClick={(event) => onOpenProfileTask(task, event.currentTarget)}
+                    size="small"
+                    variant="ghost"
+                  >
+                    {task.actionLabel}
                   </Button>
                 ) : null}
               </div>
@@ -155,7 +157,7 @@ export function DashboardOverview({
           </div>
         </SurfaceCard>
 
-        <SurfaceCard>
+        <SurfaceCard className="min-w-0">
           <div className="flex items-center justify-between border-b border-[var(--border)] p-5">
             <div>
               <h2 className="text-xl font-bold text-[var(--secondary)]">Profile views over time</h2>
@@ -168,42 +170,7 @@ export function DashboardOverview({
             ) : null}
           </div>
           <div className="p-5">
-            <svg
-              aria-label={reporting.chart.description}
-              className="h-64 w-full"
-              role="img"
-              viewBox="0 0 600 280"
-            >
-              <title>{reporting.chart.description}</title>
-              <defs>
-                <linearGradient id={chartGradientId} x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0" stopColor="var(--primary)" stopOpacity=".25" />
-                  <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              {[55, 125, 195, 265].map((y) => (
-                <line key={y} stroke="var(--border)" x1="30" x2="570" y1={y} y2={y} />
-              ))}
-              <polygon fill={`url(#${chartGradientId})`} points={chartArea} />
-              <polyline
-                fill="none"
-                points={chartLine}
-                stroke="var(--primary)"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="5"
-              />
-              {chartCoordinates.map((point) =>
-                point.axisLabel ? (
-                  <g key={point.dateLabel}>
-                    <circle cx={point.x} cy={point.y} fill="var(--primary)" r="4" />
-                    <text fill="var(--foreground)" fontSize="11" textAnchor="middle" x={point.x} y="270">
-                      {point.axisLabel}
-                    </text>
-                  </g>
-                ) : null,
-              )}
-            </svg>
+            <ProfileViewsChart key={period} chart={reporting.chart} />
             <dl className="grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-4 sm:grid-cols-4">
               {reporting.chart.summary.map((item) => (
                 <div key={item.label}>
@@ -228,6 +195,9 @@ export function DashboardOverview({
               </div>
             </div>
             <p className="mt-3 text-sm font-bold text-[var(--primary)]">{reporting.reviewActivity}</p>
+            <p className="mt-1 text-xs font-bold text-[var(--foreground)]">
+              {data.rating.pendingResponses} response pending
+            </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {data.rating.categories.map((category) => (
                 <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-bold" key={category}>
@@ -235,6 +205,10 @@ export function DashboardOverview({
                 </span>
               ))}
             </div>
+            <Button className="mt-5 w-full" onClick={onNavigateToReviews} variant="outline">
+              <MessageSquareReply aria-hidden="true" className="size-4" />
+              View reviews
+            </Button>
           </SurfaceCard>
           <SurfaceCard className="overflow-hidden">
             <div className="relative h-28">
@@ -242,7 +216,7 @@ export function DashboardOverview({
                 alt="Exterior of Berlin Health Clinic"
                 className="object-cover"
                 fill
-                priority
+                loading="eager"
                 sizes="(min-width: 1280px) 280px, 100vw"
                 src={exteriorImage}
               />

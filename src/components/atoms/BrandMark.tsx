@@ -12,21 +12,21 @@ export function BrandMark({ className, priority = false }: BrandMarkProps) {
       <Image
         alt="findmydoc"
         className="h-auto w-[132px] dark:hidden"
-        height={26}
+        height={181}
         priority={priority}
         sizes="132px"
         src="/brand/findmydoc-logo-dark.svg"
-        width={132}
+        width={933}
       />
       <Image
         alt=""
         aria-hidden="true"
         className="hidden h-auto w-[132px] dark:block"
-        height={26}
+        height={181}
         priority={priority}
         sizes="132px"
         src="/brand/findmydoc-logo-white.png"
-        width={132}
+        width={933}
       />
     </span>
   )

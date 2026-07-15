@@ -10,6 +10,7 @@ const meta = {
     viewport: {
       options: {
         desktop1280: { name: "Desktop 1280", styles: { height: "900px", width: "1280px" } },
+        mobile320Compact: { name: "Mobile 320 compact", styles: { height: "500px", width: "320px" } },
         mobile320Short: { name: "Mobile 320 short", styles: { height: "700px", width: "320px" } },
         mobile375Short: { name: "Mobile 375 short", styles: { height: "700px", width: "375px" } },
         tablet768: { name: "Tablet 768", styles: { height: "1024px", width: "768px" } },
@@ -23,7 +24,14 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const DashboardVisualReference: Story = { args: { variant: "visual-reference" } }
+export const DashboardVisualReference: Story = {
+  args: { variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Download profile views" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Open preview" })).toBeInTheDocument()
+  },
+}
 export const Dashboard7Days: Story = {
   args: { initialReportingPeriod: "7 days", variant: "visual-reference" },
   play: async ({ canvasElement }) => {
@@ -31,6 +39,24 @@ export const Dashboard7Days: Story = {
     await expect(canvas.getAllByText("4,680").length).toBeGreaterThanOrEqual(2)
     await expect(canvas.getByText("+10.1% vs. previous 7 days")).toBeInTheDocument()
     await expect(canvas.getByText("1 new review in the last 7 days")).toBeInTheDocument()
+    const chart = canvas.getByRole("group", {
+      name: "Daily profile views across the selected 7 days total 848. The highest day has 135 profile views.",
+    })
+    const firstPoint = within(chart).getByRole("img", {
+      name: "October 6: 103 profile views",
+    })
+    await userEvent.hover(firstPoint)
+    await expect(
+      within(chart).getByRole("tooltip", { name: "October 6: 103 profile views" }),
+    ).toBeInTheDocument()
+    await userEvent.unhover(firstPoint)
+    firstPoint.focus()
+    await expect(firstPoint).toHaveFocus()
+    await expect(
+      within(chart).getByRole("tooltip", { name: "October 6: 103 profile views" }),
+    ).toBeInTheDocument()
+    await userEvent.keyboard("{ArrowRight}")
+    await expect(within(chart).getByRole("img", { name: "October 7: 111 profile views" })).toHaveFocus()
   },
 }
 export const Dashboard90Days: Story = {
@@ -49,6 +75,12 @@ export const DashboardPresentation: Story = {
     await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
     await expect(canvas.getAllByText("18,420", { selector: "strong" }).length).toBeGreaterThanOrEqual(2)
     await expect(canvas.queryByRole("group", { name: "Reporting period" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Review images" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Review team" })).toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: /^View details/ })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "View reviews" })).toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "Download profile views" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "Open preview" })).not.toBeInTheDocument()
   },
 }
 
@@ -78,7 +110,7 @@ export const DashboardWithInterfaceModeToggle: Story = {
     const sevenDayChart = sevenDayChartHeading.closest("section")
     await expect(sevenDayChart).not.toBeNull()
     await expect(
-      within(sevenDayChart as HTMLElement).getByRole("img", {
+      within(sevenDayChart as HTMLElement).getByRole("group", {
         name: "Daily profile views across the selected 7 days total 848. The highest day has 135 profile views.",
       }),
     ).toBeInTheDocument()
@@ -99,7 +131,7 @@ export const DashboardWithInterfaceModeToggle: Story = {
     const ninetyDayChart = ninetyDayChartHeading.closest("section")
     await expect(ninetyDayChart).not.toBeNull()
     await expect(
-      within(ninetyDayChart as HTMLElement).getByRole("img", {
+      within(ninetyDayChart as HTMLElement).getByRole("group", {
         name: "Weekly profile views across the selected 90 days total 9,410. The chart aggregates daily activity into 13 weekly points.",
       }),
     ).toBeInTheDocument()
@@ -119,6 +151,75 @@ export const DashboardWithInterfaceModeToggle: Story = {
     ).toBeInTheDocument()
     await userEvent.keyboard("{Escape}")
     await waitFor(() => expect(notificationButton).toHaveFocus())
+  },
+}
+
+export const DashboardProfileTaskFlows: Story = {
+  args: { variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const openAndCloseTask = async (groupName: string, actionName: string, dialogName: string) => {
+      const task = page.getByRole("group", { name: groupName })
+      const trigger = within(task).getByRole("button", { name: actionName })
+      await userEvent.click(trigger)
+      const dialog = page.getByRole("dialog", { name: dialogName })
+      await expect(dialog).toBeInTheDocument()
+      await expect(within(dialog).getByLabelText(/Status: Open, .* priority/)).toBeInTheDocument()
+      await expect(within(dialog).queryByText("Status", { exact: true })).not.toBeInTheDocument()
+      await userEvent.keyboard("{Escape}")
+      await waitFor(() => expect(trigger).toHaveFocus())
+    }
+
+    await openAndCloseTask("Missing images profile task", "Review images", "Missing images")
+    await openAndCloseTask("Open doctor profiles profile task", "Review team", "Open doctor profiles")
+    await openAndCloseTask(
+      "Certificates required profile task",
+      "View details for Certificates required",
+      "Certificates required",
+    )
+    await openAndCloseTask(
+      "Certificate expiry profile task",
+      "View details for Certificate expiry",
+      "Certificate expiry",
+    )
+
+    const imageTrigger = page.getByRole("button", { name: "Review images" })
+    await userEvent.click(imageTrigger)
+    const imageDialog = page.getByRole("dialog", { name: "Missing images" })
+    await userEvent.click(within(imageDialog).getByRole("button", { name: "Open image gallery" }))
+    await expect(page.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeInTheDocument()
+    await waitFor(() => expect(page.getByRole("region", { name: "Clinic image gallery" })).toHaveFocus())
+
+    await userEvent.click(page.getByRole("button", { name: "Dashboard" }))
+    await userEvent.click(page.getByRole("button", { name: "Review team" }))
+    const teamDialog = page.getByRole("dialog", { name: "Open doctor profiles" })
+    await userEvent.click(within(teamDialog).getByRole("button", { name: "Open doctors and team" }))
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.querySelector("#clinic-profile-team")).toHaveFocus(),
+    )
+  },
+}
+
+export const DashboardProfileTaskMobile: Story = {
+  args: { variant: "visual-reference" },
+  globals: { viewport: { value: "mobile320Compact" } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const certificateTask = page.getByRole("group", {
+      name: "Certificates required profile task",
+    })
+    await userEvent.click(
+      within(certificateTask).getByRole("button", {
+        name: "View details for Certificates required",
+      }),
+    )
+    const dialog = page.getByRole("dialog", { name: "Certificates required" })
+    await expect(within(dialog).getByLabelText("Status: Open, High priority")).toBeInTheDocument()
+    await expect(within(dialog).queryByText("Status", { exact: true })).not.toBeInTheDocument()
+    await expect(
+      within(dialog).getByText("Certificate management is not available yet.", { exact: false }),
+    ).toBeInTheDocument()
+    await expect(within(dialog).queryByRole("button", { name: /Open/ })).not.toBeInTheDocument()
   },
 }
 
@@ -180,6 +281,9 @@ export const ReviewsPresentation: Story = {
     await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeInTheDocument()
     await expect(canvas.getByText("Based on 1,248 reviews")).toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: "Export" })).not.toBeInTheDocument()
+    const threeStarRating = canvas.getByRole("img", { name: "3 out of 5 stars" })
+    await expect(threeStarRating.querySelectorAll('[data-star-state="full"]')).toHaveLength(3)
+    await expect(threeStarRating.querySelectorAll('[data-star-state="empty"]')).toHaveLength(2)
   },
 }
 

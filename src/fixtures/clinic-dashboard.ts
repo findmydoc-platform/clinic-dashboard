@@ -3,6 +3,7 @@ import {
   createDashboardReportingSnapshot,
   type DashboardReportingSnapshots,
 } from "@/lib/clinic-dashboard/reporting"
+import type { DashboardProfileTask } from "@/lib/clinic-dashboard/profile-tasks"
 import lukasWeberAvatar from "@/assets/clinic-dashboard/lukas-weber.jpg"
 import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
@@ -21,14 +22,48 @@ export const clinicDashboardFixture = {
   clinicName: "Berlin Health Clinic",
   dashboard: {
     profileTasks: [
-      { label: "Missing images", priority: "High" },
-      { label: "Open doctor profiles", priority: "Medium" },
-      { label: "Certificates required", priority: "High" },
-      { label: "Certificate expiry", priority: "Low" },
-    ],
+      {
+        actionLabel: "Review images",
+        description:
+          "The public gallery does not yet cover every clinic area expected for a complete profile.",
+        destination: "gallery",
+        destinationLabel: "Open image gallery",
+        id: "missing-images",
+        label: "Missing images",
+        priority: "High",
+        visibility: "always",
+      },
+      {
+        actionLabel: "Review team",
+        description: "Two doctor profiles still need review before the public team section is complete.",
+        destination: "team",
+        destinationLabel: "Open doctors and team",
+        id: "open-doctor-profiles",
+        label: "Open doctor profiles",
+        priority: "Medium",
+        visibility: "always",
+      },
+      {
+        actionLabel: "View details",
+        description: "Required certificates have not yet been added to the clinic profile.",
+        id: "certificates-required",
+        label: "Certificates required",
+        priority: "High",
+        visibility: "full-interface",
+      },
+      {
+        actionLabel: "View details",
+        description: "One certificate is approaching its fixture expiry date and needs review.",
+        id: "certificate-expiry",
+        label: "Certificate expiry",
+        priority: "Low",
+        visibility: "full-interface",
+      },
+    ] satisfies readonly DashboardProfileTask[],
     rating: {
       categories: ["Hair transplant", "Dental implants", "Laser eye surgery"],
       count: canonicalReviewTotal,
+      pendingResponses: 1,
       value: 4.8,
     },
     reporting: {

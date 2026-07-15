@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import { useEffect, useRef } from "react"
 import { GripHorizontal, MapPin, Plus, UserPlus } from "lucide-react"
 import consultationImage from "@/assets/clinic-dashboard/consultation.jpg"
 import corridorImage from "@/assets/clinic-dashboard/corridor.jpg"
@@ -10,19 +11,42 @@ import { AvatarInitials, WorkspaceHeading } from "@/components/atoms/DashboardPr
 import { SurfaceCard } from "@/components/molecules/DashboardCards"
 import { Button } from "@/components/ui/button"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
+import type { ClinicProfileDestination } from "@/lib/clinic-dashboard/profile-tasks"
 import { getVisibilityBehavior, type ClinicDashboardVariant } from "@/lib/clinic-dashboard/visibility"
 
 export function ClinicProfileEditor({
+  focusTarget,
+  onFocusTargetHandled,
   onOpenTeamDialog,
   onOpenTreatmentDialog,
   variant,
 }: {
+  focusTarget?: ClinicProfileDestination
+  onFocusTargetHandled: () => void
   onOpenTeamDialog: () => void
   onOpenTreatmentDialog: () => void
   variant: ClinicDashboardVariant
 }) {
   const data = clinicDashboardFixture.profile
   const readOnly = getVisibilityBehavior(variant, "profileWrites") === "read-only"
+  const galleryRef = useRef<HTMLElement>(null)
+  const teamRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!focusTarget) return
+
+    const frame = requestAnimationFrame(() => {
+      const target = focusTarget === "gallery" ? galleryRef.current : teamRef.current
+      if (!target) return
+
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      target.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" })
+      target.focus({ preventScroll: true })
+      onFocusTargetHandled()
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [focusTarget, onFocusTargetHandled])
 
   return (
     <div className="space-y-6">
@@ -43,7 +67,10 @@ export function ClinicProfileEditor({
 
       <section
         aria-label="Clinic image gallery"
-        className="grid h-[32rem] grid-cols-2 grid-rows-4 gap-2 overflow-hidden rounded-xl sm:h-96 sm:grid-cols-4 sm:grid-rows-2"
+        className="grid h-[32rem] scroll-mt-6 grid-cols-2 grid-rows-4 gap-2 overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:h-96 sm:grid-cols-4 sm:grid-rows-2"
+        id="clinic-profile-gallery"
+        ref={galleryRef}
+        tabIndex={-1}
       >
         <div className="relative col-span-2 row-span-2">
           <Image
@@ -60,6 +87,7 @@ export function ClinicProfileEditor({
             alt="Berlin Health Clinic exterior"
             className="object-cover"
             fill
+            loading="eager"
             sizes="(min-width: 768px) 25vw, 50vw"
             src={exteriorImage}
           />
@@ -114,7 +142,7 @@ export function ClinicProfileEditor({
                 <div className="mt-2 flex flex-wrap gap-2">
                   {data.specialties.map((item) => (
                     <span
-                      className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white"
+                      className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-bold text-[var(--on-primary)]"
                       key={item}
                     >
                       {item}
@@ -130,9 +158,17 @@ export function ClinicProfileEditor({
             </div>
           </SurfaceCard>
 
-          <SurfaceCard>
+          <SurfaceCard
+            aria-labelledby="clinic-profile-team-heading"
+            className="scroll-mt-6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+            id="clinic-profile-team"
+            ref={teamRef}
+            tabIndex={-1}
+          >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5">
-              <h2 className="text-xl font-bold text-[var(--secondary)]">Doctors and team</h2>
+              <h2 className="text-xl font-bold text-[var(--secondary)]" id="clinic-profile-team-heading">
+                Doctors and team
+              </h2>
               <Button onClick={onOpenTeamDialog} variant="ghost">
                 <UserPlus aria-hidden="true" className="size-4" /> Add team member
               </Button>

@@ -174,6 +174,15 @@ test("supports the complete responsive and keyboard presentation matrix", async 
       await page.keyboard.press("Enter")
       const navigation = page.getByRole("dialog", { name: "Clinic navigation" })
       await expect(navigation).toBeVisible()
+      await expect
+        .poll(async () => Math.abs((await navigation.boundingBox())?.x ?? Number.POSITIVE_INFINITY))
+        .toBeLessThanOrEqual(1)
+      const navigationBounds = await navigation.boundingBox()
+      expect(navigationBounds).not.toBeNull()
+      expect(navigationBounds?.x).toBe(0)
+      expect(navigationBounds?.y).toBe(0)
+      expect(navigationBounds?.width).toBe(288)
+      expect(navigationBounds?.height).toBe(viewport.height)
       await navigation.getByRole("button", { name: "Messages" }).click()
       await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
       await expect(trigger).toBeFocused()
@@ -211,5 +220,111 @@ test("supports the complete responsive and keyboard presentation matrix", async 
   const headerAfter = await dialog.getByRole("heading", { name: "Create new treatment" }).boundingBox()
   expect(headerAfter?.y).toBe(headerBefore?.y)
   await page.screenshot({ path: "output/playwright/clinic-dashboard/treatment-dialog-mobile-320x700.png" })
+  await expectNoHorizontalOverflow(page)
+})
+
+test("supports truthful lower-dashboard prototype interactions", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+
+  await expect(page.getByRole("button", { name: "Review images" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Review team" })).toBeVisible()
+  await expect(page.getByRole("button", { name: /^View details/ })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Download profile views" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Open preview" })).toHaveCount(0)
+  await expect(page.getByText("1 response pending")).toBeVisible()
+
+  const firstChartPoint = page.getByRole("img", { name: "September 13: 94 profile views" })
+  const firstChartPointTarget = firstChartPoint.locator("circle").first()
+  await firstChartPointTarget.hover()
+  await expect(page.getByRole("tooltip", { name: "September 13: 94 profile views" })).toBeVisible()
+  await firstChartPointTarget.click()
+  await expect(firstChartPoint).toBeFocused()
+  await expect(page.getByRole("tooltip", { name: "September 13: 94 profile views" })).toBeVisible()
+  await page.keyboard.press("ArrowRight")
+  await expect(page.getByRole("img", { name: "September 14: 98 profile views" })).toBeFocused()
+
+  await page.getByRole("button", { name: "View reviews" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeFocused()
+
+  await page.getByRole("button", { name: "Dashboard" }).click()
+  await page.getByRole("button", { name: "Review images" }).click()
+  const imageDialog = page.getByRole("dialog", { name: "Missing images" })
+  await expect(imageDialog).toBeVisible()
+  await imageDialog.getByRole("button", { name: "Open image gallery" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeVisible()
+  await expect(page.locator("#clinic-profile-gallery")).toBeFocused()
+
+  await page.getByRole("button", { name: "Dashboard" }).click()
+  const teamTrigger = page.getByRole("button", { name: "Review team" })
+  await teamTrigger.click()
+  const teamDialog = page.getByRole("dialog", { name: "Open doctor profiles" })
+  await page.keyboard.press("Escape")
+  await expect(teamTrigger).toBeFocused()
+  await teamTrigger.click()
+  await teamDialog.getByRole("button", { name: "Open doctors and team" }).click()
+  await expect(page.locator("#clinic-profile-team")).toBeFocused()
+
+  await page.getByRole("button", { name: "Dashboard" }).click()
+  await page.getByRole("switch", { name: "Full interface" }).click()
+  await expect(page.getByRole("button", { name: "Download profile views" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Open preview" })).toBeVisible()
+  const profileProgress = page.getByRole("heading", { name: "Profile progress" })
+  await profileProgress.evaluate((element) => element.scrollIntoView({ block: "start" }))
+  await page.screenshot({
+    path: "output/playwright/clinic-dashboard/dashboard-lower-full-interface-desktop.png",
+  })
+
+  const certificateTask = page.getByRole("group", {
+    name: "Certificates required profile task",
+  })
+  const certificateTrigger = certificateTask.getByRole("button", {
+    name: "View details for Certificates required",
+  })
+  await certificateTrigger.click()
+  const certificateDialog = page.getByRole("dialog", { name: "Certificates required" })
+  await expect(certificateDialog).toBeVisible()
+  await expect(
+    certificateDialog.getByText("Certificate management is not available yet.", { exact: false }),
+  ).toBeVisible()
+  await expect(certificateDialog.getByLabel("Status: Open, High priority")).toBeVisible()
+  await expect(certificateDialog.getByText("Status", { exact: true })).toHaveCount(0)
+  await expect(certificateDialog.getByRole("button", { name: /Open/ })).toHaveCount(0)
+  const desktopDialogBounds = await certificateDialog.boundingBox()
+  expect(desktopDialogBounds).not.toBeNull()
+  expect(
+    Math.abs((desktopDialogBounds?.x ?? 0) + (desktopDialogBounds?.width ?? 0) / 2 - 1280 / 2),
+  ).toBeLessThanOrEqual(2)
+  expect(
+    Math.abs((desktopDialogBounds?.y ?? 0) + (desktopDialogBounds?.height ?? 0) / 2 - 900 / 2),
+  ).toBeLessThanOrEqual(2)
+  await page.screenshot({
+    path: "output/playwright/clinic-dashboard/profile-task-dialog-desktop-1280x900.png",
+  })
+  await page.keyboard.press("Escape")
+  await expect(certificateTrigger).toBeFocused()
+
+  const expiryTask = page.getByRole("group", { name: "Certificate expiry profile task" })
+  const expiryTrigger = expiryTask.getByRole("button", {
+    name: "View details for Certificate expiry",
+  })
+  await expiryTrigger.click()
+  await expect(page.getByRole("dialog", { name: "Certificate expiry" })).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(expiryTrigger).toBeFocused()
+
+  await page.setViewportSize({ height: 500, width: 320 })
+  await certificateTrigger.click()
+  await expect(certificateDialog).toBeVisible()
+  const dialogBounds = await certificateDialog.boundingBox()
+  const footer = certificateDialog.locator("footer")
+  await expect(footer).toBeVisible()
+  await expect(footer.getByRole("button", { name: "Close" })).toBeVisible()
+  expect(dialogBounds).not.toBeNull()
+  expect(Math.abs((dialogBounds?.x ?? 0) + (dialogBounds?.width ?? 0) / 2 - 320 / 2)).toBeLessThanOrEqual(2)
+  expect(Math.abs((dialogBounds?.y ?? 0) + (dialogBounds?.height ?? 0) / 2 - 500 / 2)).toBeLessThanOrEqual(2)
+  await page.screenshot({
+    path: "output/playwright/clinic-dashboard/profile-task-dialog-mobile-320x500.png",
+  })
   await expectNoHorizontalOverflow(page)
 })

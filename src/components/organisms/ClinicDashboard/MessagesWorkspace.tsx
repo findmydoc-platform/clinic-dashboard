@@ -29,7 +29,7 @@ export function MessagesWorkspace({
               <h1 className="text-xl font-bold" id="conversation-list-heading">
                 Messages
               </h1>
-              <span className="rounded-full bg-[var(--primary)] px-3 py-1 text-xs font-bold text-white">
+              <span className="rounded-full bg-[var(--primary)] px-3 py-1 text-xs font-bold text-[var(--on-primary)]">
                 3 new
               </span>
             </div>
@@ -75,7 +75,7 @@ export function MessagesWorkspace({
                           </span>
                         </span>
                         {"unread" in conversation && conversation.unread ? (
-                          <span className="ml-2 rounded-full bg-[var(--primary)] px-2 py-1 text-[10px] font-bold text-white">
+                          <span className="ml-2 rounded-full bg-[var(--primary)] px-2 py-1 text-[10px] font-bold text-[var(--on-primary)]">
                             {conversation.unread}
                           </span>
                         ) : null}
@@ -153,7 +153,8 @@ export function MessagesWorkspace({
                   <div
                     className={cn(
                       "rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4 text-left text-sm leading-6 shadow-sm",
-                      message.sender === "clinic" && "border-[var(--primary)] bg-[var(--primary)] text-white",
+                      message.sender === "clinic" &&
+                        "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]",
                     )}
                   >
                     {message.body}
