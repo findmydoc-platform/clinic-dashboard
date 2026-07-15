@@ -57,13 +57,13 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
                 <span className="mt-3 block text-xs font-bold text-[var(--primary)]">{step.conversion}</span>
               ) : null}
               <strong className="mt-2 block text-xl">{step.value}</strong>
-              <span className="text-xs tracking-wide text-[var(--muted-foreground)] uppercase">
+              <span className="text-xs tracking-wide text-[var(--foreground)] uppercase">
                 {step.label}
               </span>
               {index < data.funnel.length - 1 ? (
                 <ArrowRight
                   aria-hidden="true"
-                  className="absolute top-1/2 -right-5 z-10 hidden size-4 text-[var(--muted-foreground)] xl:block"
+                  className="absolute top-1/2 -right-5 z-10 hidden size-4 text-[var(--foreground)] xl:block"
                 />
               ) : null}
             </div>
@@ -98,7 +98,7 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
               <div className="flex items-center gap-2 text-sm font-bold text-[var(--secondary)]">
                 <Lightbulb aria-hidden="true" className="size-4" /> Tip
               </div>
-              <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">
+              <p className="mt-2 text-xs leading-5 text-[var(--foreground)]">
                 Complete profiles receive more qualified inquiries.
               </p>
             </div>
@@ -148,7 +148,7 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
             <dl className="grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-4 sm:grid-cols-4">
               {data.chart.summary.map((item) => (
                 <div key={item.label}>
-                  <dt className="text-xs text-[var(--muted-foreground)]">{item.label}</dt>
+                  <dt className="text-xs text-[var(--foreground)]">{item.label}</dt>
                   <dd className="font-bold text-[var(--primary)]">{item.value}</dd>
                 </div>
               ))}
@@ -163,7 +163,7 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
               <strong className="text-4xl">{data.rating.value}</strong>
               <div>
                 <RatingStars value={data.rating.value} />
-                <div className="text-xs text-[var(--muted-foreground)]">({data.rating.count})</div>
+                <div className="text-xs text-[var(--foreground)]">({data.rating.count})</div>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -186,12 +186,12 @@ export function DashboardOverview({ variant }: { variant: ClinicDashboardVariant
               />
             </div>
             <div className="p-5">
-              <div className="text-xs font-bold text-[var(--muted-foreground)]">Public clinic preview</div>
+              <div className="text-xs font-bold text-[var(--foreground)]">Public clinic preview</div>
               <div className="mt-2 flex items-center justify-between">
                 <strong>Berlin Health</strong>
                 <span className="font-bold text-[var(--primary)]">4.8 ★</span>
               </div>
-              <div className="mt-2 flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+              <div className="mt-2 flex items-center gap-1 text-xs text-[var(--foreground)]">
                 <MapPin aria-hidden="true" className="size-3" /> Mitte, Berlin
               </div>
               {showReportingControls ? <Button className="mt-4 w-full">Open preview</Button> : null}

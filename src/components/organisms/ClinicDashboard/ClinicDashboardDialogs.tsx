@@ -55,16 +55,14 @@ export function PatientProfileDialog({ onOpenChange, open, triggerRef, variant }
             : [["Interest", patient.interest]]
           ).map(([label, value]) => (
             <div key={label}>
-              <dt className="text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase">
-                {label}
-              </dt>
+              <dt className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">{label}</dt>
               <dd className="mt-1 font-bold">{value}</dd>
             </div>
           ))}
         </dl>
         <section aria-labelledby="patient-contact">
           <h3
-            className="text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase"
+            className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase"
             id="patient-contact"
           >
             Contact
@@ -76,7 +74,7 @@ export function PatientProfileDialog({ onOpenChange, open, triggerRef, variant }
         {fullReference ? (
           <section aria-labelledby="patient-notes">
             <h3
-              className="text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase"
+              className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase"
               id="patient-notes"
             >
               Medical notes
@@ -145,7 +143,7 @@ export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: Dia
               placeholder="0.00"
             />
           </label>
-          <div className="flex items-end pb-3 text-sm text-[var(--muted-foreground)]">
+          <div className="flex items-end pb-3 text-sm text-[var(--foreground)]">
             <Info aria-hidden="true" className="mr-2 size-4" /> Price includes VAT
           </div>
         </div>
@@ -190,7 +188,7 @@ export function TeamMemberDialog({ onOpenChange, open, triggerRef, variant }: Di
           </button>
           <div>
             <strong>Upload profile image</strong>
-            <p className="mt-1 max-w-sm text-sm text-[var(--muted-foreground)]">
+            <p className="mt-1 max-w-sm text-sm text-[var(--foreground)]">
               PNG or JPG up to 5 MB. Recommended format: square.
             </p>
           </div>

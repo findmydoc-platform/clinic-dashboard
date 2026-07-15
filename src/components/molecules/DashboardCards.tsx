@@ -41,7 +41,7 @@ export function MetricCard({
   return (
     <SurfaceCard className="min-w-0 p-4">
       <div className="flex items-start justify-between gap-3">
-        <span className="text-xs font-bold tracking-wide text-[var(--muted-foreground)] uppercase">
+        <span className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
           {metric.label}
         </span>
         <span className="rounded-lg bg-[color-mix(in_srgb,var(--primary)_10%,white)] p-2 text-[var(--primary)]">
@@ -73,7 +73,7 @@ export function MetricCard({
           <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${metric.progress}%` }} />
         </div>
       ) : null}
-      {metric.note ? <p className="mt-2 text-xs text-[var(--muted-foreground)]">{metric.note}</p> : null}
+      {metric.note ? <p className="mt-2 text-xs text-[var(--foreground)]">{metric.note}</p> : null}
     </SurfaceCard>
   )
 }
@@ -83,7 +83,7 @@ export function RatingSummary({ count, value }: { count: number; value: number }
     <div className="flex flex-col items-center justify-center p-7 text-center">
       <strong className="text-5xl tracking-tight text-[var(--secondary)]">{value.toFixed(1)}</strong>
       <RatingStars className="mt-3" value={value} />
-      <p className="mt-3 text-sm text-[var(--muted-foreground)]">
+      <p className="mt-3 text-sm text-[var(--foreground)]">
         Based on {count.toLocaleString("en-US")} reviews
       </p>
     </div>

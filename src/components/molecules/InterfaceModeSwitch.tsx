@@ -33,7 +33,7 @@ export function InterfaceModeSwitch({
     >
       <span className={cn("min-w-0", compact && "sr-only lg:not-sr-only")}>
         <span className="block text-sm font-bold">Full interface</span>
-        <span className="mt-0.5 block text-[11px] leading-4 text-[var(--muted-foreground)]">
+        <span className="mt-0.5 block text-[11px] leading-4 text-[var(--foreground)]">
           {checked ? "All prototype UI" : "Implemented only"}
         </span>
       </span>

@@ -45,7 +45,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <input
                 autoComplete="current-password"
                 autoFocus
-                className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] outline-offset-2 placeholder:text-[var(--muted-foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+                className="flex h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] outline-offset-2 placeholder:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
                 id="password"
                 name="password"
                 placeholder="Password"

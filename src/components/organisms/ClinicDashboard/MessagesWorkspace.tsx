@@ -38,7 +38,7 @@ export function MessagesWorkspace({
                 <span className="sr-only">Search patients</span>
                 <Search
                   aria-hidden="true"
-                  className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--muted-foreground)]"
+                  className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--foreground)]"
                 />
                 <input
                   className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] pl-10 text-sm"
@@ -51,7 +51,7 @@ export function MessagesWorkspace({
           <div>
             {["New inquiries", "Recent chats"].map((section) => (
               <div key={section}>
-                <div className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-2 text-[10px] font-bold tracking-wide text-[var(--muted-foreground)] uppercase">
+                <div className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-2 text-[10px] font-bold tracking-wide text-[var(--foreground)] uppercase">
                   {section}
                 </div>
                 {data.conversations
@@ -68,11 +68,9 @@ export function MessagesWorkspace({
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center justify-between gap-2">
                             <strong className="truncate text-sm">{conversation.name}</strong>
-                            <span className="text-[11px] text-[var(--muted-foreground)]">
-                              {conversation.time}
-                            </span>
+                            <span className="text-[11px] text-[var(--foreground)]">{conversation.time}</span>
                           </span>
-                          <span className="mt-1 block truncate text-sm text-[var(--muted-foreground)]">
+                          <span className="mt-1 block truncate text-sm text-[var(--foreground)]">
                             {conversation.preview}
                           </span>
                         </span>
@@ -124,7 +122,7 @@ export function MessagesWorkspace({
               <AvatarInitials className="size-12" initials="LW" src={data.patientAvatar} />
               <div>
                 <h2 className="text-xl font-bold">{data.patientName}</h2>
-                <p className="flex items-center gap-1 text-sm text-[var(--muted-foreground)]">
+                <p className="flex items-center gap-1 text-sm text-[var(--foreground)]">
                   <Stethoscope aria-hidden="true" className="size-4" /> Interest:{" "}
                   <strong className="text-[var(--foreground)]">{data.interest}</strong>
                 </p>
@@ -143,7 +141,7 @@ export function MessagesWorkspace({
           </header>
           <div className="flex-1 space-y-6 overflow-y-auto bg-[var(--canvas)] p-4 sm:p-6">
             <div className="text-center">
-              <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-[10px] font-bold tracking-wide text-[var(--muted-foreground)] uppercase">
+              <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-[10px] font-bold tracking-wide text-[var(--foreground)] uppercase">
                 {data.dateLabel}
               </span>
             </div>
@@ -165,7 +163,7 @@ export function MessagesWorkspace({
                       </div>
                     ) : null}
                   </div>
-                  <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                  <span className="mt-1 block text-xs text-[var(--foreground)]">
                     {message.time}
                     {"read" in message && message.read ? ` · ${message.read}` : ""}
                   </span>
