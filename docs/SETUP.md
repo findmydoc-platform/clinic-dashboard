@@ -57,7 +57,7 @@ The preview workflow accepts only non-draft, same-repository, non-Dependabot pul
 - Preview deployments: enabled through GitHub Actions
 - Production deployments: disabled
 
-The application guard reads `DASHBOARD_PASSWORD` from the Vercel environment. If it is unset, the initial temporary password is `findmydoc`. Vercel Deployment Protection is a separate additional layer and can be enabled later without changing the application code.
+The application guard requires `DASHBOARD_PASSWORD` in Vercel preview and production environments. Only local development and automated tests may fall back to the initial temporary `findmydoc` password. A deployed environment without `DASHBOARD_PASSWORD` fails closed. Vercel Deployment Protection is a separate additional layer and can be enabled later without changing the application code.
 
 The dedicated team-scoped Vercel token is handed to GitHub through the clipboard or standard input. Never paste it into issues, pull requests, shell arguments, files, or logs.
 

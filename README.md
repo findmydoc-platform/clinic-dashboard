@@ -11,7 +11,7 @@ The current release is a fixture-backed presentation app protected by a temporar
 - Vitest, Storybook browser tests, Playwright smoke coverage, and production builds
 - Advisory GitHub Actions checks and Vercel preview deployments
 - `noindex` metadata, `robots.txt`, and Vercel `X-Robots-Tag` headers
-- Temporary password guard; set `DASHBOARD_PASSWORD` in Vercel to override the initial `findmydoc` password
+- Temporary password guard; preview and production require `DASHBOARD_PASSWORD`
 - In-app navigation between Dashboard, Messages, Reviews, and Clinic profile without route reloads
 - `presentation` mode at `/` and complete `visual-reference` coverage in Storybook
 - Template source: `findmydoc-platform/findmydoc-codex-web-template@140506999206dd2d9cade862e218e9b489eebad4`
@@ -23,7 +23,7 @@ The current release is a fixture-backed presentation app protected by a temporar
 3. Start the application with `pnpm dev`.
 4. Open `http://localhost:3000`.
 
-The initial guard uses `findmydoc` when `DASHBOARD_PASSWORD` is not set. This is intentionally temporary and must be replaced before real clinic data is connected.
+Local development and automated tests may use the initial `findmydoc` guard password when `DASHBOARD_PASSWORD` is not set. Preview and production fail closed without a configured `DASHBOARD_PASSWORD`. The temporary guard must be replaced before real clinic data is connected.
 
 ## Validation
 

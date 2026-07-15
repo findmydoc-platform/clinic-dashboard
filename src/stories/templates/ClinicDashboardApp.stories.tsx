@@ -32,6 +32,19 @@ export const DashboardVisualReference: Story = {
     await expect(canvas.getByRole("button", { name: "Open preview" })).toBeInTheDocument()
   },
 }
+export const DashboardAccountMenuOpen: Story = {
+  args: { variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole("button", { name: "Open account menu for Sarah Schmidt" })
+
+    await userEvent.click(trigger)
+    const menu = canvas.getByRole("dialog", { name: "Account menu" })
+    await expect(within(menu).getByText("Sarah Schmidt")).toBeInTheDocument()
+    await expect(within(menu).getByText("Clinic administrator")).toBeInTheDocument()
+    await expect(within(menu).getByRole("button", { name: "Sign out" })).toBeInTheDocument()
+  },
+}
 export const Dashboard7Days: Story = {
   args: { initialReportingPeriod: "7 days", variant: "visual-reference" },
   play: async ({ canvasElement }) => {

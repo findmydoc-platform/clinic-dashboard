@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 
+const testDashboardPassword = "clinic-dashboard-test"
+
 export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
@@ -11,7 +13,11 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "NEXT_PUBLIC_DEPLOYMENT_ENV=preview pnpm dev --port 3100",
+    command: "pnpm dev --port 3100",
+    env: {
+      DASHBOARD_PASSWORD: testDashboardPassword,
+      NEXT_PUBLIC_DEPLOYMENT_ENV: "preview",
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     url: "http://127.0.0.1:3100",

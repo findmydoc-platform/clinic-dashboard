@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto"
+import { isLocalPasswordFallbackAllowed } from "@/lib/env"
 
 export const DASHBOARD_AUTH_COOKIE = "clinic_dashboard_session"
 const DASHBOARD_SESSION_MAX_AGE = 60 * 60 * 24 * 7
@@ -14,7 +15,10 @@ function secureEqual(expected: string, actual: string) {
 }
 
 function getDashboardPassword() {
-  return process.env.DASHBOARD_PASSWORD || INITIAL_DASHBOARD_PASSWORD
+  if (process.env.DASHBOARD_PASSWORD) return process.env.DASHBOARD_PASSWORD
+  if (isLocalPasswordFallbackAllowed()) return INITIAL_DASHBOARD_PASSWORD
+
+  throw new Error("DASHBOARD_PASSWORD is required outside local development and tests")
 }
 
 export function isValidDashboardPassword(candidate: string) {
