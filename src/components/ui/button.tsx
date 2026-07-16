@@ -48,7 +48,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <Component
       className={cn(buttonVariants({ className, size, variant }))}
       ref={ref}
-      type={type}
+      {...(asChild ? {} : { type })}
       {...props}
     />
   )

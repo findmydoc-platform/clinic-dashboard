@@ -2,6 +2,31 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { ClinicDashboardApp } from "@/components/organisms/ClinicDashboard/ClinicDashboardApp"
 import { ThemeProvider } from "@/components/organisms/AppShell/ThemeProvider"
+import { createFixtureClinicDashboardDataSource } from "@/lib/clinic-dashboard/prototype-data-source"
+
+const instantDataSource = createFixtureClinicDashboardDataSource(0)
+const baseReviewRetryDataSource = createFixtureClinicDashboardDataSource(0)
+let reviewSaveAttempts = 0
+const reviewRetryDataSource = {
+  ...baseReviewRetryDataSource,
+  saveReviewResponse: async (...input: Parameters<typeof baseReviewRetryDataSource.saveReviewResponse>) => {
+    reviewSaveAttempts += 1
+    if (reviewSaveAttempts === 1) throw new Error("Fixture rejection")
+    return baseReviewRetryDataSource.saveReviewResponse(...input)
+  },
+}
+const baseSupportRetryDataSource = createFixtureClinicDashboardDataSource(0)
+let supportSubmitAttempts = 0
+const supportRetryDataSource = {
+  ...baseSupportRetryDataSource,
+  submitSupportRequest: async (
+    ...input: Parameters<typeof baseSupportRetryDataSource.submitSupportRequest>
+  ) => {
+    supportSubmitAttempts += 1
+    if (supportSubmitAttempts === 1) throw new Error("Fixture rejection")
+    return baseSupportRetryDataSource.submitSupportRequest(...input)
+  },
+}
 
 const meta = {
   component: ClinicDashboardApp,
@@ -395,6 +420,106 @@ export const ReviewsVisualReference: Story = {
     await expect(canvasElement.querySelector("svg.lucide-info")).toBeInTheDocument()
   },
 }
+export const ReviewsPrototypeInteractions: Story = {
+  args: { dataSource: instantDataSource, initialSection: "reviews", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const openReview = canvasElement.querySelector('[data-review-status="Open"]')
+    await expect(openReview).not.toBeNull()
+    if (!openReview) return
+
+    await userEvent.click(within(openReview as HTMLElement).getByRole("button", { name: "Appeal" }))
+    const appealDialog = page.getByRole("dialog", { name: "Appeal review" })
+    await userEvent.click(within(appealDialog).getByRole("button", { name: "Submit appeal" }))
+    await expect(within(appealDialog).getByText("Choose an appeal reason.")).toBeInTheDocument()
+    await expect(within(appealDialog).getByRole("combobox", { name: "Reason" })).toHaveFocus()
+    await userEvent.click(within(appealDialog).getByRole("button", { name: "Cancel" }))
+
+    await userEvent.click(within(openReview as HTMLElement).getByRole("button", { name: "Respond" }))
+    const responseDialog = page.getByRole("dialog", { name: "Respond to review" })
+    await userEvent.type(
+      within(responseDialog).getByLabelText("Public response"),
+      "Thank you for the helpful feedback. We will review the reception process.",
+    )
+    await userEvent.click(within(responseDialog).getByRole("button", { name: "Save response" }))
+    await waitFor(() => expect(page.getByText("Review response saved.")).toBeInTheDocument())
+    await expect(within(openReview as HTMLElement).getByText("Answered")).toBeInTheDocument()
+
+    await userEvent.click(within(openReview as HTMLElement).getByRole("button", { name: "Internal note" }))
+    const noteDialog = page.getByRole("dialog", { name: "Add internal note" })
+    await userEvent.click(within(noteDialog).getByRole("button", { name: "Save note" }))
+    await expect(within(noteDialog).getByText("Enter at least 10 characters.")).toBeInTheDocument()
+    await expect(within(noteDialog).getByLabelText("Internal note")).toHaveFocus()
+    await userEvent.type(within(noteDialog).getByLabelText("Internal note"), "Reception follow-up recorded.")
+    await userEvent.click(within(noteDialog).getByRole("button", { name: "Save note" }))
+    await expect(page.getByText("Internal note saved.")).toBeInTheDocument()
+
+    await userEvent.click(within(openReview as HTMLElement).getByRole("button", { name: "History" }))
+    const historyDialog = page.getByRole("dialog", { name: "Review history" })
+    await expect(within(historyDialog).getByText("Reception follow-up recorded.")).toBeInTheDocument()
+    await userEvent.click(
+      within(historyDialog).getAllByRole("button", { name: "Close" }).at(-1) as HTMLButtonElement,
+    )
+
+    await userEvent.click(within(openReview as HTMLElement).getByRole("button", { name: "Edit response" }))
+    const editDialog = page.getByRole("dialog", { name: "Respond to review" })
+    const editResponse = within(editDialog).getByLabelText("Public response")
+    await userEvent.clear(editResponse)
+    await userEvent.type(editResponse, "Thank you. Our reception process has now been reviewed.")
+    await userEvent.click(within(editDialog).getByRole("button", { name: "Save response" }))
+    await expect(within(openReview as HTMLElement).getByText(/has now been reviewed/)).toBeInTheDocument()
+
+    await userEvent.click(page.getByRole("button", { name: "Review page 2" }))
+    await expect(page.getByText("Elena Fischer")).toBeInTheDocument()
+    await userEvent.click(page.getByRole("button", { name: "Review page 1" }))
+    await userEvent.click(page.getByRole("button", { name: "Refresh reviews" }))
+    await waitFor(() =>
+      expect(page.getByText("Reviews refreshed from the fixture data source.")).toBeInTheDocument(),
+    )
+    await userEvent.click(page.getByRole("button", { name: "Export" }))
+    await expect(page.getByText("Fixture review CSV exported.")).toBeInTheDocument()
+
+    await userEvent.selectOptions(page.getByLabelText("Status"), "Under review")
+    await userEvent.click(page.getByRole("button", { name: "Apply filters" }))
+    await expect(page.getByText("Janine Doe")).toBeInTheDocument()
+    await expect(page.queryByText("Markus Schmidt")).not.toBeInTheDocument()
+    await expect(page.getAllByRole("button", { name: "Responses locked" })[0]).toBeDisabled()
+  },
+}
+export const ReviewsMobileFilters: Story = {
+  args: { initialSection: "reviews", variant: "visual-reference" },
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole("button", { name: "Show filters" })
+    await expect(trigger).toHaveAttribute("aria-expanded", "false")
+    await userEvent.click(trigger)
+    await expect(canvas.getByLabelText("Period")).toBeInTheDocument()
+    await expect(trigger).toHaveAttribute("aria-expanded", "true")
+  },
+}
+export const ReviewsMutationRetry: Story = {
+  args: { dataSource: reviewRetryDataSource, initialSection: "reviews", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const openReview = canvasElement.querySelector('[data-review-status="Open"]') as HTMLElement
+    await userEvent.click(within(openReview).getByRole("button", { name: "Respond" }))
+    const dialog = page.getByRole("dialog", { name: "Respond to review" })
+    await userEvent.type(
+      within(dialog).getByLabelText("Public response"),
+      "A valid retry response for this review.",
+    )
+    const submit = within(dialog).getByRole("button", { name: "Save response" })
+    await userEvent.click(submit)
+    await expect(within(dialog).getByRole("alert")).toHaveTextContent("couldn't save")
+    await expect(submit).toBeEnabled()
+    await userEvent.click(submit)
+    await waitFor(() =>
+      expect(page.queryByRole("dialog", { name: "Respond to review" })).not.toBeInTheDocument(),
+    )
+    await expect(within(openReview).getByText("Answered")).toBeInTheDocument()
+  },
+}
 export const ReviewsPresentation: Story = {
   args: { initialSection: "reviews", variant: "presentation" },
   play: async ({ canvasElement }) => {
@@ -411,12 +536,195 @@ export const ReviewsPresentation: Story = {
 export const ClinicProfileVisualReference: Story = {
   args: { initialSection: "profile", variant: "visual-reference" },
 }
+export const ClinicProfilePrototypeInteractions: Story = {
+  args: { dataSource: instantDataSource, initialSection: "profile", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const clinicName = page.getByLabelText("Clinic name")
+    await userEvent.clear(clinicName)
+    await userEvent.type(clinicName, "Berlin Health Clinic Prototype")
+    await expect(page.getByText("Unsaved fixture profile changes")).toBeInTheDocument()
+    await userEvent.click(page.getAllByRole("button", { name: "Save changes" })[0])
+    await waitFor(() => expect(page.getByText("Fixture profile saved as revision 2.")).toBeInTheDocument())
+
+    await userEvent.click(page.getByRole("button", { name: "Add" }))
+    const specialtyDialog = page.getByRole("dialog", { name: "Add specialty" })
+    await userEvent.selectOptions(within(specialtyDialog).getByLabelText("Specialty"), "Aesthetic medicine")
+    await userEvent.click(within(specialtyDialog).getByRole("button", { name: "Add specialty" }))
+    await expect(page.getByText("Aesthetic medicine")).toBeInTheDocument()
+
+    await userEvent.click(page.getByRole("button", { name: "New treatment" }))
+    const treatmentDialog = page.getByRole("dialog", { name: "Create new treatment" })
+    await userEvent.type(within(treatmentDialog).getByLabelText("Treatment name"), "Express whitening")
+    await userEvent.selectOptions(within(treatmentDialog).getByLabelText("Category"), "Dentistry")
+    await userEvent.type(within(treatmentDialog).getByLabelText("Duration (minutes)"), "30")
+    await userEvent.type(within(treatmentDialog).getByLabelText("Price (€)"), "180")
+    await userEvent.type(
+      within(treatmentDialog).getByLabelText("Description"),
+      "A focused whitening appointment with aftercare guidance.",
+    )
+    await userEvent.click(within(treatmentDialog).getByRole("button", { name: "Save treatment" }))
+    await expect(page.getByText("Express whitening")).toBeInTheDocument()
+    await expect(page.getByText("New treatment staged.")).toBeInTheDocument()
+
+    await userEvent.click(page.getByRole("button", { name: "Remove Express whitening" }))
+    await expect(page.queryByText("Express whitening")).not.toBeInTheDocument()
+    await userEvent.click(page.getByRole("button", { name: "Undo" }))
+    await expect(page.getByText("Express whitening")).toBeInTheDocument()
+
+    const detailEditButtons = page.getAllByRole("button", { name: /^Edit$/ })
+    await userEvent.click(detailEditButtons[0] as HTMLButtonElement)
+    const addressDialog = page.getByRole("dialog", { name: "Edit address" })
+    await userEvent.clear(within(addressDialog).getByLabelText("City"))
+    await userEvent.type(within(addressDialog).getByLabelText("City"), "Hamburg")
+    await userEvent.click(within(addressDialog).getByRole("button", { name: "Apply address" }))
+    await expect(page.getByText("Hamburg")).toBeInTheDocument()
+
+    await userEvent.click(detailEditButtons.at(-1) as HTMLButtonElement)
+    const hoursDialog = page.getByRole("dialog", { name: "Edit opening hours" })
+    await userEvent.clear(within(hoursDialog).getByLabelText("Hours for Sat"))
+    await userEvent.type(within(hoursDialog).getByLabelText("Hours for Sat"), "Closed")
+    await userEvent.click(within(hoursDialog).getByRole("button", { name: "Apply hours" }))
+    await expect(page.getAllByText("Closed").length).toBeGreaterThanOrEqual(2)
+
+    await userEvent.click(page.getByRole("button", { name: "Add team member" }))
+    const teamDialog = page.getByRole("dialog", { name: "Add team member" })
+    await userEvent.type(within(teamDialog).getByLabelText("First name"), "Alex")
+    await userEvent.type(within(teamDialog).getByLabelText("Last name"), "Morgan")
+    await userEvent.selectOptions(within(teamDialog).getByLabelText("Specialty / role"), "Clinic management")
+    await userEvent.type(
+      within(teamDialog).getByLabelText("Short biography"),
+      "Coordinates clinic operations and patient support.",
+    )
+    await userEvent.click(within(teamDialog).getByRole("button", { name: "Add team member" }))
+    await expect(page.getByText("Alex Morgan")).toBeInTheDocument()
+    await userEvent.click(page.getByRole("button", { name: "Remove Alex Morgan" }))
+    await userEvent.click(page.getByRole("button", { name: "Undo" }))
+    await expect(page.getByText("Alex Morgan")).toBeInTheDocument()
+
+    await userEvent.click(page.getByRole("button", { name: "Edit Alex Morgan" }))
+    const editTeamDialog = page.getByRole("dialog", { name: "Edit team member" })
+    await userEvent.clear(within(editTeamDialog).getByLabelText("Last name"))
+    await userEvent.type(within(editTeamDialog).getByLabelText("Last name"), "Morgan-Smith")
+    await userEvent.click(within(editTeamDialog).getByRole("button", { name: "Save team member" }))
+    await expect(page.getByText("Alex Morgan-Smith")).toBeInTheDocument()
+
+    await userEvent.click(page.getByRole("button", { name: /more images/ }))
+    const galleryDialog = page.getByRole("dialog", { name: "Clinic images" })
+    await userEvent.click(within(galleryDialog).getAllByRole("button", { name: "Set cover" })[0])
+    await userEvent.click(within(galleryDialog).getByRole("button", { name: "Done" }))
+    await expect(page.getByText("Gallery cover staged.")).toBeInTheDocument()
+
+    await userEvent.click(page.getByRole("button", { name: "Edit Laser teeth whitening" }))
+    const editTreatmentDialog = page.getByRole("dialog", { name: "Edit treatment" })
+    await userEvent.clear(within(editTreatmentDialog).getByLabelText("Price (€)"))
+    await userEvent.type(within(editTreatmentDialog).getByLabelText("Price (€)"), "275")
+    await userEvent.click(within(editTreatmentDialog).getByRole("button", { name: "Save treatment changes" }))
+    await expect(page.getByText("€275")).toBeInTheDocument()
+    await userEvent.click(page.getByRole("button", { name: "Move Laser teeth whitening down" }))
+    await expect(page.getByText("Treatment order staged.")).toBeInTheDocument()
+
+    await userEvent.click(
+      within(page.getByRole("group", { name: "Profile page actions" })).getByRole("button", {
+        name: "Cancel",
+      }),
+    )
+    await expect(page.getByDisplayValue("Berlin Health Clinic Prototype")).toBeInTheDocument()
+    await expect(page.queryByText("Alex Morgan-Smith")).not.toBeInTheDocument()
+    await expect(page.queryByText("Express whitening")).not.toBeInTheDocument()
+    await expect(page.queryByText("Hamburg")).not.toBeInTheDocument()
+  },
+}
+export const ClinicProfileDraftSurvivesModeSwitch: Story = {
+  args: {
+    initialSection: "profile",
+    showInterfaceModeToggle: true,
+    variant: "visual-reference",
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const clinicName = page.getByLabelText("Clinic name")
+    await userEvent.clear(clinicName)
+    await userEvent.type(clinicName, "Preserved clinic draft")
+    const modeSwitch = page.getByRole("switch", { name: "Full interface" })
+    await userEvent.click(modeSwitch)
+    await expect(page.getByDisplayValue("Preserved clinic draft")).toBeDisabled()
+    await userEvent.click(modeSwitch)
+    await expect(page.getByDisplayValue("Preserved clinic draft")).toBeEnabled()
+    await expect(page.getByText("Unsaved fixture profile changes")).toBeInTheDocument()
+  },
+}
 export const ClinicProfilePresentation: Story = {
   args: { initialSection: "profile", variant: "presentation" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeInTheDocument()
     await expect(canvas.getByDisplayValue("Berlin Health Dental & Derm Clinic")).toBeDisabled()
+    await expect(canvas.getByRole("button", { name: /more images/ })).toBeDisabled()
+  },
+}
+
+export const ContactSupportPrototype: Story = {
+  args: { dataSource: instantDataSource, variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const trigger = page.getByRole("button", { name: "Contact support" })
+    await userEvent.click(trigger)
+    const dialog = page.getByRole("dialog", { name: "Contact support" })
+    await expect(within(dialog).getByRole("link", { name: /Call/ })).toBeInTheDocument()
+    await expect(within(dialog).getByRole("link", { name: /WhatsApp/ })).toBeInTheDocument()
+    await expect(within(dialog).getByRole("link", { name: /Email/ })).toBeInTheDocument()
+    await expect(within(dialog).getByText("Optional screenshot")).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send support request" }))
+    await expect(within(dialog).getByText("Choose a support category.")).toBeInTheDocument()
+    await expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveFocus()
+    await userEvent.selectOptions(within(dialog).getByLabelText("Category"), "Technical issue")
+    await userEvent.type(within(dialog).getByLabelText("Subject"), "Review refresh issue")
+    await userEvent.type(
+      within(dialog).getByLabelText("Message"),
+      "The review page does not refresh after a response is saved.",
+    )
+    await userEvent.selectOptions(within(dialog).getByLabelText("Preferred reply channel"), "WhatsApp")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send support request" }))
+    await expect(within(dialog).getByText("FMD-1042")).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(trigger).toHaveFocus())
+  },
+}
+
+export const ContactSupportMobile: Story = {
+  args: { dataSource: instantDataSource, variant: "visual-reference" },
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const navigationTrigger = page.getByRole("button", { name: "Open navigation" })
+    await userEvent.click(navigationTrigger)
+    const navigation = page.getByRole("dialog", { name: "Clinic navigation" })
+    await userEvent.click(within(navigation).getByRole("button", { name: "Contact support" }))
+    await expect(page.getByRole("dialog", { name: "Contact support" })).toBeInTheDocument()
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(navigationTrigger).toHaveFocus())
+  },
+}
+
+export const ContactSupportRetry: Story = {
+  args: { dataSource: supportRetryDataSource, variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("button", { name: "Contact support" }))
+    const dialog = page.getByRole("dialog", { name: "Contact support" })
+    await userEvent.selectOptions(within(dialog).getByLabelText("Category"), "Technical issue")
+    await userEvent.type(within(dialog).getByLabelText("Subject"), "Retry support request")
+    await userEvent.type(
+      within(dialog).getByLabelText("Message"),
+      "This valid request should succeed after one retry.",
+    )
+    const submit = within(dialog).getByRole("button", { name: "Send support request" })
+    await userEvent.click(submit)
+    await expect(within(dialog).getByRole("alert")).toHaveTextContent("couldn't send")
+    await expect(submit).toBeEnabled()
+    await userEvent.click(submit)
+    await expect(within(dialog).getByText("FMD-1042")).toBeInTheDocument()
   },
 }
 

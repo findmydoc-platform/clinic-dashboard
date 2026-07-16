@@ -110,12 +110,12 @@ test("renders all fixture workspaces and dialogs without backend behavior", asyn
   await page.getByRole("dialog", { name: "Patient profile" }).getByText("Close", { exact: true }).click()
   await expect(patientTrigger).toBeFocused()
 
-  await page.getByRole("button", { name: "Reviews" }).click()
+  await page.getByRole("button", { exact: true, name: "Reviews" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
   await page.waitForTimeout(200)
   await page.screenshot({ path: "output/playwright/clinic-dashboard/reviews-desktop.png" })
 
-  await page.getByRole("button", { name: "Clinic profile" }).click()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeVisible()
   await expect(page.getByLabel("Clinic name")).toBeDisabled()
   await page.waitForTimeout(200)
@@ -284,6 +284,13 @@ test("switches themes without hydration or dark-mode contrast regressions", asyn
   expect(await getContrastRatio(galleryBadge)).toBeGreaterThanOrEqual(4.5)
   await page.waitForTimeout(200)
   await page.screenshot({ path: "output/playwright/clinic-dashboard/profile-dark.png" })
+
+  await page.getByRole("switch", { name: "Full interface" }).click()
+  await page.getByRole("button", { name: "Contact support" }).click()
+  const supportDialog = page.getByRole("dialog", { name: "Contact support" })
+  await expect(supportDialog).toBeVisible()
+  await expect(supportDialog.getByText("Optional screenshot")).toBeVisible()
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/contact-support-dark.png" })
 
   expect(hydrationErrors).toEqual([])
 })
@@ -532,4 +539,117 @@ test("supports truthful lower-dashboard prototype interactions", async ({ page }
     path: "output/playwright/clinic-dashboard/profile-task-dialog-mobile-320x500.png",
   })
   await expectNoHorizontalOverflow(page)
+})
+
+test("supports future-ready reviews and clinic profile prototype mutations", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("switch", { name: "Full interface" }).click()
+
+  await page.getByRole("button", { exact: true, name: "Reviews" }).click()
+  const openReview = page
+    .locator('[data-review-status="Open"]')
+    .filter({ hasText: "Anonymous patient" })
+    .first()
+  await openReview.getByRole("button", { name: "Respond" }).click()
+  const responseDialog = page.getByRole("dialog", { name: "Respond to review" })
+  await responseDialog
+    .getByLabel("Public response")
+    .fill("Thank you for the feedback. We will review the reception process with our team.")
+  await responseDialog.getByRole("button", { name: "Save response" }).click()
+  await expect(page.getByText("Review response saved.")).toBeVisible()
+  await expect(page.getByText("We will review the reception process", { exact: false })).toBeVisible()
+
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await page.getByRole("button", { exact: true, name: "Reviews" }).click()
+  await expect(page.getByText("We will review the reception process", { exact: false })).toBeVisible()
+
+  await page.getByRole("combobox", { name: /^Status/ }).selectOption("Under review")
+  await page.getByRole("button", { name: "Apply filters" }).click()
+  await expect(page.getByRole("heading", { name: "Janine Doe" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Responses locked" }).first()).toBeDisabled()
+
+  await page.setViewportSize({ height: 844, width: 390 })
+  await expect(page.getByRole("button", { name: "Show filters" })).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/reviews-prototype-mobile.png" })
+
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  const clinicName = page.getByLabel("Clinic name")
+  await clinicName.fill("Berlin Health Clinic Prototype")
+  await expect(page.getByText("Unsaved fixture profile changes")).toBeVisible()
+  await page.getByRole("button", { name: "Save changes" }).first().click()
+  await expect(page.getByText("Fixture profile saved as revision 2.")).toBeVisible()
+
+  await page.getByRole("button", { name: "Add", exact: true }).click()
+  const specialtyDialog = page.getByRole("dialog", { name: "Add specialty" })
+  await specialtyDialog.getByRole("combobox", { name: /^Specialty/ }).selectOption("Aesthetic medicine")
+  await specialtyDialog.getByRole("button", { name: "Add specialty" }).click()
+  await expect(page.getByText("Aesthetic medicine")).toBeVisible()
+
+  await page.setViewportSize({ height: 844, width: 390 })
+  await page.getByRole("button", { name: "New treatment" }).click()
+  const treatmentDialog = page.getByRole("dialog", { name: "Create new treatment" })
+  await treatmentDialog.getByLabel("Treatment name").fill("Express whitening")
+  await treatmentDialog.getByLabel("Category").selectOption("Dentistry")
+  await treatmentDialog.getByLabel("Duration (minutes)").fill("30")
+  await treatmentDialog.getByLabel("Price (€)").fill("180")
+  await treatmentDialog
+    .getByLabel("Description")
+    .fill("A focused whitening appointment with consultation and aftercare guidance.")
+  await treatmentDialog.getByRole("button", { name: "Save treatment" }).click()
+  await expect(page.getByText("Express whitening")).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/profile-prototype-mobile.png" })
+})
+
+test("supports responsive direct and form-based support contact", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("switch", { name: "Full interface" }).click()
+
+  const desktopTrigger = page.getByRole("button", { name: "Contact support" })
+  await desktopTrigger.click()
+  const dialog = page.getByRole("dialog", { name: "Contact support" })
+  await expect(dialog.getByRole("link", { name: /Call/ })).toHaveAttribute("href", "tel:+493055500182")
+  await expect(dialog.getByRole("link", { name: /WhatsApp/ })).toHaveAttribute(
+    "href",
+    "https://wa.me/493055500182",
+  )
+  await expect(dialog.getByRole("link", { name: /Email/ })).toHaveAttribute(
+    "href",
+    "mailto:support@example.com",
+  )
+  await dialog.getByRole("button", { name: "Send support request" }).click()
+  await expect(dialog.getByText("Choose a support category.")).toBeVisible()
+  await expect(dialog.getByRole("combobox", { name: "Category" })).toBeFocused()
+  await dialog.getByRole("combobox", { name: "Category" }).selectOption("Technical issue")
+  await dialog.getByLabel("Subject").fill("Review refresh issue")
+  await dialog
+    .getByRole("textbox", { name: "Message" })
+    .fill("The review page does not refresh after a response is saved.")
+  await dialog.getByLabel("Preferred reply channel").selectOption("WhatsApp")
+  await dialog.getByLabel("Optional screenshot").setInputFiles({
+    buffer: Buffer.from("prototype screenshot"),
+    mimeType: "image/png",
+    name: "review-refresh.png",
+  })
+  await expect(dialog.getByText("review-refresh.png")).toBeVisible()
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/contact-support-desktop.png" })
+  await dialog.getByRole("button", { name: "Send support request" }).click()
+  await expect(dialog.getByText("FMD-1042")).toBeVisible()
+  await dialog.getByRole("button", { name: "Done" }).click()
+  await expect(desktopTrigger).toBeFocused()
+
+  await page.setViewportSize({ height: 700, width: 320 })
+  const navigationTrigger = page.getByRole("button", { name: "Open navigation" })
+  await navigationTrigger.click()
+  const navigation = page.getByRole("dialog", { name: "Clinic navigation" })
+  await navigation.getByRole("button", { name: "Contact support" }).click()
+  await expect(dialog).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: "output/playwright/clinic-dashboard/contact-support-mobile.png" })
+  await page.keyboard.press("Escape")
+  await expect(navigationTrigger).toBeFocused()
 })
