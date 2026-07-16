@@ -137,7 +137,11 @@ export function TreatmentDialog({
 
   return (
     <Modal
-      description="Add a treatment to the public clinic profile."
+      description={
+        initialTreatment
+          ? "Update this treatment on the public clinic profile."
+          : "Add a treatment to the public clinic profile."
+      }
       footer={
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={() => onOpenChange(false)} variant="outline">
@@ -201,8 +205,9 @@ export function TreatmentDialog({
               value={price}
             />
           </label>
-          <div className="flex items-end pb-3 text-sm text-[var(--foreground)]">
-            <Info aria-hidden="true" className="mr-2 size-4" /> Price includes VAT
+          <div className="flex items-center rounded-lg bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]">
+            <Info aria-hidden="true" className="mr-2 size-4 shrink-0" /> Enter the patient price including
+            VAT.
           </div>
         </div>
         <label className="grid gap-2 text-sm font-bold">

@@ -19,9 +19,9 @@ public_routes = ["/api/auth/login", "/api/health", "/login", "/robots.txt"]
 preview_indexing = "disabled"
 
 [modules]
-active = ["storybook", "github-actions", "vercel-preview"]
+active = ["storybook", "github-actions", "vercel-preview", "vercel-production"]
 
 [delivery]
-vercel_setup_status = "preview"
-production_enabled = false
+vercel_setup_status = "production"
+production_enabled = true
 production_domain = "clinics.findmydoc.eu"

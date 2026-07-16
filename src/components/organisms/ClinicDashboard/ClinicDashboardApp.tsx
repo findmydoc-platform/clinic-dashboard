@@ -452,7 +452,8 @@ export function ClinicDashboardApp({
           onUndo={undoProfileRemoval}
           saveState={profileSaveState}
           statusMessage={profileStatusMessage}
-          undoMessage={profileUndo ? "Removal staged. Undo restores only this item." : undefined}
+          undoKind={profileUndo?.kind}
+          undoMessage={profileUndo ? `${profileUndo.item.name} removed. Undo restores this item.` : undefined}
           variant={activeVariant}
         />
       ) : null}

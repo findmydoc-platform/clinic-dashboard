@@ -54,6 +54,20 @@ export function DashboardOverview({
   const reporting = data.reporting[period]
   const showReportingControls = isGateVisible(variant, "dashboardReporting")
   const showLaterScope = isGateVisible(variant, "laterScope")
+  const downloadProfileViews = () => {
+    const csv = [
+      ["date", "profileViews"],
+      ...reporting.chart.points.map((point) => [point.dateLabel, String(point.value)]),
+    ]
+      .map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(","))
+      .join("\n")
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }))
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `profile-views-${period.replaceAll(" ", "-")}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6" data-visibility-owner={getGateIssue("dashboardReporting")}>
@@ -190,8 +204,14 @@ export function DashboardOverview({
               <p className="mt-1 text-xs font-bold text-[var(--primary)]">{reporting.chart.comparison}</p>
             </div>
             {showReportingControls ? (
-              <Button aria-label="Download profile views" size="icon" variant="ghost">
+              <Button
+                aria-label="Download profile views"
+                onClick={downloadProfileViews}
+                size="small"
+                variant="outline"
+              >
                 <ArrowDown aria-hidden="true" className="size-4" />
+                Download CSV
               </Button>
             ) : null}
           </div>
