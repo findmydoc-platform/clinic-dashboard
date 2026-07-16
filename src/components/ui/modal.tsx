@@ -50,6 +50,16 @@ export function Modal({
     }
   }, [open, triggerRef])
 
+  useEffect(
+    () => () => {
+      const dialog = dialogRef.current
+      if (dialog?.open) dialog.close()
+      const focusTarget = triggerRef?.current ?? openerRef.current
+      focusTarget?.focus()
+    },
+    [triggerRef],
+  )
+
   return (
     <dialog
       aria-describedby={description ? descriptionId : undefined}

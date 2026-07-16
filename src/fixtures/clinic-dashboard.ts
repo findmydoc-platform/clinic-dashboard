@@ -5,9 +5,15 @@ import {
   type DashboardReportingSnapshots,
 } from "@/lib/clinic-dashboard/reporting"
 import type { DashboardProfileTask } from "@/lib/clinic-dashboard/profile-tasks"
+import type { ClinicProfileDraft } from "@/lib/clinic-dashboard/profile"
+import type { ClinicReview } from "@/lib/clinic-dashboard/reviews"
 import lukasWeberAvatar from "@/assets/clinic-dashboard/lukas-weber.jpg"
 import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
+import consultationImage from "@/assets/clinic-dashboard/consultation.jpg"
+import corridorImage from "@/assets/clinic-dashboard/corridor.jpg"
+import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
+import receptionImage from "@/assets/clinic-dashboard/reception.jpg"
 
 const canonicalReviewTotal = 1_248
 
@@ -291,6 +297,34 @@ export const clinicDashboardFixture = {
     address: { city: "Berlin", phone: "+49 30 12345678", postalCode: "10719", street: "Kurfürstendamm 212" },
     description:
       "Berlin Health Clinic is a specialist centre for aesthetic dentistry and dermatology. The clinic combines modern treatment methods with an international patient service.",
+    gallery: [
+      {
+        alt: "Berlin Health Clinic reception",
+        id: "gallery-reception",
+        isCover: true,
+        src: receptionImage,
+      },
+      {
+        alt: "Berlin Health Clinic exterior",
+        id: "gallery-exterior",
+        isCover: false,
+        src: exteriorImage,
+      },
+      {
+        alt: "Patient consultation at Berlin Health Clinic",
+        id: "gallery-consultation",
+        isCover: false,
+        src: consultationImage,
+      },
+      {
+        alt: "Berlin Health Clinic corridor",
+        id: "gallery-corridor",
+        isCover: false,
+        src: corridorImage,
+      },
+    ],
+    galleryTotal: 16,
+    id: "clinic-berlin-health",
     name: "Berlin Health Dental & Derm Clinic",
     openingHours: [
       { days: "Mon – Fri", hours: "08:00 – 20:00" },
@@ -301,24 +335,52 @@ export const clinicDashboardFixture = {
     team: [
       {
         avatar: markusWeberAvatar,
+        biography: "Orthodontics specialist with a focus on patient-friendly treatment planning.",
+        id: "team-markus-weber",
         initials: "MW",
         name: "Dr Markus Weber",
         specialty: "Orthodontics specialist",
       },
       {
         avatar: sarahSchmidtAvatar,
+        biography: "Dermatologist specialising in laser treatments and international patient care.",
+        id: "team-sarah-schmidt",
         initials: "SS",
         name: "Dr Sarah Schmidt",
         specialty: "Dermatologist and laser specialist",
       },
     ],
     treatments: [
-      { duration: "60 min", name: "Laser teeth whitening", price: "€250" },
-      { duration: "90 min", name: "Ceramic veneers (per tooth)", price: "€850" },
-      { duration: "45 min", name: "Skin analysis and treatment", price: "€120" },
+      {
+        category: "Dentistry",
+        description: "A clinic-based whitening treatment with consultation and aftercare guidance.",
+        duration: "60 min",
+        id: "treatment-whitening",
+        name: "Laser teeth whitening",
+        price: "€250",
+      },
+      {
+        category: "Dentistry",
+        description: "Custom ceramic veneers planned and fitted for a natural result.",
+        duration: "90 min",
+        id: "treatment-veneers",
+        name: "Ceramic veneers (per tooth)",
+        price: "€850",
+      },
+      {
+        category: "Aesthetics",
+        description: "A structured skin assessment followed by a personalised treatment recommendation.",
+        duration: "45 min",
+        id: "treatment-skin-analysis",
+        name: "Skin analysis and treatment",
+        price: "€120",
+      },
     ],
-  },
+    revision: 1,
+    updatedAt: "2023-10-12T08:00:00.000Z",
+  } satisfies ClinicProfileDraft,
   reviews: {
+    referenceTime: "2023-10-16T12:00:00.000Z",
     distribution: [
       { count: 1023, percent: 82, stars: 5 },
       { count: 150, percent: 12, stars: 4 },
@@ -331,33 +393,88 @@ export const clinicDashboardFixture = {
         age: "2 days ago",
         author: "Markus Schmidt",
         body: "Excellent consultation and treatment. The team was professional from the first appointment and the early result looks great.",
+        createdAt: "2023-10-14T09:00:00.000Z",
+        id: "review-markus-schmidt",
         initials: "MS",
+        internalNotes: [],
         rating: 5,
         response: "Thank you for your kind feedback. We are pleased that you are happy with the result.",
         status: "Answered",
         treatment: "Hair transplant",
+        revision: 2,
       },
       {
         age: "5 days ago",
         author: "Anonymous patient",
         body: "The treatment was good, but the waiting time was longer than expected and communication at reception could improve.",
+        createdAt: "2023-10-11T14:30:00.000Z",
+        id: "review-anonymous-dentistry",
         initials: "AP",
+        internalNotes: [],
         rating: 3,
         status: "Open",
         treatment: "Dentistry",
+        revision: 1,
       },
       {
         age: "1 week ago",
         author: "Janine Doe",
         body: "This review is currently hidden while an appeal is assessed.",
+        createdAt: "2023-10-09T11:00:00.000Z",
+        id: "review-janine-doe",
         initials: "JD",
+        internalNotes: ["Appeal submitted by the clinic administrator."],
         notice:
           "Appeal submitted on October 14. A moderation response is expected within three to five working days.",
         rating: 1,
         status: "Under review",
         treatment: "Unknown",
+        revision: 3,
       },
-    ],
+      {
+        age: "2 weeks ago",
+        author: "Elena Fischer",
+        body: "The consultation was clear and the treatment plan was easy to understand.",
+        createdAt: "2023-10-02T10:00:00.000Z",
+        id: "review-elena-fischer",
+        initials: "EF",
+        internalNotes: [],
+        rating: 4,
+        response: "Thank you for the clear feedback about your consultation.",
+        status: "Answered",
+        treatment: "Dermatology",
+        revision: 1,
+      },
+      {
+        age: "3 weeks ago",
+        author: "David Müller",
+        body: "Friendly team, short waiting time, and a very professional appointment.",
+        createdAt: "2023-09-25T08:30:00.000Z",
+        id: "review-david-mueller",
+        initials: "DM",
+        internalNotes: [],
+        rating: 5,
+        response: "Thank you for sharing your experience with our team.",
+        status: "Answered",
+        treatment: "Dentistry",
+        revision: 2,
+      },
+      {
+        age: "2 months ago",
+        author: "Anonymous patient",
+        body: "The result was good, although appointment coordination took longer than expected.",
+        createdAt: "2023-08-21T15:00:00.000Z",
+        id: "review-anonymous-coordination",
+        initials: "AP",
+        internalNotes: [],
+        notice:
+          "Appeal submitted on September 1. A moderation response is expected within three to five working days.",
+        rating: 3,
+        status: "Under review",
+        treatment: "Hair transplant",
+        revision: 1,
+      },
+    ] satisfies readonly ClinicReview[],
     rating: 4.8,
     total: 1248,
   },

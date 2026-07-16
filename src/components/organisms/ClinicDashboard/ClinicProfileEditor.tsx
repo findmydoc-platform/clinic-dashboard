@@ -1,34 +1,67 @@
 "use client"
 
 import Image from "next/image"
-import { useEffect, useRef } from "react"
-import { GripHorizontal, MapPin, Plus, UserPlus } from "lucide-react"
-import consultationImage from "@/assets/clinic-dashboard/consultation.jpg"
-import corridorImage from "@/assets/clinic-dashboard/corridor.jpg"
-import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
-import receptionImage from "@/assets/clinic-dashboard/reception.jpg"
+import { useEffect, useMemo, useRef } from "react"
+import { ArrowDown, ArrowUp, ImageIcon, MapPin, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react"
 import { AvatarInitials, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
 import { SurfaceCard } from "@/components/molecules/DashboardCards"
 import { Button } from "@/components/ui/button"
-import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
+import type { ClinicProfileDraft, ClinicTeamMember, ClinicTreatment } from "@/lib/clinic-dashboard/profile"
 import type { ClinicProfileDestination } from "@/lib/clinic-dashboard/profile-tasks"
 import { getVisibilityBehavior, type ClinicDashboardVariant } from "@/lib/clinic-dashboard/visibility"
 
 export function ClinicProfileEditor({
+  data,
+  dirty,
   focusTarget,
+  onCancel,
+  onChange,
+  onEditAddress,
+  onEditHours,
+  onEditTeamMember,
+  onEditTreatment,
   onFocusTargetHandled,
+  onMoveTreatment,
+  onOpenGallery,
+  onOpenSpecialtyDialog,
   onOpenTeamDialog,
   onOpenTreatmentDialog,
+  onRemoveTeamMember,
+  onRemoveTreatment,
+  onSave,
+  onUndo,
+  saveState,
+  statusMessage,
+  undoMessage,
   variant,
 }: {
+  data: ClinicProfileDraft
+  dirty: boolean
   focusTarget?: ClinicProfileDestination
+  onCancel: () => void
+  onChange: (profile: ClinicProfileDraft) => void
+  onEditAddress: () => void
+  onEditHours: () => void
+  onEditTeamMember: (member: ClinicTeamMember) => void
+  onEditTreatment: (treatment: ClinicTreatment) => void
   onFocusTargetHandled: () => void
+  onMoveTreatment: (id: string, direction: -1 | 1) => void
+  onOpenGallery: () => void
+  onOpenSpecialtyDialog: () => void
   onOpenTeamDialog: () => void
   onOpenTreatmentDialog: () => void
+  onRemoveTeamMember: (id: string) => void
+  onRemoveTreatment: (id: string) => void
+  onSave: () => void
+  onUndo: () => void
+  saveState: "idle" | "saved" | "saving"
+  statusMessage: string
+  undoMessage?: string
   variant: ClinicDashboardVariant
 }) {
-  const data = clinicDashboardFixture.profile
   const readOnly = getVisibilityBehavior(variant, "profileWrites") === "read-only"
+  const busy = saveState === "saving"
+  const interactionDisabled = readOnly || busy
   const galleryRef = useRef<HTMLElement>(null)
   const teamRef = useRef<HTMLElement>(null)
 
@@ -48,22 +81,50 @@ export function ClinicProfileEditor({
     return () => cancelAnimationFrame(frame)
   }, [focusTarget, onFocusTargetHandled])
 
+  const gallery = useMemo(() => {
+    const cover = data.gallery.find((item) => item.isCover) ?? data.gallery[0]
+    return cover ? [cover, ...data.gallery.filter((item) => item.id !== cover.id)] : data.gallery
+  }, [data.gallery])
+
+  const saveControls = (
+    <>
+      <Button disabled={!dirty || busy} onClick={onCancel} variant="outline">
+        Cancel
+      </Button>
+      <Button disabled={!dirty || busy} onClick={onSave}>
+        {saveState === "saving" ? "Saving…" : "Save changes"}
+      </Button>
+    </>
+  )
+
   return (
-    <div className="space-y-6">
+    <div aria-busy={busy} className="space-y-6 pb-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="mb-1 text-sm text-[var(--foreground)]">Clinics / Edit profile</p>
           <WorkspaceHeading>Clinic profile</WorkspaceHeading>
         </div>
-        <div className="flex items-center gap-2">
-          {!readOnly ? (
-            <>
-              <Button variant="outline">Cancel</Button>
-              <Button>Save changes</Button>
-            </>
-          ) : null}
-        </div>
+        {!readOnly ? (
+          <div aria-label="Profile page actions" className="flex items-center gap-2" role="group">
+            {saveControls}
+          </div>
+        ) : null}
       </div>
+
+      <p aria-live="polite" className="min-h-5 text-sm text-[var(--foreground)]" role="status">
+        {statusMessage}
+      </p>
+      {undoMessage ? (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm"
+          role="status"
+        >
+          <span>{undoMessage}</span>
+          <Button disabled={busy} onClick={onUndo} size="small" variant="outline">
+            Undo
+          </Button>
+        </div>
+      ) : null}
 
       <section
         aria-label="Clinic image gallery"
@@ -72,47 +133,43 @@ export function ClinicProfileEditor({
         ref={galleryRef}
         tabIndex={-1}
       >
-        <div className="relative col-span-2 row-span-2">
-          <Image
-            alt="Berlin Health Clinic reception"
-            className="object-cover"
-            fill
-            priority
-            sizes="(min-width: 768px) 50vw, 100vw"
-            src={receptionImage}
-          />
-        </div>
-        <div className="relative">
-          <Image
-            alt="Berlin Health Clinic exterior"
-            className="object-cover"
-            fill
-            loading="eager"
-            sizes="(min-width: 768px) 25vw, 50vw"
-            src={exteriorImage}
-          />
-        </div>
-        <div className="relative">
-          <Image
-            alt="Patient consultation at Berlin Health Clinic"
-            className="object-cover"
-            fill
-            sizes="(min-width: 768px) 25vw, 50vw"
-            src={consultationImage}
-          />
-        </div>
-        <div className="relative col-span-2">
-          <Image
-            alt="Berlin Health Clinic corridor"
-            className="object-cover"
-            fill
-            sizes="(min-width: 768px) 50vw, 100vw"
-            src={corridorImage}
-          />
-          <span className="absolute right-3 bottom-3 rounded-full bg-[var(--background)] px-3 py-1 text-xs font-bold text-[var(--foreground)] shadow">
-            +12 more images
-          </span>
-        </div>
+        {gallery.map((item, index) => (
+          <div
+            className={
+              index === 0
+                ? "relative col-span-2 row-span-2"
+                : index === 3
+                  ? "relative col-span-2"
+                  : "relative"
+            }
+            key={item.id}
+          >
+            <Image
+              alt={item.alt}
+              className="object-cover"
+              fill
+              priority={index === 0}
+              sizes={
+                index === 0 || index === 3
+                  ? "(min-width: 768px) 50vw, 100vw"
+                  : "(min-width: 768px) 25vw, 50vw"
+              }
+              src={item.src}
+            />
+            {index === 3 ? (
+              <Button
+                className="absolute right-3 bottom-3 min-h-9 bg-[var(--background)] px-3 py-1 text-xs shadow"
+                disabled={interactionDisabled}
+                onClick={onOpenGallery}
+                size="small"
+                variant="secondary"
+              >
+                <ImageIcon aria-hidden="true" className="size-4" /> +{Math.max(0, data.galleryTotal - 4)} more
+                images
+              </Button>
+            ) : null}
+          </div>
+        ))}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,0.8fr)]">
@@ -123,16 +180,18 @@ export function ClinicProfileEditor({
                 Clinic name
                 <input
                   className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-base font-bold text-[var(--foreground)] disabled:bg-[var(--surface)]"
-                  defaultValue={data.name}
-                  disabled={readOnly}
+                  disabled={interactionDisabled}
+                  onChange={(event) => onChange({ ...data, name: event.target.value })}
+                  value={data.name}
                 />
               </label>
               <label className="grid gap-2 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
                 Description
                 <textarea
                   className="min-h-32 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-sm leading-6 text-[var(--foreground)] disabled:bg-[var(--surface)]"
-                  defaultValue={data.description}
-                  disabled={readOnly}
+                  disabled={interactionDisabled}
+                  onChange={(event) => onChange({ ...data, description: event.target.value })}
+                  value={data.description}
                 />
               </label>
               <div>
@@ -142,14 +201,30 @@ export function ClinicProfileEditor({
                 <div className="mt-2 flex flex-wrap gap-2">
                   {data.specialties.map((item) => (
                     <span
-                      className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-bold text-[var(--on-primary)]"
+                      className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--primary)] px-4 text-sm font-bold text-[var(--on-primary)]"
                       key={item}
                     >
                       {item}
+                      {!readOnly ? (
+                        <button
+                          aria-label={`Remove ${item} specialty`}
+                          className="rounded-full p-1 focus-visible:outline-2 focus-visible:outline-offset-2"
+                          disabled={busy}
+                          onClick={() =>
+                            onChange({
+                              ...data,
+                              specialties: data.specialties.filter((specialty) => specialty !== item),
+                            })
+                          }
+                          type="button"
+                        >
+                          <X aria-hidden="true" className="size-3" />
+                        </button>
+                      ) : null}
                     </span>
                   ))}
                   {!readOnly ? (
-                    <Button size="small" variant="outline">
+                    <Button disabled={busy} onClick={onOpenSpecialtyDialog} size="small" variant="outline">
                       <Plus aria-hidden="true" className="size-4" /> Add
                     </Button>
                   ) : null}
@@ -169,7 +244,7 @@ export function ClinicProfileEditor({
               <h2 className="text-xl font-bold text-[var(--secondary)]" id="clinic-profile-team-heading">
                 Doctors and team
               </h2>
-              <Button onClick={onOpenTeamDialog} variant="ghost">
+              <Button disabled={busy} onClick={onOpenTeamDialog} variant="ghost">
                 <UserPlus aria-hidden="true" className="size-4" /> Add team member
               </Button>
             </div>
@@ -177,13 +252,35 @@ export function ClinicProfileEditor({
               {data.team.map((member) => (
                 <div
                   className="flex items-center gap-4 border-b border-[var(--border)] p-5 last:border-0"
-                  key={member.name}
+                  key={member.id}
                 >
                   <AvatarInitials className="size-14" initials={member.initials} src={member.avatar} />
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <strong>{member.name}</strong>
                     <p className="mt-1 text-sm text-[var(--foreground)]">{member.specialty}</p>
                   </div>
+                  {!readOnly ? (
+                    <div className="flex gap-1">
+                      <Button
+                        aria-label={`Edit ${member.name}`}
+                        disabled={busy}
+                        onClick={() => onEditTeamMember(member)}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <Pencil aria-hidden="true" className="size-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Remove ${member.name}`}
+                        disabled={busy}
+                        onClick={() => onRemoveTeamMember(member.id)}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <Trash2 aria-hidden="true" className="size-4" />
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -192,26 +289,65 @@ export function ClinicProfileEditor({
           <SurfaceCard>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5">
               <h2 className="text-xl font-bold text-[var(--secondary)]">Treatments and prices</h2>
-              <Button onClick={onOpenTreatmentDialog} variant="ghost">
+              <Button disabled={busy} onClick={onOpenTreatmentDialog} variant="ghost">
                 <Plus aria-hidden="true" className="size-4" /> New treatment
               </Button>
             </div>
             <div className="p-5">
-              <div className="hidden grid-cols-[1fr_7rem_7rem_2rem] gap-3 bg-[var(--surface)] px-4 py-3 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase sm:grid">
+              <div className="hidden grid-cols-[1fr_7rem_7rem_8rem] gap-3 bg-[var(--surface)] px-4 py-3 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase sm:grid">
                 <span>Treatment</span>
                 <span>Duration</span>
                 <span>From</span>
-                <span />
+                <span>Actions</span>
               </div>
-              {data.treatments.map((treatment) => (
+              {data.treatments.map((treatment, index) => (
                 <div
-                  className="grid gap-2 border-b border-[var(--border)] px-1 py-4 last:border-0 sm:grid-cols-[1fr_7rem_7rem_2rem] sm:items-center sm:px-4"
-                  key={treatment.name}
+                  className="grid gap-2 border-b border-[var(--border)] px-1 py-4 last:border-0 sm:grid-cols-[1fr_7rem_7rem_8rem] sm:items-center sm:px-4"
+                  key={treatment.id}
                 >
                   <strong className="text-sm">{treatment.name}</strong>
                   <span className="text-sm text-[var(--foreground)]">{treatment.duration}</span>
                   <span className="font-bold text-[var(--primary)]">{treatment.price}</span>
-                  <GripHorizontal aria-hidden="true" className="hidden size-4 sm:block" />
+                  {!readOnly ? (
+                    <div className="flex gap-1">
+                      <Button
+                        aria-label={`Move ${treatment.name} up`}
+                        disabled={busy || index === 0}
+                        onClick={() => onMoveTreatment(treatment.id, -1)}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <ArrowUp aria-hidden="true" className="size-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Move ${treatment.name} down`}
+                        disabled={busy || index === data.treatments.length - 1}
+                        onClick={() => onMoveTreatment(treatment.id, 1)}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <ArrowDown aria-hidden="true" className="size-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Edit ${treatment.name}`}
+                        disabled={busy}
+                        onClick={() => onEditTreatment(treatment)}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <Pencil aria-hidden="true" className="size-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Remove ${treatment.name}`}
+                        disabled={busy}
+                        onClick={() => onRemoveTreatment(treatment.id)}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <Trash2 aria-hidden="true" className="size-4" />
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -220,7 +356,14 @@ export function ClinicProfileEditor({
 
         <aside aria-label="Clinic profile details" className="space-y-6">
           <SurfaceCard className="p-5">
-            <h2 className="text-xl font-bold text-[var(--secondary)]">Address</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-[var(--secondary)]">Address</h2>
+              {!readOnly ? (
+                <Button disabled={busy} onClick={onEditAddress} size="small" variant="ghost">
+                  <Pencil aria-hidden="true" className="size-4" /> Edit
+                </Button>
+              ) : null}
+            </div>
             <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
               <div className="col-span-2">
                 <dt className="text-xs font-bold text-[var(--foreground)] uppercase">Street</dt>
@@ -239,12 +382,24 @@ export function ClinicProfileEditor({
                 <dd className="mt-1">{data.address.phone}</dd>
               </div>
             </dl>
-            <div className="mt-5 flex h-40 items-center justify-center rounded-lg bg-[var(--surface)] text-[var(--foreground)]">
-              <MapPin aria-hidden="true" className="mr-2 size-5" /> Map preview
-            </div>
+            <button
+              className="mt-5 flex h-40 w-full items-center justify-center rounded-lg bg-[var(--surface)] text-sm font-bold text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              disabled={interactionDisabled}
+              onClick={interactionDisabled ? undefined : onEditAddress}
+              type="button"
+            >
+              <MapPin aria-hidden="true" className="mr-2 size-5" /> Adjust map and address
+            </button>
           </SurfaceCard>
           <SurfaceCard className="p-5">
-            <h2 className="text-xl font-bold text-[var(--secondary)]">Opening hours</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-[var(--secondary)]">Opening hours</h2>
+              {!readOnly ? (
+                <Button disabled={busy} onClick={onEditHours} size="small" variant="ghost">
+                  <Pencil aria-hidden="true" className="size-4" /> Edit
+                </Button>
+              ) : null}
+            </div>
             <dl className="mt-5 space-y-3">
               {data.openingHours.map((entry) => (
                 <div className="flex justify-between gap-4 text-sm" key={entry.days}>
@@ -256,6 +411,17 @@ export function ClinicProfileEditor({
           </SurfaceCard>
         </aside>
       </div>
+
+      {!readOnly && dirty ? (
+        <div className="fixed right-0 bottom-0 left-0 z-30 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] px-4 py-3 shadow-2xl backdrop-blur md:left-64">
+          <div className="mx-auto flex max-w-[100rem] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm font-bold text-[var(--secondary)]">Unsaved fixture profile changes</span>
+            <div aria-label="Sticky profile actions" className="flex justify-end gap-2" role="group">
+              {saveControls}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

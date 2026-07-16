@@ -1,11 +1,18 @@
 "use client"
 
+import { useState } from "react"
 import { Camera, Info, Mail, Phone } from "lucide-react"
 import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
 import { getVisibilityBehavior, type ClinicDashboardVariant } from "@/lib/clinic-dashboard/visibility"
+import {
+  createClinicProfileEntityId,
+  getTeamMemberInitials,
+  type ClinicTeamMember,
+  type ClinicTreatment,
+} from "@/lib/clinic-dashboard/profile"
 
 type DialogProps = {
   onOpenChange: (open: boolean) => void
@@ -95,8 +102,39 @@ export function PatientProfileDialog({ onOpenChange, open, triggerRef, variant }
   )
 }
 
-export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: DialogProps) {
+export function TreatmentDialog({
+  initialTreatment,
+  onOpenChange,
+  onSave,
+  open,
+  triggerRef,
+  variant,
+}: DialogProps & {
+  initialTreatment?: ClinicTreatment
+  onSave: (treatment: ClinicTreatment) => void
+}) {
   const readOnly = getVisibilityBehavior(variant, "profileWrites") === "read-only"
+  const [name, setName] = useState(initialTreatment?.name ?? "")
+  const [category, setCategory] = useState(initialTreatment?.category ?? "")
+  const [duration, setDuration] = useState(initialTreatment?.duration.replace(/\D/g, "") ?? "")
+  const [price, setPrice] = useState(initialTreatment?.price.replace(/[^\d.,]/g, "") ?? "")
+  const [description, setDescription] = useState(initialTreatment?.description ?? "")
+
+  const canSave = Boolean(name.trim() && category && duration.trim() && price.trim() && description.trim())
+  const save = () => {
+    if (!canSave) return
+    const id = initialTreatment?.id ?? createClinicProfileEntityId("treatment")
+    onSave({
+      category,
+      description: description.trim(),
+      duration: `${duration.trim()} min`,
+      id,
+      name: name.trim(),
+      price: `€${price.trim().replace(",", ".")}`,
+    })
+    onOpenChange(false)
+  }
+
   return (
     <Modal
       description="Add a treatment to the public clinic profile."
@@ -105,12 +143,16 @@ export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: Dia
           <Button onClick={() => onOpenChange(false)} variant="outline">
             Cancel
           </Button>
-          {!readOnly ? <Button>Save treatment</Button> : null}
+          {!readOnly ? (
+            <Button disabled={!canSave} onClick={save}>
+              {initialTreatment ? "Save treatment changes" : "Save treatment"}
+            </Button>
+          ) : null}
         </div>
       }
       onOpenChange={onOpenChange}
       open={open}
-      title="Create new treatment"
+      title={initialTreatment ? "Edit treatment" : "Create new treatment"}
       triggerRef={triggerRef}
     >
       <fieldset className="grid gap-5" disabled={readOnly}>
@@ -118,17 +160,23 @@ export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: Dia
           Treatment name
           <input
             className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]"
+            onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Express whitening"
+            value={name}
           />
         </label>
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-bold">
             Category
-            <select className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]">
-              <option>Select…</option>
-              <option>Dentistry</option>
-              <option>Aesthetics</option>
-              <option>Orthopaedics</option>
+            <select
+              className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]"
+              onChange={(event) => setCategory(event.target.value)}
+              value={category}
+            >
+              <option value="">Select…</option>
+              <option value="Dentistry">Dentistry</option>
+              <option value="Aesthetics">Aesthetics</option>
+              <option value="Orthopaedics">Orthopaedics</option>
             </select>
           </label>
           <label className="grid gap-2 text-sm font-bold">
@@ -136,7 +184,9 @@ export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: Dia
             <input
               className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]"
               inputMode="numeric"
+              onChange={(event) => setDuration(event.target.value)}
               placeholder="30"
+              value={duration}
             />
           </label>
         </div>
@@ -146,7 +196,9 @@ export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: Dia
             <input
               className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]"
               inputMode="decimal"
+              onChange={(event) => setPrice(event.target.value)}
               placeholder="0.00"
+              value={price}
             />
           </label>
           <div className="flex items-end pb-3 text-sm text-[var(--foreground)]">
@@ -157,7 +209,9 @@ export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: Dia
           Description
           <textarea
             className="min-h-28 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-normal disabled:bg-[var(--surface)]"
+            onChange={(event) => setDescription(event.target.value)}
             placeholder="Describe the treatment process…"
+            value={description}
           />
         </label>
       </fieldset>
@@ -165,8 +219,39 @@ export function TreatmentDialog({ onOpenChange, open, triggerRef, variant }: Dia
   )
 }
 
-export function TeamMemberDialog({ onOpenChange, open, triggerRef, variant }: DialogProps) {
+export function TeamMemberDialog({
+  initialMember,
+  onOpenChange,
+  onSave,
+  open,
+  triggerRef,
+  variant,
+}: DialogProps & {
+  initialMember?: ClinicTeamMember
+  onSave: (member: ClinicTeamMember) => void
+}) {
   const readOnly = getVisibilityBehavior(variant, "teamWrites") === "read-only"
+  const nameParts = initialMember?.name.split(" ") ?? []
+  const [firstName, setFirstName] = useState(nameParts.slice(0, -1).join(" "))
+  const [lastName, setLastName] = useState(nameParts.at(-1) ?? "")
+  const [specialty, setSpecialty] = useState(initialMember?.specialty ?? "")
+  const [biography, setBiography] = useState(initialMember?.biography ?? "")
+
+  const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
+  const canSave = Boolean(fullName && specialty && biography.trim())
+  const save = () => {
+    if (!canSave) return
+    onSave({
+      avatar: initialMember?.avatar,
+      biography: biography.trim(),
+      id: initialMember?.id ?? createClinicProfileEntityId("team"),
+      initials: getTeamMemberInitials(fullName),
+      name: fullName,
+      specialty,
+    })
+    onOpenChange(false)
+  }
+
   return (
     <Modal
       description="Add a team member to the public clinic profile."
@@ -175,12 +260,16 @@ export function TeamMemberDialog({ onOpenChange, open, triggerRef, variant }: Di
           <Button onClick={() => onOpenChange(false)} variant="outline">
             Cancel
           </Button>
-          {!readOnly ? <Button>Add team member</Button> : null}
+          {!readOnly ? (
+            <Button disabled={!canSave} onClick={save}>
+              {initialMember ? "Save team member" : "Add team member"}
+            </Button>
+          ) : null}
         </div>
       }
       onOpenChange={onOpenChange}
       open={open}
-      title="Add team member"
+      title={initialMember ? "Edit team member" : "Add team member"}
       triggerRef={triggerRef}
     >
       <fieldset className="grid gap-5" disabled={readOnly}>
@@ -204,31 +293,43 @@ export function TeamMemberDialog({ onOpenChange, open, triggerRef, variant }: Di
             First name
             <input
               className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]"
+              onChange={(event) => setFirstName(event.target.value)}
               placeholder="e.g. Anna"
+              value={firstName}
             />
           </label>
           <label className="grid gap-2 text-sm font-bold">
             Last name
             <input
               className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]"
+              onChange={(event) => setLastName(event.target.value)}
               placeholder="e.g. Schmidt"
+              value={lastName}
             />
           </label>
         </div>
         <label className="grid gap-2 text-sm font-bold">
           Specialty / role
-          <select className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]">
-            <option>Select role…</option>
-            <option>Medical assistant</option>
-            <option>Clinic management</option>
-            <option>Patient coordinator</option>
+          <select
+            className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal disabled:bg-[var(--surface)]"
+            onChange={(event) => setSpecialty(event.target.value)}
+            value={specialty}
+          >
+            <option value="">Select role…</option>
+            <option value="Dermatologist and laser specialist">Dermatologist and laser specialist</option>
+            <option value="Medical assistant">Medical assistant</option>
+            <option value="Clinic management">Clinic management</option>
+            <option value="Orthodontics specialist">Orthodontics specialist</option>
+            <option value="Patient coordinator">Patient coordinator</option>
           </select>
         </label>
         <label className="grid gap-2 text-sm font-bold">
           Short biography
           <textarea
             className="min-h-28 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-normal disabled:bg-[var(--surface)]"
+            onChange={(event) => setBiography(event.target.value)}
             placeholder="Describe the team member's experience and expertise…"
+            value={biography}
           />
         </label>
       </fieldset>

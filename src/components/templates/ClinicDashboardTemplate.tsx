@@ -33,6 +33,7 @@ type ClinicDashboardTemplateProps = Readonly<{
   notifications: readonly ClinicDashboardNotification[]
   onMarkAllNotificationsAsRead: () => void
   onNotificationOpenChange: (open: boolean) => void
+  onOpenSupport?: (trigger: HTMLButtonElement) => void
   onShowFullInterfaceChange?: (show: boolean) => void
   onNavigate: (section: ClinicDashboardSection) => void
   showFullInterface?: boolean
@@ -92,6 +93,7 @@ export function ClinicDashboardTemplate({
   notifications,
   onMarkAllNotificationsAsRead,
   onNotificationOpenChange,
+  onOpenSupport,
   onShowFullInterfaceChange,
   onNavigate,
   showFullInterface = false,
@@ -122,7 +124,11 @@ export function ClinicDashboardTemplate({
         <div className="mt-auto space-y-3">
           {showLaterScope ? (
             <div className="space-y-2 border-t border-[var(--border)] pt-4">
-              <Button className="w-full justify-start gap-3" variant="ghost">
+              <Button
+                className="w-full justify-start gap-3"
+                onClick={(event) => onOpenSupport?.(event.currentTarget)}
+                variant="ghost"
+              >
                 <Headphones aria-hidden="true" className="size-5" /> <span>Contact support</span>
               </Button>
             </div>
@@ -146,6 +152,19 @@ export function ClinicDashboardTemplate({
       >
         <PrototypeBrandMark className="mb-7" />
         <Navigation activeSection={activeSection} onNavigate={navigate} />
+        {showLaterScope ? (
+          <Button
+            className="mt-6 w-full justify-start gap-3 border-t border-[var(--border)] pt-6"
+            onClick={(event) => {
+              const trigger = navigationTriggerRef.current ?? event.currentTarget
+              setMobileNavigationOpen(false)
+              onOpenSupport?.(trigger)
+            }}
+            variant="ghost"
+          >
+            <Headphones aria-hidden="true" className="size-5" /> <span>Contact support</span>
+          </Button>
+        ) : null}
         {showInterfaceModeToggle && onShowFullInterfaceChange ? (
           <InterfaceModeSwitch
             checked={showFullInterface}
