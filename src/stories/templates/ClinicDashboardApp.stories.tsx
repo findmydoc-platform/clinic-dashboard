@@ -62,6 +62,9 @@ export const DashboardVisualReference: Story = {
   args: { variant: "visual-reference" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const activeNavigationItem = canvas.getByRole("button", { name: "Dashboard" })
+    await expect(activeNavigationItem).toHaveClass("bg-[var(--primary)]")
+    await expect(activeNavigationItem).toHaveClass("enabled:hover:bg-[var(--primary-hover)]")
     const downloadButton = canvas.getByRole("button", { name: "Download profile views" })
     await expect(downloadButton).toBeInTheDocument()
     await expect(downloadButton.querySelector("svg")).toHaveClass("lucide-arrow-down")
@@ -109,8 +112,10 @@ export const Dashboard7Days: Story = {
       within(chart).getByRole("tooltip", { name: "October 6: 103 profile views" }),
     ).toBeInTheDocument()
     await userEvent.unhover(firstPoint)
-    firstPoint.focus()
+    await userEvent.click(firstPoint)
     await expect(firstPoint).toHaveFocus()
+    await expect(firstPoint).toHaveClass("outline-none")
+    await expect(firstPoint).toHaveClass("focus-visible:outline-none")
     await expect(
       within(chart).getByRole("tooltip", { name: "October 6: 103 profile views" }),
     ).toBeInTheDocument()
