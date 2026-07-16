@@ -47,6 +47,29 @@ async function getContrastRatio(foreground: Locator, background: Locator = foreg
   return (lighter + 0.05) / (darker + 0.05)
 }
 
+async function expectCursor(locator: Locator, cursor: string) {
+  await expect(locator).toBeVisible()
+  expect(await locator.evaluate((element) => getComputedStyle(element).cursor)).toBe(cursor)
+}
+
+test("uses global cursor semantics for interactive and disabled controls", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await page.goto("/")
+
+  await expectCursor(page.getByLabel("Password"), "text")
+  await expectCursor(page.getByRole("button", { name: "Sign in" }), "pointer")
+
+  await page.getByLabel("Password").fill(testDashboardPassword)
+  await page.getByRole("button", { name: "Sign in" }).click()
+  await expect(page).toHaveURL(/\/$/)
+
+  await expectCursor(page.getByRole("button", { name: "Dashboard" }), "pointer")
+  await expectCursor(page.getByRole("switch", { name: "Full interface" }), "pointer")
+
+  await page.getByRole("button", { name: "Clinic profile" }).click()
+  await expectCursor(page.getByLabel("Clinic name"), "not-allowed")
+})
+
 test("renders all fixture workspaces and dialogs without backend behavior", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)

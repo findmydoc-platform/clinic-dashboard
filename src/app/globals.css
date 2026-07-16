@@ -128,6 +128,58 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+:where(
+  a[href],
+  area[href],
+  button,
+  input[type="button"],
+  input[type="checkbox"],
+  input[type="color"],
+  input[type="file"],
+  input[type="radio"],
+  input[type="range"],
+  input[type="reset"],
+  input[type="submit"],
+  label[for],
+  label:has(input:is([type="checkbox"], [type="radio"])),
+  select,
+  summary,
+  [role="button"],
+  [role="checkbox"],
+  [role="link"],
+  [role="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="switch"],
+  [role="tab"],
+  [role="treeitem"]
+) {
+  cursor: pointer;
+}
+
+:where([draggable="true"]) {
+  cursor: grab;
+}
+
+:where([draggable="true"]):active {
+  cursor: grabbing;
+}
+
+:where(button, input, select, textarea):disabled,
+:where(
+  [role="button"],
+  [role="checkbox"],
+  [role="link"],
+  [role="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="switch"],
+  [role="tab"],
+  [role="treeitem"]
+)[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 .dashboard-dialog {
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
