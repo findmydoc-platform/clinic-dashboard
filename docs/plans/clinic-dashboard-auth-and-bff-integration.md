@@ -41,14 +41,14 @@ Payload path, collection, query, actor, clinic, or authorization scope.
 
 The implementation should keep these responsibilities separate:
 
-| Module                     | Responsibility                                                                                                          | Prohibited responsibility                                                       |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Environment contract       | Validate Dashboard origin, Supabase URL, publishable key, Payload API URL, and environment pairing at startup.          | Deriving trust from an unchecked request `Host` header.                         |
-| Server Supabase factory    | Create one cookie-aware client per request and expose login, callback, refresh, logout, and current-session operations. | Global clients, browser clients, service-role operations, or shared user state. |
-| Session cookie adapter     | Read request cookies and apply every returned cookie and cache header to the final response.                            | Exposing access or refresh tokens to Client Components.                         |
-| Server-only Payload client | Send the current access token as a Bearer token and map upstream failures.                                              | Direct database access or accepting browser-provided Payload paths.             |
-| Dashboard data layer       | Fetch typed capability DTOs for React Server Components and request-local deduplication.                                | Persistent caching or internal HTTP calls to Route Handlers.                    |
-| Route Handlers             | Validate session, input, origin, CSRF, and capability-specific commands for browser interactions.                       | Reimplementing Payload tenant or permission decisions.                          |
+| Module                     | Responsibility                                                                                                                 | Prohibited responsibility                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Environment contract       | Validate Dashboard origin, Supabase URL, publishable key, Payload API URL, and environment pairing at startup.                 | Deriving trust from an unchecked request `Host` header.                                    |
+| Server Supabase factory    | Create one cookie-aware client per request and expose login, callback, refresh, logout, and current-session operations.        | Global clients, browser clients, service-role operations, or shared user state.            |
+| Session cookie adapter     | Read request cookies and apply every returned cookie and cache header to the final response.                                   | Exposing access or refresh tokens to Client Components.                                    |
+| Server-only Payload client | Send the current access token as a Bearer token and map upstream failures.                                                     | Direct database access or accepting browser-provided Payload paths.                        |
+| Dashboard data layer       | Fetch typed capability DTOs for React Server Components and request-local deduplication.                                       | Persistent caching or internal HTTP calls to Route Handlers.                               |
+| Route Handlers             | Compose one shared mutation guard for session, input, exact origin, session-bound HMAC-CSRF, and capability-specific commands. | Reimplementing Payload tenant or permission decisions or duplicating CSRF logic per route. |
 
 Server-only modules must use the framework's server-only boundary and must never be imported by Client Components or
 Storybook.
@@ -84,22 +84,38 @@ they never return Supabase response bodies or authorization codes to application
 
 ## CSRF and Origin Contract
 
-Every state-changing Route Handler:
+Every authenticated state-changing Route Handler composes one central mutation guard. Route implementations cannot
+replace or partially reproduce the guard. The guard:
 
 1. requires the exact configured Dashboard origin in `Origin`;
 2. rejects missing or mismatched browser origins;
-3. validates a host-bound double-submit CSRF cookie against a request header using a timing-safe comparison;
-4. validates content type and request schema before any upstream call; and
-5. derives principal, clinic, and actor from the authenticated Payload result.
+3. validates a stateless HMAC-signed CSRF token from a host-bound cookie against the request header using timing-safe
+   comparisons;
+4. binds the HMAC to the current validated Supabase session plus a random nonce, so a token from another session is
+   rejected;
+5. in Staging and Production requires a `__Host-` cookie with `Secure`, `Path=/`, and no `Domain` attribute;
+6. validates content type and request schema before any upstream call; and
+7. derives principal, clinic, and actor from the authenticated Payload result.
 
-The CSRF value is not an authentication token and may be readable by same-origin browser code. Session cookies remain
-`HttpOnly`. Login and callback additionally validate PKCE state and allow only known relative destinations. Fetch
-Metadata headers may provide defense in depth but do not replace the explicit origin and CSRF checks.
+The CSRF token contains no access token, refresh token, Supabase identifier, or clinic data. Its session binding is
+derived server-side and is not emitted as cleartext. The CSRF cookie is intentionally readable by same-origin browser
+code so the value can be sent in the header; session cookies remain `HttpOnly`. The server-only
+`CSRF_SIGNING_SECRET` signs tokens and must contain at least 32 cryptographically random bytes. Login and callback are
+pre-session exceptions to the mutation guard and instead validate exact origin where applicable, PKCE state, and known
+relative destinations. Logout and every authenticated capability mutation use the shared guard.
+
+A contract test inventories state-changing Route Handlers and fails when an authenticated mutation is not wrapped by
+the central guard. Fetch Metadata headers may provide defense in depth but do not replace explicit origin and CSRF
+validation. Payload receives only the authorized business request and requires no CSRF-specific implementation.
 
 ## Payload Client and DTO Contract
 
 The Payload client receives an access token only from the current server session. It uses REST resources and focused
 custom endpoints from the paired website plan. The first custom contract is the self-and-capability bootstrap.
+
+For each environment, the client accepts one exact HTTPS Payload origin and configures authenticated fetches to reject
+redirects. An origin mismatch, non-HTTPS target, or cross-environment URL fails before the first token-bearing request.
+A redirect response fails without sending the Bearer token to the redirect target.
 
 The Dashboard consumes a generated or otherwise synchronized `ClinicDashboardBootstrapDTO` containing only:
 
@@ -130,22 +146,27 @@ their temporary prototype gate is removed.
 
 ## Environment Contract
 
-| Environment          | Expected origin                       | Supabase   | Payload API        | Allowed callback                                                |
-| -------------------- | ------------------------------------- | ---------- | ------------------ | --------------------------------------------------------------- |
-| Local                | `http://localhost:3000`               | Staging    | Website Preview    | Exact `http://localhost:3000/auth/callback`                     |
-| Pull-request preview | Current trusted Vercel deployment URL | Staging    | Website Preview    | `https://clinic-dashboard-*-findmydoc.vercel.app/auth/callback` |
-| Production           | `https://clinics.findmydoc.eu`        | Production | Website Production | Exact `https://clinics.findmydoc.eu/auth/callback`              |
+| Environment          | Expected origin                       | Supabase   | Payload API                          | Allowed callback                                                |
+| -------------------- | ------------------------------------- | ---------- | ------------------------------------ | --------------------------------------------------------------- |
+| Local                | `http://localhost:3000`               | Staging    | Exact `https://preview.findmydoc.eu` | Exact `http://localhost:3000/auth/callback`                     |
+| Pull-request preview | Current trusted Vercel deployment URL | Staging    | Exact `https://preview.findmydoc.eu` | `https://clinic-dashboard-*-findmydoc.vercel.app/auth/callback` |
+| Production           | `https://clinics.findmydoc.eu`        | Production | Exact `https://findmydoc.eu`         | Exact `https://clinics.findmydoc.eu/auth/callback`              |
 
-The initial environment contract validates `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, and the
-expected Dashboard origin as one bundle. These names are planned, not current configuration. No service-role key is
-accepted. Preview origin derivation may use trusted Vercel metadata only after validating HTTPS and the expected project
-suffix. The existing random Vercel deployment URLs remain unchanged.
+The initial environment contract validates `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, the expected
+Dashboard origin, and the server-only `CSRF_SIGNING_SECRET` as one bundle. These names are planned, not current
+configuration. No service-role key is accepted. `PAYLOAD_API_URL` must equal the exact environment origin in the table;
+HTTPS and redirect rejection are mandatory. Preview origin derivation may use trusted Vercel metadata only after
+validating HTTPS and the expected project suffix. The existing random Vercel deployment URLs remain unchanged.
 
 ## Cache Contract
 
-Session, principal, clinic, capability, and Dashboard business data are `private-live`. Protected Route Handlers and
-pages opt out of ISR, shared caches, durable Dashboard caches, and Vercel Data Cache storage. Request-local
+Session, principal, clinic, capability, and authenticated Dashboard reads are `private-live`. Protected Route Handlers
+and pages opt out of ISR, shared caches, durable Dashboard caches, and Vercel Data Cache storage. Request-local
 deduplication during one server render is allowed.
+
+When an authorized Dashboard command changes data rendered on the public website, Payload still executes the existing
+public revalidation contract for the affected surfaces. The private BFF response does not suppress, replace, or defer
+that invalidation. This plan introduces no new cache class, tag family, owner, or event.
 
 Client libraries may keep transient component state for interaction quality, but that state is not authoritative and
 must be discarded or reconciled after mutations, permission changes, or session failure.
@@ -155,7 +176,8 @@ Cache impact for this documentation change: `no-public-impact`.
 ## Implementation Sequence
 
 1. Add environment validation and per-request Supabase server-client tests without replacing the temporary guard.
-2. Implement PKCE login, callback, refresh utility, logout, cookie propagation, origin validation, and CSRF checks.
+2. Implement PKCE login, callback, refresh utility, logout, cookie propagation, exact origin validation, and the central
+   session-bound HMAC-CSRF guard.
 3. Implement the server-only Payload client and typed error mapping against the website bootstrap branch.
 4. Add the server data layer and bootstrap Route Handler, keeping React Server Components on direct function calls.
 5. Replace the temporary guard only after local and trusted preview authentication, principal, cookie, CSRF, and failure
@@ -166,8 +188,11 @@ Cache impact for this documentation change: `no-public-impact`.
 
 ## Test and Acceptance Plan
 
-- Unit-test environment pairing, callback-origin validation, internal-destination validation, cookie attributes, cookie
-  propagation, one-refresh retry, session clearing, origin checks, and CSRF checks.
+- Unit-test environment pairing, exact Payload origins, redirect rejection, callback-origin validation,
+  internal-destination validation, cookie attributes, cookie propagation, one-refresh retry, session clearing, origin
+  checks, CSRF signature validation, session binding, and `__Host-` requirements.
+- Contract-test that every authenticated state-changing Route Handler composes the central mutation guard and that
+  Payload requires no CSRF-specific behavior.
 - Contract-test the bootstrap DTO and every stable error mapping against the website implementation branch.
 - Verify that Client Component bundles and Storybook contain no Supabase client, access token, refresh token, service
   role, or server-only Payload module.
@@ -178,6 +203,7 @@ Cache impact for this documentation change: `no-public-impact`.
   PKCE return to the original deployment URL.
 - Verify `401`, `403`, invalid callback, invalid origin, invalid CSRF, Payload outage, Supabase outage, and retry behavior.
 - Verify authenticated responses are private and not present in shared or durable caches.
+- Verify public-impacting Payload mutations retain their existing website revalidation behavior.
 - Retain fixture-backed Storybook states until each equivalent source-backed state has complete loading, empty, denied,
   and failure coverage.
 

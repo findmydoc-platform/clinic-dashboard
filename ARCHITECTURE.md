@@ -37,6 +37,10 @@ Payload remains the current authorization boundary. The Dashboard server sends t
 Bearer token; Payload resolves current `clinicStaff` approval, clinic assignment, and permissions for every request.
 Authorization is enforced at the Payload data boundary, not only in Next.js proxy or Route Handler logic.
 
+Authenticated state-changing Route Handlers use one central mutation guard. It validates the exact origin and a
+stateless HMAC-signed CSRF token bound to the current Supabase session. Staging and Production store the CSRF token in a
+host-only `__Host-` cookie. Payload requires no CSRF-specific change.
+
 ## Data Boundary
 
 The app shell has no persistence and no clinic data. Its presentation content is deterministic fixture data, and its
@@ -55,14 +59,22 @@ production Supabase project and production Payload API. The existing Vercel prev
 Staging uses a project-specific wildcard restricted to `/auth/callback`, while production allows only
 `https://clinics.findmydoc.eu/auth/callback`.
 
+The Payload client accepts exactly `https://preview.findmydoc.eu` in Local and Preview and exactly
+`https://findmydoc.eu` in Production. It requires HTTPS and treats redirects as errors so an authenticated request never
+replays its Bearer token to another origin.
+
 Callback origins come from validated environment configuration or trusted Vercel metadata, not an unchecked `Host`
 header. Post-authentication destinations are validated relative Dashboard paths.
 
 ## Cache Boundary
 
-Authentication, session, principal, clinic, capability, and Dashboard data are private live data. Responses that read
-or mutate them use private, no-store semantics. ISR, public shared caches, durable Dashboard caches, and Vercel Data
-Cache entries are excluded. Request-local deduplication is allowed.
+Authentication, session, principal, clinic, capability, and authenticated Dashboard reads are private live data. BFF
+responses use private, no-store semantics. ISR, public shared caches, durable Dashboard caches, and Vercel Data Cache
+entries are excluded. Request-local deduplication is allowed.
+
+Authorized Payload mutations can still change data rendered on the public website. Those writes retain the existing
+website revalidation contract for affected public surfaces; the private BFF response neither replaces nor suppresses
+that invalidation.
 
 ## Prototype Visibility Boundary
 

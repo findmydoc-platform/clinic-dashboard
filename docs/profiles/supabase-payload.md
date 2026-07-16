@@ -26,19 +26,23 @@ This profile is planned, not implemented.
 - Validate callback origins from environment configuration or trusted Vercel metadata, never from an unchecked `Host`
   header.
 - Accept only validated relative post-authentication destinations.
-- Validate session, input, origin, and CSRF on state-changing Route Handlers.
+- Apply one shared mutation guard to every authenticated state-changing Route Handler. It validates session, input,
+  exact origin, and a stateless HMAC-signed CSRF token bound to the current Supabase session. Staging and Production use
+  a host-only `__Host-` CSRF cookie; Payload requires no change.
 - Keep session, principal, clinic, capability, and Dashboard data private and `no-store`. Request-local deduplication is
   permitted; ISR, shared caches, and durable Dashboard caches are not.
+- Preserve the website's existing public revalidation when an authorized Payload mutation changes a public surface.
 
 ## Environments
 
-| Environment          | Supabase   | Payload API        | Callback                                                        |
-| -------------------- | ---------- | ------------------ | --------------------------------------------------------------- |
-| Local                | Staging    | Website Preview    | Exact local callback                                            |
-| Pull-request preview | Staging    | Website Preview    | Project-specific Vercel wildcard restricted to `/auth/callback` |
-| Production           | Production | Website Production | Exact `https://clinics.findmydoc.eu/auth/callback`              |
+| Environment          | Supabase   | Payload API                          | Callback                                                        |
+| -------------------- | ---------- | ------------------------------------ | --------------------------------------------------------------- |
+| Local                | Staging    | Exact `https://preview.findmydoc.eu` | Exact local callback                                            |
+| Pull-request preview | Staging    | Exact `https://preview.findmydoc.eu` | Project-specific Vercel wildcard restricted to `/auth/callback` |
+| Production           | Production | Exact `https://findmydoc.eu`         | Exact `https://clinics.findmydoc.eu/auth/callback`              |
 
-Cross-environment combinations fail configuration validation.
+Cross-environment combinations fail configuration validation. The Payload client requires HTTPS, rejects redirects,
+and never forwards the Bearer token to another origin.
 
 ## Implementation Gate
 
