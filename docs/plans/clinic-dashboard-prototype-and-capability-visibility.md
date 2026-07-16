@@ -1,14 +1,20 @@
 # Clinic Dashboard Prototype and Capability Visibility Plan
 
-> **Planning record — 2026-07-13.** This document owns the Clinic Dashboard visual reference, fixture states, and temporary UI visibility gates. It is paired with the [Website Capability Matrix](https://github.com/findmydoc-platform/website/blob/feature/1523-clinic-dashboard-capability-matrix/docs/roadmap/clinic-dashboard/capability-matrix.md) from [website#1523](https://github.com/findmydoc-platform/website/issues/1523).
+> **Planning record — 2026-07-13.** This document owns the Clinic Dashboard visual reference, fixture states, and temporary UI visibility gates. It is paired with the [Website Capability Matrix](https://github.com/findmydoc-platform/website/blob/main/docs/roadmap/clinic-dashboard/capability-matrix.md) from [website#1523](https://github.com/findmydoc-platform/website/issues/1523).
+>
+> **Approved runtime prerequisite:**
+> [ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md)
+> fixes the stateless BFF, server-only Supabase session, Payload API, environment, failure, and private-live cache
+> boundaries. Runtime integration follows the
+> [local authentication and BFF plan](./clinic-dashboard-auth-and-bff-integration.md).
 
 ## Required Reading and Synchronization
 
 Read this plan and the Website Capability Matrix together before changing a dashboard screen, gate, fixture, or integration. The records are complementary:
 
-| This repository owns                                                                                                         | The website repository owns                                                                                                                                                              |
-| ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Screen structure, navigation, components, fixtures, Storybook evidence, responsive behavior, and temporary visibility gates. | Payload schema, Supabase session/auth architecture, authorization, API/CORS contracts, cache/revalidation, PostHog reporting, and the capability classification for each visible action. |
+| This repository owns                                                                                                                                    | The website repository owns                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Screen structure, navigation, components, fixtures, Storybook evidence, responsive behavior, temporary visibility gates, and the Dashboard BFF/runtime. | Payload schema, current principal authorization, focused REST/custom endpoints, DTO contracts, cache/revalidation, PostHog reporting, and the capability classification for each visible action. |
 
 When a change crosses that boundary, update both records in the same work item:
 
@@ -17,22 +23,26 @@ When a change crosses that boundary, update both records in the same work item:
 3. Do not infer a backend contract from a prototype control. Link its existing owning issue instead.
 4. Do not delete unfinished prototype UI solely because its backend capability is unavailable. Use a temporary gate and remove it when the owned capability is implemented.
 
-This plan does not define a database, authentication flow, Payload collection, public cache policy, or PostHog query. Those decisions remain in `findmydoc-platform/website`.
+This plan does not define a database, Payload collection, public cache policy, or PostHog query. ADR 026 and the paired
+implementation plans define authentication and integration; this visual plan must not override them.
 
 ## User Outcome and Scope
 
 Clinic teams, product reviewers, and implementation agents can inspect the complete intended UI without mistaking a fixture or a visible control for a working product capability. The same prototype supports a full visual reference and a coherent presentation before the MVP is complete.
 
-In scope: rescued screen captures, visual/component coverage, fixtures, responsive behavior, and temporary visibility gates. Out of scope: backend integration, durable dashboard storage, database/schema work, Supabase/Payload configuration, API/CORS, authorization, PostHog queries, and deployment behavior.
+In scope: rescued screen captures, visual/component coverage, fixtures, responsive behavior, and temporary visibility
+gates. Out of scope: runtime BFF implementation, durable Dashboard storage, database/schema work, Supabase/Payload
+configuration, authorization, PostHog queries, and deployment behavior.
 
 ## Relationship to Existing Issues
 
-| Work item                                                                                                                                               | Relationship                                                                                                                                                   |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [website#1523](https://github.com/findmydoc-platform/website/issues/1523)                                                                               | Provides the backend capability matrix and owns the classification/dependency planning record.                                                                 |
-| [clinic-dashboard#1](https://github.com/findmydoc-platform/clinic-dashboard/issues/1)                                                                   | Owns transfer of the rescued visual prototype, navigation, Stories, fixtures, and app shell. This plan is its UI-planning companion; it adds no backend scope. |
-| [website#1522](https://github.com/findmydoc-platform/website/issues/1522) and [website#1524](https://github.com/findmydoc-platform/website/issues/1524) | Later define the application/API boundary and browser bootstrap. No dashboard integration starts from this plan.                                               |
-| [website#1525–#1533](https://github.com/findmydoc-platform/website/issues/1525)                                                                         | Own the backend capabilities referenced by gates below. The Website Capability Matrix is the authoritative issue-to-control mapping.                           |
+| Work item                                                                             | Relationship                                                                                                                                                   |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [website#1523](https://github.com/findmydoc-platform/website/issues/1523)             | Provides the backend capability matrix and owns the classification/dependency planning record.                                                                 |
+| [clinic-dashboard#1](https://github.com/findmydoc-platform/clinic-dashboard/issues/1) | Owns transfer of the rescued visual prototype, navigation, Stories, fixtures, and app shell. This plan is its UI-planning companion; it adds no backend scope. |
+| [website#1522](https://github.com/findmydoc-platform/website/issues/1522)             | Records ADR 026 and the synchronized application/API implementation plans.                                                                                     |
+| [website#1524](https://github.com/findmydoc-platform/website/issues/1524)             | Owns the focused server-authenticated Payload bootstrap and DTO. No Dashboard integration starts from this visual plan.                                        |
+| [website#1525–#1533](https://github.com/findmydoc-platform/website/issues/1525)       | Own the backend capabilities referenced by gates below. The Website Capability Matrix is the authoritative issue-to-control mapping.                           |
 
 ## Visual Reference Screens
 
@@ -50,7 +60,14 @@ The captures below are fixture-backed. Visual presence does not imply a function
 
 ## Access, Data, and Storage Decision
 
-The current prototype is data-less, fixture-backed, and protected by the repository's temporary password guard. It contains no real clinic or patient data, Supabase session, Payload credentials, or dashboard-owned persistence. The unauthenticated route list remains unchanged. A later authenticated runtime must use only the website-owned authorization and data contracts; a UI gate never grants access.
+The current prototype is data-less, fixture-backed, and protected by the repository's temporary password guard. It
+contains no real clinic or patient data, Supabase session, Payload credentials, or Dashboard-owned persistence. The
+unauthenticated route list remains unchanged.
+
+The approved runtime remains stateless: browser application code calls only the Dashboard origin; the Dashboard BFF
+stores the Supabase session in host-bound `HttpOnly` cookies and sends the current access token to Payload server-side.
+Payload resolves the current `clinicStaff`, clinic, approval, and permissions for every request. The browser never calls
+Payload, and Payload CORS is not expanded. A UI gate never grants access.
 
 ## Prototype Variants and Temporary Visibility Gates
 
