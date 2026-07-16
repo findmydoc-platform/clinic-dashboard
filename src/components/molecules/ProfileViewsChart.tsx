@@ -86,6 +86,7 @@ export function ProfileViewsChart({ chart }: ProfileViewsChartProps) {
         {coordinates.map((point, index) => (
           <g
             aria-label={`${point.dateLabel}: ${point.value.toLocaleString("en-US")} profile views`}
+            className="outline-none focus:outline-none focus-visible:outline-none"
             data-chart-point={point.dateLabel}
             key={point.dateLabel}
             onClick={() => focusPoint(index)}
