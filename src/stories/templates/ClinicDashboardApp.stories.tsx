@@ -1,9 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { ClinicDashboardApp } from "@/components/organisms/ClinicDashboard/ClinicDashboardApp"
+import { ThemeProvider } from "@/components/organisms/AppShell/ThemeProvider"
 
 const meta = {
   component: ClinicDashboardApp,
+  decorators: [
+    (Story) => (
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+        <Story />
+      </ThemeProvider>
+    ),
+  ],
   parameters: {
     a11y: { test: "error" },
     layout: "fullscreen",
@@ -29,8 +37,19 @@ export const DashboardVisualReference: Story = {
   args: { variant: "visual-reference" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByRole("button", { name: "Download profile views" })).toBeInTheDocument()
+    const downloadButton = canvas.getByRole("button", { name: "Download profile views" })
+    await expect(downloadButton).toBeInTheDocument()
+    await expect(downloadButton.querySelector("svg")).toHaveClass("lucide-arrow-down")
     await expect(canvas.getByRole("button", { name: "Open preview" })).toBeInTheDocument()
+
+    const funnelHeading = canvas.getByRole("heading", { name: "Conversion funnel (30 days)" })
+    const funnel = funnelHeading.closest("section")
+    await expect(funnel).not.toBeNull()
+    await expect(
+      Array.from(funnel?.querySelectorAll("[data-funnel-icon]") ?? []).map((icon) =>
+        icon.getAttribute("data-funnel-icon"),
+      ),
+    ).toEqual(["eye", "mouse-pointer-click", "user-round", "message-square", "file-check"])
   },
 }
 export const DashboardAccountMenuOpen: Story = {
@@ -267,6 +286,12 @@ export const MessagesVisualReference: Story = {
     await expect(canvas.getAllByText("Hair transplant").length).toBeGreaterThanOrEqual(1)
     await expect(canvas.queryByText("Interest: Hair transplant")).not.toBeInTheDocument()
     await expect(canvas.getByLabelText("Write a message")).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Add smile emoji" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Use reply template" })).toBeInTheDocument()
+    await expect(
+      canvas.getByRole("button", { name: "View patient profile" }).querySelector("svg"),
+    ).toHaveClass("lucide-file-text")
+    await expect(canvasElement.querySelector("svg.lucide-stethoscope")).toBeInTheDocument()
   },
 }
 export const MessagesSearchAndPreview: Story = {
@@ -341,6 +366,11 @@ export const MessagesPresentation: Story = {
 
 export const PatientProfileVisualReference: Story = {
   args: { initialDialog: "patient-profile", initialSection: "messages", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const dialog = page.getByRole("dialog", { name: "Patient profile" })
+    await expect(within(dialog).getByText("No phone number provided")).toBeInTheDocument()
+  },
 }
 export const PatientProfilePresentation: Story = {
   args: { initialDialog: "patient-profile", initialSection: "messages", variant: "presentation" },
@@ -354,6 +384,16 @@ export const PatientProfilePresentation: Story = {
 
 export const ReviewsVisualReference: Story = {
   args: { initialSection: "reviews", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Apply filters" }).querySelector("svg")).toHaveClass(
+      "lucide-sliders-horizontal",
+    )
+    await expect(canvas.getByRole("button", { name: "Edit response" }).querySelector("svg")).toHaveClass(
+      "lucide-pencil",
+    )
+    await expect(canvasElement.querySelector("svg.lucide-info")).toBeInTheDocument()
+  },
 }
 export const ReviewsPresentation: Story = {
   args: { initialSection: "reviews", variant: "presentation" },
