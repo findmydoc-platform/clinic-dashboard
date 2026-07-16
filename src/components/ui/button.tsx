@@ -4,7 +4,7 @@ import { forwardRef, type ButtonHTMLAttributes } from "react"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50",
   {
     defaultVariants: {
       size: "default",
@@ -19,15 +19,15 @@ const buttonVariants = cva(
       },
       variant: {
         primary:
-          "bg-[var(--primary)] text-[var(--on-primary)] hover:bg-[var(--primary-hover)] focus-visible:outline-[var(--primary)]",
+          "bg-[var(--primary)] text-[var(--on-primary)] enabled:hover:bg-[var(--primary-hover)] focus-visible:outline-[var(--primary)]",
         secondary:
-          "bg-[var(--background)] text-[var(--primary)] hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
+          "bg-[var(--background)] text-[var(--primary)] enabled:hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
         ghost:
-          "bg-transparent text-[var(--foreground)] hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
+          "bg-transparent text-[var(--foreground)] enabled:hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
         outline:
-          "border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
+          "border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] enabled:hover:bg-[var(--surface)] focus-visible:outline-[var(--primary)]",
         destructive:
-          "bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:opacity-90 focus-visible:outline-[var(--destructive)]",
+          "bg-[var(--destructive)] text-[var(--destructive-foreground)] enabled:hover:opacity-90 focus-visible:outline-[var(--destructive)]",
       },
     },
   },
