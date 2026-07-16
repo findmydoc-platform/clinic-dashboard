@@ -1,6 +1,6 @@
 "use client"
 
-import { Camera, Info, Mail } from "lucide-react"
+import { Camera, Info, Mail, Phone } from "lucide-react"
 import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
@@ -70,6 +70,12 @@ export function PatientProfileDialog({ onOpenChange, open, triggerRef, variant }
           <div className="mt-3 flex items-center gap-2 text-sm">
             <Mail aria-hidden="true" className="size-4" /> {patient.email}
           </div>
+          {fullReference ? (
+            <div className="mt-3 flex items-center gap-2 text-sm">
+              <Phone aria-hidden="true" className="size-4" />
+              <span className="sr-only">No phone number provided</span>
+            </div>
+          ) : null}
         </section>
         {fullReference ? (
           <section aria-labelledby="patient-notes">

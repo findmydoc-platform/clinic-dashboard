@@ -1,8 +1,10 @@
 "use client"
 
 import type { FormEvent, KeyboardEvent } from "react"
-import { Paperclip, Send } from "lucide-react"
+import { Paperclip, Send, Smile, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
+
+const replyTemplate = "Thank you for your message. We will review your request and get back to you shortly."
 
 type MessageComposerProps = Readonly<{
   draft: string
@@ -16,6 +18,11 @@ export function MessageComposer({ draft, onDraftChange, onSend }: MessageCompose
   const sendDraft = () => {
     if (!canSend) return
     onSend(draft.trim())
+  }
+
+  const appendSmile = () => {
+    const spacer = draft.length > 0 && !draft.endsWith(" ") ? " " : ""
+    onDraftChange(`${draft}${spacer}🙂`)
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -41,6 +48,9 @@ export function MessageComposer({ draft, onDraftChange, onSend }: MessageCompose
         >
           <Paperclip aria-hidden="true" className="size-5" />
         </Button>
+        <Button aria-label="Add smile emoji" onClick={appendSmile} size="icon" variant="ghost">
+          <Smile aria-hidden="true" className="size-5" />
+        </Button>
         <textarea
           aria-label="Write a message"
           className="[field-sizing:content] max-h-36 min-h-11 flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm leading-5 text-[var(--secondary)] placeholder:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
@@ -54,9 +64,20 @@ export function MessageComposer({ draft, onDraftChange, onSend }: MessageCompose
           <Send aria-hidden="true" className="size-5" />
         </Button>
       </div>
-      <p className="mt-2 hidden pl-[3.25rem] text-xs text-[var(--foreground)] sm:block">
-        Enter to send · Shift+Enter for a new line
-      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 pl-[6.5rem]">
+        <Button
+          aria-label="Use reply template"
+          className="min-h-8 px-1 text-xs text-[var(--primary)]"
+          onClick={() => onDraftChange(replyTemplate)}
+          size="small"
+          variant="ghost"
+        >
+          <Sparkles aria-hidden="true" className="size-4" /> Use template
+        </Button>
+        <p className="hidden text-xs text-[var(--foreground)] sm:block">
+          Enter to send · Shift+Enter for a new line
+        </p>
+      </div>
     </form>
   )
 }

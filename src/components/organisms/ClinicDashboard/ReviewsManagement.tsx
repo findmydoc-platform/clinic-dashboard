@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { Download, Filter, Flag, MessageSquareReply, RefreshCw } from "lucide-react"
+import { Download, Flag, Info, MessageSquareReply, Pencil, RefreshCw, SlidersHorizontal } from "lucide-react"
 import { AvatarInitials, RatingStars, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
 import { RatingSummary, SurfaceCard } from "@/components/molecules/DashboardCards"
 import { Button } from "@/components/ui/button"
@@ -99,7 +99,7 @@ export function ReviewsManagement({
           ))}
           <div className="flex items-end gap-2">
             <Button aria-label="Apply filters" size="icon" variant="outline">
-              <Filter aria-hidden="true" className="size-4" />
+              <SlidersHorizontal aria-hidden="true" className="size-4" />
             </Button>
             <Button aria-label="Refresh reviews" size="icon" variant="outline">
               <RefreshCw aria-hidden="true" className="size-4" />
@@ -154,14 +154,19 @@ export function ReviewsManagement({
               </div>
             ) : null}
             {"notice" in review && review.notice ? (
-              <div className="mt-5 rounded-lg border border-[color-mix(in_srgb,var(--destructive)_35%,var(--background))] bg-[var(--error)] p-4 text-sm">
-                {review.notice}
+              <div className="mt-5 flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--destructive)_35%,var(--background))] bg-[var(--error)] p-4 text-sm">
+                <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                <span>{review.notice}</span>
               </div>
             ) : null}
             {showManagement ? (
               <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--border)] pt-4">
                 <Button size="small" variant={review.status === "Open" ? "primary" : "ghost"}>
-                  <MessageSquareReply aria-hidden="true" className="size-4" />{" "}
+                  {review.status === "Answered" ? (
+                    <Pencil aria-hidden="true" className="size-4" />
+                  ) : (
+                    <MessageSquareReply aria-hidden="true" className="size-4" />
+                  )}{" "}
                   {review.status === "Answered" ? "Edit response" : "Respond"}
                 </Button>
                 <Button size="small" variant="ghost">

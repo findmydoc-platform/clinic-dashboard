@@ -49,6 +49,21 @@ type Story = StoryObj<typeof meta>
 
 export const Empty: Story = {}
 
+export const EmojiAndTemplate: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const composer = canvas.getByLabelText("Write a message")
+
+    await userEvent.click(canvas.getByRole("button", { name: "Add smile emoji" }))
+    await expect(composer).toHaveValue("🙂")
+
+    await userEvent.click(canvas.getByRole("button", { name: "Use reply template" }))
+    await expect(composer).toHaveValue(
+      "Thank you for your message. We will review your request and get back to you shortly.",
+    )
+  },
+}
+
 export const SendWithKeyboard: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)

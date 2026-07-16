@@ -1,7 +1,19 @@
 "use client"
 
 import Image from "next/image"
-import { ArrowRight, CheckCircle2, Download, Lightbulb, MapPin, MessageSquareReply } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowRight,
+  CircleDot,
+  Eye,
+  FileCheck2,
+  Lightbulb,
+  MapPin,
+  MessageSquare,
+  MessageSquareReply,
+  MousePointerClick,
+  UserRound,
+} from "lucide-react"
 import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
 import { RatingStars, WorkspaceHeading } from "@/components/atoms/DashboardPrimitives"
 import { MetricCard, SurfaceCard } from "@/components/molecules/DashboardCards"
@@ -17,6 +29,14 @@ const taskPriorityStyles = {
   High: "bg-[var(--destructive)]",
   Low: "bg-[var(--accent)]",
   Medium: "bg-[var(--warning)]",
+} as const
+
+const funnelIcons = {
+  Contacts: { component: MessageSquare, name: "message-square" },
+  Impressions: { component: Eye, name: "eye" },
+  Inquiries: { component: FileCheck2, name: "file-check" },
+  "Profile views": { component: MousePointerClick, name: "mouse-pointer-click" },
+  "Unique visitors": { component: UserRound, name: "user-round" },
 } as const
 
 export function DashboardOverview({
@@ -57,49 +77,55 @@ export function DashboardOverview({
           </span>
         </div>
         <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-5 xl:p-5">
-          {reporting.funnel.map((step, index) => (
-            <div
-              className={cn(
-                "relative rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-center",
-                index === reporting.funnel.length - 1 &&
-                  "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]",
-              )}
-              key={step.label}
-            >
-              <CheckCircle2
-                aria-hidden="true"
+          {reporting.funnel.map((step, index) => {
+            const iconConfig = funnelIcons[step.label as keyof typeof funnelIcons] ?? {
+              component: CircleDot,
+              name: "circle-dot",
+            }
+            const FunnelIcon = iconConfig.component
+            const final = index === reporting.funnel.length - 1
+
+            return (
+              <div
                 className={cn(
-                  "mx-auto size-6 text-[var(--primary)]",
-                  index === reporting.funnel.length - 1 && "text-[var(--on-primary)]",
+                  "relative rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-center",
+                  final && "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]",
                 )}
-              />
-              {"conversion" in step && step.conversion ? (
+                key={step.label}
+              >
+                <FunnelIcon
+                  aria-hidden="true"
+                  className={cn("mx-auto size-6 text-[var(--primary)]", final && "text-[var(--on-primary)]")}
+                  data-funnel-icon={iconConfig.name}
+                />
+                {"conversion" in step && step.conversion ? (
+                  <span
+                    className={cn(
+                      "mt-3 block text-xs font-bold text-[var(--primary)]",
+                      final && "text-[var(--on-primary)]",
+                    )}
+                  >
+                    {step.conversion}
+                  </span>
+                ) : null}
+                <strong className="mt-2 block text-2xl tracking-tight">{step.value}</strong>
                 <span
                   className={cn(
-                    "mt-3 block text-xs font-bold text-[var(--primary)]",
-                    index === reporting.funnel.length - 1 && "text-[var(--on-primary)]",
+                    "text-[10px] tracking-wide text-[var(--foreground)] uppercase",
+                    final && "text-[var(--on-primary)]",
                   )}
                 >
-                  {step.conversion}
+                  {step.label}
                 </span>
-              ) : null}
-              <strong className="mt-2 block text-2xl tracking-tight">{step.value}</strong>
-              <span
-                className={cn(
-                  "text-[10px] tracking-wide text-[var(--foreground)] uppercase",
-                  index === reporting.funnel.length - 1 && "text-[var(--on-primary)]",
-                )}
-              >
-                {step.label}
-              </span>
-              {index < reporting.funnel.length - 1 ? (
-                <ArrowRight
-                  aria-hidden="true"
-                  className="absolute top-1/2 -right-3 z-10 hidden size-4 rounded-full bg-[var(--background)] p-0.5 text-[var(--foreground)] xl:block"
-                />
-              ) : null}
-            </div>
-          ))}
+                {index < reporting.funnel.length - 1 ? (
+                  <ArrowRight
+                    aria-hidden="true"
+                    className="absolute top-1/2 -right-3 z-10 hidden size-4 rounded-full bg-[var(--background)] p-0.5 text-[var(--foreground)] xl:block"
+                  />
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       </SurfaceCard>
 
@@ -165,7 +191,7 @@ export function DashboardOverview({
             </div>
             {showReportingControls ? (
               <Button aria-label="Download profile views" size="icon" variant="ghost">
-                <Download aria-hidden="true" className="size-4" />
+                <ArrowDown aria-hidden="true" className="size-4" />
               </Button>
             ) : null}
           </div>

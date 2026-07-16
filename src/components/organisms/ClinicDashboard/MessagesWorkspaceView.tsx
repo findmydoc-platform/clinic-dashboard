@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { ArrowLeft, FileImage, MessageSquare, Search, UserRound } from "lucide-react"
+import { ArrowLeft, FileImage, FileText, MessageSquare, Search, Stethoscope } from "lucide-react"
 import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
 import { ConversationActionsMenu } from "@/components/molecules/ConversationActionsMenu"
 import { ConversationListItem } from "@/components/molecules/ConversationListItem"
@@ -199,7 +199,8 @@ export function MessagesWorkspaceView({
               </h2>
               {selectedConversation.treatment ? (
                 <div className="mt-1 text-xs leading-5 sm:text-sm">
-                  <p className="text-[var(--foreground)]">
+                  <p className="flex items-center gap-1 text-[var(--foreground)]">
+                    <Stethoscope aria-hidden="true" className="size-4 shrink-0" />
                     Treatment:{" "}
                     <strong className="text-[var(--secondary)]">{selectedConversation.treatment.name}</strong>
                   </p>
@@ -219,7 +220,7 @@ export function MessagesWorkspaceView({
                   onClick={onOpenPatientProfile}
                   variant="outline"
                 >
-                  <UserRound aria-hidden="true" className="size-4" />
+                  <FileText aria-hidden="true" className="size-4" />
                   View patient profile
                 </Button>
                 {interactive ? (
@@ -240,7 +241,7 @@ export function MessagesWorkspaceView({
               onClick={onOpenPatientProfile}
               variant="outline"
             >
-              <UserRound aria-hidden="true" className="size-4" />
+              <FileText aria-hidden="true" className="size-4" />
               View patient profile
             </Button>
           ) : null}
