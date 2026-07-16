@@ -32,6 +32,7 @@ export function ClinicProfileEditor({
   onUndo,
   saveState,
   statusMessage,
+  undoKind,
   undoMessage,
   variant,
 }: {
@@ -56,6 +57,7 @@ export function ClinicProfileEditor({
   onUndo: () => void
   saveState: "idle" | "saved" | "saving"
   statusMessage: string
+  undoKind?: "team" | "treatment"
   undoMessage?: string
   variant: ClinicDashboardVariant
 }) {
@@ -91,11 +93,22 @@ export function ClinicProfileEditor({
       <Button disabled={!dirty || busy} onClick={onCancel} variant="outline">
         Cancel
       </Button>
-      <Button disabled={!dirty || busy} onClick={onSave}>
+      <Button disabled={!dirty || busy} onClick={onSave} variant={dirty ? "primary" : "outline"}>
         {saveState === "saving" ? "Saving…" : "Save changes"}
       </Button>
     </>
   )
+  const undoPanel = undoMessage ? (
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--primary)_6%,var(--background))] px-5 py-3 text-sm"
+      role="status"
+    >
+      <span className="font-bold text-[var(--secondary)]">{undoMessage}</span>
+      <Button disabled={busy} onClick={onUndo} size="small" variant="outline">
+        Undo removal
+      </Button>
+    </div>
+  ) : null
 
   return (
     <div aria-busy={busy} className="space-y-6 pb-6">
@@ -114,21 +127,9 @@ export function ClinicProfileEditor({
       <p aria-live="polite" className="min-h-5 text-sm text-[var(--foreground)]" role="status">
         {statusMessage}
       </p>
-      {undoMessage ? (
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm"
-          role="status"
-        >
-          <span>{undoMessage}</span>
-          <Button disabled={busy} onClick={onUndo} size="small" variant="outline">
-            Undo
-          </Button>
-        </div>
-      ) : null}
-
       <section
         aria-label="Clinic image gallery"
-        className="grid h-[32rem] scroll-mt-6 grid-cols-2 grid-rows-4 gap-2 overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:h-96 sm:grid-cols-4 sm:grid-rows-2"
+        className="grid h-72 scroll-mt-6 grid-cols-2 grid-rows-4 gap-2 overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:h-56 sm:grid-cols-4 sm:grid-rows-2"
         id="clinic-profile-gallery"
         ref={galleryRef}
         tabIndex={-1}
@@ -248,6 +249,7 @@ export function ClinicProfileEditor({
                 <UserPlus aria-hidden="true" className="size-4" /> Add team member
               </Button>
             </div>
+            {undoKind === "team" ? undoPanel : null}
             <div>
               {data.team.map((member) => (
                 <div
@@ -260,21 +262,28 @@ export function ClinicProfileEditor({
                     <p className="mt-1 text-sm text-[var(--foreground)]">{member.specialty}</p>
                   </div>
                   {!readOnly ? (
-                    <div className="flex gap-1">
+                    <div
+                      aria-label={`Actions for ${member.name}`}
+                      className="flex justify-end gap-1"
+                      role="group"
+                    >
                       <Button
                         aria-label={`Edit ${member.name}`}
                         disabled={busy}
                         onClick={() => onEditTeamMember(member)}
                         size="icon"
+                        title={`Edit ${member.name}`}
                         variant="ghost"
                       >
                         <Pencil aria-hidden="true" className="size-4" />
                       </Button>
                       <Button
                         aria-label={`Remove ${member.name}`}
+                        className="text-[var(--destructive)] enabled:hover:bg-[color-mix(in_srgb,var(--destructive)_8%,var(--background))] enabled:hover:text-[var(--destructive)]"
                         disabled={busy}
                         onClick={() => onRemoveTeamMember(member.id)}
                         size="icon"
+                        title={`Remove ${member.name}`}
                         variant="ghost"
                       >
                         <Trash2 aria-hidden="true" className="size-4" />
@@ -293,8 +302,9 @@ export function ClinicProfileEditor({
                 <Plus aria-hidden="true" className="size-4" /> New treatment
               </Button>
             </div>
+            {undoKind === "treatment" ? undoPanel : null}
             <div className="p-5">
-              <div className="hidden grid-cols-[1fr_7rem_7rem_8rem] gap-3 bg-[var(--surface)] px-4 py-3 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase sm:grid">
+              <div className="hidden grid-cols-[minmax(8rem,1fr)_5rem_5rem_12rem] gap-3 bg-[var(--surface)] px-4 py-3 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase sm:grid">
                 <span>Treatment</span>
                 <span>Duration</span>
                 <span>From</span>
@@ -302,46 +312,57 @@ export function ClinicProfileEditor({
               </div>
               {data.treatments.map((treatment, index) => (
                 <div
-                  className="grid gap-2 border-b border-[var(--border)] px-1 py-4 last:border-0 sm:grid-cols-[1fr_7rem_7rem_8rem] sm:items-center sm:px-4"
+                  className="grid gap-2 border-b border-[var(--border)] px-1 py-4 last:border-0 sm:grid-cols-[minmax(8rem,1fr)_5rem_5rem_12rem] sm:items-center sm:px-4"
                   key={treatment.id}
                 >
                   <strong className="text-sm">{treatment.name}</strong>
                   <span className="text-sm text-[var(--foreground)]">{treatment.duration}</span>
                   <span className="font-bold text-[var(--primary)]">{treatment.price}</span>
                   {!readOnly ? (
-                    <div className="flex gap-1">
-                      <Button
-                        aria-label={`Move ${treatment.name} up`}
-                        disabled={busy || index === 0}
-                        onClick={() => onMoveTreatment(treatment.id, -1)}
-                        size="icon"
-                        variant="ghost"
-                      >
-                        <ArrowUp aria-hidden="true" className="size-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Move ${treatment.name} down`}
-                        disabled={busy || index === data.treatments.length - 1}
-                        onClick={() => onMoveTreatment(treatment.id, 1)}
-                        size="icon"
-                        variant="ghost"
-                      >
-                        <ArrowDown aria-hidden="true" className="size-4" />
-                      </Button>
+                    <div
+                      aria-label={`Actions for ${treatment.name}`}
+                      className="flex flex-nowrap items-center gap-1"
+                      role="group"
+                    >
+                      <div aria-label={`Reorder ${treatment.name}`} className="flex gap-1" role="group">
+                        <Button
+                          aria-label={`Move ${treatment.name} up`}
+                          disabled={busy || index === 0}
+                          onClick={() => onMoveTreatment(treatment.id, -1)}
+                          size="icon"
+                          title={`Move ${treatment.name} up`}
+                          variant="ghost"
+                        >
+                          <ArrowUp aria-hidden="true" className="size-4" />
+                        </Button>
+                        <Button
+                          aria-label={`Move ${treatment.name} down`}
+                          disabled={busy || index === data.treatments.length - 1}
+                          onClick={() => onMoveTreatment(treatment.id, 1)}
+                          size="icon"
+                          title={`Move ${treatment.name} down`}
+                          variant="ghost"
+                        >
+                          <ArrowDown aria-hidden="true" className="size-4" />
+                        </Button>
+                      </div>
                       <Button
                         aria-label={`Edit ${treatment.name}`}
                         disabled={busy}
                         onClick={() => onEditTreatment(treatment)}
                         size="icon"
+                        title={`Edit ${treatment.name}`}
                         variant="ghost"
                       >
                         <Pencil aria-hidden="true" className="size-4" />
                       </Button>
                       <Button
                         aria-label={`Remove ${treatment.name}`}
+                        className="text-[var(--destructive)] enabled:hover:bg-[color-mix(in_srgb,var(--destructive)_8%,var(--background))] enabled:hover:text-[var(--destructive)]"
                         disabled={busy}
                         onClick={() => onRemoveTreatment(treatment.id)}
                         size="icon"
+                        title={`Remove ${treatment.name}`}
                         variant="ghost"
                       >
                         <Trash2 aria-hidden="true" className="size-4" />

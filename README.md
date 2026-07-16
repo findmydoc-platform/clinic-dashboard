@@ -40,6 +40,6 @@ Run:
 
 ## Delivery
 
-Pull-request checks are advisory on the current private GitHub Free repository: failures are visible but do not technically block a merge. Preview deployments run through GitHub Actions and repository-level Vercel credentials. Production deployment remains disabled.
+Pull-request checks are advisory on the current private GitHub Free repository: failures are visible but do not technically block a merge. Preview and manually dispatched production deployments run through GitHub Actions and repository-level Vercel credentials. Production deployments are restricted to `main`.
 
 See `docs/SETUP.md` for the verified GitHub/Vercel setup and the pending `clinics.findmydoc.eu` DNS step.

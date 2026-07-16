@@ -430,9 +430,20 @@ export const ReviewsPrototypeInteractions: Story = {
 
     await userEvent.click(within(openReview as HTMLElement).getByRole("button", { name: "Appeal" }))
     const appealDialog = page.getByRole("dialog", { name: "Appeal review" })
-    await userEvent.click(within(appealDialog).getByRole("button", { name: "Submit appeal" }))
-    await expect(within(appealDialog).getByText("Choose an appeal reason.")).toBeInTheDocument()
-    await expect(within(appealDialog).getByRole("combobox", { name: "Reason" })).toHaveFocus()
+    await expect(within(appealDialog).getByText("Anonymous patient")).toBeInTheDocument()
+    await expect(
+      within(appealDialog).getByText("communication at reception could improve", { exact: false }),
+    ).toBeInTheDocument()
+    await expect(within(appealDialog).getByRole("button", { name: "Submit appeal" })).toBeDisabled()
+    await userEvent.selectOptions(
+      within(appealDialog).getByRole("combobox", { name: "Reason" }),
+      "Incorrect clinic",
+    )
+    await userEvent.type(
+      within(appealDialog).getByLabelText("Appeal details"),
+      "This review belongs to another clinic.",
+    )
+    await expect(within(appealDialog).getByRole("button", { name: "Submit appeal" })).toBeEnabled()
     await userEvent.click(within(appealDialog).getByRole("button", { name: "Cancel" }))
 
     await userEvent.click(within(openReview as HTMLElement).getByRole("button", { name: "Respond" }))
@@ -447,10 +458,10 @@ export const ReviewsPrototypeInteractions: Story = {
 
     await userEvent.click(within(openReview as HTMLElement).getByRole("button", { name: "Internal note" }))
     const noteDialog = page.getByRole("dialog", { name: "Add internal note" })
-    await userEvent.click(within(noteDialog).getByRole("button", { name: "Save note" }))
-    await expect(within(noteDialog).getByText("Enter at least 10 characters.")).toBeInTheDocument()
-    await expect(within(noteDialog).getByLabelText("Internal note")).toHaveFocus()
+    await expect(within(noteDialog).getByRole("button", { name: "Save note" })).toBeDisabled()
+    await expect(within(noteDialog).getByText("Minimum 10 characters", { exact: false })).toBeInTheDocument()
     await userEvent.type(within(noteDialog).getByLabelText("Internal note"), "Reception follow-up recorded.")
+    await expect(within(noteDialog).getByRole("button", { name: "Save note" })).toBeEnabled()
     await userEvent.click(within(noteDialog).getByRole("button", { name: "Save note" }))
     await expect(page.getByText("Internal note saved.")).toBeInTheDocument()
 
@@ -535,6 +546,18 @@ export const ReviewsPresentation: Story = {
 
 export const ClinicProfileVisualReference: Story = {
   args: { initialSection: "profile", variant: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const editTreatment = canvas.getByRole("button", { name: "Edit Laser teeth whitening" })
+    const removeTreatment = canvas.getByRole("button", {
+      name: "Remove Laser teeth whitening",
+    })
+
+    await expect(editTreatment.querySelector("svg")).toHaveClass("lucide-pencil")
+    await expect(removeTreatment.querySelector("svg")).toHaveClass("lucide-trash-2")
+    await expect(removeTreatment).toHaveClass("text-[var(--destructive)]")
+    await expect(removeTreatment).toHaveClass("bg-transparent")
+  },
 }
 export const ClinicProfilePrototypeInteractions: Story = {
   args: { dataSource: instantDataSource, initialSection: "profile", variant: "visual-reference" },
@@ -569,7 +592,7 @@ export const ClinicProfilePrototypeInteractions: Story = {
 
     await userEvent.click(page.getByRole("button", { name: "Remove Express whitening" }))
     await expect(page.queryByText("Express whitening")).not.toBeInTheDocument()
-    await userEvent.click(page.getByRole("button", { name: "Undo" }))
+    await userEvent.click(page.getByRole("button", { name: "Undo removal" }))
     await expect(page.getByText("Express whitening")).toBeInTheDocument()
 
     const detailEditButtons = page.getAllByRole("button", { name: /^Edit$/ })
@@ -599,7 +622,7 @@ export const ClinicProfilePrototypeInteractions: Story = {
     await userEvent.click(within(teamDialog).getByRole("button", { name: "Add team member" }))
     await expect(page.getByText("Alex Morgan")).toBeInTheDocument()
     await userEvent.click(page.getByRole("button", { name: "Remove Alex Morgan" }))
-    await userEvent.click(page.getByRole("button", { name: "Undo" }))
+    await userEvent.click(page.getByRole("button", { name: "Undo removal" }))
     await expect(page.getByText("Alex Morgan")).toBeInTheDocument()
 
     await userEvent.click(page.getByRole("button", { name: "Edit Alex Morgan" }))

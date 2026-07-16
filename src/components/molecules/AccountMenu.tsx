@@ -2,7 +2,7 @@
 
 import type { StaticImageData } from "next/image"
 import { useEffect, useId, useRef, useState } from "react"
-import { LogOut } from "lucide-react"
+import { ChevronDown, LogOut } from "lucide-react"
 import { AvatarInitials } from "@/components/atoms/DashboardPrimitives"
 import { ThemeToggle } from "@/components/molecules/ThemeToggle"
 import { Button } from "@/components/ui/button"
@@ -61,13 +61,16 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={`Open account menu for ${name}`}
-        className="rounded-full"
+        className="gap-1 rounded-full px-1.5"
         onClick={() => setOpen((current) => !current)}
         ref={buttonRef}
-        size="icon"
         variant="ghost"
       >
         <AvatarInitials initials={initials} src={avatar} />
+        <ChevronDown
+          aria-hidden="true"
+          className={`size-4 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </Button>
       {open ? (
         <div
@@ -86,7 +89,11 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
             <ThemeToggle variant="switch" />
           </div>
           <form action="/api/auth/logout" className="border-t border-[var(--border)]" method="post">
-            <Button className="w-full justify-start rounded-none px-4" type="submit" variant="ghost">
+            <Button
+              className="w-full justify-start rounded-none px-4 text-[var(--destructive)] enabled:hover:bg-[color-mix(in_srgb,var(--destructive)_8%,var(--background))]"
+              type="submit"
+              variant="ghost"
+            >
               <LogOut aria-hidden="true" className="size-5" />
               <span>Sign out</span>
             </Button>

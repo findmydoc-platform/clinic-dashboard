@@ -95,6 +95,11 @@ export function ReviewsManagement({
   )
   const selectedReview = reviews.find((review) => review.id === selectedReviewId)
   const treatmentOptions = getReviewTreatmentOptions(reviews)
+  const filtersDirty =
+    draftFilters.period !== filters.period ||
+    draftFilters.rating !== filters.rating ||
+    draftFilters.status !== filters.status ||
+    draftFilters.treatment !== filters.treatment
 
   const openReviewAction = (review: ClinicReview, mode: ReviewActionMode) => {
     setSelectedReviewId(review.id)
@@ -259,7 +264,7 @@ export function ReviewsManagement({
                 <option value="all">All ratings</option>
                 {[5, 4, 3, 2, 1].map((rating) => (
                   <option key={rating} value={rating}>
-                    {rating} stars
+                    {rating} {rating === 1 ? "star" : "stars"}
                   </option>
                 ))}
               </select>
@@ -301,19 +306,30 @@ export function ReviewsManagement({
                 ))}
               </select>
             </label>
-            <div className="flex items-end gap-2">
-              <Button aria-label="Apply filters" onClick={applyFilters} size="icon" variant="outline">
-                <SlidersHorizontal aria-hidden="true" className="size-4" />
-              </Button>
-              <Button
-                aria-label={refreshing ? "Refreshing reviews" : "Refresh reviews"}
-                disabled={refreshing}
-                onClick={refreshReviews}
-                size="icon"
-                variant="outline"
-              >
-                <RefreshCw aria-hidden="true" className={cn("size-4", refreshing && "animate-spin")} />
-              </Button>
+            <div className="flex flex-col justify-end gap-1.5">
+              <span className="text-xs font-bold text-[var(--foreground)]">
+                {filtersDirty ? "Changes not applied" : "Filters up to date"}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  disabled={!filtersDirty}
+                  onClick={applyFilters}
+                  size="small"
+                  variant={filtersDirty ? "primary" : "outline"}
+                >
+                  <SlidersHorizontal aria-hidden="true" className="size-4" /> Apply filters
+                </Button>
+                <Button
+                  aria-label={refreshing ? "Refreshing reviews" : "Refresh reviews"}
+                  disabled={refreshing}
+                  onClick={refreshReviews}
+                  size="small"
+                  variant="outline"
+                >
+                  <RefreshCw aria-hidden="true" className={cn("size-4", refreshing && "animate-spin")} />
+                  {refreshing ? "Refreshing…" : "Refresh"}
+                </Button>
+              </div>
             </div>
           </SurfaceCard>
         </section>
