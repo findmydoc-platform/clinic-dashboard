@@ -23,3 +23,10 @@ export const Secondary: Story = {
     variant: "secondary",
   },
 }
+
+export const Accent: Story = {
+  args: {
+    children: "Selected",
+    variant: "accent",
+  },
+}

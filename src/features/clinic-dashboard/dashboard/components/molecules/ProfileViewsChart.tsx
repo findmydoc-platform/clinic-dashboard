@@ -94,10 +94,10 @@ export function ProfileViewsChart({ description, points }: ProfileViewsChartProp
             <circle
               cx={point.x}
               cy={point.y}
-              fill="var(--background)"
+              fill={activeIndex === index ? "var(--accent)" : "var(--background)"}
               pointerEvents="none"
               r={activeIndex === index ? 7 : 5}
-              stroke="var(--primary)"
+              stroke={activeIndex === index ? "var(--accent-foreground)" : "var(--primary)"}
               strokeWidth={activeIndex === index ? 4 : 3}
             />
             {point.axisLabel ? (

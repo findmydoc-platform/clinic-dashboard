@@ -18,6 +18,8 @@ const buttonVariants = cva(
         small: "min-h-10 px-3 text-xs",
       },
       variant: {
+        accent:
+          "bg-[var(--accent)] text-[var(--accent-foreground)] enabled:hover:bg-[color-mix(in_srgb,var(--accent)_86%,var(--secondary))] focus-visible:outline-[var(--primary)]",
         primary:
           "bg-[var(--primary)] text-[var(--on-primary)] enabled:hover:bg-[var(--primary-hover)] focus-visible:outline-[var(--primary)]",
         secondary:

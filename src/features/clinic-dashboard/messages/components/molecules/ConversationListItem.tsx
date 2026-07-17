@@ -17,8 +17,7 @@ export const ConversationListItem = forwardRef<HTMLButtonElement, ConversationLi
     const className = cn(
       "flex min-h-24 w-full items-center border-b border-[var(--border)] px-4 py-3 text-left transition-colors sm:px-5",
       interactive && "hover:bg-[var(--surface)]",
-      active &&
-        "border-l-4 border-l-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,var(--background))] pl-3 sm:pl-4",
+      active && "border-l-4 border-l-[var(--accent)] bg-[var(--accent-soft)] pl-3 sm:pl-4",
     )
     const content = (
       <>
@@ -38,7 +37,7 @@ export const ConversationListItem = forwardRef<HTMLButtonElement, ConversationLi
         {unreadCount > 0 ? (
           <span
             aria-label={`${unreadCount} unread ${unreadCount === 1 ? "message" : "messages"}`}
-            className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--primary)] px-2 py-1 text-[10px] leading-none font-bold text-[var(--on-primary)]"
+            className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--accent)] px-2 py-1 text-[10px] leading-none font-bold text-[var(--accent-foreground)]"
           >
             {unreadCount}
           </span>

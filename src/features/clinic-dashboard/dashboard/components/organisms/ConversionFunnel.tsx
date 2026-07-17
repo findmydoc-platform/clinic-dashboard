@@ -48,7 +48,7 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
             <div
               className={cn(
                 "relative rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-center",
-                isFinalStep && "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]",
+                isFinalStep && "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]",
               )}
               key={step.label}
             >
@@ -56,7 +56,7 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
                 aria-hidden="true"
                 className={cn(
                   "mx-auto size-6 text-[var(--primary)]",
-                  isFinalStep && "text-[var(--on-primary)]",
+                  isFinalStep && "text-[var(--accent-foreground)]",
                 )}
                 data-funnel-icon={iconConfig.name}
               />
@@ -64,7 +64,7 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
                 <span
                   className={cn(
                     "mt-3 block text-xs font-bold text-[var(--primary)]",
-                    isFinalStep && "text-[var(--on-primary)]",
+                    isFinalStep && "text-[var(--accent-foreground)]",
                   )}
                 >
                   {step.conversion}
@@ -74,7 +74,7 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
               <span
                 className={cn(
                   "text-[10px] tracking-wide text-[var(--foreground)] uppercase",
-                  isFinalStep && "text-[var(--on-primary)]",
+                  isFinalStep && "text-[var(--accent-foreground)]",
                 )}
               >
                 {step.label}
