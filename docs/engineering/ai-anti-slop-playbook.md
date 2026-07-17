@@ -19,9 +19,12 @@ This playbook defines how instruction quality is governed in the clinic dashboar
 ## Enforcement Model
 
 - Local pre-push: `pnpm ai:slop-check:prepush` checks only changed instruction files.
-- Deep lane: scheduled or manual `pnpm ai:slop-check` checks the complete instruction surface.
-- PR lane: general quality gates remain blocking; the AI-slop checker is intentionally kept in the deep lane.
+- PR Quality lane: `pnpm check` runs the complete `pnpm ai:slop-check`; any finding fails the workflow.
+- Deep Quality lane: scheduled or manual runs repeat the complete checker alongside broader audits.
 - Review: instruction changes should receive the read-only planning or security reviewer when relevant.
+
+The checker is fail-closed inside each workflow. Repository rules decide whether the workflow itself is a
+required merge check; that branch-protection policy is outside this playbook.
 
 ## Checker Contract
 
