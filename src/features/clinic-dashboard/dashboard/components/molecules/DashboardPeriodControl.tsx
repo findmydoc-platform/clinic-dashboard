@@ -25,7 +25,7 @@ export function DashboardPeriodControl({ onValueChange, value }: DashboardPeriod
             key={option}
             onClick={() => onValueChange(option)}
             size="small"
-            variant={selected ? "primary" : "ghost"}
+            variant={selected ? "accent" : "ghost"}
           >
             {option}
           </Button>

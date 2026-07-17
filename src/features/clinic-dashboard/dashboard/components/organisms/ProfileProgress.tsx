@@ -64,9 +64,9 @@ export function ProfileProgress({
             ) : null}
           </div>
         ))}
-        <div className="rounded-xl border border-[color-mix(in_srgb,var(--primary)_25%,var(--background))] bg-[color-mix(in_srgb,var(--primary)_6%,var(--background))] p-4">
+        <div className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] p-4">
           <div className="flex items-center gap-2 text-sm font-bold text-[var(--secondary)]">
-            <Lightbulb aria-hidden="true" className="size-4" /> Tip
+            <Lightbulb aria-hidden="true" className="size-4 text-[var(--accent)]" /> Tip
           </div>
           <p className="mt-2 text-xs leading-5 text-[var(--foreground)]">
             Complete profiles receive more qualified inquiries.

@@ -2,6 +2,7 @@
 
 import { Building2, LayoutDashboard, MessageSquare, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import type { ClinicDashboardSection } from "../../model/workspace"
 import type { ClinicDashboardNavigationItem } from "../../navigation"
 
@@ -32,11 +33,17 @@ export function ClinicDashboardNavigation({
         return (
           <Button
             aria-current={isActive ? "page" : undefined}
-            className="min-h-11 w-full justify-start gap-3"
+            className={cn("relative min-h-11 w-full justify-start gap-3", isActive && "pl-5")}
             key={item.id}
             onClick={() => onSectionSelect(item.id)}
-            variant={isActive ? "primary" : "ghost"}
+            variant={isActive ? "accent" : "ghost"}
           >
+            {isActive ? (
+              <span
+                aria-hidden="true"
+                className="absolute left-2 h-5 w-1 rounded-full bg-[var(--accent-foreground)]"
+              />
+            ) : null}
             <Icon aria-hidden="true" className="size-5 shrink-0" />
             <span>{item.label}</span>
           </Button>
