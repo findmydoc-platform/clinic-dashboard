@@ -2,8 +2,8 @@
 
 The canonical application and API decision is
 [Website ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md).
-Implementation details live in
-[the local authentication and BFF plan](docs/plans/clinic-dashboard-auth-and-bff-integration.md).
+The detailed repository contract lives in
+[the local authentication and BFF architecture](docs/authentication-and-bff.md).
 
 ## Application Shape
 

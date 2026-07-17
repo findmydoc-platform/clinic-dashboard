@@ -6,7 +6,7 @@
 > [ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md)
 > fixes the stateless BFF, server-only Supabase session, Payload API, environment, failure, and private-live cache
 > boundaries. Runtime integration follows the
-> [local authentication and BFF plan](./clinic-dashboard-auth-and-bff-integration.md).
+> [local authentication and BFF architecture](../authentication-and-bff.md).
 
 ## Required Reading and Synchronization
 
@@ -24,7 +24,7 @@ When a change crosses that boundary, update both records in the same work item:
 4. Do not delete unfinished prototype UI solely because its backend capability is unavailable. Use a temporary gate and remove it when the owned capability is implemented.
 
 This plan does not define a database, Payload collection, public cache policy, or PostHog query. ADR 026 and the paired
-implementation plans define authentication and integration; this visual plan must not override them.
+architecture documents define authentication and integration; this visual plan must not override them.
 
 ## User Outcome and Scope
 

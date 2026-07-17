@@ -1,19 +1,20 @@
 # Supabase Session and Payload API Profile
 
-This profile is planned, not implemented.
+> **Temporary runtime notice:** The application does not use this profile at runtime yet. Remove this notice
+> when Supabase session handling and the Payload BFF are active.
 
 ## Boundary
 
 - The Clinic Dashboard is a stateless Next.js Backend for Frontend without a database.
-- Supabase will establish the clinic user's access and refresh session through Dashboard-owned login, PKCE callback,
+- Supabase establishes the clinic user's access and refresh session through Dashboard-owned login, PKCE callback,
   refresh, and logout routes.
-- The Dashboard will store session material in secure, host-bound, `HttpOnly` cookies. Browser application code will
-  receive no token and create no Supabase browser client.
-- React Server Components will read through a server-only Payload client. Browser-initiated reads and mutations will
+- The Dashboard stores session material in secure, host-bound, `HttpOnly` cookies. Browser application code receives
+  no token and creates no Supabase browser client.
+- React Server Components read through a server-only Payload client. Browser-initiated reads and mutations
   use capability-specific, same-origin Route Handlers.
-- The Dashboard server will send the current access token to Payload as a Bearer token.
+- The Dashboard server sends the current access token to Payload as a Bearer token.
 - Payload remains the source of truth and the authorization boundary for clinic data.
-- Payload will resolve current `clinicStaff` approval, clinic assignment, and capabilities for every request.
+- Payload resolves current `clinicStaff` approval, clinic assignment, and capabilities for every request.
 - Platform staff continue to use Payload Admin.
 - The Clinic Dashboard receives no direct Postgres connection, Supabase service-role secret, or durable business cache.
 - Payload CORS remains unchanged because the Dashboard browser never calls Payload.
@@ -44,10 +45,10 @@ This profile is planned, not implemented.
 Cross-environment combinations fail configuration validation. The Payload client requires HTTPS, rejects redirects,
 and never forwards the Bearer token to another origin.
 
-## Implementation Gate
+## Architecture Source
 
 The architecture is approved by
 [ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md).
-Implementation follows
-[the local authentication and BFF plan](../plans/clinic-dashboard-auth-and-bff-integration.md) and remains a separate
-runtime change. Do not infer new shared contracts from this profile or from prototype controls.
+The detailed repository contract is
+[the local authentication and BFF architecture](../authentication-and-bff.md). Runtime activation remains separate
+from this documentation change. Do not infer new shared contracts from this profile or from prototype controls.
