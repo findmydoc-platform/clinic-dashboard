@@ -71,7 +71,7 @@ The selected period is supplied by the existing dashboard reporting contract. Th
 - Show `Review images` and `Review team` in both interface modes because they navigate to existing read-only profile content. Use the existing `profileWrites` behavior rather than the reporting gate.
 - Give the destinations stable IDs: `clinic-profile-gallery` and `clinic-profile-team`. Each destination uses `tabIndex={-1}`, receives focus after navigation, and calls `scrollIntoView` with reduced-motion-safe behavior. Focus the section, not a profile-write button.
 - Certificate dialogs have no navigation or completion action and state that certificate management is not available yet.
-- Keep certificate actions behind the existing `laterScope` gate so they appear only in Full interface.
+- Keep certificate actions behind the `certificateTasks` gate so they appear only in Full interface.
 - Escape closes the dialog and returns focus to its trigger.
 - Do not introduce a local completion action or an unverified numerical conversion claim.
 

@@ -11,11 +11,20 @@ The current application is a data-less foundation preview with a temporary passw
 - Use Next.js, React, TypeScript, Node 24, pnpm 10, Tailwind 4, Atomic Design, shadcn/ui, Storybook, Vitest, and Playwright.
 - Keep the current unauthenticated surface limited to `/login`, `/api/auth/login`, `/api/health`, and `/robots.txt`; document any change in `src/lib/security/public-routes.ts` and its tests.
 - Use the canonical company logo assets from `public/brand` through `BrandMark`.
-- Keep clinic data, Supabase authentication, Payload integration, and production deployment out until their dedicated work is approved. The temporary password guard is the only approved access layer for the initial preview.
+- Keep clinic data, Supabase authentication, and Payload integration out until their dedicated work is approved. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
 - Write code, code comments, repository documentation, and user-facing UI copy in English.
 - Use package scripts for validation and run format, checks, relevant tests, Storybook, and build after code changes.
 - Treat GitHub checks as advisory while the repository remains private on the current Free plan.
 - Never place Vercel tokens, real auth secrets, clinic data, or private endpoints in repository content or logs. Configurable passwords belong in environment variables.
+- Follow `docs/engineering/frontend-architecture.md` for frontend ownership, terminology, imports, props, Storybook, and test boundaries.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# Next.js: ALWAYS read docs before coding
+
+Before any Next.js work, find and read the relevant doc in `node_modules/next/dist/docs/`. Your training data is outdated — the docs are the source of truth.
+
+<!-- END:nextjs-agent-rules -->
 
 ## UI Design
 
