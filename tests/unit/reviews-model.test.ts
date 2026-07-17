@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 import { serializeReviewsCsv } from "@/features/clinic-dashboard/reviews/model/review-csv"
-import { createPendingReviewResponse } from "@/features/clinic-dashboard/reviews/model/review"
+import {
+  createPendingReviewResponse,
+  projectClinicReviewForPresentation,
+} from "@/features/clinic-dashboard/reviews/model/review"
 import {
   defaultReviewFilters,
   filterClinicReviews,
@@ -30,7 +33,7 @@ describe("reviews model", () => {
     )
     expect(
       filterClinicReviews(reviews, { ...defaultReviewFilters, status: "Under review" }, referenceTime),
-    ).toHaveLength(2)
+    ).toHaveLength(1)
     expect(
       filterClinicReviews(reviews, { ...defaultReviewFilters, treatment: "Dermatology" }, referenceTime),
     ).toHaveLength(1)
@@ -266,7 +269,7 @@ describe("reviews model", () => {
       showManagement: false,
       statusMessage: "",
     })
-    expect(projection.list.reviews).toEqual(reviews.slice(0, 3))
+    expect(projection.list.reviews).toEqual(reviews.slice(0, 3).map(projectClinicReviewForPresentation))
     expect(projection.list.reviews[0]).not.toEqual(mutatedReview)
   })
 
@@ -342,7 +345,7 @@ describe("reviews model", () => {
     )
 
     expect(pending).toMatchObject({
-      notice: appealedReview.notice,
+      appealCase: appealedReview.appealCase,
       pendingResponse: { status: "pending-moderation" },
       status: "Under review",
     })
@@ -359,7 +362,12 @@ describe("reviews model", () => {
       "Incorrect clinic",
       "The visit was elsewhere.",
     )
-    expect(appealed.status).toBe("Under review")
-    expect(appealed.notice).toContain("Incorrect clinic")
+    expect(appealed.status).toBe("Open")
+    expect(appealed.appealCase).toMatchObject({
+      detail: "The visit was elsewhere.",
+      reason: "Incorrect clinic",
+      status: "submitted",
+    })
+    expect(appealed.appealCase?.events).toHaveLength(1)
   })
 })

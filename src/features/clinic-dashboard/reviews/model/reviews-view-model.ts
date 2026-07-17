@@ -42,6 +42,7 @@ export type ReviewsActions = Readonly<{
   changePage: (page: number) => void
   closeReviewDialog: () => void
   exportReviews: () => void
+  markReviewAppealUnderReview: () => Promise<ReviewMutationResult>
   openReviewAppeal: (reviewId: string) => void
   openReviewHistory: (reviewId: string) => void
   openReviewNote: (reviewId: string) => void

@@ -3,6 +3,10 @@
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 import { useReviewsController } from "@/features/clinic-dashboard/reviews/hooks/useReviewsController"
+import {
+  createReviewAppealCase,
+  markReviewAppealUnderReview,
+} from "@/features/clinic-dashboard/reviews/model/appeal-case"
 import type { ReviewCommands } from "@/features/clinic-dashboard/reviews/model/review-commands"
 import type { ClinicReview } from "@/features/clinic-dashboard/reviews/model/review"
 import type {
@@ -19,13 +23,18 @@ type Deferred<Value> = Readonly<{
   resolve: (value: Value) => void
 }>
 
-type ReviewMutationCommand = "saveReviewNote" | "submitReviewAppeal" | "submitReviewResponseForModeration"
+type ReviewMutationCommand =
+  | "markReviewAppealUnderReview"
+  | "saveReviewNote"
+  | "submitReviewAppeal"
+  | "submitReviewResponseForModeration"
 
 type ReviewMutationCase = Readonly<{
   command: ReviewMutationCommand
   label: string
   mutate: (review: ClinicReview) => ClinicReview
   open: (actions: ReviewsActions, reviewId: string) => void
+  selectReview: (reviews: readonly ClinicReview[]) => ClinicReview | undefined
   submit: (actions: ReviewsActions) => Promise<ReviewMutationResult>
 }>
 
@@ -52,6 +61,10 @@ function createDeferredCommands(
 
   return {
     ...commands,
+    markReviewAppealUnderReview:
+      command === "markReviewAppealUnderReview"
+        ? () => deferred.promise
+        : commands.markReviewAppealUnderReview,
     saveReviewNote: command === "saveReviewNote" ? () => deferred.promise : commands.saveReviewNote,
     submitReviewResponseForModeration:
       command === "submitReviewResponseForModeration"
@@ -76,6 +89,7 @@ const mutationCases: readonly ReviewMutationCase[] = [
       revision: review.revision + 1,
     }),
     open: (actions, reviewId) => actions.openReviewResponse(reviewId),
+    selectReview: (reviews) => reviews.find((review) => review.status === "Open" && !review.appealCase),
     submit: (actions) => actions.submitReviewResponse({ response: "A valid delayed response." }),
   },
   {
@@ -87,6 +101,7 @@ const mutationCases: readonly ReviewMutationCase[] = [
       revision: review.revision + 1,
     }),
     open: (actions, reviewId) => actions.openReviewNote(reviewId),
+    selectReview: (reviews) => reviews.find((review) => review.status === "Open" && !review.appealCase),
     submit: (actions) => actions.submitReviewNote({ note: "A valid delayed internal note." }),
   },
   {
@@ -94,27 +109,85 @@ const mutationCases: readonly ReviewMutationCase[] = [
     label: "appeal",
     mutate: (review) => ({
       ...review,
-      notice: "An appeal that resolved after withdrawal.",
+      appealCase: createReviewAppealCase({
+        detail: "This delayed appeal resolved after management was withdrawn.",
+        reason: "Incorrect clinic",
+        reviewId: review.id,
+        submittedAt: reviewsFixture.referenceTime,
+      }),
       revision: review.revision + 1,
-      status: "Under review",
     }),
     open: (actions, reviewId) => actions.openReviewAppeal(reviewId),
+    selectReview: (reviews) => reviews.find((review) => review.status === "Open" && !review.appealCase),
     submit: (actions) =>
       actions.submitReviewAppeal({
         detail: "This review belongs to another clinic.",
         reason: "Incorrect clinic",
       }),
   },
+  {
+    command: "markReviewAppealUnderReview",
+    label: "appeal status",
+    mutate: (review) => {
+      if (!review.appealCase) throw new Error("The delayed status transition requires an appeal case.")
+
+      return {
+        ...review,
+        appealCase: markReviewAppealUnderReview(review.appealCase, "2023-10-16T12:05:00.000Z"),
+        revision: review.revision + 1,
+        status: "Under review",
+      }
+    },
+    open: (actions, reviewId) => actions.openReviewHistory(reviewId),
+    selectReview: (reviews) => reviews.find((review) => review.appealCase?.status === "submitted"),
+    submit: (actions) => actions.markReviewAppealUnderReview(),
+  },
 ]
 
 afterEach(cleanup)
 
 describe("reviews controller", () => {
+  it("applies the only appeal status transition inside review history", async () => {
+    const submittedReview = reviewsFixture.items.find((review) => review.appealCase?.status === "submitted")
+    if (!submittedReview) throw new Error("Reviews fixture requires a submitted appeal case.")
+
+    const hook = renderHook(() =>
+      useReviewsController({
+        commands: createReviewCommandsFixture(),
+        showManagement: true,
+        snapshot: reviewsFixture,
+      }),
+    )
+
+    act(() => hook.result.current.actions.openReviewHistory(submittedReview.id))
+    let result: ReviewMutationResult | undefined
+    await act(async () => {
+      result = await hook.result.current.actions.markReviewAppealUnderReview()
+    })
+
+    expect(result).toBe("applied")
+    expect(hook.result.current.model).toMatchObject({
+      dialog: {
+        kind: "history",
+        review: {
+          appealCase: {
+            events: [{ type: "appeal-submitted" }, { type: "appeal-status-changed" }],
+            status: "under-review",
+          },
+          status: "Under review",
+        },
+      },
+      statusMessage: "Prototype only — appeal case updated locally; nothing was submitted or sent.",
+    })
+
+    hook.unmount()
+  })
+
   it.each(mutationCases)(
     "discards a delayed $label mutation across management off and on",
-    async ({ command, mutate, open, submit }) => {
-      const originalReview = reviewsFixture.items.find((review) => review.status === "Open")
-      if (!originalReview) throw new Error("Reviews fixture requires an open review.")
+    async ({ command, label, mutate, open, selectReview, submit }) => {
+      const originalReview = selectReview(reviewsFixture.items)
+      if (!originalReview) throw new Error(`Reviews fixture requires a review for ${label}.`)
 
       const deferred = createDeferred<ClinicReview>()
       const commands = createDeferredCommands(command, deferred)
@@ -149,9 +222,11 @@ describe("reviews controller", () => {
         showManagement: true,
         statusMessage: "",
       })
-      expect(
-        hook.result.current.model.list.reviews.find((review) => review.id === originalReview.id),
-      ).toEqual(originalReview)
+      act(() => hook.result.current.actions.openReviewHistory(originalReview.id))
+      if (hook.result.current.model.dialog.kind !== "history") {
+        throw new Error("Review history should reopen after management is restored.")
+      }
+      expect(hook.result.current.model.dialog.review).toEqual(originalReview)
 
       hook.unmount()
     },

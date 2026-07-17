@@ -40,6 +40,7 @@ function ReviewDialogSlot({ actions, dialog }: ReviewDialogSlotProps) {
         <ReviewHistoryDialog
           key={dialog.review.id}
           onClose={actions.closeReviewDialog}
+          onMarkAppealUnderReview={actions.markReviewAppealUnderReview}
           review={dialog.review}
         />
       )

@@ -86,20 +86,45 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     dispatch({ statusMessage: "Review CSV exported.", type: "status-message-changed" })
   }
 
+  const markReviewAppealUnderReview: ReviewsActions["markReviewAppealUnderReview"] = async () => {
+    if (!showManagement) return "discarded"
+    if (state.dialog.kind !== "history") return "discarded"
+
+    const reviewId = state.dialog.reviewId
+    const selectedReview = state.reviews.find((review) => review.id === reviewId)
+    if (!selectedReview || selectedReview.appealCase?.status !== "submitted") return "discarded"
+
+    const mutationGeneration = mutationGenerationRef.current
+    const review = await commands.markReviewAppealUnderReview(selectedReview)
+    if (!managementEnabledRef.current || mutationGeneration !== mutationGenerationRef.current) {
+      return "discarded"
+    }
+    dispatch({
+      review,
+      statusMessage: "Prototype only — appeal case updated locally; nothing was submitted or sent.",
+      type: "review-mutation-succeeded",
+    })
+    return "applied"
+  }
+
   const submitReviewAppeal: ReviewsActions["submitReviewAppeal"] = async ({ detail, reason }) => {
     if (!showManagement) return "discarded"
     if (state.dialog.kind !== "appeal") return "discarded"
 
     const reviewId = state.dialog.reviewId
     const selectedReview = state.reviews.find((review) => review.id === reviewId)
-    if (!selectedReview) return "discarded"
+    if (!selectedReview || selectedReview.appealCase) return "discarded"
 
     const mutationGeneration = mutationGenerationRef.current
     const review = await commands.submitReviewAppeal(selectedReview, reason, detail)
     if (!managementEnabledRef.current || mutationGeneration !== mutationGenerationRef.current) {
       return "discarded"
     }
-    dispatch({ review, statusMessage: "Appeal submitted for moderation.", type: "review-mutation-succeeded" })
+    dispatch({
+      review,
+      statusMessage: "Prototype only — appeal case saved locally; nothing was submitted or sent.",
+      type: "review-mutation-succeeded",
+    })
     return "applied"
   }
 
@@ -148,6 +173,7 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     changePage,
     closeReviewDialog,
     exportReviews,
+    markReviewAppealUnderReview,
     openReviewAppeal,
     openReviewHistory,
     openReviewNote,

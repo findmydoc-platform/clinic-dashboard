@@ -48,12 +48,12 @@ export function ReviewAppealDialog({ onClose, onSubmit, review }: ReviewAppealDi
 
   return (
     <ReviewMutationDialog
-      description="Submit this review for moderation."
+      description="Save a local appeal-case preview. Nothing is submitted or sent."
       isSubmitDisabled={!reason || trimmedDetail.length < 10}
       onClose={onClose}
       onSubmit={submit}
       review={review}
-      submitLabel="Submit appeal"
+      submitLabel="Save appeal preview"
       title="Appeal review"
     >
       <Field error={reasonError || undefined} isRequired label="Reason">

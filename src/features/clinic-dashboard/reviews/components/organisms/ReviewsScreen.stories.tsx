@@ -13,6 +13,7 @@ const actions = {
   changePage: fn(),
   closeReviewDialog: fn(),
   exportReviews: fn(),
+  markReviewAppealUnderReview: fn().mockResolvedValue("applied" as const),
   openReviewAppeal: fn(),
   openReviewHistory: fn(),
   openReviewNote: fn(),

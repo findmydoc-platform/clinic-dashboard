@@ -1,6 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, within } from "storybook/test"
-import { openReviewFixture, publishedReviewFixture, underReviewFixture } from "../../testing/reviews.fixtures"
+import {
+  openReviewFixture,
+  publishedReviewFixture,
+  submittedAppealReviewFixture,
+  underReviewFixture,
+} from "../../testing/reviews.fixtures"
 import { ReviewCard } from "./ReviewCard"
 
 const meta = {
@@ -34,6 +39,19 @@ export const UnderReview: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole("button", { name: "Responses locked" })).toBeDisabled()
     await expect(canvas.queryByRole("button", { name: "Appeal" })).not.toBeInTheDocument()
+    await expect(canvas.queryByText("APPEAL-REVIEW-JANINE-DOE")).not.toBeInTheDocument()
+    await expect(canvas.queryByText("Incorrect clinic")).not.toBeInTheDocument()
+  },
+}
+
+export const SubmittedAppeal: Story = {
+  args: { ...actionArgs, review: submittedAppealReviewFixture, showManagement: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByRole("button", { name: "Appeal" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "History" })).toBeInTheDocument()
+    await expect(canvas.queryByText("APPEAL-REVIEW-ANONYMOUS-COORDINATION")).not.toBeInTheDocument()
+    await expect(canvas.queryByText("Privacy concern")).not.toBeInTheDocument()
   },
 }
 
@@ -60,5 +78,17 @@ export const Presentation: Story = {
     await expect(
       canvas.queryByText("Thank you. We have shared your feedback with the consultation team."),
     ).not.toBeInTheDocument()
+    await expect(canvas.queryByText("APPEAL-REVIEW-JANINE-DOE")).not.toBeInTheDocument()
+  },
+}
+
+export const AppealCasePresentation: Story = {
+  args: { ...actionArgs, review: underReviewFixture, showManagement: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByRole("button")).not.toBeInTheDocument()
+    await expect(canvas.queryByText("APPEAL-REVIEW-JANINE-DOE")).not.toBeInTheDocument()
+    await expect(canvas.queryByText("Incorrect clinic")).not.toBeInTheDocument()
+    await expect(canvas.queryByText(/different clinic/i)).not.toBeInTheDocument()
   },
 }

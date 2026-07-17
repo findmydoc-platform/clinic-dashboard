@@ -1,6 +1,7 @@
 import { areReviewFiltersEqual, filterClinicReviews, getReviewTreatmentOptions } from "./review-filters"
 import type { ReviewDialogModel } from "./review-dialog"
 import { paginateClinicReviews } from "./review-pagination"
+import { projectClinicReviewForPresentation } from "./review"
 import type { ReviewsSnapshot } from "./reviews-snapshot"
 import { createReviewsState, type ReviewsState } from "./reviews.reducer"
 import type { ReviewsViewModel } from "./reviews-view-model"
@@ -35,7 +36,9 @@ export function selectReviewsViewModel(
   snapshot: ReviewsSnapshot,
   showManagement: boolean,
 ): ReviewsViewModel {
-  const projectedState = showManagement ? state : createReviewsState(snapshot.items)
+  const projectedState = showManagement
+    ? state
+    : createReviewsState(snapshot.items.map(projectClinicReviewForPresentation))
   const filteredReviews = selectFilteredReviews(projectedState, snapshot.referenceTime)
   const pagination = paginateClinicReviews(filteredReviews, projectedState.page, reviewPageSize)
 
