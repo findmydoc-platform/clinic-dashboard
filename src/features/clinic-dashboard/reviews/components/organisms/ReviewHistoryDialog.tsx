@@ -33,10 +33,30 @@ export function ReviewHistoryDialog({ onClose, review }: ReviewHistoryDialogProp
         </div>
         <div className="sm:col-span-2">
           <dt className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
-            Clinic response
+            Published clinic response
           </dt>
           <dd className="mt-2 rounded-lg bg-[var(--surface)] p-4">
-            {review.response ?? "No public response yet."}
+            {review.publishedResponse ?? "No published response yet."}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
+            Pending moderation
+          </dt>
+          <dd className="mt-2 rounded-lg bg-[var(--surface)] p-4">
+            {review.pendingResponse ? (
+              <div className="space-y-2">
+                <p>{review.pendingResponse.response}</p>
+                <time
+                  className="block text-xs text-[var(--foreground)]"
+                  dateTime={review.pendingResponse.submittedAt}
+                >
+                  Saved {review.pendingResponse.submittedAt.replace("T", " ").replace(".000Z", " UTC")}
+                </time>
+              </div>
+            ) : (
+              "No response pending moderation."
+            )}
           </dd>
         </div>
         <div className="sm:col-span-2">

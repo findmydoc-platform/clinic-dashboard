@@ -1,4 +1,4 @@
-import { FileClock, Flag, Info, MessageSquareReply, Pencil, StickyNote } from "lucide-react"
+import { Clock3, FileClock, Flag, Info, MessageSquareReply, Pencil, StickyNote } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -23,6 +23,12 @@ export function ReviewCard({
   review,
   showManagement,
 }: ReviewCardProps) {
+  const responseActionLabel = review.pendingResponse
+    ? "Edit pending response"
+    : review.publishedResponse
+      ? "Edit response"
+      : "Respond"
+
   return (
     <Card
       className={cn(
@@ -60,10 +66,23 @@ export function ReviewCard({
         {review.treatment}
       </span>
       <p className="mt-4 text-sm leading-6">{review.body}</p>
-      {review.response ? (
+      {review.publishedResponse ? (
         <div className="mt-5 border-l-4 border-[var(--primary)] bg-[var(--surface)] p-4">
-          <div className="text-xs font-bold text-[var(--foreground)]">Clinic response</div>
-          <p className="mt-2 text-sm italic">{review.response}</p>
+          <div className="text-xs font-bold text-[var(--foreground)]">Published clinic response</div>
+          <p className="mt-2 text-sm italic">{review.publishedResponse}</p>
+        </div>
+      ) : null}
+      {showManagement && review.pendingResponse ? (
+        <div className="mt-5 rounded-lg border border-[color-mix(in_srgb,var(--warning)_70%,var(--border))] bg-[color-mix(in_srgb,var(--warning)_35%,var(--background))] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-[var(--secondary)]">
+              <Clock3 aria-hidden="true" className="size-4" /> Pending moderation
+            </div>
+            <time className="text-xs text-[var(--foreground)]" dateTime={review.pendingResponse.submittedAt}>
+              Saved {review.pendingResponse.submittedAt.replace("T", " ").replace(".000Z", " UTC")}
+            </time>
+          </div>
+          <p className="mt-2 text-sm italic">{review.pendingResponse.response}</p>
         </div>
       ) : null}
       {review.notice ? (
@@ -82,14 +101,14 @@ export function ReviewCard({
             <Button
               onClick={() => onResponseOpen(review.id)}
               size="small"
-              variant={review.status === "Open" ? "primary" : "ghost"}
+              variant={review.publishedResponse || review.pendingResponse ? "ghost" : "primary"}
             >
-              {review.status === "Answered" ? (
+              {review.publishedResponse || review.pendingResponse ? (
                 <Pencil aria-hidden="true" className="size-4" />
               ) : (
                 <MessageSquareReply aria-hidden="true" className="size-4" />
               )}
-              {review.status === "Answered" ? "Edit response" : "Respond"}
+              {responseActionLabel}
             </Button>
           )}
           {review.status !== "Under review" ? (

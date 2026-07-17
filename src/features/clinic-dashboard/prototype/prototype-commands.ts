@@ -1,5 +1,5 @@
 import type { ClinicProfileCommands } from "@/features/clinic-dashboard/clinic-profile/public"
-import type { ReviewCommands } from "@/features/clinic-dashboard/reviews/public"
+import { createPendingReviewResponse, type ReviewCommands } from "@/features/clinic-dashboard/reviews/public"
 
 const prototypeTimestamp = "2023-10-16T12:00:00.000Z"
 const prototypeLatencyMs = 240
@@ -26,12 +26,11 @@ export const reviewPrototypeCommands: ReviewCommands = {
       internalNotes: [...review.internalNotes, note.trim()],
       revision: review.revision + 1,
     }),
-  saveReviewResponse: async (review, response) =>
+  submitReviewResponseForModeration: async (review, response) =>
     resolvePrototypeValue({
       ...review,
-      response: response.trim(),
+      pendingResponse: createPendingReviewResponse(response, prototypeTimestamp),
       revision: review.revision + 1,
-      status: "Answered" as const,
     }),
   submitReviewAppeal: async (review, reason, detail) =>
     resolvePrototypeValue({

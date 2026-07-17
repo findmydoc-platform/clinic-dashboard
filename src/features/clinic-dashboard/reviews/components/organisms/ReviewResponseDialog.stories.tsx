@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, waitFor, within } from "storybook/test"
-import { openReviewFixture } from "../../testing/reviews.fixtures"
+import { openReviewFixture, publishedReviewFixture } from "../../testing/reviews.fixtures"
 import { ReviewResponseDialog } from "./ReviewResponseDialog"
 
 const meta = {
@@ -31,13 +31,16 @@ export const NewResponse: Story = {
     const dialog = within(canvasElement.ownerDocument.body).getByRole("dialog", {
       name: "Respond to review",
     })
-    const submit = within(dialog).getByRole("button", { name: "Save response" })
+    const submit = within(dialog).getByRole("button", { name: "Save moderation preview" })
+    const response = within(dialog).getByLabelText("Response for moderation")
 
     await expect(submit).toBeDisabled()
-    await userEvent.type(
-      within(dialog).getByLabelText("Public response"),
-      "Thank you for the helpful feedback.",
-    )
+    await userEvent.type(response, "123456789")
+    await expect(submit).toBeDisabled()
+    await userEvent.type(response, "0")
+    await expect(submit).toBeEnabled()
+    await userEvent.clear(response)
+    await userEvent.type(response, "Thank you for the helpful feedback.")
     await userEvent.click(submit)
     await waitFor(() =>
       expect(args.onSubmit).toHaveBeenCalledWith({ response: "Thank you for the helpful feedback." }),
@@ -46,22 +49,47 @@ export const NewResponse: Story = {
   },
 }
 
-export const ExistingResponse: Story = {
+export const ExistingPublishedResponse: Story = {
   args: {
     ...NewResponse.args,
-    review: {
-      ...openReviewFixture,
-      response: "Thank you for sharing your experience with our team.",
-    },
+    review: { ...publishedReviewFixture, pendingResponse: undefined },
   },
   play: async ({ canvasElement }) => {
     const dialog = within(canvasElement.ownerDocument.body).getByRole("dialog", {
       name: "Respond to review",
     })
 
-    await expect(within(dialog).getByLabelText("Public response")).toHaveValue(
-      "Thank you for sharing your experience with our team.",
+    await expect(within(dialog).getByLabelText("Response for moderation")).toHaveValue(
+      publishedReviewFixture.publishedResponse,
     )
-    await expect(within(dialog).getByRole("button", { name: "Save response" })).toBeEnabled()
+    await expect(
+      within(dialog).getByText(/published response stays unchanged\. Nothing is submitted or sent/i),
+    ).toBeInTheDocument()
+    const submit = within(dialog).getByRole("button", { name: "Save moderation preview" })
+    const response = within(dialog).getByLabelText("Response for moderation")
+    await expect(submit).toBeDisabled()
+    await userEvent.type(response, " Updated")
+    await expect(submit).toBeEnabled()
+  },
+}
+
+export const ExistingPendingResponse: Story = {
+  args: {
+    ...NewResponse.args,
+    review: publishedReviewFixture,
+  },
+  play: async ({ canvasElement }) => {
+    const dialog = within(canvasElement.ownerDocument.body).getByRole("dialog", {
+      name: "Respond to review",
+    })
+
+    await expect(within(dialog).getByLabelText("Response for moderation")).toHaveValue(
+      "Thank you. We have shared your feedback with the consultation team.",
+    )
+    const response = within(dialog).getByLabelText("Response for moderation")
+    const submit = within(dialog).getByRole("button", { name: "Save moderation preview" })
+    await expect(submit).toBeDisabled()
+    await userEvent.type(response, " Updated")
+    await expect(submit).toBeEnabled()
   },
 }

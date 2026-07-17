@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, within } from "storybook/test"
-import { openReviewFixture, underReviewFixture } from "../../testing/reviews.fixtures"
+import { openReviewFixture, publishedReviewFixture, underReviewFixture } from "../../testing/reviews.fixtures"
 import { ReviewCard } from "./ReviewCard"
 
 const meta = {
@@ -37,9 +37,28 @@ export const UnderReview: Story = {
   },
 }
 
+export const PublishedResponseWithPendingEdit: Story = {
+  args: { ...actionArgs, review: publishedReviewFixture, showManagement: true },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Published clinic response")).toBeInTheDocument()
+    await expect(canvas.getByText("Pending moderation")).toBeInTheDocument()
+    await expect(canvas.getByText(/^Saved 2023-10-16/)).toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: /retry|withdraw/i })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Edit pending response" }))
+    await expect(args.onResponseOpen).toHaveBeenCalledWith(publishedReviewFixture.id)
+  },
+}
+
 export const Presentation: Story = {
-  args: { ...actionArgs, review: openReviewFixture, showManagement: false },
+  args: { ...actionArgs, review: publishedReviewFixture, showManagement: false },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).queryByRole("button")).not.toBeInTheDocument()
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByRole("button")).not.toBeInTheDocument()
+    await expect(canvas.getByText("Published clinic response")).toBeInTheDocument()
+    await expect(canvas.queryByText("Pending moderation")).not.toBeInTheDocument()
+    await expect(
+      canvas.queryByText("Thank you. We have shared your feedback with the consultation team."),
+    ).not.toBeInTheDocument()
   },
 }

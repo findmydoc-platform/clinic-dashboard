@@ -33,7 +33,9 @@ export function ReviewTextMutationDialog({
   const [value, setValue] = useState(initialValue)
   const [valueError, setValueError] = useState("")
   const valueRef = useRef<HTMLTextAreaElement>(null)
+  const initialTrimmedValue = initialValue.trim()
   const trimmedValue = value.trim()
+  const isUnchanged = trimmedValue === initialTrimmedValue
 
   const submit = async () => {
     if (trimmedValue.length < 10) {
@@ -42,6 +44,8 @@ export function ReviewTextMutationDialog({
       return "discarded" as const
     }
 
+    if (isUnchanged) return "discarded" as const
+
     setValueError("")
     return onSubmit(trimmedValue)
   }
@@ -49,7 +53,7 @@ export function ReviewTextMutationDialog({
   return (
     <ReviewMutationDialog
       description={description}
-      isSubmitDisabled={trimmedValue.length < 10}
+      isSubmitDisabled={trimmedValue.length < 10 || isUnchanged}
       onClose={onClose}
       onSubmit={submit}
       review={review}

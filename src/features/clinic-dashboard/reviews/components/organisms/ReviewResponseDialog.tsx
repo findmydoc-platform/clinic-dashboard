@@ -12,14 +12,14 @@ type ReviewResponseDialogProps = Readonly<{
 export function ReviewResponseDialog({ onClose, onSubmit, review }: ReviewResponseDialogProps) {
   return (
     <ReviewTextMutationDialog
-      description="Write the public clinic response shown below the review."
-      initialValue={review.response}
-      label="Public response"
+      description="Save a local moderation preview. Any published response stays unchanged. Nothing is submitted or sent."
+      initialValue={review.pendingResponse?.response ?? review.publishedResponse}
+      label="Response for moderation"
       onClose={onClose}
       onSubmit={(response) => onSubmit({ response })}
       placeholder="Thank the patient and address their feedback…"
       review={review}
-      submitLabel="Save response"
+      submitLabel="Save moderation preview"
       title="Respond to review"
     />
   )

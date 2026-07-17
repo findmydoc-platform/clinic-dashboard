@@ -1,5 +1,5 @@
 import type { ReviewCommands } from "../model/review-commands"
-import type { ClinicReview } from "../model/review"
+import { createPendingReviewResponse, type ClinicReview } from "../model/review"
 import type { ReviewsSnapshot } from "../model/reviews-snapshot"
 
 export const reviewsFixture = {
@@ -21,10 +21,16 @@ export const reviewsFixture = {
       initials: "MS",
       internalNotes: [],
       rating: 5,
-      response: "Thank you for your kind feedback. We are pleased that you are happy with the result.",
+      pendingResponse: {
+        response: "Thank you. We have shared your feedback with the consultation team.",
+        status: "pending-moderation",
+        submittedAt: "2023-10-16T12:00:00.000Z",
+      },
+      publishedResponse:
+        "Thank you for your kind feedback. We are pleased that you are happy with the result.",
       status: "Answered",
       treatment: "Hair transplant",
-      revision: 2,
+      revision: 3,
     },
     {
       age: "5 days ago",
@@ -63,7 +69,7 @@ export const reviewsFixture = {
       initials: "EF",
       internalNotes: [],
       rating: 4,
-      response: "Thank you for the clear feedback about your consultation.",
+      publishedResponse: "Thank you for the clear feedback about your consultation.",
       status: "Answered",
       treatment: "Dermatology",
       revision: 1,
@@ -77,7 +83,7 @@ export const reviewsFixture = {
       initials: "DM",
       internalNotes: [],
       rating: 5,
-      response: "Thank you for sharing your experience with our team.",
+      publishedResponse: "Thank you for sharing your experience with our team.",
       status: "Answered",
       treatment: "Dentistry",
       revision: 2,
@@ -105,6 +111,9 @@ export const reviewsFixture = {
 export const openReviewFixture = reviewsFixture.items.find(
   (review) => review.status === "Open",
 ) as ClinicReview
+export const publishedReviewFixture = reviewsFixture.items.find(
+  (review) => review.status === "Answered" && review.pendingResponse,
+) as ClinicReview
 export const underReviewFixture = reviewsFixture.items.find(
   (review) => review.status === "Under review",
 ) as ClinicReview
@@ -122,12 +131,11 @@ export function createReviewCommandsFixture(latencyMs = 0): ReviewCommands {
         internalNotes: [...review.internalNotes, note.trim()],
         revision: review.revision + 1,
       }),
-    saveReviewResponse: async (review, response) =>
+    submitReviewResponseForModeration: async (review, response) =>
       resolve({
         ...review,
-        response: response.trim(),
+        pendingResponse: createPendingReviewResponse(response, reviewsFixture.referenceTime),
         revision: review.revision + 1,
-        status: "Answered" as const,
       }),
     submitReviewAppeal: async (review, reason, detail) =>
       resolve({
@@ -145,10 +153,10 @@ export function createRetryReviewCommandsFixture(): ReviewCommands {
 
   return {
     ...commands,
-    saveReviewResponse: async (...input) => {
+    submitReviewResponseForModeration: async (...input) => {
       saveAttempts += 1
       if (saveAttempts === 1) throw new Error("Fixture rejection")
-      return commands.saveReviewResponse(...input)
+      return commands.submitReviewResponseForModeration(...input)
     },
   }
 }
