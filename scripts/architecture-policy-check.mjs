@@ -30,9 +30,12 @@ function isFixtureImport(reference) {
   return /(?:^|\/)(?:fixtures|testing)(?:\/|$)|\.fixtures(?:\.[cm]?[jt]sx?)?$/u.test(target)
 }
 
-function isPrototypeDataImport(reference) {
-  const target = importTarget(reference)
+function isPrototypeDataTarget(target) {
   return /(?:^|\/)(?:[^/]+\.prototype-data|prototype-data-source)(?:\.[cm]?[jt]sx?)?$/u.test(target)
+}
+
+function isPrototypeDataImport(reference) {
+  return isPrototypeDataTarget(importTarget(reference))
 }
 
 function isRuntimePrototypeCommandImport(reference) {
@@ -142,44 +145,174 @@ function unwrapExpression(expression) {
   return current
 }
 
-function propertyAccessPath(expression) {
+function getPropertyAccess(expression) {
   const current = unwrapExpression(expression)
-  if (ts.isIdentifier(current)) return [current.text]
 
   if (ts.isPropertyAccessExpression(current)) {
-    const ownerPath = propertyAccessPath(current.expression)
-    return ownerPath ? [...ownerPath, current.name.text] : null
+    return { owner: unwrapExpression(current.expression), propertyName: current.name.text }
   }
 
   if (ts.isElementAccessExpression(current) && current.argumentExpression) {
-    const ownerPath = propertyAccessPath(current.expression)
     const property = unwrapExpression(current.argumentExpression)
-    if (!ownerPath || (!ts.isStringLiteral(property) && !ts.isNoSubstitutionTemplateLiteral(property))) {
-      return null
+    return {
+      owner: unwrapExpression(current.expression),
+      propertyName:
+        ts.isStringLiteral(property) || ts.isNoSubstitutionTemplateLiteral(property) ? property.text : null,
     }
-
-    return [...ownerPath, property.text]
   }
 
   return null
 }
 
+function createSourceFileTypeChecker(sourceFile) {
+  const compilerOptions = {
+    noLib: true,
+    noResolve: true,
+    target: ts.ScriptTarget.Latest,
+  }
+  const compilerHost = ts.createCompilerHost(compilerOptions, true)
+  const sourceFileName = path.resolve(sourceFile.fileName)
+  compilerHost.fileExists = (fileName) => path.resolve(fileName) === sourceFileName
+  compilerHost.readFile = (fileName) =>
+    path.resolve(fileName) === sourceFileName ? sourceFile.text : undefined
+  compilerHost.getSourceFile = (fileName) =>
+    path.resolve(fileName) === sourceFileName ? sourceFile : undefined
+
+  return ts.createProgram([sourceFile.fileName], compilerOptions, compilerHost).getTypeChecker()
+}
+
 function hasCommonJsPublicExport(sourceFile) {
+  const typeChecker = createSourceFileTypeChecker(sourceFile)
+  const moduleAliasSymbols = new Set()
+  const exportsAliasSymbols = new Set()
+  const aliasCandidates = []
+  const moduleDestructuringCandidates = []
+  const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
+
+  const getCommonJsBindingKind = (expression) => {
+    const current = unwrapExpression(expression)
+
+    if (ts.isIdentifier(current)) {
+      const symbol = getSymbol(current)
+      if (current.text === "module" && !symbol?.declarations?.length) return "module"
+      if (current.text === "exports" && !symbol?.declarations?.length) return "exports"
+      if (symbol && moduleAliasSymbols.has(symbol)) return "module"
+      if (symbol && exportsAliasSymbols.has(symbol)) return "exports"
+      return null
+    }
+
+    const access = getPropertyAccess(current)
+    if (!access) return null
+
+    const ownerKind = getCommonJsBindingKind(access.owner)
+    if (ownerKind === "module" && access.propertyName === "exports") return "exports"
+    if (ownerKind === "exports") return "exports"
+    return null
+  }
+
+  const collectAliasCandidates = (node) => {
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && node.initializer) {
+      if (ts.isIdentifier(node.name)) {
+        const symbol = getSymbol(node.name)
+        if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+      } else if (ts.isObjectBindingPattern(node.name)) {
+        moduleDestructuringCandidates.push({ expression: node.initializer, pattern: node.name })
+      }
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(unwrapExpression(node.left))
+    ) {
+      const symbol = getSymbol(unwrapExpression(node.left))
+      if (symbol) aliasCandidates.push({ expression: node.right, symbol })
+    }
+
+    ts.forEachChild(node, collectAliasCandidates)
+  }
+
+  collectAliasCandidates(sourceFile)
+
+  const addAlias = (symbol, kind) => {
+    const aliases = kind === "module" ? moduleAliasSymbols : exportsAliasSymbols
+    if (aliases.has(symbol)) return false
+    aliases.add(symbol)
+    return true
+  }
+
+  const bindModuleExportsPattern = (pattern, sourceKind) => {
+    if (sourceKind !== "module") return false
+
+    let changed = false
+    for (const element of pattern.elements) {
+      if (element.dotDotDotToken || !ts.isIdentifier(element.name)) continue
+
+      const propertyName = element.propertyName
+        ? ts.isIdentifier(element.propertyName) || ts.isStringLiteral(element.propertyName)
+          ? element.propertyName.text
+          : null
+        : element.name.text
+      if (propertyName !== "exports") continue
+
+      const symbol = getSymbol(element.name)
+      if (symbol && addAlias(symbol, "exports")) changed = true
+    }
+
+    return changed
+  }
+
+  let discoveredAlias = true
+  while (discoveredAlias) {
+    discoveredAlias = false
+
+    for (const candidate of aliasCandidates) {
+      if (moduleAliasSymbols.has(candidate.symbol) || exportsAliasSymbols.has(candidate.symbol)) continue
+
+      const kind = getCommonJsBindingKind(candidate.expression)
+      if (kind && addAlias(candidate.symbol, kind)) discoveredAlias = true
+    }
+
+    for (const candidate of moduleDestructuringCandidates) {
+      const sourceKind = getCommonJsBindingKind(candidate.expression)
+      if (bindModuleExportsPattern(candidate.pattern, sourceKind)) discoveredAlias = true
+    }
+  }
+
+  const isCommonJsExportMutationTarget = (expression) => {
+    const access = getPropertyAccess(expression)
+    if (!access) return false
+
+    const ownerKind = getCommonJsBindingKind(access.owner)
+    return ownerKind === "exports" || (ownerKind === "module" && access.propertyName === "exports")
+  }
+
   let found = false
 
   const visit = (node) => {
     if (found) return
 
-    if (ts.isBinaryExpression(node) && ts.isAssignmentOperator(node.operatorToken.kind)) {
-      const targetPath = propertyAccessPath(node.left)
-      if (
-        targetPath &&
-        ((targetPath[0] === "module" && targetPath[1] === "exports") ||
-          (targetPath[0] === "exports" && targetPath.length > 1))
-      ) {
-        found = true
-        return
-      }
+    if (
+      ts.isBinaryExpression(node) &&
+      ts.isAssignmentOperator(node.operatorToken.kind) &&
+      isCommonJsExportMutationTarget(node.left)
+    ) {
+      found = true
+      return
+    }
+
+    if (
+      (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+      (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken) &&
+      isCommonJsExportMutationTarget(node.operand)
+    ) {
+      found = true
+      return
+    }
+
+    if (ts.isDeleteExpression(node) && isCommonJsExportMutationTarget(node.expression)) {
+      found = true
+      return
     }
 
     ts.forEachChild(node, visit)
@@ -197,8 +330,12 @@ function isPrototypeDataMapperSource(file) {
   return /\.prototype-data\.mapper\.[cm]?[jt]s$/u.test(file)
 }
 
+function isPrototypeDataMapperTarget(target) {
+  return /\.prototype-data\.mapper(?:\.[cm]?[jt]s)?$/u.test(target)
+}
+
 function isPrototypeDataMapperImport(reference) {
-  return /\.prototype-data\.mapper(?:\.[cm]?[jt]s)?$/u.test(importTarget(reference))
+  return isPrototypeDataMapperTarget(importTarget(reference))
 }
 
 function isPrototypeModeSwitch(reference) {
@@ -227,32 +364,58 @@ function isAllowedPrivateCompositionImport(file, reference) {
   )
 }
 
-function collectLocalIdentifierAliases(sourceFile) {
-  const aliases = new Map()
+function bindingIdentifierNames(bindingName) {
+  if (ts.isIdentifier(bindingName)) return [bindingName.text]
+
+  const names = []
+  for (const element of bindingName.elements) {
+    if (ts.isOmittedExpression(element)) continue
+    names.push(...bindingIdentifierNames(element.name))
+  }
+
+  return names
+}
+
+function collectLocalBindingInitializers(sourceFile) {
+  const initializers = new Map()
 
   for (const statement of sourceFile.statements) {
     if (!ts.isVariableStatement(statement)) continue
 
     for (const declaration of statement.declarationList.declarations) {
-      if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue
-
-      const initializer = unwrapExpression(declaration.initializer)
-      if (ts.isIdentifier(initializer)) aliases.set(declaration.name.text, initializer.text)
+      if (!declaration.initializer) continue
+      for (const name of bindingIdentifierNames(declaration.name)) {
+        initializers.set(name, declaration.initializer)
+      }
     }
   }
 
-  return aliases
+  return initializers
 }
 
-function resolveImportedBinding(localName, importBindings, localAliases, visited = new Set()) {
+function resolveImportedBindingFromExpression(expression, importBindings, localInitializers, visited) {
+  const current = unwrapExpression(expression)
+  if (ts.isIdentifier(current)) {
+    return resolveImportedBinding(current.text, importBindings, localInitializers, visited)
+  }
+
+  const access = getPropertyAccess(current)
+  return access
+    ? resolveImportedBindingFromExpression(access.owner, importBindings, localInitializers, visited)
+    : null
+}
+
+function resolveImportedBinding(localName, importBindings, localInitializers, visited = new Set()) {
   if (visited.has(localName)) return null
   visited.add(localName)
 
   const importBinding = importBindings.get(localName)
   if (importBinding) return importBinding
 
-  const aliasedName = localAliases.get(localName)
-  return aliasedName ? resolveImportedBinding(aliasedName, importBindings, localAliases, visited) : null
+  const initializer = localInitializers.get(localName)
+  return initializer
+    ? resolveImportedBindingFromExpression(initializer, importBindings, localInitializers, visited)
+    : null
 }
 
 function collectReExportTargetsByFile(rootDir, sourceEntries) {
@@ -260,15 +423,30 @@ function collectReExportTargetsByFile(rootDir, sourceEntries) {
     sourceEntries.map(({ file, references, sourceFile }) => {
       const targets = references.filter((reference) => reference.kind === "export").map(importTarget)
       const importBindings = getImportBindings(rootDir, sourceFile)
-      const localAliases = collectLocalIdentifierAliases(sourceFile)
+      const localInitializers = collectLocalBindingInitializers(sourceFile)
 
       for (const statement of sourceFile.statements) {
         if (ts.isExportAssignment(statement)) {
-          const expression = unwrapExpression(statement.expression)
-          const binding = ts.isIdentifier(expression)
-            ? resolveImportedBinding(expression.text, importBindings, localAliases)
-            : null
+          const binding = resolveImportedBindingFromExpression(
+            statement.expression,
+            importBindings,
+            localInitializers,
+            new Set(),
+          )
           if (binding?.resolvedPath) targets.push(binding.resolvedPath)
+          continue
+        }
+
+        if (
+          ts.isVariableStatement(statement) &&
+          statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+        ) {
+          for (const declaration of statement.declarationList.declarations) {
+            for (const localName of bindingIdentifierNames(declaration.name)) {
+              const binding = resolveImportedBinding(localName, importBindings, localInitializers)
+              if (binding?.resolvedPath) targets.push(binding.resolvedPath)
+            }
+          }
           continue
         }
 
@@ -283,7 +461,7 @@ function collectReExportTargetsByFile(rootDir, sourceEntries) {
 
         for (const element of statement.exportClause.elements) {
           const localName = element.propertyName?.text ?? element.name.text
-          const binding = resolveImportedBinding(localName, importBindings, localAliases)
+          const binding = resolveImportedBinding(localName, importBindings, localInitializers)
           if (binding?.resolvedPath) targets.push(binding.resolvedPath)
         }
       }
@@ -316,6 +494,13 @@ function findHigherAtomicReExportTarget(sourceLayer, target, reExportTargetsByFi
       return exportTargetLayer && rank[exportTargetLayer] > rank[sourceLayer]
     })
     .sort()[0]
+}
+
+function findCompositionOnlyPublicReExportTarget(file, reExportTargetsByFile) {
+  const targets = collectTransitiveReExportTargets(file, reExportTargetsByFile)
+  return (
+    targets.filter(isPrototypeDataTarget).sort()[0] ?? targets.filter(isPrototypeDataMapperTarget).sort()[0]
+  )
 }
 
 function collectFindings() {
@@ -434,6 +619,20 @@ function collectFindings() {
       )
     }
 
+    if (isFeaturePublicContractFile(file)) {
+      const compositionOnlyTarget = findCompositionOnlyPublicReExportTarget(file, reExportTargetsByFile)
+      if (compositionOnlyTarget) {
+        findings.push(
+          createFinding(
+            "public-prototype-data-export",
+            file,
+            compositionOnlyTarget,
+            `Feature public contracts must not expose composition-only runtime prototype data or prototype-data mappers (${compositionOnlyTarget}).`,
+          ),
+        )
+      }
+    }
+
     if (/^src\/features\/.+\/model\//u.test(file)) {
       for (const globalName of containsReferencedIdentifier(sourceFile, browserGlobals)) {
         findings.push(
@@ -514,15 +713,6 @@ function collectFindings() {
             file,
             reference.moduleSpecifier,
             "Stories and tests must use independent fixtures and command fakes, not runtime prototype sources.",
-          ),
-        )
-      } else if (isFeaturePublicContractFile(file) && reference.kind === "export" && prototypeDataImport) {
-        findings.push(
-          createFinding(
-            "public-prototype-data-export",
-            file,
-            reference.moduleSpecifier,
-            "Feature public contracts must not expose composition-only runtime prototype data.",
           ),
         )
       } else if (prototypeDataImport && isFeatureUiSource(file)) {
