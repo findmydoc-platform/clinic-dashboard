@@ -67,6 +67,12 @@ const clinicDashboardVisibilityPolicy = {
     presentation: "hidden",
     visualReference: "interactive",
   },
+  subscriptionsPlaceholder: {
+    area: "Subscriptions placeholder",
+    issue: websiteIssue(1523),
+    presentation: "hidden",
+    visualReference: "read-only",
+  },
   teamWrites: {
     area: "Public non-doctor team creation",
     issue: websiteIssue(1527),
@@ -100,6 +106,7 @@ export type ClinicDashboardCapabilities = Readonly<{
   showCertificateTasks: boolean
   showNotifications: boolean
   showSupport: boolean
+  showSubscriptionsPlaceholder: boolean
   teamManagement: VisibilityBehavior
 }>
 
@@ -122,6 +129,7 @@ export function deriveClinicDashboardCapabilities(
     showCertificateTasks: isInteractive(visibility.certificateTasks),
     showNotifications: isInteractive(visibility.notifications),
     showSupport: isInteractive(visibility.support),
+    showSubscriptionsPlaceholder: visibility.subscriptionsPlaceholder !== "hidden",
     teamManagement: visibility.teamWrites,
   }
 }
@@ -139,6 +147,7 @@ export function getClinicDashboardCapabilities(
     profileWrites: getVisibilityBehavior(prototypeMode, "profileWrites"),
     reviewManagement: getVisibilityBehavior(prototypeMode, "reviewManagement"),
     support: getVisibilityBehavior(prototypeMode, "support"),
+    subscriptionsPlaceholder: getVisibilityBehavior(prototypeMode, "subscriptionsPlaceholder"),
     teamWrites: getVisibilityBehavior(prototypeMode, "teamWrites"),
   })
 }

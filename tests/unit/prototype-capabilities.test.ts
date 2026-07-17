@@ -16,6 +16,7 @@ const hiddenCapabilityVisibility = {
   profileWrites: "hidden",
   reviewManagement: "hidden",
   support: "hidden",
+  subscriptionsPlaceholder: "hidden",
   teamWrites: "hidden",
 } as const satisfies ClinicDashboardCapabilityVisibility
 
@@ -29,6 +30,7 @@ const hiddenCapabilities = {
   showCertificateTasks: false,
   showNotifications: false,
   showSupport: false,
+  showSubscriptionsPlaceholder: false,
   teamManagement: "hidden",
 } as const satisfies ClinicDashboardCapabilities
 
@@ -44,6 +46,7 @@ describe("clinic dashboard prototype capabilities", () => {
       showCertificateTasks: false,
       showNotifications: false,
       showSupport: false,
+      showSubscriptionsPlaceholder: false,
       teamManagement: "read-only",
     })
   })
@@ -59,6 +62,7 @@ describe("clinic dashboard prototype capabilities", () => {
       showCertificateTasks: true,
       showNotifications: true,
       showSupport: true,
+      showSubscriptionsPlaceholder: true,
       teamManagement: "interactive",
     })
   })
@@ -68,6 +72,7 @@ describe("clinic dashboard prototype capabilities", () => {
     ["locationSwitching", "canSwitchLocations"],
     ["notifications", "showNotifications"],
     ["support", "showSupport"],
+    ["subscriptionsPlaceholder", "showSubscriptionsPlaceholder"],
   ] as const)("derives %s independently as %s", (visibilityField, capabilityField) => {
     const capabilities = deriveClinicDashboardCapabilities({
       ...hiddenCapabilityVisibility,
@@ -104,6 +109,18 @@ describe("clinic dashboard prototype capabilities", () => {
     })
 
     expect(capabilities[capabilityField]).toBe(false)
+  })
+
+  it("keeps the read-only Subscriptions placeholder visible", () => {
+    const capabilities = deriveClinicDashboardCapabilities({
+      ...hiddenCapabilityVisibility,
+      subscriptionsPlaceholder: "read-only",
+    })
+
+    expect(capabilities).toEqual({
+      ...hiddenCapabilities,
+      showSubscriptionsPlaceholder: true,
+    })
   })
 
   it("preserves profile and team access as mutually exclusive states", () => {

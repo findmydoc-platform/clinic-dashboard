@@ -1,6 +1,6 @@
 "use client"
 
-import { Building2, LayoutDashboard, MessageSquare, Star } from "lucide-react"
+import { Building2, LayoutDashboard, MessageSquare, ReceiptText, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { ClinicDashboardSection } from "../../model/workspace"
@@ -11,6 +11,7 @@ const navigationIcons = {
   messages: MessageSquare,
   profile: Building2,
   reviews: Star,
+  subscriptions: ReceiptText,
 } as const
 
 type ClinicDashboardNavigationProps = Readonly<{

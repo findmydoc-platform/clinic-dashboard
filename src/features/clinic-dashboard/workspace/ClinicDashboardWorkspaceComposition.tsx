@@ -38,6 +38,7 @@ import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
 import { ClinicLocationSelector } from "./components/molecules/ClinicLocationSelector"
+import { FutureAreaPlaceholderScreen } from "./components/organisms/FutureAreaPlaceholderScreen"
 import { NotificationCenter } from "./components/organisms/NotificationCenter"
 import {
   defaultClinicDashboardLocationId,
@@ -46,7 +47,7 @@ import {
 } from "./model/locations"
 import type { ClinicDashboardNotification } from "./model/notifications"
 import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/workspace"
-import { clinicDashboardNavigationItems } from "./navigation"
+import { selectClinicDashboardNavigationItems, selectSafeClinicDashboardSection } from "./navigation"
 import { useClinicDashboardController } from "./useClinicDashboardController"
 
 export type ClinicDashboardWorkspaceSnapshot = Readonly<{
@@ -125,6 +126,10 @@ export function ClinicDashboardWorkspaceComposition({
   })
   const { actions, model } = controller
   const capabilities = getClinicDashboardCapabilities(model.activePrototypeMode)
+  const navigationItems = selectClinicDashboardNavigationItems({
+    showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
+  })
+  const activeSection = selectSafeClinicDashboardSection(model.activeSection, navigationItems)
   const selectedLocation = getClinicDashboardPrototypeLocation(
     snapshot.locations,
     capabilities.canSwitchLocations ? model.selectedLocationId : defaultClinicDashboardLocationId,
@@ -157,10 +162,10 @@ export function ClinicDashboardWorkspaceComposition({
           role={snapshot.account.role}
         />
       }
-      activeSection={model.activeSection}
+      activeSection={activeSection}
       clinicName={selectedLocation.name}
       headerActions={
-        model.activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
+        activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
           <DashboardPeriodControl
             onValueChange={dashboardController.actions.changeReportingPeriod}
             value={dashboardController.model.reportingPeriod}
@@ -186,7 +191,7 @@ export function ClinicDashboardWorkspaceComposition({
             }
           : undefined
       }
-      items={clinicDashboardNavigationItems}
+      items={navigationItems}
       locationSelector={
         capabilities.canSwitchLocations ? (
           <ClinicLocationSelector
@@ -210,7 +215,7 @@ export function ClinicDashboardWorkspaceComposition({
       onSectionSelect={actions.navigate}
       onSupportRequest={capabilities.showSupport ? actions.openSupport : undefined}
     >
-      {model.activeSection === "dashboard" ? (
+      {activeSection === "dashboard" ? (
         <DashboardScreen
           actions={{
             onMetricSelect: dashboardController.actions.selectMetric,
@@ -223,7 +228,7 @@ export function ClinicDashboardWorkspaceComposition({
           showCertificateTasks={capabilities.showCertificateTasks}
         />
       ) : null}
-      {model.activeSection === "messages" ? (
+      {activeSection === "messages" ? (
         <MessagesScreen
           actions={{
             ...messagesController.actions,
@@ -232,7 +237,7 @@ export function ClinicDashboardWorkspaceComposition({
           model={messagesController.model}
         />
       ) : null}
-      <div hidden={model.activeSection !== "reviews"}>
+      <div hidden={activeSection !== "reviews"}>
         <Reviews
           commands={reviewCommands}
           focusHeading={model.reviewsFocusRequested}
@@ -241,7 +246,7 @@ export function ClinicDashboardWorkspaceComposition({
           snapshot={snapshot.reviews}
         />
       </div>
-      <div hidden={model.activeSection !== "profile"}>
+      <div hidden={activeSection !== "profile"}>
         <ClinicProfile
           commands={clinicProfileCommands}
           focusTarget={model.profileFocusTarget}
@@ -256,6 +261,12 @@ export function ClinicDashboardWorkspaceComposition({
           treatmentCatalogue={snapshot.treatmentCatalogue}
         />
       </div>
+      {activeSection === "subscriptions" && capabilities.showSubscriptionsPlaceholder ? (
+        <FutureAreaPlaceholderScreen
+          description="This area is a visual placeholder only. Subscription details and actions are not available in this prototype."
+          heading="Subscriptions"
+        />
+      ) : null}
 
       <PatientInquiryProfileDialog
         canViewDetailedInquiry={capabilities.canViewDetailedPatientInquiry}

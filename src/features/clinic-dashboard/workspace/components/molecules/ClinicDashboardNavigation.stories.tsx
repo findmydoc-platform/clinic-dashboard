@@ -25,3 +25,13 @@ export const DashboardActive: Story = {
     await expect(args.onSectionSelect).toHaveBeenCalledWith("messages")
   },
 }
+
+export const SubscriptionsSelection: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page")
+    await userEvent.click(canvas.getByRole("button", { name: "Subscriptions" }))
+    await expect(args.onSectionSelect).toHaveBeenCalledWith("subscriptions")
+  },
+}
