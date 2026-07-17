@@ -60,8 +60,11 @@ export const KeyboardOpenFocus: Story = {
     await expect(trigger).toHaveFocus()
     await userEvent.keyboard("{Enter}")
 
+    const profileItem = page.getByRole("menuitem", { name: "Account profile" })
+    await waitFor(() => expect(profileItem).toHaveFocus())
+    await userEvent.keyboard("{ArrowDown}")
     const themeItem = page.getByRole("menuitemcheckbox", { name: "Dark mode" })
-    await waitFor(() => expect(themeItem).toHaveFocus())
+    await expect(themeItem).toHaveFocus()
     await userEvent.keyboard("{ArrowDown}")
     await expect(page.getByRole("menuitem", { name: "Sign out" })).toHaveFocus()
   },
@@ -77,6 +80,7 @@ export const Open: Story = {
 
     await expect(within(menu).getByText(account.name)).toBeInTheDocument()
     await expect(within(menu).getByText(account.role)).toBeInTheDocument()
+    await expect(within(menu).getByRole("menuitem", { name: "Account profile" })).toBeInTheDocument()
     await expect(within(menu).getByRole("menuitemcheckbox", { name: "Dark mode" })).not.toBeChecked()
     await expect(signOut).toHaveAttribute("type", "submit")
     await expect(signOut.closest("form")).toHaveAttribute("action", "/api/auth/logout")
@@ -85,6 +89,37 @@ export const Open: Story = {
     await waitFor(() =>
       expect(canvas.getByRole("button", { name: `Open account menu for ${account.name}` })).toHaveFocus(),
     )
+  },
+}
+
+export const ProfileDialog: Story = {
+  args: defaultArgs,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+    const trigger = canvas.getByRole("button", { name: `Open account menu for ${account.name}` })
+
+    await userEvent.click(trigger)
+    await userEvent.click(page.getByRole("menuitem", { name: "Account profile" }))
+
+    const dialog = page.getByRole("dialog", { name: "Staff profile" })
+    const closeButton = within(dialog).getByRole("button", { name: "Close" })
+
+    await waitFor(() => expect(closeButton).toHaveFocus())
+    await expect(within(dialog).getByText(account.name)).toBeInTheDocument()
+    await expect(within(dialog).getByText(account.role)).toBeInTheDocument()
+    await expect(dialog.querySelector("img")).toHaveAttribute("alt", "")
+    await expect(within(dialog).getAllByRole("button")).toHaveLength(1)
+    await expect(dialog).not.toHaveTextContent(
+      /authenticated|authentication|email|password|phone|signed-in|two-factor/i,
+    )
+
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(trigger).toHaveFocus())
+
+    await userEvent.click(trigger)
+    await userEvent.click(page.getByRole("menuitem", { name: "Account profile" }))
+    await waitFor(() => expect(dialog).toHaveAttribute("open"))
   },
 }
 
@@ -112,18 +147,22 @@ export const SignOutSubmits: Story = {
   },
 }
 
-export const OpenDark: Story = {
-  args: { ...defaultArgs, initialOpen: true },
+export const ProfileDialogDark: Story = {
+  args: defaultArgs,
   globals: { theme: "dark" },
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
     const page = within(canvasElement.ownerDocument.body)
-    const menu = page.getByRole("menu")
+    const trigger = canvas.getByRole("button", { name: `Open account menu for ${account.name}` })
 
-    await waitFor(() =>
-      expect(within(menu).getByRole("menuitemcheckbox", { name: "Dark mode" })).toBeChecked(),
-    )
-    await expect(within(menu).getByText(account.name)).toBeInTheDocument()
-    await expect(within(menu).getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument()
+    await userEvent.click(trigger)
+    await expect(page.getByRole("menuitemcheckbox", { name: "Dark mode" })).toBeChecked()
+    await userEvent.click(page.getByRole("menuitem", { name: "Account profile" }))
+
+    const dialog = page.getByRole("dialog", { name: "Staff profile" })
+    await expect(within(dialog).getByText(account.name)).toBeInTheDocument()
+    await expect(within(dialog).getByText(account.role)).toBeInTheDocument()
+    await expect(within(dialog).getAllByRole("button")).toHaveLength(1)
   },
 }
 
