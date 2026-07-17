@@ -48,15 +48,15 @@ configuration, authorization, PostHog queries, and deployment behavior.
 
 The captures below are fixture-backed. Visual presence does not imply a functional backend capability. The original visual source remains the linked Stitch project in the Website Capability Matrix.
 
-| Screen                 | Reference capture                                                                    | Capability mapping                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Dashboard overview     | [dashboard overview](./assets/clinic-dashboard-prototype/dashboard-overview.png)     | Reporting, prototype location summary, clinic preview, profile actions, and certificate-task controls. |
-| Messages               | [messages](./assets/clinic-dashboard-prototype/messages-default.png)                 | Inquiry access (#1526), conversations/messages (#1530), and unowned templates.                         |
-| Patient inquiry dialog | [inquiry projection](./assets/clinic-dashboard-prototype/patient-profile-dialog.png) | Purpose-limited inquiry projection (#1526); no inferred medical record.                                |
-| Reviews management     | [reviews](./assets/clinic-dashboard-prototype/reviews-management.png)                | Own-clinic review management (#1529) and reporting (#1531).                                            |
-| Clinic profile editor  | [profile editor](./assets/clinic-dashboard-prototype/clinic-profile-editor.png)      | Clinic fields/treatments/completeness (#1528), public team (#1527), and public-cache constraints.      |
-| New treatment dialog   | [new treatment](./assets/clinic-dashboard-prototype/new-treatment-dialog.png)        | Platform-owned treatment master data and #1528.                                                        |
-| Add team member dialog | [add team member](./assets/clinic-dashboard-prototype/add-team-member-dialog.png)    | Doctor-specific UI versus public non-doctor team records (#1527).                                      |
+| Screen                 | Reference capture                                                                    | Capability mapping                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard overview     | [dashboard overview](./assets/clinic-dashboard-prototype/dashboard-overview.png)     | Reporting with a five-stage conversion process, prototype location summary, a top-aligned lower grid, clinic preview, profile actions, and certificate-task controls. |
+| Messages               | [messages](./assets/clinic-dashboard-prototype/messages-default.png)                 | Inquiry access (#1526), conversations/messages (#1530), and unowned templates.                                                                                        |
+| Patient inquiry dialog | [inquiry projection](./assets/clinic-dashboard-prototype/patient-profile-dialog.png) | Purpose-limited inquiry projection (#1526); no inferred medical record.                                                                                               |
+| Reviews management     | [reviews](./assets/clinic-dashboard-prototype/reviews-management.png)                | Own-clinic review management (#1529) and reporting (#1531).                                                                                                           |
+| Clinic profile editor  | [profile editor](./assets/clinic-dashboard-prototype/clinic-profile-editor.png)      | Clinic fields/treatments/completeness (#1528), public team (#1527), and public-cache constraints.                                                                     |
+| New treatment dialog   | [new treatment](./assets/clinic-dashboard-prototype/new-treatment-dialog.png)        | Platform-owned treatment master data and #1528.                                                                                                                       |
+| Add team member dialog | [add team member](./assets/clinic-dashboard-prototype/add-team-member-dialog.png)    | Doctor-specific UI versus public non-doctor team records (#1527).                                                                                                     |
 
 ## Access, Data, and Storage Decision
 
@@ -108,6 +108,9 @@ Later reporting reads approved behavioural aggregates from PostHog server-side a
 ## Test and Acceptance Plan
 
 - Verify the narrow mobile viewport first, then tablet and desktop.
+- Verify that the conversion stages form one semantic list, stack below `xl`, and at 1440 px keep stage panels at or
+  below 10 rem with at least 3 rem connector gaps and 2 rem arrows. Verify the lower dashboard columns remain
+  top-aligned at approximately 1:2:1 without horizontal overflow at 320 px.
 - Verify navigation, dialogs, hidden-gate states, focus return, no horizontal overflow, and no inaccessible hidden controls.
 - Verify that the support prototype exposes no phone, WhatsApp, address, service-hours, direct-support, ticket, SLA, or response promise and creates no external side effect.
 - Verify the visual-reference location selector by keyboard, both invented identities, the presentation default, and

@@ -36,7 +36,7 @@ export function DashboardScreen({
 
       <ConversionFunnel period={model.reporting.period} steps={model.reporting.funnel} />
 
-      <div className="grid gap-6 xl:grid-cols-[0.8fr_1.7fr_0.8fr]">
+      <div className="grid gap-6 xl:grid-cols-[0.8fr_1.7fr_0.8fr] xl:items-start" data-dashboard-lower-grid>
         <ProfileProgress
           completion={model.profileCompletion}
           onTaskOpen={actions.onProfileTaskOpen}
