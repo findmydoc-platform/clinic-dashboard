@@ -28,6 +28,10 @@ async function assertPlaceholderContract(canvasElement: HTMLElement) {
     ),
   ).toBeInTheDocument()
   await expect(region).not.toHaveAttribute("aria-busy")
+  await expect(within(region).queryByRole("progressbar")).not.toBeInTheDocument()
+  await expect(region.querySelector("[aria-live]")).not.toBeInTheDocument()
+  await expect(region.querySelector('[role="status"]')).not.toBeInTheDocument()
+  await expect(region.querySelector('[role="alert"]')).not.toBeInTheDocument()
   await expect(within(region).queryByRole("button")).not.toBeInTheDocument()
   await expect(within(region).queryByRole("link")).not.toBeInTheDocument()
   await expect(region.querySelector("a[href], button, form, input, select, textarea")).not.toBeInTheDocument()

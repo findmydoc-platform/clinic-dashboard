@@ -71,7 +71,7 @@ const clinicDashboardVisibilityPolicy = {
     area: "Subscriptions placeholder",
     issue: websiteIssue(1523),
     presentation: "hidden",
-    visualReference: "interactive",
+    visualReference: "read-only",
   },
   teamWrites: {
     area: "Public non-doctor team creation",
@@ -129,7 +129,7 @@ export function deriveClinicDashboardCapabilities(
     showCertificateTasks: isInteractive(visibility.certificateTasks),
     showNotifications: isInteractive(visibility.notifications),
     showSupport: isInteractive(visibility.support),
-    showSubscriptionsPlaceholder: isInteractive(visibility.subscriptionsPlaceholder),
+    showSubscriptionsPlaceholder: visibility.subscriptionsPlaceholder !== "hidden",
     teamManagement: visibility.teamWrites,
   }
 }

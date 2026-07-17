@@ -34,9 +34,11 @@ describe("clinic dashboard visibility contract", () => {
   })
 
   it("keeps the full visual reference while gating presentation controls", () => {
-    for (const gate of gateIds) {
+    for (const gate of gateIds.filter((gate) => gate !== "subscriptionsPlaceholder")) {
       expect(getVisibilityBehavior("visual-reference", gate)).toBe("interactive")
     }
+
+    expect(getVisibilityBehavior("visual-reference", "subscriptionsPlaceholder")).toBe("read-only")
 
     expect(getVisibilityBehavior("presentation", "messaging")).toBe("hidden")
     expect(getVisibilityBehavior("presentation", "locationSwitching")).toBe("hidden")

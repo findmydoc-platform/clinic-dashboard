@@ -102,7 +102,6 @@ describe("clinic dashboard prototype capabilities", () => {
     ["locationSwitching", "canSwitchLocations"],
     ["notifications", "showNotifications"],
     ["support", "showSupport"],
-    ["subscriptionsPlaceholder", "showSubscriptionsPlaceholder"],
   ] as const)("does not treat read-only %s as active %s", (visibilityField, capabilityField) => {
     const capabilities = deriveClinicDashboardCapabilities({
       ...hiddenCapabilityVisibility,
@@ -110,6 +109,18 @@ describe("clinic dashboard prototype capabilities", () => {
     })
 
     expect(capabilities[capabilityField]).toBe(false)
+  })
+
+  it("keeps the read-only Subscriptions placeholder visible", () => {
+    const capabilities = deriveClinicDashboardCapabilities({
+      ...hiddenCapabilityVisibility,
+      subscriptionsPlaceholder: "read-only",
+    })
+
+    expect(capabilities).toEqual({
+      ...hiddenCapabilities,
+      showSubscriptionsPlaceholder: true,
+    })
   })
 
   it("preserves profile and team access as mutually exclusive states", () => {
