@@ -11,7 +11,7 @@ import {
   type ReviewAppealReason,
   type ReviewAppealSubmission,
 } from "../../model/review-dialog"
-import { ReviewMutationDialog } from "./ReviewMutationDialog"
+import { ReviewMutationDialog } from "../molecules/ReviewMutationDialog"
 
 type ReviewAppealDialogProps = Readonly<{
   onClose: () => void
