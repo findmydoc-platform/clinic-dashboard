@@ -232,13 +232,13 @@ src/
       workspace/
         ClinicDashboardWorkspace.tsx
         ClinicDashboardShell.tsx
-        ClinicDashboardNavigation.tsx
         useClinicDashboardController.ts
         browser-session.ts
         navigation.ts
         workspace.prototype-data.ts
         components/
           molecules/
+            ClinicDashboardNavigation.tsx
           organisms/
         model/
           notifications.ts
@@ -452,7 +452,7 @@ Atomic classification answers **how a visual component composes**, not where eve
 | Molecule | Focused combination of atoms that performs one coherent UI task.            | Field, MetricCard, ConversationListItem, PeriodControl                  | Merely being interactive.                    |
 | Organism | Distinct interface section with a recognizable product responsibility.      | NotificationCenter, ConversationList, ProfileViewsPanel, MessagesScreen | Import count or file length alone.           |
 | Template | Page/workspace layout and content slots without concrete business data.     | ClinicDashboardShell                                                    | A folder for all large components.           |
-| Page     | Concrete template instance used to validate realistic content and journeys. | Foundation Preview journey story and the Next.js route composition      | A reusable component layer.                  |
+| Page     | Concrete template instance used to validate realistic content and journeys. | ClinicDashboardWorkspace, Foundation Preview, Next.js route composition | A reusable component layer.                  |
 
 Operational rules:
 
@@ -460,7 +460,7 @@ Operational rules:
 - Do not create an Atomic folder for a single file merely to satisfy symmetry.
 - State, hooks, reducers, selectors, mappers, policies, adapters, providers, and prototype data remain outside Atomic folders.
 - An organism may be interactive; a molecule may also be interactive. Interaction does not define the layer.
-- Screens in this application are organisms because they are distinct sections inside one workspace shell. The shell maps to the template layer. Concrete journey stories map to pages.
+- Screens in this application are organisms because they are distinct sections inside one workspace shell. The shell maps to the template layer. Concrete workspace and journey compositions map to pages.
 - If a component cannot be classified from this table, do not invent a sixth layer. Clarify its responsibility or update the architecture decision explicitly.
 
 ## Props and Component API Contract
@@ -572,6 +572,7 @@ Titles carry the primary navigation. Tags carry cross-cutting filters.
 Shared/Atoms/Button
 Shared/Molecules/Dialog
 Clinic Dashboard/Workspace/Templates/Clinic Dashboard Shell
+Clinic Dashboard/Workspace/Pages/Clinic Dashboard Workspace
 Clinic Dashboard/Dashboard/Molecules/Metric Card
 Clinic Dashboard/Dashboard/Organisms/Dashboard Screen
 Clinic Dashboard/Messages/Molecules/Conversation List Item
