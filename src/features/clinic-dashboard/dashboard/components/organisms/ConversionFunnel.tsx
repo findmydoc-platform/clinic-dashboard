@@ -35,7 +35,10 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
           <span className="size-2 rounded-full bg-[var(--accent)]" /> Process optimization active
         </span>
       </div>
-      <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-5 xl:p-5">
+      <ol
+        aria-label="Conversion stages"
+        className="flex list-none flex-col gap-2 p-4 xl:grid xl:grid-cols-[minmax(0,10rem)_minmax(3rem,1fr)_minmax(0,10rem)_minmax(3rem,1fr)_minmax(0,10rem)_minmax(3rem,1fr)_minmax(0,10rem)_minmax(3rem,1fr)_minmax(0,10rem)] xl:gap-0 xl:p-5"
+      >
         {steps.map((step, index) => {
           const iconConfig = funnelIcons[step.label as keyof typeof funnelIcons] ?? {
             component: CircleDot,
@@ -45,50 +48,64 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
           const isFinalStep = index === steps.length - 1
 
           return (
-            <div
+            <li
               className={cn(
-                "relative rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-center",
-                isFinalStep && "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]",
+                "min-w-0",
+                isFinalStep ? "xl:col-span-1" : "xl:col-span-2 xl:grid xl:grid-cols-subgrid",
               )}
               key={step.label}
             >
-              <FunnelIcon
-                aria-hidden="true"
+              <div
                 className={cn(
-                  "mx-auto size-6 text-[var(--primary)]",
-                  isFinalStep && "text-[var(--accent-foreground)]",
+                  "w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-center xl:max-w-40",
+                  isFinalStep && "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]",
                 )}
-                data-funnel-icon={iconConfig.name}
-              />
-              {step.conversion ? (
+                data-funnel-stage
+              >
+                <FunnelIcon
+                  aria-hidden="true"
+                  className={cn(
+                    "mx-auto size-6 text-[var(--primary)]",
+                    isFinalStep && "text-[var(--accent-foreground)]",
+                  )}
+                  data-funnel-icon={iconConfig.name}
+                />
+                {step.conversion ? (
+                  <span
+                    className={cn(
+                      "mt-3 block text-xs font-bold text-[var(--primary)]",
+                      isFinalStep && "text-[var(--accent-foreground)]",
+                    )}
+                  >
+                    {step.conversion}
+                  </span>
+                ) : null}
+                <strong className="mt-2 block text-2xl tracking-tight">{step.value}</strong>
                 <span
                   className={cn(
-                    "mt-3 block text-xs font-bold text-[var(--primary)]",
+                    "text-[10px] tracking-wide text-[var(--foreground)] uppercase",
                     isFinalStep && "text-[var(--accent-foreground)]",
                   )}
                 >
-                  {step.conversion}
+                  {step.label}
                 </span>
-              ) : null}
-              <strong className="mt-2 block text-2xl tracking-tight">{step.value}</strong>
-              <span
-                className={cn(
-                  "text-[10px] tracking-wide text-[var(--foreground)] uppercase",
-                  isFinalStep && "text-[var(--accent-foreground)]",
-                )}
-              >
-                {step.label}
-              </span>
-              {index < steps.length - 1 ? (
-                <ArrowRight
+              </div>
+              {!isFinalStep ? (
+                <div
                   aria-hidden="true"
-                  className="absolute top-1/2 -right-3 z-10 hidden size-4 rounded-full bg-[var(--background)] p-0.5 text-[var(--foreground)] xl:block"
-                />
+                  className="hidden items-center justify-center xl:flex"
+                  data-funnel-connector
+                >
+                  <ArrowRight
+                    className="size-8 shrink-0 rounded-full bg-[var(--background)] p-1 text-[var(--foreground)]"
+                    data-funnel-arrow
+                  />
+                </div>
               ) : null}
-            </div>
+            </li>
           )
         })}
-      </div>
+      </ol>
     </Card>
   )
 }
