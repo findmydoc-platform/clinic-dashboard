@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 type ThemeToggleProps = Readonly<{
+  showLabel?: boolean
   variant?: "icon" | "switch"
 }>
 
 const subscribeToHydration = () => () => undefined
 
-export function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
+export function ThemeToggle({ showLabel = false, variant = "icon" }: ThemeToggleProps) {
   const { forcedTheme, resolvedTheme, setTheme } = useTheme()
   const mounted = useSyncExternalStore(
     subscribeToHydration,
@@ -58,8 +59,15 @@ export function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
   }
 
   return (
-    <Button aria-label={label} onClick={() => setTheme(nextTheme)} size="icon" title={label} variant="ghost">
+    <Button
+      aria-label={label}
+      onClick={() => setTheme(nextTheme)}
+      size={showLabel ? "default" : "icon"}
+      title={label}
+      variant="ghost"
+    >
       {isDark ? <Sun aria-hidden="true" size={18} /> : <Moon aria-hidden="true" size={18} />}
+      {showLabel ? <span>{isDark ? "Light theme" : "Dark theme"}</span> : null}
     </Button>
   )
 }

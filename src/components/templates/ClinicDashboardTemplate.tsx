@@ -56,13 +56,10 @@ function Navigation({
         return (
           <Button
             aria-current={active ? "page" : undefined}
-            className={cn(
-              "min-h-11 w-full justify-start gap-3",
-              active && "bg-[var(--primary)] text-[var(--on-primary)] hover:bg-[var(--primary-hover)]",
-            )}
+            className="min-h-11 w-full justify-start gap-3"
             key={item.id}
             onClick={() => onNavigate(item.id)}
-            variant="ghost"
+            variant={active ? "primary" : "ghost"}
           >
             <Icon aria-hidden="true" className="size-5 shrink-0" />
             <span>{item.label}</span>

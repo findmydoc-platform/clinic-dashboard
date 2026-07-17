@@ -1,9 +1,11 @@
 "use client"
 
 import { useId, useRef, useState } from "react"
+import { RatingStars } from "@/components/atoms/DashboardPrimitives"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import type { ClinicReview } from "@/lib/clinic-dashboard/reviews"
+import { cn } from "@/lib/utils"
 
 export type ReviewActionMode = "appeal" | "history" | "note" | "response"
 
@@ -57,6 +59,8 @@ export function ReviewActionDialog({
   if (!review) return null
 
   const copy = actionCopy[mode]
+  const detailIsValid = mode === "history" || detail.trim().length >= 10
+  const canSubmit = detailIsValid && (mode !== "appeal" || Boolean(reason))
   const submit = async () => {
     const trimmedDetail = detail.trim()
     if (mode === "appeal" && !reason) {
@@ -96,7 +100,7 @@ export function ReviewActionDialog({
               <Button disabled={saving} onClick={() => onOpenChange(false)} variant="outline">
                 Cancel
               </Button>
-              <Button disabled={saving} onClick={submit}>
+              <Button disabled={saving || !canSubmit} onClick={submit}>
                 {saving ? "Saving…" : copy.submit}
               </Button>
             </>
@@ -147,6 +151,13 @@ export function ReviewActionDialog({
         </dl>
       ) : (
         <div className="grid gap-5">
+          <article className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <strong>{review.author}</strong>
+              <RatingStars value={review.rating} />
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">{review.body}</p>
+          </article>
           {mode === "appeal" ? (
             <label className="grid gap-2 text-sm font-bold" htmlFor={reasonId}>
               Reason
@@ -154,7 +165,10 @@ export function ReviewActionDialog({
                 aria-describedby={reasonError ? `${reasonId}-error` : undefined}
                 aria-invalid={Boolean(reasonError)}
                 aria-label="Reason"
-                className="h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 font-normal"
+                className={cn(
+                  "h-11 rounded-lg border bg-[var(--background)] px-3 font-normal",
+                  reasonError ? "border-[var(--destructive)]" : "border-[var(--border)]",
+                )}
                 id={reasonId}
                 onChange={(event) => {
                   setReason(event.target.value)
@@ -178,12 +192,15 @@ export function ReviewActionDialog({
           <label className="grid gap-2 text-sm font-bold" htmlFor={detailId}>
             {mode === "response" ? "Public response" : mode === "note" ? "Internal note" : "Appeal details"}
             <textarea
-              aria-describedby={detailError ? `${detailId}-error` : undefined}
+              aria-describedby={detailError ? `${detailId}-error` : `${detailId}-help`}
               aria-invalid={Boolean(detailError)}
               aria-label={
                 mode === "response" ? "Public response" : mode === "note" ? "Internal note" : "Appeal details"
               }
-              className="min-h-36 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-normal"
+              className={cn(
+                "min-h-36 rounded-lg border bg-[var(--background)] p-3 font-normal",
+                detailError ? "border-[var(--destructive)]" : "border-[var(--border)]",
+              )}
               id={detailId}
               onChange={(event) => {
                 setDetail(event.target.value)
@@ -203,7 +220,11 @@ export function ReviewActionDialog({
               <span className="text-xs text-[var(--destructive)]" id={`${detailId}-error`}>
                 {detailError}
               </span>
-            ) : null}
+            ) : (
+              <span className="text-xs font-normal text-[var(--foreground)]" id={`${detailId}-help`}>
+                Minimum 10 characters · {detail.trim().length} entered
+              </span>
+            )}
           </label>
           {submitError ? (
             <p className="text-sm font-bold text-[var(--destructive)]" role="alert">

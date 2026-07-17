@@ -47,7 +47,17 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Empty: Story = {}
+export const Empty: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const attachment = canvas.getByRole("button", {
+      name: "Attach file, unavailable in this prototype",
+    })
+
+    await expect(attachment).toBeDisabled()
+    await expect(canvas.getByText("Attachments are not available in this prototype.")).toBeVisible()
+  },
+}
 
 export const EmojiAndTemplate: Story = {
   play: async ({ canvasElement }) => {

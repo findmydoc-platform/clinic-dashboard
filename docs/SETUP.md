@@ -41,7 +41,7 @@ Repository secrets:
 Repository variables:
 
 - `VERCEL_DEPLOYMENTS_ENABLED=true`
-- `VERCEL_PRODUCTION_DEPLOYMENTS_ENABLED=false`
+- `VERCEL_PRODUCTION_DEPLOYMENTS_ENABLED=true`
 - `DEPENDENCY_REVIEW_ENABLED=false`
 
 The preview workflow accepts only non-draft, same-repository, non-Dependabot pull requests. It does not use GitHub Environments.
@@ -55,7 +55,7 @@ The preview workflow accepts only non-draft, same-repository, non-Dependabot pul
 - Automatic Git deployments: disabled
 - Vercel Deployment Protection: disabled; the application-level temporary password guard is enabled
 - Preview deployments: enabled through GitHub Actions
-- Production deployments: disabled
+- Production deployments: enabled through the manually dispatched GitHub Actions workflow on `main`
 
 The application guard requires `DASHBOARD_PASSWORD` in Vercel preview and production environments. Only local development and automated tests may fall back to the initial temporary `findmydoc` password. A deployed environment without `DASHBOARD_PASSWORD` fails closed. Vercel Deployment Protection is a separate additional layer and can be enabled later without changing the application code.
 
@@ -65,7 +65,7 @@ The dedicated team-scoped Vercel token is handed to GitHub through the clipboard
 
 The intended production domain is `clinics.findmydoc.eu`.
 
-Production aliasing and DNS remain intentionally pending. When production is approved, create the externally managed DNS record required by Vercel and verify the domain before enabling the production deployment variable. Do not change DNS as part of the foundation preview.
+Production aliasing and DNS remain intentionally pending. Create the externally managed DNS record required by Vercel and verify the domain before treating `clinics.findmydoc.eu` as live. Production deployments may use the Vercel production URL until that separate DNS step is complete.
 
 ## Acceptance
 
@@ -74,4 +74,4 @@ Before handoff:
 1. Run formatting, static checks, unit tests, Storybook tests and build, Playwright smoke tests, and the Next.js build.
 2. Confirm every advisory pull-request check appears.
 3. Confirm the Vercel preview URL is public and data-less.
-4. Confirm production remains disabled and no production alias is live.
+4. Confirm the production workflow deploys only from `main`; verify the Vercel production URL and record whether the custom domain is live.

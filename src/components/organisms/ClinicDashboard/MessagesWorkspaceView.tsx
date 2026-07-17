@@ -57,6 +57,7 @@ export function MessagesWorkspaceView({
   searchQuery,
 }: MessagesWorkspaceViewProps) {
   const conversationRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const messageLogRef = useRef<HTMLDivElement>(null)
   const mobileThreadHeadingRef = useRef<HTMLHeadingElement>(null)
   const filteredConversations = filterConversations(data.conversations, searchQuery)
   const selectedConversation =
@@ -72,6 +73,17 @@ export function MessagesWorkspaceView({
     const frame = requestAnimationFrame(() => mobileThreadHeadingRef.current?.focus())
     return () => cancelAnimationFrame(frame)
   }, [interactive, mobileThreadOpen, selectedConversation.id])
+
+  useEffect(() => {
+    if (!hasFullConversation) return
+
+    const frame = requestAnimationFrame(() => {
+      const messageLog = messageLogRef.current
+      if (messageLog) messageLog.scrollTop = messageLog.scrollHeight
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [hasFullConversation, localMessages.length, selectedConversation.id])
 
   const returnToConversationList = () => {
     onMobileBack()
@@ -116,7 +128,7 @@ export function MessagesWorkspaceView({
               <input
                 className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] pr-3 pl-10 text-sm text-[var(--secondary)] placeholder:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                 onChange={(event) => onSearchQueryChange(event.currentTarget.value)}
-                placeholder="Search patients or treatments…"
+                placeholder="Search conversations…"
                 type="search"
                 value={searchQuery}
               />
@@ -255,6 +267,7 @@ export function MessagesWorkspaceView({
               aria-relevant="additions"
               className="min-h-0 flex-1 space-y-6 overflow-y-auto bg-[var(--canvas)] p-4 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:p-6"
               role="log"
+              ref={messageLogRef}
               tabIndex={0}
             >
               <div className="flex items-center gap-3" role="separator">
