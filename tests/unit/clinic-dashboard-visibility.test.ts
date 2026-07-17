@@ -2,25 +2,27 @@ import { describe, expect, it } from "vitest"
 import {
   getGateIssue,
   getVisibilityBehavior,
-  isClinicDashboardVariant,
   type ClinicDashboardGateId,
-} from "@/lib/clinic-dashboard/visibility"
+} from "@/features/clinic-dashboard/prototype/prototype-capabilities"
+import { isClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/prototype-mode"
 
 const gateIds = [
+  "certificateTasks",
   "dashboardReporting",
   "inquiryProfile",
-  "laterScope",
   "messaging",
+  "notifications",
   "profileWrites",
   "reviewManagement",
+  "support",
   "teamWrites",
 ] as const satisfies ReadonlyArray<ClinicDashboardGateId>
 
 describe("clinic dashboard visibility contract", () => {
-  it("exposes only the visual-reference and presentation variants", () => {
-    expect(isClinicDashboardVariant("visual-reference")).toBe(true)
-    expect(isClinicDashboardVariant("presentation")).toBe(true)
-    expect(isClinicDashboardVariant("mvp")).toBe(false)
+  it("exposes only the visual-reference and presentation prototype modes", () => {
+    expect(isClinicDashboardPrototypeMode("visual-reference")).toBe(true)
+    expect(isClinicDashboardPrototypeMode("presentation")).toBe(true)
+    expect(isClinicDashboardPrototypeMode("mvp")).toBe(false)
   })
 
   it("links every temporary gate to an existing website issue", () => {
@@ -35,7 +37,10 @@ describe("clinic dashboard visibility contract", () => {
     }
 
     expect(getVisibilityBehavior("presentation", "messaging")).toBe("hidden")
+    expect(getVisibilityBehavior("presentation", "certificateTasks")).toBe("hidden")
+    expect(getVisibilityBehavior("presentation", "notifications")).toBe("hidden")
     expect(getVisibilityBehavior("presentation", "profileWrites")).toBe("read-only")
+    expect(getVisibilityBehavior("presentation", "support")).toBe("hidden")
     expect(getVisibilityBehavior("presentation", "teamWrites")).toBe("read-only")
   })
 })
