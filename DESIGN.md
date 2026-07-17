@@ -277,6 +277,15 @@ components:
     rounded: "{rounded.lg}"
     height: 40px
     padding: "{spacing.lg}"
+  clinic-dashboard-current-navigation:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-foreground}"
+  clinic-dashboard-selected-control:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-foreground}"
+  clinic-dashboard-positive-outcome:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-foreground}"
   button-filter:
     backgroundColor: "{colors.secondary}"
     textColor: "{colors.secondary-foreground}"
@@ -416,10 +425,11 @@ findmydoc has two canonical visual modes. They share the same token system, type
 
 The palette is built from a clear medical blue, a deep navy anchor, a mint accent, white surfaces, and quiet gray page areas.
 
-- **Primary (#006DE5):** The main action and link color. Use it for the single strongest action in a local context, active states, focus rings, and critical navigation emphasis.
+- **Primary (#006DE5):** The main action, link, focus-ring, and chart-series color. Use it for the single strongest action in a local context and critical navigation emphasis; Clinic Dashboard selected/current states use accent instead.
 - **Primary hover (#004EA5):** The canonical darker primary interaction state. Runtime CSS may derive this with `color-mix`, but generated tokens should use the hex value.
 - **Secondary (#07004C):** The deep brand anchor. Use it for high-confidence headings, dense filters, and trustworthy summary states.
-- **Accent (#42E2B7):** A mint signal for positive affordances and accent surfaces. Do not use it as ordinary text on white; default links use primary.
+- **Accent (#42E2B7):** A mint signal for positive affordances, selected operational states, and accent surfaces. Pair filled accent states with accent foreground/navy. Do not use it as ordinary text on white; default links use primary.
+- **Clinic Dashboard accent balance:** Use accent for the current navigation destination, selected segmented controls, positive funnel outcomes, selected list rows, and small guidance surfaces. Keep primary blue for calls to action, links, outgoing messages, focus rings, and chart series. An active chart point may use accent while the underlying series remains blue. Do not turn multiple large dashboard surfaces mint in the same viewport.
 - **Muted (#F8F9FA):** The public site canvas, chrome, and structural section background. This keeps clinical content open without pure-white page glare.
 - **Card and popover (#FFFFFF):** Use white for repeated cards, dialogs, floating panels, popovers, and form surfaces on muted backgrounds.
 - **Foreground (#333333):** Default body text. Keep long-form content on foreground or secondary, not muted foreground.
@@ -574,21 +584,24 @@ Components should consume the YAML tokens through Tailwind theme variables and s
 
 State styling is part of the design contract, not a local implementation detail.
 
-| Component        | State             | Visual contract                                                                                                            | Semantic contract                                                                                               |
-| ---------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Buttons          | Hover             | Primary shifts to `primary-hover`; secondary/outline keep white background and may tint border/text to `primary-hover`.    | Pointer-only enhancement; no information may depend on hover alone.                                             |
-| Buttons          | Focus visible     | Show a 2px primary ring with at least 2px offset or an equivalent visible outline.                                         | Use `:focus-visible`; preserve keyboard tab order.                                                              |
-| Buttons          | Disabled          | Reduce opacity, keep label visible, remove hover effects, and keep layout dimensions stable.                               | Use `disabled` for native buttons or `aria-disabled="true"` with blocked activation for non-native controls.    |
-| Buttons          | Loading           | Preserve width, keep the action label or an accessible loading label, and show a spinner/icon only as supporting feedback. | Expose busy state with `aria-busy` or equivalent status text when the wait is user-visible.                     |
-| Buttons          | Pressed/selected  | Use active/current styling with primary or secondary emphasis, not a new color.                                            | Use `aria-pressed`, `aria-selected`, or `aria-current` according to the interaction pattern.                    |
-| Inputs           | Focus             | Border/ring uses primary; helper text remains visible.                                                                     | Move focus programmatically only after explicit user action or validation flow.                                 |
-| Inputs           | Error             | Use destructive text or icon plus clear error copy; never rely on red alone.                                               | Connect errors with `aria-describedby`; announce submit-time errors through an assertive or polite live region. |
-| Inputs           | Success           | Use success surface only for confirmed validation or saved states.                                                         | Announce saved/validated state when it changes after user action.                                               |
-| Inputs           | Read-only         | Keep foreground contrast and show the value as copyable content when useful.                                               | Use `readonly` rather than `disabled` when the value should remain discoverable.                                |
-| Links/navigation | Active/current    | Use primary or secondary emphasis plus underline, icon, or weight change when needed.                                      | Use `aria-current="page"` or a route-equivalent state for current navigation items.                             |
-| Chips/badges     | Selected          | Keep text legible and pair color with label/icon state.                                                                    | Use `aria-selected` only inside selectable collections.                                                         |
-| Trust badges     | Empty/unavailable | Show explicit "Not verified", "No reviews yet", "Price unavailable", or equivalent copy.                                   | Do not hide missing trust data or imply verification through color alone.                                       |
-| Cards/lists      | Empty             | Use concise empty copy plus the next available action or recovery path.                                                    | Empty states must be reachable by keyboard and screen readers like normal content.                              |
+| Component        | State             | Visual contract                                                                                                                    | Semantic contract                                                                                               |
+| ---------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Buttons          | Hover             | Primary shifts to `primary-hover`; secondary/outline keep white background and may tint border/text to `primary-hover`.            | Pointer-only enhancement; no information may depend on hover alone.                                             |
+| Buttons          | Focus visible     | Show a 2px primary ring with at least 2px offset or an equivalent visible outline.                                                 | Use `:focus-visible`; preserve keyboard tab order.                                                              |
+| Buttons          | Disabled          | Reduce opacity, keep label visible, remove hover effects, and keep layout dimensions stable.                                       | Use `disabled` for native buttons or `aria-disabled="true"` with blocked activation for non-native controls.    |
+| Buttons          | Loading           | Preserve width, keep the action label or an accessible loading label, and show a spinner/icon only as supporting feedback.         | Expose busy state with `aria-busy` or equivalent status text when the wait is user-visible.                     |
+| Buttons          | Pressed/selected  | Clinic Dashboard segmented controls use accent with accent foreground; other button groups use primary or secondary emphasis.      | Use `aria-pressed`, `aria-selected`, or `aria-current` according to the interaction pattern.                    |
+| Inputs           | Focus             | Border/ring uses primary; helper text remains visible.                                                                             | Move focus programmatically only after explicit user action or validation flow.                                 |
+| Inputs           | Error             | Use destructive text or icon plus clear error copy; never rely on red alone.                                                       | Connect errors with `aria-describedby`; announce submit-time errors through an assertive or polite live region. |
+| Inputs           | Success           | Use success surface only for confirmed validation or saved states.                                                                 | Announce saved/validated state when it changes after user action.                                               |
+| Inputs           | Read-only         | Keep foreground contrast and show the value as copyable content when useful.                                                       | Use `readonly` rather than `disabled` when the value should remain discoverable.                                |
+| Links/navigation | Active/current    | Clinic Dashboard current navigation uses accent with accent foreground plus a visible current marker; public links remain primary. | Use `aria-current="page"` or a route-equivalent state for current navigation items.                             |
+| Chips/badges     | Selected          | Keep text legible and pair color with label/icon state.                                                                            | Use `aria-selected` only inside selectable collections.                                                         |
+| Trust badges     | Empty/unavailable | Show explicit "Not verified", "No reviews yet", "Price unavailable", or equivalent copy.                                           | Do not hide missing trust data or imply verification through color alone.                                       |
+| Cards/lists      | Selected/current  | Use a soft accent-derived surface plus an accent edge; keep body text foreground or secondary.                                     | Pair the visual state with `aria-current`, `aria-selected`, or the owning interaction pattern.                  |
+| Cards/lists      | Empty             | Use concise empty copy plus the next available action or recovery path.                                                            | Empty states must be reachable by keyboard and screen readers like normal content.                              |
+| Charts           | Active point      | Keep the data series primary blue and use accent only for the focused or hovered mark.                                             | The point remains keyboard focusable and exposes its value without relying on color.                            |
+| Funnels          | Positive outcome  | Use accent with accent foreground for the final positive stage; preceding stages stay neutral.                                     | Keep the stage label and value visible so color is never the only outcome cue.                                  |
 
 ## Trust Surface Contract
 

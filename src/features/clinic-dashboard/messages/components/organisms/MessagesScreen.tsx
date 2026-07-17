@@ -66,7 +66,7 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
               Messages
             </h1>
             {model.totalUnreadCount > 0 ? (
-              <span className="rounded-full bg-[var(--primary)] px-3 py-1 text-xs font-bold text-[var(--on-primary)]">
+              <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-xs font-bold text-[var(--accent-foreground)]">
                 {model.totalUnreadCount} new
               </span>
             ) : (

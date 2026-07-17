@@ -78,6 +78,8 @@
   --on-primary: #ffffff;
   --secondary: #07004c;
   --accent: #42e2b7;
+  --accent-foreground: #07004c;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--background));
   --border: #e2e8f0;
   --muted-foreground: #999999;
   --destructive: #b91c1c;
@@ -96,6 +98,8 @@
   --on-primary: #07004c;
   --secondary: #c9c4ff;
   --accent: #42e2b7;
+  --accent-foreground: #07004c;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--background));
   --border: #30303d;
   --muted-foreground: #b0b0c2;
   --destructive: #ffb4a9;
