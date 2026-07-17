@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import path from "node:path"
+import ts from "typescript"
 import {
   collectExecutableJavaScriptFiles,
   collectSourceFiles,
@@ -16,7 +17,8 @@ import {
 const rootDir = process.cwd()
 const browserGlobals = new Set(["crypto", "document", "localStorage", "sessionStorage", "window"])
 const atomicLayers = new Set(["atoms", "molecules", "organisms"])
-const catchAllDirectoryPattern = /^(?:catch-?all|common|helpers?|misc|primitives|utilities|utils?)$/iu
+const catchAllDirectoryPattern =
+  /^(?:catch-?all|common|helpers?|misc|primitives|repositor(?:y|ies)|services?|shared|utilities|utils?)$/iu
 
 function importTarget(reference) {
   return reference.resolvedPath ?? reference.moduleSpecifier
@@ -111,6 +113,19 @@ function isFeaturePublicContractFile(file) {
   return /^src\/features\/.+\/public\.[cm]?[jt]sx?$/u.test(file)
 }
 
+function hasPublicDefaultExport(sourceFile) {
+  return sourceFile.statements.some((statement) => {
+    if (ts.isExportAssignment(statement)) return true
+    if (statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)) {
+      return true
+    }
+    if (!ts.isExportDeclaration(statement) || !statement.exportClause) return false
+    if (!ts.isNamedExports(statement.exportClause)) return false
+
+    return statement.exportClause.elements.some((element) => element.name.text === "default")
+  })
+}
+
 function isWorkspaceCompositionSource(file) {
   return /^src\/features\/clinic-dashboard\/workspace\/ClinicDashboardWorkspace\.[cm]?[jt]sx?$/u.test(file)
 }
@@ -149,8 +164,44 @@ function isAllowedPrivateCompositionImport(file, reference) {
   )
 }
 
+function collectTransitiveReExportTargets(target, referencesByFile, visited = new Set()) {
+  if (visited.has(target)) return []
+  visited.add(target)
+
+  const exportTargets = (referencesByFile.get(target) ?? [])
+    .filter((reference) => reference.kind === "export")
+    .map(importTarget)
+
+  return [
+    ...exportTargets,
+    ...exportTargets.flatMap((exportTarget) =>
+      collectTransitiveReExportTargets(exportTarget, referencesByFile, visited),
+    ),
+  ]
+}
+
+function findHigherAtomicReExportTarget(sourceLayer, target, referencesByFile) {
+  const rank = { atoms: 0, molecules: 1, organisms: 2 }
+
+  return collectTransitiveReExportTargets(target, referencesByFile)
+    .filter((exportTarget) => {
+      const exportTargetLayer = atomicLayer(exportTarget)
+      return exportTargetLayer && rank[exportTargetLayer] > rank[sourceLayer]
+    })
+    .sort()[0]
+}
+
 function collectFindings() {
   const findings = []
+  const sourceEntries = collectSourceFiles(rootDir, ["src", "tests"]).map((filePath) => {
+    const sourceFile = parseSourceFile(filePath)
+    return {
+      file: toRelative(rootDir, filePath),
+      references: getModuleReferences(rootDir, sourceFile),
+      sourceFile,
+    }
+  })
+  const referencesByFile = new Map(sourceEntries.map(({ file, references }) => [file, references]))
 
   for (const filePath of collectExecutableJavaScriptFiles(rootDir)) {
     const file = toRelative(rootDir, filePath)
@@ -164,11 +215,7 @@ function collectFindings() {
     )
   }
 
-  for (const filePath of collectSourceFiles(rootDir, ["src", "tests"])) {
-    const file = toRelative(rootDir, filePath)
-    const sourceFile = parseSourceFile(filePath)
-    const references = getModuleReferences(rootDir, sourceFile)
-
+  for (const { file, references, sourceFile } of sourceEntries) {
     if (/^src\/components\/(?:atoms|molecules|organisms|templates)\//u.test(file)) {
       findings.push(
         createFinding(
@@ -234,6 +281,17 @@ function collectFindings() {
           file,
           "export-star",
           "Feature public contracts must use explicit named exports.",
+        ),
+      )
+    }
+
+    if (isFeaturePublicContractFile(file) && hasPublicDefaultExport(sourceFile)) {
+      findings.push(
+        createFinding(
+          "default-public-export",
+          file,
+          "default-export",
+          "Feature public contracts must expose explicit named exports, not a default export.",
         ),
       )
     }
@@ -506,6 +564,20 @@ function collectFindings() {
             `${sourceLayer} must not import the higher ${targetLayer} layer.`,
           ),
         )
+      } else if (sourceLayer) {
+        const higherReExportTarget = findHigherAtomicReExportTarget(sourceLayer, target, referencesByFile)
+        const higherReExportLayer = higherReExportTarget ? atomicLayer(higherReExportTarget) : null
+
+        if (higherReExportTarget && higherReExportLayer) {
+          findings.push(
+            createFinding(
+              "atomic-upward-import",
+              file,
+              `${reference.moduleSpecifier}->${higherReExportTarget}`,
+              `${sourceLayer} must not import a barrel that re-exports the higher ${higherReExportLayer} layer (${higherReExportTarget}).`,
+            ),
+          )
+        }
       }
 
       if (
