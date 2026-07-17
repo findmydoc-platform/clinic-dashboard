@@ -155,6 +155,72 @@ import { ConversationSummary } from "./components/molecules/ConversationSummary"
 export { ConversationSummary }
 `
 
+const aliasChainPublicContractSource = `
+import { ConversationSummary as ImportedConversationSummary } from "./components/molecules/ConversationSummary"
+
+const ConversationSummaryAlias = ImportedConversationSummary
+const PublicConversationSummary = ConversationSummaryAlias
+
+export { PublicConversationSummary }
+`
+
+const exportedAliasPublicContractSource = `
+import { ConversationSummary as ImportedConversationSummary } from "./components/molecules/ConversationSummary"
+
+export const PublicConversationSummary = ImportedConversationSummary
+`
+
+const namespacePropertyPublicContractSource = `
+import * as MessageComponents from "./components/molecules/ConversationSummary"
+
+const MessageComponentsAlias = MessageComponents
+
+export const PublicConversationSummary = MessageComponentsAlias.ConversationSummary
+`
+
+const namespaceDestructuringPublicContractSource = `
+import * as MessageComponents from "./components/molecules/ConversationSummary"
+
+const MessageComponentsAlias = MessageComponents
+const { ["ConversationSummary"]: PublicConversationSummary } = MessageComponentsAlias
+
+export { PublicConversationSummary }
+`
+
+const exportedNamespaceDestructuringPublicContractSource = `
+import * as MessageComponents from "./components/molecules/ConversationSummary"
+
+export const { ConversationSummary: PublicConversationSummary } = MessageComponents
+`
+
+const conversationLabelSource = `
+export function createConversationLabel(value: string) {
+  return value.trim()
+}
+`
+
+const importedNonComponentAliasPublicContractSource = `
+import { createConversationLabel as ImportedConversationLabel } from "./conversation-label"
+
+const PublicConversationLabel = ImportedConversationLabel
+
+export { PublicConversationLabel }
+`
+
+const localNonComponentAliasPublicContractSource = `
+const localSettings = { compact: true }
+const PublicConversationSettings = localSettings
+
+export { PublicConversationSettings }
+`
+
+const cyclicLocalAliasPublicContractSource = `
+const FirstAlias = SecondAlias
+const SecondAlias = FirstAlias
+
+export { FirstAlias as PublicConversationCycle }
+`
+
 function moleculeStorySource(layer: "molecule" | "organism", componentImport = "./ConversationSummary") {
   const titleLayer = layer === "molecule" ? "Molecules" : "Organisms"
 
@@ -167,6 +233,23 @@ const meta = {
   tags: ["domain:messages", "layer:${layer}", "status:prototype"],
   title: "Clinic Dashboard/Messages/${titleLayer}/Conversation Summary",
 } satisfies Meta<typeof ConversationSummary>
+
+export default meta
+
+export const Default = {}
+`
+}
+
+function publicAliasMoleculeStorySource(publicExportName: string) {
+  return `
+import type { Meta } from "@storybook/react"
+import { ${publicExportName} } from "../../public"
+
+const meta = {
+  component: ${publicExportName},
+  tags: ["domain:messages", "layer:molecule", "status:prototype"],
+  title: "Clinic Dashboard/Messages/Molecules/Public Conversation Summary",
+} satisfies Meta<typeof ${publicExportName}>
 
 export default meta
 
@@ -676,6 +759,68 @@ describe("storybook governance public component coverage", () => {
       "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
         moleculeComponentSource,
       "src/features/clinic-dashboard/messages/public.ts": importThenExportPublicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+
+  it.each([
+    ["local import alias chain", aliasChainPublicContractSource],
+    ["exported const alias", exportedAliasPublicContractSource],
+    ["namespace property alias", namespacePropertyPublicContractSource],
+    ["namespace destructuring alias", namespaceDestructuringPublicContractSource],
+    ["exported namespace destructuring alias", exportedNamespaceDestructuringPublicContractSource],
+  ])("requires a direct story through a %s", (_kind, publicContract) => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+      "src/features/clinic-dashboard/messages/public.ts": publicContract,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx :: PublicConversationSummary requires a direct component story.",
+    )
+    expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it.each([
+    ["local import alias chain", aliasChainPublicContractSource],
+    ["exported const alias", exportedAliasPublicContractSource],
+    ["namespace property alias", namespacePropertyPublicContractSource],
+    ["namespace destructuring alias", namespaceDestructuringPublicContractSource],
+    ["exported namespace destructuring alias", exportedNamespaceDestructuringPublicContractSource],
+  ])("resolves a %s to its direct component story", (_kind, publicContract) => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.stories.tsx":
+        publicAliasMoleculeStorySource("PublicConversationSummary"),
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+      "src/features/clinic-dashboard/messages/public.ts": publicContract,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+
+  it.each([
+    ["local value alias", localNonComponentAliasPublicContractSource],
+    ["imported non-component alias", importedNonComponentAliasPublicContractSource],
+    ["cyclic local aliases", cyclicLocalAliasPublicContractSource],
+  ])("does not infer component coverage from a %s", (_kind, publicContract) => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/conversation-label.ts": conversationLabelSource,
+      "src/features/clinic-dashboard/messages/public.ts": publicContract,
     })
 
     const result = runChecker(fixtureRoot)

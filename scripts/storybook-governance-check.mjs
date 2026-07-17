@@ -153,6 +153,124 @@ function isFeaturePublicContract(file) {
   return /^src\/features\/.+\/public\.ts$/u.test(file) && !/\/testing\/public\.ts$/u.test(file)
 }
 
+function unwrapStaticExpression(expression) {
+  let current = expression
+
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isTypeAssertionExpression(current)
+  ) {
+    current = current.expression
+  }
+
+  return current
+}
+
+function staticPropertyName(name) {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+    return name.text
+  }
+
+  if (ts.isComputedPropertyName(name)) {
+    const expression = unwrapStaticExpression(name.expression)
+    if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) {
+      return expression.text
+    }
+  }
+
+  return null
+}
+
+function collectBindingIdentifierNames(name) {
+  if (ts.isIdentifier(name)) return [name.text]
+
+  return name.elements.flatMap((element) =>
+    ts.isOmittedExpression(element) ? [] : collectBindingIdentifierNames(element.name),
+  )
+}
+
+function resolveLocalBindingExpression(expression, localBindings) {
+  const current = unwrapStaticExpression(expression)
+
+  if (ts.isIdentifier(current)) return localBindings.get(current.text) ?? null
+
+  let owner = null
+  let importedName = null
+  if (ts.isPropertyAccessExpression(current)) {
+    owner = current.expression
+    importedName = current.name.text
+  } else if (ts.isElementAccessExpression(current) && current.argumentExpression) {
+    owner = current.expression
+    const argument = unwrapStaticExpression(current.argumentExpression)
+    importedName =
+      ts.isStringLiteral(argument) || ts.isNoSubstitutionTemplateLiteral(argument) ? argument.text : null
+  }
+
+  if (!owner || importedName === null) return null
+
+  const namespaceBinding = resolveLocalBindingExpression(owner, localBindings)
+  if (namespaceBinding?.importedName !== "*") return null
+
+  return { ...namespaceBinding, importedName }
+}
+
+function collectLocalAliasBindings(sourceFile, importBindings) {
+  const localBindings = new Map(importBindings)
+  const identifierAliases = []
+  const namespaceDestructuringAliases = []
+
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue
+
+    for (const declaration of statement.declarationList.declarations) {
+      if (!declaration.initializer) continue
+
+      if (ts.isIdentifier(declaration.name)) {
+        identifierAliases.push({ expression: declaration.initializer, localName: declaration.name.text })
+      } else if (ts.isObjectBindingPattern(declaration.name)) {
+        namespaceDestructuringAliases.push({
+          expression: declaration.initializer,
+          pattern: declaration.name,
+        })
+      }
+    }
+  }
+
+  let discoveredAlias = true
+  while (discoveredAlias) {
+    discoveredAlias = false
+
+    for (const alias of identifierAliases) {
+      if (localBindings.has(alias.localName)) continue
+
+      const binding = resolveLocalBindingExpression(alias.expression, localBindings)
+      if (!binding) continue
+
+      localBindings.set(alias.localName, binding)
+      discoveredAlias = true
+    }
+
+    for (const alias of namespaceDestructuringAliases) {
+      const namespaceBinding = resolveLocalBindingExpression(alias.expression, localBindings)
+      if (namespaceBinding?.importedName !== "*") continue
+
+      for (const element of alias.pattern.elements) {
+        if (element.dotDotDotToken || !ts.isIdentifier(element.name)) continue
+
+        const importedName = staticPropertyName(element.propertyName ?? element.name)
+        if (importedName === null || localBindings.has(element.name.text)) continue
+
+        localBindings.set(element.name.text, { ...namespaceBinding, importedName })
+        discoveredAlias = true
+      }
+    }
+  }
+
+  return localBindings
+}
+
 function collectNamedReExports(rootDir, sourcePaths) {
   const reExports = new Map()
 
@@ -160,6 +278,7 @@ function collectNamedReExports(rootDir, sourcePaths) {
     const file = toRelative(rootDir, sourcePath)
     const sourceFile = parseSourceFile(sourcePath)
     const importBindings = getImportBindings(rootDir, sourceFile)
+    const localBindings = collectLocalAliasBindings(sourceFile, importBindings)
     const exportReferences = new Map(
       getModuleReferences(rootDir, sourceFile)
         .filter((reference) => reference.kind === "export")
@@ -168,10 +287,24 @@ function collectNamedReExports(rootDir, sourcePaths) {
 
     for (const statement of sourceFile.statements) {
       if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
-        const exportedIdentifier = ts.isIdentifier(statement.expression) ? statement.expression.text : null
-        const importedBinding = exportedIdentifier ? importBindings.get(exportedIdentifier) : null
-        if (importedBinding?.resolvedPath) {
-          reExports.set(`${file}|default`, importedBinding)
+        const binding = resolveLocalBindingExpression(statement.expression, localBindings)
+        if (binding?.resolvedPath) {
+          reExports.set(`${file}|default`, binding)
+        }
+        continue
+      }
+
+      if (
+        ts.isVariableStatement(statement) &&
+        statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+      ) {
+        for (const declaration of statement.declarationList.declarations) {
+          for (const localName of collectBindingIdentifierNames(declaration.name)) {
+            const binding = localBindings.get(localName)
+            if (binding?.resolvedPath) {
+              reExports.set(`${file}|${localName}`, binding)
+            }
+          }
         }
         continue
       }
@@ -201,9 +334,9 @@ function collectNamedReExports(rootDir, sourcePaths) {
 
         if (!statement.moduleSpecifier) {
           const localName = element.propertyName?.text ?? element.name.text
-          const importedBinding = importBindings.get(localName)
-          if (importedBinding?.resolvedPath) {
-            reExports.set(`${file}|${element.name.text}`, importedBinding)
+          const binding = localBindings.get(localName)
+          if (binding?.resolvedPath) {
+            reExports.set(`${file}|${element.name.text}`, binding)
           }
         }
       }
@@ -488,6 +621,9 @@ function collectFindings() {
         if (exportedName !== "default" && !/^[A-Z]/u.test(exportedName)) continue
 
         const resolvedBinding = resolveReExportBinding(binding, reExports)
+        if (resolvedBinding.importedName !== "default" && !/^[A-Z]/u.test(resolvedBinding.importedName)) {
+          continue
+        }
         addDirectStoryRequirement(
           directStoryRequirements,
           resolvedBinding.resolvedPath,
