@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, waitFor, within } from "storybook/test"
-import { clinicProfileFixture } from "../../testing/clinic-profile.fixtures"
+import { selectClinicTreatmentViews } from "../../model/clinic-treatments"
+import { clinicProfileFixture, clinicTreatmentCatalogueFixture } from "../../testing/clinic-profile.fixtures"
 import {
   ClinicProfileScreen,
   type ClinicProfileScreenActions,
@@ -23,10 +24,14 @@ const actions = {
   onTeamMemberOpen: fn(),
   onTeamMemberRemove: fn(),
   onTreatmentCreate: fn(),
-  onTreatmentMove: fn(),
   onTreatmentOpen: fn(),
   onTreatmentRemove: fn(),
 } satisfies ClinicProfileScreenActions
+
+const treatmentViews = selectClinicTreatmentViews(
+  clinicTreatmentCatalogueFixture,
+  clinicProfileFixture.treatments,
+)
 
 const readOnlyModel = {
   isDirty: false,
@@ -35,6 +40,7 @@ const readOnlyModel = {
   saveState: "idle",
   statusMessage: "",
   teamManagement: "hidden",
+  treatments: treatmentViews,
 } satisfies ClinicProfileScreenModel
 
 const meta = {

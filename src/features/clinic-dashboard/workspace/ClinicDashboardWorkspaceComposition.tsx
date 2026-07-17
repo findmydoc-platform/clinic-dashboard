@@ -6,6 +6,7 @@ import {
   type ClinicProfileCommands,
   type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
+  type MasterTreatment,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
   DashboardPeriodControl,
@@ -62,6 +63,7 @@ export type ClinicDashboardWorkspaceSnapshot = Readonly<{
   notifications: readonly ClinicDashboardNotification[]
   patientInquiry: PatientInquiryProfile
   reviews: ReviewsSnapshot
+  treatmentCatalogue: readonly MasterTreatment[]
 }>
 
 export type ClinicDashboardWorkspaceStartState =
@@ -248,8 +250,10 @@ export function ClinicDashboardWorkspaceComposition({
           }
           initialProfile={snapshot.clinicProfile}
           onFocusHandled={actions.clearProfileFocusRequest}
+          onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
           profileManagement={capabilities.profileManagement}
           teamManagement={capabilities.teamManagement}
+          treatmentCatalogue={snapshot.treatmentCatalogue}
         />
       </div>
 

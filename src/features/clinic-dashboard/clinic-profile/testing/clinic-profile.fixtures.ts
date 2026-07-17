@@ -5,9 +5,16 @@ import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import receptionImage from "@/assets/clinic-dashboard/reception.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
 import type { ClinicProfileCommands } from "../model/clinic-profile-commands"
-import type { ClinicProfileDraft } from "../model/clinic-profile"
+import type { ClinicProfileDraft, MasterTreatment } from "../model/clinic-profile"
 
 const fixtureTimestamp = "2023-10-16T12:00:00.000Z"
+
+export const clinicTreatmentCatalogueFixture = [
+  { id: "master-laser-teeth-whitening", name: "Laser teeth whitening" },
+  { id: "master-ceramic-veneers", name: "Ceramic veneers (per tooth)" },
+  { id: "master-skin-analysis", name: "Skin analysis and treatment" },
+  { id: "master-hair-transplant", name: "Hair transplant" },
+] satisfies readonly MasterTreatment[]
 
 export const clinicProfileFixture = {
   address: {
@@ -73,27 +80,15 @@ export const clinicProfileFixture = {
   ],
   treatments: [
     {
-      category: "Dentistry",
-      description: "A clinic-based whitening treatment with consultation and aftercare guidance.",
-      duration: "60 min",
-      id: "treatment-whitening",
-      name: "Laser teeth whitening",
+      masterTreatmentId: "master-laser-teeth-whitening",
       price: "€250",
     },
     {
-      category: "Dentistry",
-      description: "Custom ceramic veneers planned and fitted for a natural result.",
-      duration: "90 min",
-      id: "treatment-veneers",
-      name: "Ceramic veneers (per tooth)",
+      masterTreatmentId: "master-ceramic-veneers",
       price: "€850",
     },
     {
-      category: "Aesthetics",
-      description: "A structured skin assessment followed by a personalised treatment recommendation.",
-      duration: "45 min",
-      id: "treatment-skin-analysis",
-      name: "Skin analysis and treatment",
+      masterTreatmentId: "master-skin-analysis",
       price: "€120",
     },
   ],
@@ -102,12 +97,12 @@ export const clinicProfileFixture = {
 } satisfies ClinicProfileDraft
 
 export function createClinicProfileCommandsFixture(latencyMs = 0): ClinicProfileCommands {
-  const entitySequence = { team: 0, treatment: 0 }
+  let teamEntitySequence = 0
 
   return {
-    createClinicProfileEntityId: (kind) => {
-      entitySequence[kind] += 1
-      return `${kind}-fixture-${entitySequence[kind]}`
+    createClinicProfileEntityId: () => {
+      teamEntitySequence += 1
+      return `team-fixture-${teamEntitySequence}`
     },
     saveClinicProfile: async (profile) => {
       if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs))

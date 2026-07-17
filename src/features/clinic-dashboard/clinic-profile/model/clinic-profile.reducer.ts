@@ -4,7 +4,9 @@ import {
   type ClinicProfileDraft,
   type ClinicTeamMember,
   type ClinicTreatment,
+  type MasterTreatment,
 } from "./clinic-profile"
+import { getClinicTreatmentRelationshipsError, getClinicTreatmentSaveError } from "./clinic-treatments"
 
 export type ClinicProfileSaveState = "idle" | "saved" | "saving"
 
@@ -17,6 +19,7 @@ export type ClinicProfileEditorState = Readonly<{
   saved: ClinicProfileDraft
   saveState: ClinicProfileSaveState
   statusMessage: string
+  treatmentCatalogue: readonly MasterTreatment[]
   undo?: ClinicProfileUndo
 }>
 
@@ -31,18 +34,28 @@ export type ClinicProfileEditorAction =
   | Readonly<{ profile: ClinicProfileDraft; type: "saveSucceeded" }>
   | Readonly<{ type: "saveFailed" }>
   | Readonly<{ editingId?: string; member: ClinicTeamMember; type: "teamMemberSaved" }>
-  | Readonly<{ editingId?: string; treatment: ClinicTreatment; type: "treatmentSaved" }>
-  | Readonly<{ direction: -1 | 1; id: string; type: "treatmentMoved" }>
+  | Readonly<{
+      editingMasterTreatmentId?: string
+      treatment: ClinicTreatment
+      type: "treatmentSaved"
+    }>
   | Readonly<{ id: string; type: "teamMemberRemoved" }>
   | Readonly<{ id: string; type: "treatmentRemoved" }>
   | Readonly<{ type: "removalUndone" }>
 
-export function createClinicProfileEditorState(profile: ClinicProfileDraft): ClinicProfileEditorState {
+export function createClinicProfileEditorState(
+  profile: ClinicProfileDraft,
+  treatmentCatalogue: readonly MasterTreatment[],
+): ClinicProfileEditorState {
+  const relationshipError = getClinicTreatmentRelationshipsError(treatmentCatalogue, profile.treatments)
+  if (relationshipError) throw new Error(relationshipError)
+
   return {
     draft: cloneClinicProfile(profile),
     saved: cloneClinicProfile(profile),
     saveState: "idle",
     statusMessage: "",
+    treatmentCatalogue,
   }
 }
 
@@ -57,6 +70,10 @@ function withDraft(
   undo = state.undo,
 ): ClinicProfileEditorState {
   if (state.saveState === "saving") return state
+  const relationshipError = getClinicTreatmentRelationshipsError(state.treatmentCatalogue, draft.treatments)
+  if (relationshipError) {
+    return { ...state, saveState: "idle", statusMessage: relationshipError }
+  }
 
   return {
     ...state,
@@ -111,14 +128,24 @@ export function clinicProfileEditorReducer(
       if (!selectClinicProfileDirty(state)) return state
       return { ...state, saveState: "saving", statusMessage: "Saving profile…" }
 
-    case "saveSucceeded":
+    case "saveSucceeded": {
+      const relationshipError = getClinicTreatmentRelationshipsError(
+        state.treatmentCatalogue,
+        action.profile.treatments,
+      )
+      if (relationshipError) {
+        return { ...state, saveState: "idle", statusMessage: relationshipError }
+      }
+
       return {
         draft: cloneClinicProfile(action.profile),
         saved: cloneClinicProfile(action.profile),
         saveState: "saved",
         statusMessage: `Profile saved as revision ${action.profile.revision}.`,
+        treatmentCatalogue: state.treatmentCatalogue,
         undo: undefined,
       }
+    }
 
     case "saveFailed":
       return {
@@ -139,32 +166,29 @@ export function clinicProfileEditorReducer(
         action.editingId ? "Team member changes staged." : "New team member staged.",
       )
 
-    case "treatmentSaved":
+    case "treatmentSaved": {
+      const saveError = getClinicTreatmentSaveError(
+        state.treatmentCatalogue,
+        state.draft.treatments,
+        action.treatment,
+        action.editingMasterTreatmentId,
+      )
+      if (saveError) return { ...state, statusMessage: saveError }
+
       return withDraft(
         state,
         {
           ...state.draft,
-          treatments: action.editingId
+          treatments: action.editingMasterTreatmentId
             ? state.draft.treatments.map((treatment) =>
-                treatment.id === action.editingId ? action.treatment : treatment,
+                treatment.masterTreatmentId === action.editingMasterTreatmentId
+                  ? action.treatment
+                  : treatment,
               )
             : [...state.draft.treatments, action.treatment],
         },
-        action.editingId ? "Treatment changes staged." : "New treatment staged.",
+        action.editingMasterTreatmentId ? "Clinic price changes staged." : "Treatment assignment staged.",
       )
-
-    case "treatmentMoved": {
-      const currentIndex = state.draft.treatments.findIndex((treatment) => treatment.id === action.id)
-      const nextIndex = currentIndex + action.direction
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= state.draft.treatments.length) {
-        return state
-      }
-
-      const treatments = [...state.draft.treatments]
-      const [treatment] = treatments.splice(currentIndex, 1)
-      if (!treatment) return state
-      treatments.splice(nextIndex, 0, treatment)
-      return withDraft(state, { ...state.draft, treatments }, "Treatment order staged.")
     }
 
     case "teamMemberRemoved": {
@@ -180,36 +204,50 @@ export function clinicProfileEditorReducer(
     }
 
     case "treatmentRemoved": {
-      const index = state.draft.treatments.findIndex((treatment) => treatment.id === action.id)
+      const index = state.draft.treatments.findIndex((treatment) => treatment.masterTreatmentId === action.id)
       const item = state.draft.treatments[index]
       if (!item) return state
+      const treatmentName = state.treatmentCatalogue.find(
+        (treatment) => treatment.id === item.masterTreatmentId,
+      )?.name
       return withDraft(
         state,
         {
           ...state.draft,
-          treatments: state.draft.treatments.filter((treatment) => treatment.id !== action.id),
+          treatments: state.draft.treatments.filter((treatment) => treatment.masterTreatmentId !== action.id),
         },
-        `${item.name} removed from the draft.`,
+        `${treatmentName ?? "Treatment"} removed from the draft.`,
         { index, item, kind: "treatment" },
       )
     }
 
     case "removalUndone": {
-      if (!state.undo) return state
+      const undo = state.undo
+      if (!undo) return state
 
-      if (state.undo.kind === "team") {
+      if (undo.kind === "team") {
         const team = [...state.draft.team]
-        team.splice(Math.min(state.undo.index, team.length), 0, state.undo.item)
+        team.splice(Math.min(undo.index, team.length), 0, undo.item)
         return {
-          ...withDraft(state, { ...state.draft, team }, `${state.undo.item.name} restored.`),
+          ...withDraft(state, { ...state.draft, team }, `${undo.item.name} restored.`),
           undo: undefined,
         }
       }
 
       const treatments = [...state.draft.treatments]
-      treatments.splice(Math.min(state.undo.index, treatments.length), 0, state.undo.item)
+      if (treatments.some((treatment) => treatment.masterTreatmentId === undo.item.masterTreatmentId)) {
+        return {
+          ...state,
+          statusMessage: "This treatment is already assigned to the clinic.",
+          undo: undefined,
+        }
+      }
+      treatments.splice(Math.min(undo.index, treatments.length), 0, undo.item)
+      const treatmentName = state.treatmentCatalogue.find(
+        (treatment) => treatment.id === undo.item.masterTreatmentId,
+      )?.name
       return {
-        ...withDraft(state, { ...state.draft, treatments }, `${state.undo.item.name} restored.`),
+        ...withDraft(state, { ...state.draft, treatments }, `${treatmentName ?? "Treatment"} restored.`),
         undo: undefined,
       }
     }

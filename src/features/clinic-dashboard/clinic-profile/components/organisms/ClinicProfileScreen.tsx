@@ -7,7 +7,7 @@ import type {
   ClinicProfileDraft,
   ClinicProfileFocusTarget,
   ClinicTeamMember,
-  ClinicTreatment,
+  ClinicTreatmentView,
 } from "../../model/clinic-profile"
 import {
   isClinicProfileManagementInteractive,
@@ -28,6 +28,7 @@ export type ClinicProfileScreenModel = Readonly<{
   saveState: "idle" | "saved" | "saving"
   statusMessage: string
   teamManagement: ClinicProfileManagementAccess
+  treatments: readonly ClinicTreatmentView[]
   undoKind?: "team" | "treatment"
   undoMessage?: string
 }>
@@ -48,8 +49,7 @@ export type ClinicProfileScreenActions = Readonly<{
   onTeamMemberOpen: (member: ClinicTeamMember) => void
   onTeamMemberRemove: (id: string) => void
   onTreatmentCreate: () => void
-  onTreatmentMove: (id: string, direction: -1 | 1) => void
-  onTreatmentOpen: (treatment: ClinicTreatment) => void
+  onTreatmentOpen: (treatment: ClinicTreatmentView) => void
   onTreatmentRemove: (id: string) => void
 }>
 
@@ -155,7 +155,6 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
           <ClinicProfileTreatments
             isBusy={isBusy}
             onCreate={actions.onTreatmentCreate}
-            onMove={actions.onTreatmentMove}
             onRemove={actions.onTreatmentRemove}
             onTreatmentOpen={actions.onTreatmentOpen}
             onUndo={actions.onRemovalUndo}
@@ -164,7 +163,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             showTreatmentViewAction={
               isClinicProfileManagementVisible(model.profileManagement) && !canManageProfile
             }
-            treatments={model.profile.treatments}
+            treatments={model.treatments}
             undoMessage={model.undoKind === "treatment" ? model.undoMessage : undefined}
           />
         </div>

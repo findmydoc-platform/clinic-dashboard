@@ -4,7 +4,14 @@ import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
 import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import receptionImage from "@/assets/clinic-dashboard/reception.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
-import type { ClinicProfileDraft } from "./model/clinic-profile"
+import type { ClinicProfileDraft, MasterTreatment } from "./model/clinic-profile"
+
+export const clinicTreatmentCataloguePrototypeData = [
+  { id: "master-laser-teeth-whitening", name: "Laser teeth whitening" },
+  { id: "master-ceramic-veneers", name: "Ceramic veneers (per tooth)" },
+  { id: "master-skin-analysis", name: "Skin analysis and treatment" },
+  { id: "master-hair-transplant", name: "Hair transplant" },
+] satisfies readonly MasterTreatment[]
 
 export const clinicProfilePrototypeData = {
   address: {
@@ -70,27 +77,15 @@ export const clinicProfilePrototypeData = {
   ],
   treatments: [
     {
-      category: "Dentistry",
-      description: "A clinic-based whitening treatment with consultation and aftercare guidance.",
-      duration: "60 min",
-      id: "treatment-whitening",
-      name: "Laser teeth whitening",
+      masterTreatmentId: "master-laser-teeth-whitening",
       price: "€250",
     },
     {
-      category: "Dentistry",
-      description: "Custom ceramic veneers planned and fitted for a natural result.",
-      duration: "90 min",
-      id: "treatment-veneers",
-      name: "Ceramic veneers (per tooth)",
+      masterTreatmentId: "master-ceramic-veneers",
       price: "€850",
     },
     {
-      category: "Aesthetics",
-      description: "A structured skin assessment followed by a personalised treatment recommendation.",
-      duration: "45 min",
-      id: "treatment-skin-analysis",
-      name: "Skin analysis and treatment",
+      masterTreatmentId: "master-skin-analysis",
       price: "€120",
     },
   ],
