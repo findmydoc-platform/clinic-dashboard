@@ -5,6 +5,7 @@ import ts from "typescript"
 import {
   collectSourceFiles,
   createFinding,
+  getCsfStoryExportNames,
   getDefaultMetaObject,
   getExportedComponentNames,
   getImportBindings,
@@ -144,10 +145,7 @@ function expectedColocatedStory(componentPath) {
 
 function requiresDirectStory(file) {
   if (/^src\/components\/(?:ui|brand)\//u.test(file)) return true
-  if (/^src\/components\/(?:atoms|molecules|templates)\//u.test(file)) return true
-  if (/^src\/components\/organisms\/ClinicDashboard\//u.test(file)) return true
-  if (/^src\/features\/.+\/components\//u.test(file)) return true
-  return /(?:Screen|Shell)\.tsx$/u.test(file)
+  return /^src\/features\/.+\/(?:[^/]+Screen|[^/]+Shell)\.tsx$/u.test(file)
 }
 
 function isFeaturePublicContract(file) {
@@ -160,6 +158,7 @@ function collectNamedReExports(rootDir, sourcePaths) {
   for (const sourcePath of sourcePaths) {
     const file = toRelative(rootDir, sourcePath)
     const sourceFile = parseSourceFile(sourcePath)
+    const importBindings = getImportBindings(rootDir, sourceFile)
     const exportReferences = new Map(
       getModuleReferences(rootDir, sourceFile)
         .filter((reference) => reference.kind === "export")
@@ -171,23 +170,32 @@ function collectNamedReExports(rootDir, sourcePaths) {
         !ts.isExportDeclaration(statement) ||
         statement.isTypeOnly ||
         !statement.exportClause ||
-        !ts.isNamedExports(statement.exportClause) ||
-        !statement.moduleSpecifier ||
-        !ts.isStringLiteral(statement.moduleSpecifier)
+        !ts.isNamedExports(statement.exportClause)
       ) {
         continue
       }
 
-      const resolvedPath = exportReferences.get(statement.moduleSpecifier.text)
-      if (!resolvedPath) continue
-
       for (const element of statement.exportClause.elements) {
         if (element.isTypeOnly) continue
 
-        reExports.set(`${file}|${element.name.text}`, {
-          importedName: element.propertyName?.text ?? element.name.text,
-          resolvedPath,
-        })
+        if (statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier)) {
+          const resolvedPath = exportReferences.get(statement.moduleSpecifier.text)
+          if (!resolvedPath) continue
+
+          reExports.set(`${file}|${element.name.text}`, {
+            importedName: element.propertyName?.text ?? element.name.text,
+            resolvedPath,
+          })
+          continue
+        }
+
+        if (!statement.moduleSpecifier) {
+          const localName = element.propertyName?.text ?? element.name.text
+          const importedBinding = importBindings.get(localName)
+          if (importedBinding?.resolvedPath) {
+            reExports.set(`${file}|${element.name.text}`, importedBinding)
+          }
+        }
       }
     }
   }
@@ -227,6 +235,7 @@ function collectFindings() {
   for (const storyPath of storyPaths) {
     const file = toRelative(rootDir, storyPath)
     const sourceFile = parseSourceFile(storyPath)
+    const isJourney = file.startsWith("src/features/clinic-dashboard/journeys/")
 
     if (file.startsWith("src/stories/")) {
       findings.push(
@@ -250,6 +259,19 @@ function collectFindings() {
         ),
       )
       continue
+    }
+
+    const storyExportNames = getCsfStoryExportNames(sourceFile)
+    const hasStoryExports = storyExportNames.length > 0
+    if (!hasStoryExports) {
+      findings.push(
+        createFinding(
+          "story-export",
+          file,
+          "named-story",
+          "Story files require at least one statically analyzable CSF story object export.",
+        ),
+      )
     }
 
     const componentExpression = getObjectProperty(meta, "component")
@@ -291,11 +313,12 @@ function collectFindings() {
           ),
         )
       }
-      coveredComponents.add(
-        `${resolvedComponentBinding.resolvedPath}|${resolvedComponentBinding.importedName}`,
-      )
+      if (hasStoryExports && !isJourney) {
+        coveredComponents.add(
+          `${resolvedComponentBinding.resolvedPath}|${resolvedComponentBinding.importedName}`,
+        )
+      }
 
-      const isJourney = file.startsWith("src/features/clinic-dashboard/journeys/")
       const expectedStory = expectedColocatedStory(resolvedComponentBinding.resolvedPath)
       if (!isJourney && file !== expectedStory) {
         findings.push(
@@ -392,7 +415,6 @@ function collectFindings() {
       const resolvedComponentBinding = resolveReExportBinding(componentBinding, reExports)
       const expectedArea = expectedTitleArea(resolvedComponentBinding.resolvedPath)
       const expectedLayer = expectedPathLayer(resolvedComponentBinding.resolvedPath)
-      const isJourney = file.startsWith("src/features/clinic-dashboard/journeys/")
       if (!isJourney && titleTaxonomy && expectedArea && expectedArea !== titleTaxonomy.titleArea) {
         findings.push(
           createFinding(

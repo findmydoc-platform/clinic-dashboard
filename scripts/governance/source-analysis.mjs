@@ -254,23 +254,156 @@ export function getImportBindings(rootDir, sourceFile) {
 }
 
 export function getExportedComponentNames(sourceFile) {
-  const names = []
+  const localComponentNames = new Set()
+  const exportedNames = new Set()
 
   for (const statement of sourceFile.statements) {
-    if (ts.isFunctionDeclaration(statement) && hasExportModifier(statement) && statement.name) {
-      if (/^[A-Z]/u.test(statement.name.text)) names.push(statement.name.text)
+    if (ts.isFunctionDeclaration(statement) && statement.name && /^[A-Z]/u.test(statement.name.text)) {
+      localComponentNames.add(statement.name.text)
+      if (hasExportModifier(statement)) exportedNames.add(statement.name.text)
       continue
     }
 
-    if (!ts.isVariableStatement(statement) || !hasExportModifier(statement)) continue
-    for (const declaration of statement.declarationList.declarations) {
-      if (ts.isIdentifier(declaration.name) && /^[A-Z]/u.test(declaration.name.text)) {
-        names.push(declaration.name.text)
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name) || !/^[A-Z]/u.test(declaration.name.text)) continue
+        localComponentNames.add(declaration.name.text)
+        if (hasExportModifier(statement)) exportedNames.add(declaration.name.text)
       }
     }
   }
 
-  return names
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isExportDeclaration(statement) ||
+      statement.isTypeOnly ||
+      statement.moduleSpecifier ||
+      !statement.exportClause ||
+      !ts.isNamedExports(statement.exportClause)
+    ) {
+      continue
+    }
+
+    for (const element of statement.exportClause.elements) {
+      if (element.isTypeOnly) continue
+      const localName = element.propertyName?.text ?? element.name.text
+      if (localComponentNames.has(localName) && /^[A-Z]/u.test(element.name.text)) {
+        exportedNames.add(element.name.text)
+      }
+    }
+  }
+
+  return [...exportedNames].sort()
+}
+
+export function getCsfStoryExportNames(sourceFile) {
+  const storyVariableNames = new Set()
+  const exportedNames = new Set()
+
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue
+
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue
+      const initializer = unwrapExpression(declaration.initializer)
+      if (!ts.isObjectLiteralExpression(initializer)) continue
+
+      storyVariableNames.add(declaration.name.text)
+      if (hasExportModifier(statement) && /^[A-Z]/u.test(declaration.name.text)) {
+        exportedNames.add(declaration.name.text)
+      }
+    }
+  }
+
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isExportDeclaration(statement) ||
+      statement.isTypeOnly ||
+      statement.moduleSpecifier ||
+      !statement.exportClause ||
+      !ts.isNamedExports(statement.exportClause)
+    ) {
+      continue
+    }
+
+    for (const element of statement.exportClause.elements) {
+      if (element.isTypeOnly) continue
+      const localName = element.propertyName?.text ?? element.name.text
+      if (storyVariableNames.has(localName) && /^[A-Z]/u.test(element.name.text)) {
+        exportedNames.add(element.name.text)
+      }
+    }
+  }
+
+  const meta = getDefaultMetaObject(sourceFile)
+  const includeStories = getStoryExportMatcher(sourceFile, meta, "includeStories")
+  const excludeStories = getStoryExportMatcher(sourceFile, meta, "excludeStories")
+  if (includeStories === undefined || excludeStories === undefined) return []
+
+  return [...exportedNames]
+    .filter(
+      (exportedName) =>
+        (includeStories === null || includeStories(exportedName)) &&
+        (excludeStories === null || !excludeStories(exportedName)),
+    )
+    .sort()
+}
+
+function getStaticMetaPropertyValue(sourceFile, meta, propertyName) {
+  if (!meta) return null
+
+  let value = null
+
+  for (const property of meta.properties) {
+    if (ts.isSpreadAssignment(property)) return undefined
+
+    if (!property.name) continue
+    const name = propertyNameText(property.name)
+    if (name === null) return undefined
+    if (name !== propertyName) continue
+
+    if (ts.isPropertyAssignment(property)) {
+      value = unwrapExpression(property.initializer)
+      continue
+    }
+
+    if (ts.isShorthandPropertyAssignment(property)) {
+      value = findVariableInitializer(sourceFile, property.name.text) ?? undefined
+      continue
+    }
+
+    value = undefined
+  }
+
+  return value
+}
+
+function getStoryExportMatcher(sourceFile, meta, propertyName) {
+  const filter = getStaticMetaPropertyValue(sourceFile, meta, propertyName)
+  if (filter === undefined) return undefined
+  if (!filter) return null
+
+  const names = getStringArrayValue(filter)
+  if (names) {
+    const allowedNames = new Set(names)
+    return (exportedName) => allowedNames.has(exportedName)
+  }
+
+  if (ts.isRegularExpressionLiteral(filter)) {
+    const closingSlash = filter.text.lastIndexOf("/")
+    if (closingSlash <= 0) return undefined
+
+    try {
+      const pattern = filter.text.slice(1, closingSlash)
+      const flags = filter.text.slice(closingSlash + 1)
+      const expression = new RegExp(pattern, flags)
+      return (exportedName) => exportedName.match(expression) !== null
+    } catch {
+      return undefined
+    }
+  }
+
+  return undefined
 }
 
 export function containsReferencedIdentifier(sourceFile, identifierNames) {

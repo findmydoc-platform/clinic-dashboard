@@ -45,18 +45,93 @@ export const Default = {
 }
 `
 
+const metaOnlyStorySource = `
+import type { Meta } from "@storybook/react"
+import { ClinicProfile } from "./public"
+
+const meta = {
+  component: ClinicProfile,
+  tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
+  title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile",
+} satisfies Meta<typeof ClinicProfile>
+
+export default meta
+
+export const helper = {}
+`
+
+const excludedStorySource = `
+import type { Meta } from "@storybook/react"
+import { ClinicProfile } from "./public"
+
+const meta = {
+  component: ClinicProfile,
+  excludeStories: ["Default"],
+  tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
+  title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile",
+} satisfies Meta<typeof ClinicProfile>
+
+export default meta
+
+export const Default = {}
+`
+
+const shorthandExcludedStorySource = `
+import type { Meta } from "@storybook/react"
+import { ClinicProfile } from "./public"
+
+const excludeStories = ["Default"]
+const meta = {
+  component: ClinicProfile,
+  excludeStories,
+  tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
+  title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile",
+} satisfies Meta<typeof ClinicProfile>
+
+export default meta
+
+export const Default = {}
+`
+
+const spreadExcludedStorySource = `
+import type { Meta } from "@storybook/react"
+import { ClinicProfile } from "./public"
+
+const storyFilters = { excludeStories: ["Default"] }
+const meta = {
+  component: ClinicProfile,
+  tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
+  title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile",
+  ...storyFilters,
+} satisfies Meta<typeof ClinicProfile>
+
+export default meta
+
+export const Default = {}
+`
+
 const moleculeComponentSource = `
 export function ConversationSummary() {
   return <section>Conversation</section>
 }
 `
 
-function moleculeStorySource(layer: "molecule" | "organism") {
+const moleculePublicContractSource = `
+export { ConversationSummary } from "./components/molecules/ConversationSummary"
+`
+
+const importThenExportPublicContractSource = `
+import { ConversationSummary } from "./components/molecules/ConversationSummary"
+
+export { ConversationSummary }
+`
+
+function moleculeStorySource(layer: "molecule" | "organism", componentImport = "./ConversationSummary") {
   const titleLayer = layer === "molecule" ? "Molecules" : "Organisms"
 
   return `
 import type { Meta } from "@storybook/react"
-import { ConversationSummary } from "./ConversationSummary"
+import { ConversationSummary } from "${componentImport}"
 
 const meta = {
   component: ConversationSummary,
@@ -70,10 +145,48 @@ export const Default = {}
 `
 }
 
+const journeyStorySource = `
+import type { Meta } from "@storybook/react"
+import { ConversationSummary } from "../messages/public"
+
+const meta = {
+  component: ConversationSummary,
+  tags: ["domain:workspace", "layer:page", "status:prototype"],
+  title: "Clinic Dashboard/Journeys/Pages/Conversation Summary",
+} satisfies Meta<typeof ConversationSummary>
+
+export default meta
+
+export const Default = {}
+`
+
 const sharedButtonSource = `
 export function Button() {
   return <button type="button">Save</button>
 }
+`
+
+const locallyExportedSharedButtonSource = `
+function Button() {
+  return <button type="button">Save</button>
+}
+
+export { Button }
+`
+
+const sharedButtonStorySource = `
+import type { Meta } from "@storybook/react"
+import { Button } from "./button"
+
+const meta = {
+  component: Button,
+  tags: ["domain:shared", "layer:atom", "status:stable"],
+  title: "Shared/Atoms/Button",
+} satisfies Meta<typeof Button>
+
+export default meta
+
+export const Default = {}
 `
 
 const mislabeledSharedButtonStorySource = `
@@ -203,6 +316,195 @@ describe("storybook governance public component coverage", () => {
       "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: ClinicProfile requires a direct component story.",
     )
     expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it("rejects valid meta with only a lowercase object helper export", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": metaOnlyStorySource,
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-export src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Story files require at least one statically analyzable CSF story object export.",
+    )
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: ClinicProfile requires a direct component story.",
+    )
+    expect(output.match(/ERROR (?:missing-direct-story|story-export)/gu)).toHaveLength(2)
+  })
+
+  it("rejects an object export excluded from Storybook discovery", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": excludedStorySource,
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-export src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Story files require at least one statically analyzable CSF story object export.",
+    )
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: ClinicProfile requires a direct component story.",
+    )
+    expect(output.match(/ERROR (?:missing-direct-story|story-export)/gu)).toHaveLength(2)
+  })
+
+  it.each([
+    ["shorthand", shorthandExcludedStorySource],
+    ["spread", spreadExcludedStorySource],
+  ])("rejects a %s meta filter that removes the only story export", (_kind, storySource) => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": storySource,
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-export src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Story files require at least one statically analyzable CSF story object export.",
+    )
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: ClinicProfile requires a direct component story.",
+    )
+    expect(output.match(/ERROR (?:missing-direct-story|story-export)/gu)).toHaveLength(2)
+  })
+
+  it("does not treat a journey story as direct component coverage", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/journeys/ConversationSummary.stories.tsx": journeyStorySource,
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+      "src/features/clinic-dashboard/messages/public.ts": moleculePublicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx :: ConversationSummary requires a direct component story.",
+    )
+    expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it("accepts a journey story alongside its required direct component story", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/journeys/ConversationSummary.stories.tsx": journeyStorySource,
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.stories.tsx":
+        moleculeStorySource("molecule"),
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+      "src/features/clinic-dashboard/messages/public.ts": moleculePublicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+
+  it("allows a feature-private exported molecule to rely on its owner story", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+
+  it("requires a direct story once the same molecule is exported from public.ts", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+      "src/features/clinic-dashboard/messages/public.ts": moleculePublicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx :: ConversationSummary requires a direct component story.",
+    )
+    expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it("recognizes a local export list for shared public component coverage", () => {
+    const fixtureRoot = createFixture({
+      "src/components/ui/button.tsx": locallyExportedSharedButtonSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR missing-direct-story src/components/ui/button.tsx :: Button requires a direct component story.",
+    )
+    expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it("resolves a local export list to its colocated direct story", () => {
+    const fixtureRoot = createFixture({
+      "src/components/ui/button.stories.tsx": sharedButtonStorySource,
+      "src/components/ui/button.tsx": locallyExportedSharedButtonSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+
+  it("requires a direct story through an import-then-export public contract", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+      "src/features/clinic-dashboard/messages/public.ts": importThenExportPublicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx :: ConversationSummary requires a direct component story.",
+    )
+    expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it("resolves an import-then-export public contract to its direct story", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.stories.tsx":
+        moleculeStorySource("molecule", "../../public"),
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+      "src/features/clinic-dashboard/messages/public.ts": importThenExportPublicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
   })
 
   it("rejects stories for components placed in an unknown Atomic layer", () => {
