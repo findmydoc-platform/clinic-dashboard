@@ -1,6 +1,6 @@
 "use client"
 
-import { useId } from "react"
+import { useEffect, useId, useRef } from "react"
 import { Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
@@ -24,6 +24,11 @@ export function SupportRequestDialog({ onOpenChange, open }: SupportRequestDialo
   } = useSupportRequestController()
   const { errors, request, result } = model
   const screenshotId = useId()
+  const doneButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (result) doneButtonRef.current?.focus()
+  }, [result])
 
   return (
     <Modal
@@ -31,7 +36,9 @@ export function SupportRequestDialog({ onOpenChange, open }: SupportRequestDialo
       footer={
         result ? (
           <div className="flex justify-end">
-            <Button onClick={() => onOpenChange(false)}>Done</Button>
+            <Button onClick={() => onOpenChange(false)} ref={doneButtonRef}>
+              Done
+            </Button>
           </div>
         ) : (
           <div className="flex flex-wrap justify-end gap-2">

@@ -17,6 +17,8 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+const prohibitedSupportClaims = /phone|whatsapp|address|service hours|direct support|ticket|sla|business day/i
+
 async function submitValidRequest(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
 
@@ -27,6 +29,23 @@ async function submitValidRequest(canvasElement: HTMLElement) {
     "The clinic profile does not update after I save the changes.",
   )
   await userEvent.click(canvas.getByRole("button", { name: "Submit prototype request" }))
+}
+
+async function expectDialogWithinViewport(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  const dialog = canvas.getByRole("dialog", { name: "Contact support" })
+  const content = within(dialog).getByLabelText("Contact support content")
+  const viewport = canvasElement.ownerDocument.defaultView
+  const viewportHeight = viewport?.innerHeight ?? 700
+  const viewportWidth = viewport?.innerWidth ?? 320
+  const bounds = dialog.getBoundingClientRect()
+
+  await expect(bounds.top).toBeGreaterThanOrEqual(15)
+  await expect(bounds.right).toBeLessThanOrEqual(viewportWidth - 15)
+  await expect(bounds.bottom).toBeLessThanOrEqual(viewportHeight - 15)
+  await expect(bounds.left).toBeGreaterThanOrEqual(15)
+  await expect(dialog.scrollWidth).toBeLessThanOrEqual(dialog.clientWidth)
+  await expect(content.scrollWidth).toBeLessThanOrEqual(content.clientWidth)
 }
 
 function FocusReturnHarness() {
@@ -58,16 +77,50 @@ export const HonestLocalResult: Story = {
     await expect(canvas.getByText("Email")).toBeInTheDocument()
     await expect(canvas.queryByRole("combobox", { name: /reply/i })).not.toBeInTheDocument()
     await expect(canvas.queryByRole("link")).not.toBeInTheDocument()
-    await expect(
-      canvas.queryByText(/phone|whatsapp|direct support|business day|ticket/i),
-    ).not.toBeInTheDocument()
+    await expect(canvas.queryByText(prohibitedSupportClaims)).not.toBeInTheDocument()
 
     await submitValidRequest(canvasElement)
 
     const result = await canvas.findByRole("status")
     await expect(result).toHaveTextContent(/^Prototype only — no request was sent\.$/)
+    await waitFor(() => expect(canvas.getByRole("button", { name: "Done" })).toHaveFocus())
     await expect(canvas.queryByRole("heading", { name: "Support request" })).not.toBeInTheDocument()
-    await expect(canvas.queryByText(/ticket|response|reply/i)).not.toBeInTheDocument()
+    await expect(canvas.queryByText(prohibitedSupportClaims)).not.toBeInTheDocument()
+    await expect(canvas.queryByText(/response|reply/i)).not.toBeInTheDocument()
+  },
+}
+
+export const Mobile320ShortForm: Story = {
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole("heading", { name: "Support request" })).toBeInTheDocument()
+    await expectDialogWithinViewport(canvasElement)
+  },
+}
+
+export const Mobile320ShortValidationError: Story = {
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await userEvent.click(canvas.getByRole("button", { name: "Submit prototype request" }))
+    await expect(canvas.getByText("Choose a support category.")).toBeInTheDocument()
+    await expect(canvas.getByRole("combobox", { name: "Category" })).toHaveFocus()
+    await expectDialogWithinViewport(canvasElement)
+  },
+}
+
+export const Mobile320ShortResult: Story = {
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await submitValidRequest(canvasElement)
+    await expect(canvas.getByRole("status")).toHaveTextContent("Prototype only — no request was sent.")
+    await waitFor(() => expect(canvas.getByRole("button", { name: "Done" })).toHaveFocus())
+    await expectDialogWithinViewport(canvasElement)
   },
 }
 
