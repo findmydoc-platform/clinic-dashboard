@@ -1,73 +1,47 @@
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
-import { markAllNotificationsAsRead, type ClinicDashboardNotification } from "./model/notifications"
 
 const prototypeModeKey = "clinic-dashboard-interface-mode"
-const prototypeModeChangeEvent = "clinic-dashboard-interface-mode-change"
 const notificationReadStateKey = "clinic-dashboard-notification-read-state"
-const notificationReadStateChangeEvent = "clinic-dashboard-notification-read-state-change"
 
-function subscribeToSessionValue(eventName: string, onStoreChange: () => void) {
-  window.addEventListener(eventName, onStoreChange)
-  window.addEventListener("storage", onStoreChange)
-
-  return () => {
-    window.removeEventListener(eventName, onStoreChange)
-    window.removeEventListener("storage", onStoreChange)
+export function getStoredPrototypeMode(): ClinicDashboardPrototypeMode | undefined {
+  try {
+    const value = window.sessionStorage.getItem(prototypeModeKey)
+    return value === "presentation" || value === "visual-reference" ? value : undefined
+  } catch {
+    return undefined
   }
-}
-
-export function getStoredPrototypeMode(): ClinicDashboardPrototypeMode {
-  return window.sessionStorage.getItem(prototypeModeKey) === "visual-reference"
-    ? "visual-reference"
-    : "presentation"
-}
-
-export function getServerPrototypeMode(): ClinicDashboardPrototypeMode {
-  return "presentation"
-}
-
-export function subscribeToPrototypeMode(onStoreChange: () => void) {
-  return subscribeToSessionValue(prototypeModeChangeEvent, onStoreChange)
 }
 
 export function storePrototypeMode(prototypeMode: ClinicDashboardPrototypeMode) {
-  window.sessionStorage.setItem(prototypeModeKey, prototypeMode)
-  window.dispatchEvent(new Event(prototypeModeChangeEvent))
-}
-
-export function getStoredNotificationReadState() {
   try {
-    return window.sessionStorage.getItem(notificationReadStateKey) ?? "[]"
+    window.sessionStorage.setItem(prototypeModeKey, prototypeMode)
   } catch {
-    return "[]"
+    // Session persistence is an optional enhancement for the current prototype.
   }
 }
 
-export function getServerNotificationReadState() {
-  return "[]"
+export function getStoredNotificationReadState(): string | undefined {
+  try {
+    return window.sessionStorage.getItem(notificationReadStateKey) ?? undefined
+  } catch {
+    return undefined
+  }
 }
 
-export function subscribeToNotificationReadState(onStoreChange: () => void) {
-  return subscribeToSessionValue(notificationReadStateChangeEvent, onStoreChange)
-}
+export function parseNotificationReadIds(value: string | undefined): readonly string[] | undefined {
+  if (value === undefined) return undefined
 
-export function parseNotificationReadIds(value: string) {
   try {
     const parsed: unknown = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : undefined
   } catch {
-    return []
+    return undefined
   }
 }
 
-export function storeAllNotificationsRead(
-  notifications: readonly ClinicDashboardNotification[],
-  currentReadIds: readonly string[],
-) {
+export function storeNotificationReadIds(readIds: readonly string[]) {
   try {
-    const nextReadIds = markAllNotificationsAsRead(notifications, currentReadIds)
-    window.sessionStorage.setItem(notificationReadStateKey, JSON.stringify(nextReadIds))
-    window.dispatchEvent(new Event(notificationReadStateChangeEvent))
+    window.sessionStorage.setItem(notificationReadStateKey, JSON.stringify(readIds))
   } catch {
     // Session persistence is an optional enhancement for the current prototype.
   }

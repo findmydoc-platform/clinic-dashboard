@@ -1,22 +1,22 @@
 "use client"
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import type { ClinicProfileFocusTarget } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardProfileTask } from "@/features/clinic-dashboard/dashboard/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import { markAllNotificationsAsRead, type ClinicDashboardNotification } from "./model/notifications"
 import type { ClinicDashboardSection } from "./model/workspace"
 import {
-  getServerPrototypeMode,
-  getServerNotificationReadState,
-  getStoredPrototypeMode,
   getStoredNotificationReadState,
+  getStoredPrototypeMode,
   parseNotificationReadIds,
-  storeAllNotificationsRead,
+  storeNotificationReadIds,
   storePrototypeMode,
-  subscribeToPrototypeMode,
-  subscribeToNotificationReadState,
 } from "./browser-session"
+
+const getNoStoredNotificationReadState = () => undefined
+const getNoStoredPrototypeMode = () => undefined
+const subscribeToStaticSnapshot = () => () => undefined
 
 type UseClinicDashboardControllerOptions = Readonly<{
   initialNotificationReadIds: readonly string[]
@@ -41,9 +41,8 @@ export function useClinicDashboardController({
 }: UseClinicDashboardControllerOptions) {
   const [activeSection, setActiveSection] = useState(initialSection)
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen)
-  const [localNotificationReadIds, setLocalNotificationReadIds] =
-    useState<readonly string[]>(initialNotificationReadIds)
-  const [localPrototypeMode, setLocalPrototypeMode] = useState(prototypeMode)
+  const [notificationReadIdsOverride, setNotificationReadIdsOverride] = useState<readonly string[]>()
+  const [prototypeModeOverride, setPrototypeModeOverride] = useState<ClinicDashboardPrototypeMode>()
   const [patientInquiryOpen, setPatientInquiryOpen] = useState(initialPatientInquiryOpen)
   const [selectedProfileTask, setSelectedProfileTask] = useState(initialProfileTask)
   const [profileTaskOpen, setProfileTaskOpen] = useState(false)
@@ -52,19 +51,22 @@ export function useClinicDashboardController({
   const [supportOpen, setSupportOpen] = useState(false)
 
   const storedPrototypeMode = useSyncExternalStore(
-    subscribeToPrototypeMode,
-    getStoredPrototypeMode,
-    getServerPrototypeMode,
+    subscribeToStaticSnapshot,
+    persistWorkspaceStateInSession ? getStoredPrototypeMode : getNoStoredPrototypeMode,
+    getNoStoredPrototypeMode,
   )
   const storedNotificationReadState = useSyncExternalStore(
-    subscribeToNotificationReadState,
-    getStoredNotificationReadState,
-    getServerNotificationReadState,
+    subscribeToStaticSnapshot,
+    persistWorkspaceStateInSession ? getStoredNotificationReadState : getNoStoredNotificationReadState,
+    getNoStoredNotificationReadState,
   )
-  const activePrototypeMode = persistWorkspaceStateInSession ? storedPrototypeMode : localPrototypeMode
-  const notificationReadIds = persistWorkspaceStateInSession
-    ? parseNotificationReadIds(storedNotificationReadState)
-    : localNotificationReadIds
+  const storedNotificationReadIds = useMemo(
+    () => parseNotificationReadIds(storedNotificationReadState),
+    [storedNotificationReadState],
+  )
+  const activePrototypeMode = prototypeModeOverride ?? storedPrototypeMode ?? prototypeMode
+  const notificationReadIds =
+    notificationReadIdsOverride ?? storedNotificationReadIds ?? initialNotificationReadIds
 
   useEffect(() => {
     window.scrollTo({ left: 0, top: 0 })
@@ -113,23 +115,17 @@ export function useClinicDashboardController({
         setSupportOpen(false)
       }
 
-      if (persistWorkspaceStateInSession) {
-        storePrototypeMode(nextPrototypeMode)
-        return
-      }
-
-      setLocalPrototypeMode(nextPrototypeMode)
+      setPrototypeModeOverride(nextPrototypeMode)
+      if (persistWorkspaceStateInSession) storePrototypeMode(nextPrototypeMode)
     },
     [persistWorkspaceStateInSession, selectedProfileTask.visibility],
   )
 
   const markAllNotificationsRead = useCallback(() => {
-    if (persistWorkspaceStateInSession) {
-      storeAllNotificationsRead(notifications, notificationReadIds)
-      return
-    }
+    const nextReadIds = markAllNotificationsAsRead(notifications, notificationReadIds)
 
-    setLocalNotificationReadIds((current) => markAllNotificationsAsRead(notifications, current))
+    setNotificationReadIdsOverride(nextReadIds)
+    if (persistWorkspaceStateInSession) storeNotificationReadIds(nextReadIds)
   }, [notificationReadIds, notifications, persistWorkspaceStateInSession])
 
   return {
