@@ -16,7 +16,7 @@ export const KeyboardAndPointerNavigation: Story = {
   args: {
     description: dashboardViewModel.selectedMetric.description,
     points: dashboardViewModel.selectedMetric.points,
-    valueLabel: dashboardViewModel.selectedMetric.valueLabel,
+    valueLabels: dashboardViewModel.selectedMetric.valueLabels,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -33,5 +33,20 @@ export const KeyboardAndPointerNavigation: Story = {
     await expect(within(chart).getByRole("img", { name: "October 7: 111 profile views" })).toHaveFocus()
     await userEvent.keyboard("{End}")
     await expect(within(chart).getByRole("img", { name: "October 12: 134 profile views" })).toHaveFocus()
+  },
+}
+
+export const SingularContactValue: Story = {
+  args: {
+    description: "Daily contacts total 1. Deterministic prototype data; not live analytics.",
+    points: [{ axisLabel: "Today", dateLabel: "Today", value: 1 }],
+    valueLabels: { plural: "contacts", singular: "contact" },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const point = canvas.getByRole("img", { name: "Today: 1 contact" })
+
+    await userEvent.hover(point)
+    await expect(canvas.getByRole("tooltip", { name: "Today: 1 contact" })).toBeInTheDocument()
   },
 }

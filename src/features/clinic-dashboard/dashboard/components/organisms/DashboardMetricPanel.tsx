@@ -49,7 +49,7 @@ export function DashboardMetricPanel({
           key={`${period}-${metric.id}`}
           description={metric.description}
           points={metric.points}
-          valueLabel={metric.valueLabel}
+          valueLabels={metric.valueLabels}
         />
         <dl className="grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-4 sm:grid-cols-4">
           {metric.summary.map((item) => (

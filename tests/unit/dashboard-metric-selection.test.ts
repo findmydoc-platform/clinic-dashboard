@@ -38,7 +38,7 @@ describe("dashboard metric selection", () => {
         const definition = dashboardMetricDefinitions[metricId]
 
         expect(selection.title).toBe(`${definition.label} over time`)
-        expect(selection.description).toContain(definition.valueLabel)
+        expect(selection.description).toContain(definition.valueLabels.plural)
         expect(selection.description).toContain(`selected ${period}`)
         expect(selection.description).toContain("not live analytics")
         expect(selection.points).toBe(reporting.chart.series[metricId])

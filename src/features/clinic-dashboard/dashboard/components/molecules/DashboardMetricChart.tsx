@@ -8,14 +8,17 @@ import { createDashboardChartGeometry } from "../../model/chart-geometry"
 type DashboardMetricChartProps = Readonly<{
   description: string
   points: readonly DashboardChartPoint[]
-  valueLabel: string
+  valueLabels: Readonly<{
+    plural: string
+    singular: string
+  }>
 }>
 
-function formatPointValue(value: number, valueLabel: string) {
-  return `${value.toLocaleString("en-US")} ${valueLabel}`
+function formatPointValue(value: number, valueLabels: DashboardMetricChartProps["valueLabels"]) {
+  return `${value.toLocaleString("en-US")} ${value === 1 ? valueLabels.singular : valueLabels.plural}`
 }
 
-export function DashboardMetricChart({ description, points, valueLabel }: DashboardMetricChartProps) {
+export function DashboardMetricChart({ description, points, valueLabels }: DashboardMetricChartProps) {
   const gradientId = useId().replaceAll(":", "")
   const scrollHintId = useId()
   const pointRefs = useRef<Array<SVGGElement | null>>([])
@@ -91,7 +94,7 @@ export function DashboardMetricChart({ description, points, valueLabel }: Dashbo
             strokeWidth="5"
           />
           {coordinates.map((point, index) => {
-            const pointValue = formatPointValue(point.value, valueLabel)
+            const pointValue = formatPointValue(point.value, valueLabels)
 
             return (
               <g
@@ -138,7 +141,7 @@ export function DashboardMetricChart({ description, points, valueLabel }: Dashbo
           })}
           {activePoint ? (
             <g
-              aria-label={`${activePoint.dateLabel}: ${formatPointValue(activePoint.value, valueLabel)}`}
+              aria-label={`${activePoint.dateLabel}: ${formatPointValue(activePoint.value, valueLabels)}`}
               pointerEvents="none"
               role="tooltip"
               transform={`translate(${Math.min(Math.max(activePoint.x - 80, 8), chartWidth - 168)} ${
@@ -150,7 +153,7 @@ export function DashboardMetricChart({ description, points, valueLabel }: Dashbo
                 {activePoint.dateLabel}
               </text>
               <text fill="var(--primary)" fontSize="12" fontWeight="700" textAnchor="middle" x="80" y="38">
-                {formatPointValue(activePoint.value, valueLabel)}
+                {formatPointValue(activePoint.value, valueLabels)}
               </text>
             </g>
           ) : null}

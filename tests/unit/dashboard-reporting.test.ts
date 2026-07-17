@@ -110,4 +110,31 @@ describe("dashboard reporting fixtures", () => {
       }),
     ).toThrow("views chart for 7 days must total 5, received 4")
   })
+
+  it("rejects a metric series whose value count does not match its dates", () => {
+    expect(() =>
+      createDashboardReportingSnapshot({
+        changes: { contacts: "0%", impressions: "0%", inquiries: "0%", views: "0%" },
+        chart: {
+          cadence: "daily",
+          dates: [{ dateLabel: "Yesterday" }, { dateLabel: "Today" }],
+          series: {
+            contacts: [2],
+            impressions: [40, 60],
+            inquiries: [0, 1],
+            views: [2, 3],
+          },
+        },
+        period: "7 days",
+        reviewActivity: "No new reviews in the last 7 days",
+        totals: {
+          contacts: 2,
+          impressions: 100,
+          inquiries: 1,
+          profileViews: 5,
+          uniqueVisitors: 3,
+        },
+      }),
+    ).toThrow("contacts chart for 7 days must provide 2 values, received 1")
+  })
 })

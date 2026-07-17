@@ -8,29 +8,32 @@ import {
 type DashboardMetricDefinition = Readonly<{
   label: string
   totalKey: keyof DashboardReportingSnapshot["totals"]
-  valueLabel: string
+  valueLabels: Readonly<{
+    plural: string
+    singular: string
+  }>
 }>
 
 export const dashboardMetricDefinitions = {
   contacts: {
     label: "Contacts",
     totalKey: "contacts",
-    valueLabel: "contacts",
+    valueLabels: { plural: "contacts", singular: "contact" },
   },
   impressions: {
     label: "Impressions",
     totalKey: "impressions",
-    valueLabel: "impressions",
+    valueLabels: { plural: "impressions", singular: "impression" },
   },
   inquiries: {
     label: "Inquiries",
     totalKey: "inquiries",
-    valueLabel: "inquiries",
+    valueLabels: { plural: "inquiries", singular: "inquiry" },
   },
   views: {
     label: "Profile views",
     totalKey: "profileViews",
-    valueLabel: "profile views",
+    valueLabels: { plural: "profile views", singular: "profile view" },
   },
 } as const satisfies Record<DashboardSelectableMetricId, DashboardMetricDefinition>
 
@@ -46,7 +49,7 @@ export type DashboardMetricSelection = Readonly<{
     value: string
   }>[]
   title: string
-  valueLabel: string
+  valueLabels: DashboardMetricDefinition["valueLabels"]
 }>
 
 function formatCount(value: number) {
@@ -71,7 +74,7 @@ export function createDashboardMetricSelection(
 
   return {
     comparison: `${getMetricDelta(reporting.metrics, metricId)} vs. previous ${reporting.period}`,
-    description: `${cadenceLabel} ${definition.valueLabel} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic prototype data; not live analytics.`,
+    description: `${cadenceLabel} ${definition.valueLabels.plural} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic prototype data; not live analytics.`,
     id: metricId,
     points: reporting.chart.series[metricId],
     summary: dashboardSelectableMetricIds.map((id) => {
@@ -85,6 +88,6 @@ export function createDashboardMetricSelection(
       }
     }),
     title: `${definition.label} over time`,
-    valueLabel: definition.valueLabel,
+    valueLabels: definition.valueLabels,
   }
 }
