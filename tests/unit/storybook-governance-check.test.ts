@@ -204,4 +204,39 @@ describe("storybook governance public component coverage", () => {
     )
     expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
   })
+
+  it("rejects stories for components placed in an unknown Atomic layer", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/widgets/ConversationSummary.stories.tsx":
+        moleculeStorySource("molecule"),
+      "src/features/clinic-dashboard/messages/components/widgets/ConversationSummary.tsx":
+        moleculeComponentSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-component-atomic-layer src/features/clinic-dashboard/messages/components/widgets/ConversationSummary.stories.tsx",
+    )
+    expect(output.match(/ERROR story-component-atomic-layer/gu)).toHaveLength(1)
+  })
+
+  it("rejects stories for components placed directly under components without an Atomic layer", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/ConversationSummary.stories.tsx":
+        moleculeStorySource("molecule"),
+      "src/features/clinic-dashboard/messages/components/ConversationSummary.tsx": moleculeComponentSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-component-missing-atomic-layer src/features/clinic-dashboard/messages/components/ConversationSummary.stories.tsx",
+    )
+    expect(output.match(/ERROR story-component-missing-atomic-layer/gu)).toHaveLength(1)
+  })
 })

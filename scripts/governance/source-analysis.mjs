@@ -3,6 +3,7 @@ import path from "node:path"
 import ts from "typescript"
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"]
+const EXECUTABLE_JAVASCRIPT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"]
 const IGNORED_DIRECTORIES = new Set([
   ".git",
   ".next",
@@ -42,6 +43,13 @@ export function collectSourceFiles(rootDir, relativeDirectories = ["src"]) {
   return relativeDirectories
     .flatMap((relativeDirectory) => walkFiles(path.join(rootDir, relativeDirectory)))
     .filter((filePath) => SOURCE_EXTENSIONS.includes(path.extname(filePath)))
+    .sort()
+}
+
+export function collectExecutableJavaScriptFiles(rootDir, relativeDirectories = ["src"]) {
+  return relativeDirectories
+    .flatMap((relativeDirectory) => walkFiles(path.join(rootDir, relativeDirectory)))
+    .filter((filePath) => EXECUTABLE_JAVASCRIPT_EXTENSIONS.includes(path.extname(filePath).toLowerCase()))
     .sort()
 }
 
@@ -184,13 +192,20 @@ export function getModuleReferences(rootDir, sourceFile) {
   }
 
   const visit = (node) => {
-    if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length === 1 &&
-      ts.isStringLiteral(node.arguments[0])
-    ) {
-      addReference(node.arguments[0].text, "dynamic-import")
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const argument = node.arguments[0] ? unwrapExpression(node.arguments[0]) : null
+      const moduleSpecifier = getStringLiteralValue(argument)
+
+      if (moduleSpecifier !== null) {
+        addReference(moduleSpecifier, "dynamic-import")
+      } else {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
+        references.push({
+          kind: "unresolved-dynamic-import",
+          moduleSpecifier: `<dynamic import at line ${line + 1}>`,
+          resolvedPath: null,
+        })
+      }
     }
 
     ts.forEachChild(node, visit)
@@ -307,7 +322,9 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
 export function hasWildcardExport(sourceFile) {
   return sourceFile.statements.some(
     (statement) =>
-      ts.isExportDeclaration(statement) && Boolean(statement.moduleSpecifier) && !statement.exportClause,
+      ts.isExportDeclaration(statement) &&
+      Boolean(statement.moduleSpecifier) &&
+      (!statement.exportClause || ts.isNamespaceExport(statement.exportClause)),
   )
 }
 
