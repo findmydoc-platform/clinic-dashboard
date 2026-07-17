@@ -34,9 +34,15 @@ All new and changed states use deterministic, invented fixtures. Data classifica
 
 ## Capability Matrix Check
 
-The website capability matrix on `main` was re-checked on 2026-07-17. It already classifies treatment master selection under `website#1528`, separates approved public review responses from private moderation and appeals under `website#1529`, and keeps support, exports, clinic credential submission, and verification in later scope. The planned fixture corrections preserve those owners and classifications, so they do not require a companion website change.
+The website capability matrix on `main` was re-checked on 2026-07-17. It already classifies treatment master selection under `website#1528`, separates approved public review responses from private moderation and appeals under `website#1529`, and keeps support, exports, clinic credential submission, and verification in later scope. The planned fixture corrections preserve those owners and classifications, so they are not expected to create new website product scope.
 
-Before slices 4 and 6–11 begin, re-check the current matrix and update the local prototype visibility plan with the changed control or fixture. If the backend owner, status, public visibility, cache impact, or capability classification has drifted, stop that slice and obtain explicit cross-repository scope before changing the website matrix.
+Every slice 1–11 must complete the paired-record check in the same work item:
+
+1. Re-check the current Website Capability Matrix before implementation begins.
+2. Update the local prototype visibility plan for every changed screen, control, fixture, or gate.
+3. Update the matching Website Capability Matrix row when one exists. If a purely visual change has no matching capability row, record that explicit no-contract result in the slice pull request instead of silently omitting the check.
+
+If the backend owner, status, public visibility, cache impact, or capability classification has drifted, stop that slice and obtain explicit cross-repository scope before changing the website matrix. The initial matrix review above does not waive these per-slice synchronization requirements.
 
 ## UI And Component Approach
 
@@ -82,7 +88,7 @@ Run the applicable focused tests plus the repository package gates:
 9. `pnpm deadcode:check`
 10. `git diff --check`
 
-The final exact `origin/main` revision additionally receives `pnpm deps:audit`, the repository-pinned Semgrep `1.159.0` scan, a light/dark visual pass, and a clean-worktree check.
+The final exact `origin/main` revision additionally receives `pnpm deps:audit`, the repository-pinned Semgrep scan defined in `.github/workflows/deep-quality.yml` (`SEMGREP_VERSION=1.159.0`, `python -m pip install semgrep==1.159.0`, and `semgrep scan --config p/ci --error`), a light/dark visual pass, and a clean-worktree check.
 
 ## Reviewer Gates
 
