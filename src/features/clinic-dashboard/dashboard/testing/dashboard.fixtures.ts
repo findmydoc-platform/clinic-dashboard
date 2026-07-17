@@ -1,5 +1,6 @@
 import { createDashboardReportingSnapshot, type DashboardReportingSnapshots } from "../model/reporting"
 import type { DashboardViewModel } from "../model/dashboard-view-model"
+import { createDashboardMetricSelection } from "../model/dashboard-metric-selection"
 import type { DashboardProfileTask } from "../model/profile-tasks"
 
 export const dashboardProfileTasks = [
@@ -50,21 +51,25 @@ const reporting = createDashboardReportingSnapshot({
     contacts: "-7.7%",
     impressions: "+8.4%",
     inquiries: "+25.0%",
-    profileViews: "+10.1%",
+    views: "+10.1%",
   },
   chart: {
-    comparison: "+10.1% vs. previous 7 days",
-    description:
-      "Daily profile views across the selected 7 days total 848. The highest day has 135 profile views.",
-    points: [
-      { axisLabel: "Oct 6", dateLabel: "October 6", value: 103 },
-      { axisLabel: "Oct 7", dateLabel: "October 7", value: 111 },
-      { axisLabel: "Oct 8", dateLabel: "October 8", value: 119 },
-      { axisLabel: "Oct 9", dateLabel: "October 9", value: 117 },
-      { axisLabel: "Oct 10", dateLabel: "October 10", value: 129 },
-      { axisLabel: "Oct 11", dateLabel: "October 11", value: 135 },
-      { axisLabel: "Oct 12", dateLabel: "October 12", value: 134 },
+    cadence: "daily",
+    dates: [
+      { axisLabel: "Oct 6", dateLabel: "October 6" },
+      { axisLabel: "Oct 7", dateLabel: "October 7" },
+      { axisLabel: "Oct 8", dateLabel: "October 8" },
+      { axisLabel: "Oct 9", dateLabel: "October 9" },
+      { axisLabel: "Oct 10", dateLabel: "October 10" },
+      { axisLabel: "Oct 11", dateLabel: "October 11" },
+      { axisLabel: "Oct 12", dateLabel: "October 12" },
     ],
+    series: {
+      contacts: [1, 1, 2, 2, 2, 2, 2],
+      impressions: [568, 613, 657, 646, 712, 745, 739],
+      inquiries: [0, 0, 1, 1, 1, 1, 1],
+      views: [103, 111, 119, 117, 129, 135, 134],
+    },
   },
   period: "7 days",
   reviewActivity: "1 new review in the last 7 days",
@@ -84,12 +89,17 @@ const reportingSnapshots = {
       contacts: "-2.1%",
       impressions: "+5.2%",
       inquiries: "+8.4%",
-      profileViews: "+12.0%",
+      views: "+12.0%",
     },
     chart: {
-      comparison: "+12.0% vs. previous 30 days",
-      description: "Profile views across the selected 30 days total 3,284.",
-      points: [{ dateLabel: "30-day total", value: 3_284 }],
+      cadence: "daily",
+      dates: [{ dateLabel: "30-day total" }],
+      series: {
+        contacts: [42],
+        impressions: [18_420],
+        inquiries: [16],
+        views: [3_284],
+      },
     },
     period: "30 days",
     reviewActivity: "5 new reviews in the last 30 days",
@@ -106,12 +116,17 @@ const reportingSnapshots = {
       contacts: "+4.4%",
       impressions: "+11.8%",
       inquiries: "+6.7%",
-      profileViews: "+9.6%",
+      views: "+9.6%",
     },
     chart: {
-      comparison: "+9.6% vs. previous 90 days",
-      description: "Profile views across the selected 90 days total 9,410.",
-      points: [{ dateLabel: "90-day total", value: 9_410 }],
+      cadence: "weekly",
+      dates: [{ dateLabel: "90-day total" }],
+      series: {
+        contacts: [118],
+        impressions: [53_680],
+        inquiries: [45],
+        views: [9_410],
+      },
     },
     period: "90 days",
     reviewActivity: "17 new reviews in the last 90 days",
@@ -155,4 +170,5 @@ export const dashboardViewModel = {
     value: 4.8,
   },
   reporting: reportingSnapshots["7 days"],
+  selectedMetric: createDashboardMetricSelection(reportingSnapshots["7 days"], "views"),
 } satisfies DashboardViewModel

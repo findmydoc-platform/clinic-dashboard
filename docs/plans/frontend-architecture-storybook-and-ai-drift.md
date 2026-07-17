@@ -446,13 +446,13 @@ At baseline, one catch-all visibility gate grouped unrelated capabilities. The m
 
 Atomic classification answers **how a visual component composes**, not where every source file goes.
 
-| Layer    | Project definition                                                          | Examples                                                                | Not a deciding factor                        |
-| -------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------- |
-| Atom     | Smallest domain-neutral UI unit with one visual/control responsibility.     | Button, Input, Avatar, RatingStars                                      | Line count or whether it has internal state. |
-| Molecule | Focused combination of atoms that performs one coherent UI task.            | Field, MetricCard, ConversationListItem, PeriodControl                  | Merely being interactive.                    |
-| Organism | Distinct interface section with a recognizable product responsibility.      | NotificationCenter, ConversationList, ProfileViewsPanel, MessagesScreen | Import count or file length alone.           |
-| Template | Page/workspace layout and content slots without concrete business data.     | ClinicDashboardShell                                                    | A folder for all large components.           |
-| Page     | Concrete template instance used to validate realistic content and journeys. | ClinicDashboardWorkspace, Foundation Preview, Next.js route composition | A reusable component layer.                  |
+| Layer    | Project definition                                                          | Examples                                                                   | Not a deciding factor                        |
+| -------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------- |
+| Atom     | Smallest domain-neutral UI unit with one visual/control responsibility.     | Button, Input, Avatar, RatingStars                                         | Line count or whether it has internal state. |
+| Molecule | Focused combination of atoms that performs one coherent UI task.            | Field, MetricCard, ConversationListItem, PeriodControl                     | Merely being interactive.                    |
+| Organism | Distinct interface section with a recognizable product responsibility.      | NotificationCenter, ConversationList, DashboardMetricPanel, MessagesScreen | Import count or file length alone.           |
+| Template | Page/workspace layout and content slots without concrete business data.     | ClinicDashboardShell                                                       | A folder for all large components.           |
+| Page     | Concrete template instance used to validate realistic content and journeys. | ClinicDashboardWorkspace, Foundation Preview, Next.js route composition    | A reusable component layer.                  |
 
 Operational rules:
 
@@ -830,7 +830,7 @@ Work:
 2. Pass the selected reporting snapshot/view model into the screen, resolving the confirmed plan-to-code drift.
 3. Move reporting and relevant profile-task logic into pure Dashboard model files.
 4. Extract deterministic chart geometry from rendering.
-5. Split the screen into meaningful molecules/organisms: metric grid/cards, funnel, profile completeness, profile views panel, rating summary consumer, and clinic preview.
+5. Split the screen into meaningful molecules/organisms: metric grid/cards, funnel, profile completeness, dashboard metric panel, rating summary consumer, and clinic preview.
 6. Keep domain-neutral Card, Avatar, RatingStars, and PageHeading in shared UI.
 7. Add focused unit tests for reporting, selectors, capability behavior, and chart geometry.
 8. Add direct stories for the screen and reusable Dashboard components.

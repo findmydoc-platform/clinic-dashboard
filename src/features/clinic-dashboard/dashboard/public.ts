@@ -21,4 +21,5 @@ export type {
   DashboardReportingPeriod,
   DashboardReportingSnapshot,
   DashboardReportingSnapshots,
+  DashboardSelectableMetricId,
 } from "./model/reporting"

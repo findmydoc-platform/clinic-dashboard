@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   createDashboardReportingSnapshot,
   dashboardReportingPeriods,
+  dashboardSelectableMetricIds,
 } from "@/features/clinic-dashboard/dashboard/model/reporting"
 import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
 import { reviewsFixture } from "@/features/clinic-dashboard/reviews/testing/reviews.fixtures"
@@ -45,9 +46,18 @@ describe("dashboard reporting fixtures", () => {
       expect(profileViews).toBeGreaterThan(uniqueVisitors)
       expect(uniqueVisitors).toBeGreaterThan(contacts)
       expect(contacts).toBeGreaterThan(inquiries)
-      expect(snapshot.chart.points.reduce((total, point) => total + point.value, 0)).toBe(profileViews)
-      expect(snapshot.chart.comparison).toContain(`previous ${snapshot.period}`)
-      expect(snapshot.chart.comparison).not.toContain("year")
+      const expectedSeriesTotals = {
+        contacts,
+        impressions,
+        inquiries,
+        views: profileViews,
+      }
+
+      for (const metricId of dashboardSelectableMetricIds) {
+        expect(snapshot.chart.series[metricId].reduce((total, point) => total + point.value, 0)).toBe(
+          expectedSeriesTotals[metricId],
+        )
+      }
       expect(snapshot.funnel.map(({ conversion }) => conversion)).toEqual(
         expectedConversions[snapshot.period],
       )
@@ -77,11 +87,16 @@ describe("dashboard reporting fixtures", () => {
   it("rejects a chart whose points do not add up to the selected profile views", () => {
     expect(() =>
       createDashboardReportingSnapshot({
-        changes: { contacts: "0%", impressions: "0%", inquiries: "0%", profileViews: "0%" },
+        changes: { contacts: "0%", impressions: "0%", inquiries: "0%", views: "0%" },
         chart: {
-          comparison: "0% vs. previous 7 days",
-          description: "Invalid fixture",
-          points: [{ dateLabel: "Today", value: 4 }],
+          cadence: "daily",
+          dates: [{ dateLabel: "Today" }],
+          series: {
+            contacts: [2],
+            impressions: [100],
+            inquiries: [1],
+            views: [4],
+          },
         },
         period: "7 days",
         reviewActivity: "No new reviews in the last 7 days",
@@ -93,6 +108,33 @@ describe("dashboard reporting fixtures", () => {
           uniqueVisitors: 3,
         },
       }),
-    ).toThrow("must total 5, received 4")
+    ).toThrow("views chart for 7 days must total 5, received 4")
+  })
+
+  it("rejects a metric series whose value count does not match its dates", () => {
+    expect(() =>
+      createDashboardReportingSnapshot({
+        changes: { contacts: "0%", impressions: "0%", inquiries: "0%", views: "0%" },
+        chart: {
+          cadence: "daily",
+          dates: [{ dateLabel: "Yesterday" }, { dateLabel: "Today" }],
+          series: {
+            contacts: [2],
+            impressions: [40, 60],
+            inquiries: [0, 1],
+            views: [2, 3],
+          },
+        },
+        period: "7 days",
+        reviewActivity: "No new reviews in the last 7 days",
+        totals: {
+          contacts: 2,
+          impressions: 100,
+          inquiries: 1,
+          profileViews: 5,
+          uniqueVisitors: 3,
+        },
+      }),
+    ).toThrow("contacts chart for 7 days must provide 2 values, received 1")
   })
 })

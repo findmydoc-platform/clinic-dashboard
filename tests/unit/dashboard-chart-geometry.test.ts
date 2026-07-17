@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { createProfileViewsChartGeometry } from "@/features/clinic-dashboard/dashboard/model/chart-geometry"
+import { createDashboardChartGeometry } from "@/features/clinic-dashboard/dashboard/model/chart-geometry"
 
-describe("createProfileViewsChartGeometry", () => {
+describe("createDashboardChartGeometry", () => {
   it("maps values across the complete chart bounds", () => {
-    const geometry = createProfileViewsChartGeometry([
+    const geometry = createDashboardChartGeometry([
       { dateLabel: "First", value: 10 },
       { dateLabel: "Middle", value: 15 },
       { dateLabel: "Last", value: 20 },
@@ -17,12 +17,21 @@ describe("createProfileViewsChartGeometry", () => {
   })
 
   it("returns empty SVG point strings when there are no chart points", () => {
-    expect(createProfileViewsChartGeometry([])).toEqual({ area: "", coordinates: [], line: "" })
+    expect(createDashboardChartGeometry([])).toEqual({ area: "", coordinates: [], line: "" })
   })
 
   it("keeps zero values on the chart baseline", () => {
-    const geometry = createProfileViewsChartGeometry([{ dateLabel: "No views", value: 0 }])
+    const geometry = createDashboardChartGeometry([{ dateLabel: "No views", value: 0 }])
 
     expect(geometry.coordinates[0]).toMatchObject({ x: 30, y: 235 })
+  })
+
+  it("keeps point centers at least 52 pixels apart on long timelines", () => {
+    const geometry = createDashboardChartGeometry(
+      Array.from({ length: 30 }, (_, index) => ({ dateLabel: `Day ${index + 1}`, value: index })),
+      1_568,
+    )
+
+    expect((geometry.coordinates[1]?.x ?? 0) - (geometry.coordinates[0]?.x ?? 0)).toBe(52)
   })
 })

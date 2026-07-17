@@ -1,10 +1,14 @@
 export const dashboardReportingPeriods = ["7 days", "30 days", "90 days"] as const
 
+export const dashboardSelectableMetricIds = ["impressions", "views", "contacts", "inquiries"] as const
+
 export type DashboardReportingPeriod = (typeof dashboardReportingPeriods)[number]
+
+export type DashboardSelectableMetricId = (typeof dashboardSelectableMetricIds)[number]
 
 export type DashboardMetric = Readonly<{
   delta?: string
-  id: "completion" | "contacts" | "impressions" | "inquiries" | "views"
+  id: "completion" | DashboardSelectableMetricId
   label: string
   note?: string
   progress?: number
@@ -25,10 +29,8 @@ export type DashboardChartPoint = Readonly<{
 
 export type DashboardReportingSnapshot = Readonly<{
   chart: Readonly<{
-    comparison: string
-    description: string
-    points: readonly DashboardChartPoint[]
-    summary: readonly Readonly<{ label: string; value: string }>[]
+    cadence: "daily" | "weekly"
+    series: Readonly<Record<DashboardSelectableMetricId, readonly DashboardChartPoint[]>>
   }>
   funnel: readonly DashboardFunnelStep[]
   metrics: readonly DashboardMetric[]
@@ -47,17 +49,18 @@ export type DashboardReportingSnapshots = Readonly<
   Record<DashboardReportingPeriod, DashboardReportingSnapshot>
 >
 
+export function isDashboardSelectableMetricId(
+  metricId: DashboardMetric["id"],
+): metricId is DashboardSelectableMetricId {
+  return dashboardSelectableMetricIds.some((selectableMetricId) => selectableMetricId === metricId)
+}
+
 type DashboardReportingSnapshotInput = Readonly<{
-  changes: Readonly<{
-    contacts: string
-    impressions: string
-    inquiries: string
-    profileViews: string
-  }>
+  changes: Readonly<Record<DashboardSelectableMetricId, string>>
   chart: Readonly<{
-    comparison: string
-    description: string
-    points: readonly DashboardChartPoint[]
+    cadence: "daily" | "weekly"
+    dates: readonly Omit<DashboardChartPoint, "value">[]
+    series: Readonly<Record<DashboardSelectableMetricId, readonly number[]>>
   }>
   period: DashboardReportingPeriod
   reviewActivity: string
@@ -76,6 +79,28 @@ function getChartPointTotal(points: readonly DashboardChartPoint[]) {
   return points.reduce((total, point) => total + point.value, 0)
 }
 
+const dashboardMetricTotalKeys = {
+  contacts: "contacts",
+  impressions: "impressions",
+  inquiries: "inquiries",
+  views: "profileViews",
+} as const satisfies Record<DashboardSelectableMetricId, keyof DashboardReportingSnapshot["totals"]>
+
+function createDashboardChartSeries(
+  dates: DashboardReportingSnapshotInput["chart"]["dates"],
+  values: readonly number[],
+  metricId: DashboardSelectableMetricId,
+  period: DashboardReportingPeriod,
+) {
+  if (dates.length !== values.length) {
+    throw new Error(
+      `${metricId} chart for ${period} must provide ${dates.length} values, received ${values.length}.`,
+    )
+  }
+
+  return dates.map((date, index) => ({ ...date, value: values[index] ?? 0 }))
+}
+
 export function createDashboardReportingSnapshot({
   changes,
   chart,
@@ -83,23 +108,28 @@ export function createDashboardReportingSnapshot({
   reviewActivity,
   totals,
 }: DashboardReportingSnapshotInput): DashboardReportingSnapshot {
-  const chartPointTotal = getChartPointTotal(chart.points)
+  const series = {
+    contacts: createDashboardChartSeries(chart.dates, chart.series.contacts, "contacts", period),
+    impressions: createDashboardChartSeries(chart.dates, chart.series.impressions, "impressions", period),
+    inquiries: createDashboardChartSeries(chart.dates, chart.series.inquiries, "inquiries", period),
+    views: createDashboardChartSeries(chart.dates, chart.series.views, "views", period),
+  } satisfies Record<DashboardSelectableMetricId, readonly DashboardChartPoint[]>
 
-  if (chartPointTotal !== totals.profileViews) {
-    throw new Error(
-      `Profile views chart for ${period} must total ${totals.profileViews}, received ${chartPointTotal}.`,
-    )
+  for (const metricId of dashboardSelectableMetricIds) {
+    const expectedTotal = totals[dashboardMetricTotalKeys[metricId]]
+    const receivedTotal = getChartPointTotal(series[metricId])
+
+    if (receivedTotal !== expectedTotal) {
+      throw new Error(
+        `${metricId} chart for ${period} must total ${expectedTotal}, received ${receivedTotal}.`,
+      )
+    }
   }
 
   return {
     chart: {
-      ...chart,
-      summary: [
-        { label: "Impressions", value: formatCount(totals.impressions) },
-        { label: "Views", value: formatCount(totals.profileViews) },
-        { label: "Visitors", value: formatCount(totals.uniqueVisitors) },
-        { label: "Inquiries", value: formatCount(totals.inquiries) },
-      ],
+      cadence: chart.cadence,
+      series,
     },
     funnel: [
       { label: "Impressions", value: formatCount(totals.impressions) },
@@ -134,7 +164,7 @@ export function createDashboardReportingSnapshot({
         value: formatCount(totals.impressions),
       },
       {
-        delta: changes.profileViews,
+        delta: changes.views,
         id: "views",
         label: "Profile views",
         note: "Opened pages",

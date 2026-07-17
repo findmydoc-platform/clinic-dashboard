@@ -1,5 +1,6 @@
 import type { DashboardProfileTask } from "./profile-tasks"
-import type { DashboardReportingSnapshot } from "./reporting"
+import type { DashboardMetricSelection } from "./dashboard-metric-selection"
+import type { DashboardReportingSnapshot, DashboardSelectableMetricId } from "./reporting"
 
 export type DashboardLocationSummary = Readonly<{
   location: string
@@ -20,9 +21,11 @@ export type DashboardViewModel = Readonly<{
     value: number
   }>
   reporting: DashboardReportingSnapshot
+  selectedMetric: DashboardMetricSelection
 }>
 
 export type DashboardActions = Readonly<{
+  onMetricSelect: (metricId: DashboardSelectableMetricId) => void
   onProfileTaskOpen: (task: DashboardProfileTask) => void
   onProfileViewsDownload: () => void
   onReviewsOpen: () => void
