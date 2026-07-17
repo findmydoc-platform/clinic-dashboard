@@ -41,11 +41,12 @@ src/
       workspace/
         ClinicDashboardWorkspace.tsx
         ClinicDashboardShell.tsx
-        ClinicDashboardNavigation.tsx
         useClinicDashboardController.ts
         browser-session.ts
         workspace.prototype-data.ts
         components/
+          molecules/
+            ClinicDashboardNavigation.tsx
         model/
 
       prototype/
@@ -197,11 +198,15 @@ Use `View` only for a true props-only rendering partner to a controller when `Sc
 | Molecule | Focused combination that performs one coherent UI task                 | Field, MetricCard, ConversationListItem               |
 | Organism | Distinct interface section with a recognizable product responsibility  | NotificationCenter, ConversationList, DashboardScreen |
 | Template | Workspace/page layout and content slots without concrete business data | ClinicDashboardShell                                  |
-| Page     | Concrete template instance with realistic content                      | Next.js page composition and journey stories          |
+| Page     | Concrete template instance with realistic content                      | ClinicDashboardWorkspace, Next.js page, journey story |
 
 Interaction, local state, file length, and import count do not determine the layer. Hooks, models, reducers, selectors, adapters, providers, prototype data, and fixtures have no Atomic layer.
 
 Feature components use physical Atomic folders when more than one layer exists. Shared shadcn UI stays flat under `components/ui` so registry generation and imports remain canonical; its stories still declare `layer:atom` or `layer:molecule`.
+
+React components outside Atomic folders are limited to explicitly classified controller facades, composition roots, Templates, Pages, and test-only harnesses. Visual implementation components belong under `components/atoms`, `components/molecules`, or `components/organisms`; arbitrary feature subdirectories are not an alternative component layer. Storybook governance checks exported visual components across the complete feature tree so moving a file into a nested folder cannot silently bypass the contract.
+
+Production model and hook sources stay JSX-free and use `.ts`; `.tsx` is reserved for visual components and test-only stories or harnesses.
 
 If the table cannot classify a file, clarify its responsibility. Do not invent another layer.
 
@@ -297,6 +302,7 @@ Titles use business ownership before Atomic layer:
 Shared/Atoms/Button
 Shared/Molecules/Dialog
 Clinic Dashboard/Workspace/Templates/Clinic Dashboard Shell
+Clinic Dashboard/Workspace/Pages/Clinic Dashboard Workspace
 Clinic Dashboard/Dashboard/Molecules/Metric Card
 Clinic Dashboard/Dashboard/Organisms/Dashboard Screen
 Clinic Dashboard/Messages/Molecules/Conversation List Item
@@ -312,7 +318,7 @@ Every meta has `component` and exactly one tag from each group:
 - layer: `atom`, `molecule`, `organism`, `template`, or `page`;
 - status: `stable` or `prototype`.
 
-Autodocs is applied globally for public components. Journey stories may opt out.
+Autodocs is applied globally for public components. Only stories colocated in the explicit `journeys` area may opt out. Component stories and every story export inherit fail-closed accessibility enforcement; they may not set `a11y.disable`, downgrade `a11y.test`, or remove Autodocs indirectly through spreads or mutations.
 
 Shared public components, feature Screens, Shells, and exports from feature `public.ts` require direct stories. Private static implementation components may be covered through their owner story.
 
@@ -320,7 +326,7 @@ Use typed CSF, args, action spies, accessible queries, awaited interactions, and
 
 Do not assert Tailwind/Lucide classes or internal state as behavior. Do not duplicate viewport objects, accessibility settings, providers, or theme initialization in stories.
 
-Global Storybook configuration owns accessibility (`test: "error"`), providers, the theme toolbar, Autodocs, viewports, Controls defaults, and story sorting. Story-specific layout belongs in story parameters when `centered` is not appropriate.
+Global Storybook configuration owns accessibility (`test: "error"`), providers, the theme toolbar, Autodocs, viewports, Controls defaults, and story sorting. The governed configuration contract requires `.storybook/main.ts` to keep the colocated `src` story glob and accessibility addon, and `.storybook/preview.ts` to keep global Autodocs and fail-closed accessibility tests. Both exported configuration objects stay statically analyzable and immutable: spreads, reassignments, and direct or aliased mutations are rejected. Story-specific layout belongs in story parameters when `centered` is not appropriate.
 
 ## Test Ownership
 
