@@ -18,7 +18,11 @@ import {
   type ClinicDashboardWorkspaceSnapshot,
   type ClinicDashboardWorkspaceStartState,
 } from "../ClinicDashboardWorkspaceComposition"
-import { notificationsFixture, workspaceAccountFixture } from "./workspace.fixtures"
+import {
+  notificationsFixture,
+  workspaceAccountFixture,
+  workspaceLocationFixtures,
+} from "./workspace.fixtures"
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
   ClinicDashboardWorkspaceProps & {
@@ -33,9 +37,9 @@ type ClinicDashboardWorkspaceHarnessProps = Readonly<
 
 const clinicDashboardWorkspaceFixture = {
   account: workspaceAccountFixture,
-  clinicName: "Berlin Health Clinic",
   clinicProfile: clinicProfileFixture,
   dashboard: dashboardFixture,
+  locations: workspaceLocationFixtures,
   messages: messagesFixture,
   notifications: notificationsFixture,
   patientInquiry: patientInquiryFixture,

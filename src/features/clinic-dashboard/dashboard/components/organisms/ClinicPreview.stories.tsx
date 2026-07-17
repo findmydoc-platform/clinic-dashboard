@@ -22,7 +22,7 @@ export const Available: Story = {
     const canvas = within(canvasElement)
 
     await expect(canvas.getByRole("img", { name: "Exterior of Berlin Health Clinic" })).toBeInTheDocument()
-    await expect(canvas.getByText("Berlin Health")).toBeInTheDocument()
+    await expect(canvas.getByText("Berlin Health Clinic — Mitte")).toBeInTheDocument()
     await expect(canvas.getByText("Mitte, Berlin")).toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: "Open preview" })).not.toBeInTheDocument()
     await expect(canvas.getByText("Public clinic preview")).toBeInTheDocument()

@@ -36,7 +36,13 @@ import {
 import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
+import { ClinicLocationSelector } from "./components/molecules/ClinicLocationSelector"
 import { NotificationCenter } from "./components/organisms/NotificationCenter"
+import {
+  defaultClinicDashboardLocationId,
+  getClinicDashboardPrototypeLocation,
+  type ClinicDashboardPrototypeLocation,
+} from "./model/locations"
 import type { ClinicDashboardNotification } from "./model/notifications"
 import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/workspace"
 import { clinicDashboardNavigationItems } from "./navigation"
@@ -49,9 +55,9 @@ export type ClinicDashboardWorkspaceSnapshot = Readonly<{
     name: string
     role: string
   }>
-  clinicName: string
   clinicProfile: ClinicProfileDraft
   dashboard: DashboardSnapshot
+  locations: readonly ClinicDashboardPrototypeLocation[]
   messages: MessagesSnapshot
   notifications: readonly ClinicDashboardNotification[]
   patientInquiry: PatientInquiryProfile
@@ -108,6 +114,7 @@ export function ClinicDashboardWorkspaceComposition({
     initialNotificationReadIds,
     initialNotificationsOpen,
     initialPatientInquiryOpen: start.dialog === "patient-inquiry",
+    initialLocationId: defaultClinicDashboardLocationId,
     initialProfileTask,
     initialSection: start.section ?? "dashboard",
     notifications: snapshot.notifications,
@@ -116,9 +123,17 @@ export function ClinicDashboardWorkspaceComposition({
   })
   const { actions, model } = controller
   const capabilities = getClinicDashboardCapabilities(model.activePrototypeMode)
+  const selectedLocation = getClinicDashboardPrototypeLocation(
+    snapshot.locations,
+    capabilities.canSwitchLocations ? model.selectedLocationId : defaultClinicDashboardLocationId,
+  )
   const dashboardController = useDashboardController({
     canExportProfileViews: capabilities.canUseDashboardReporting,
     initialReportingPeriod,
+    locationSummary: {
+      location: selectedLocation.location,
+      name: selectedLocation.name,
+    },
     snapshot: snapshot.dashboard,
   })
   const messagesController = useMessagesController({
@@ -141,7 +156,7 @@ export function ClinicDashboardWorkspaceComposition({
         />
       }
       activeSection={model.activeSection}
-      clinicName={snapshot.clinicName}
+      clinicName={selectedLocation.name}
       headerActions={
         model.activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
           <DashboardPeriodControl
@@ -170,6 +185,15 @@ export function ClinicDashboardWorkspaceComposition({
           : undefined
       }
       items={clinicDashboardNavigationItems}
+      locationSelector={
+        capabilities.canSwitchLocations ? (
+          <ClinicLocationSelector
+            locations={snapshot.locations}
+            onValueChange={actions.selectLocation}
+            value={model.selectedLocationId}
+          />
+        ) : undefined
+      }
       notificationCenter={
         capabilities.showNotifications ? (
           <NotificationCenter

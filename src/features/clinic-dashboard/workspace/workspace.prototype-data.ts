@@ -1,4 +1,5 @@
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
+import type { ClinicDashboardPrototypeLocation } from "./model/locations"
 import type { ClinicDashboardNotification } from "./model/notifications"
 
 export const clinicDashboardWorkspacePrototypeData = {
@@ -8,7 +9,18 @@ export const clinicDashboardWorkspacePrototypeData = {
     name: "Sarah Schmidt",
     role: "Clinic administrator",
   },
-  clinicName: "Berlin Health Clinic",
+  locations: [
+    {
+      id: "berlin-mitte",
+      location: "Mitte, Berlin",
+      name: "Berlin Health Clinic — Mitte",
+    },
+    {
+      id: "berlin-charlottenburg",
+      location: "Charlottenburg, Berlin",
+      name: "Berlin Health Clinic — Charlottenburg",
+    },
+  ] satisfies readonly ClinicDashboardPrototypeLocation[],
   notifications: [
     {
       createdAt: "2023-10-12T10:45:00.000Z",

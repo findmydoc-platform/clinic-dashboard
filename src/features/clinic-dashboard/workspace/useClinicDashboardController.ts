@@ -1,10 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useState, useSyncExternalStore } from "react"
 import type { ClinicProfileFocusTarget } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardProfileTask } from "@/features/clinic-dashboard/dashboard/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import { markAllNotificationsAsRead, type ClinicDashboardNotification } from "./model/notifications"
+import { clinicDashboardLocationSelectionReducer, type ClinicDashboardLocationId } from "./model/locations"
 import type { ClinicDashboardSection } from "./model/workspace"
 import {
   getStoredNotificationReadState,
@@ -22,6 +23,7 @@ type UseClinicDashboardControllerOptions = Readonly<{
   initialNotificationReadIds: readonly string[]
   initialNotificationsOpen: boolean
   initialPatientInquiryOpen: boolean
+  initialLocationId: ClinicDashboardLocationId
   initialProfileTask: DashboardProfileTask
   initialSection: ClinicDashboardSection
   notifications: readonly ClinicDashboardNotification[]
@@ -33,6 +35,7 @@ export function useClinicDashboardController({
   initialNotificationReadIds,
   initialNotificationsOpen,
   initialPatientInquiryOpen,
+  initialLocationId,
   initialProfileTask,
   initialSection,
   notifications,
@@ -40,6 +43,10 @@ export function useClinicDashboardController({
   prototypeMode,
 }: UseClinicDashboardControllerOptions) {
   const [activeSection, setActiveSection] = useState(initialSection)
+  const [selectedLocationId, dispatchLocationSelection] = useReducer(
+    clinicDashboardLocationSelectionReducer,
+    initialLocationId,
+  )
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen)
   const [notificationReadIdsOverride, setNotificationReadIdsOverride] = useState<readonly string[]>()
   const [prototypeModeOverride, setPrototypeModeOverride] = useState<ClinicDashboardPrototypeMode>()
@@ -94,6 +101,10 @@ export function useClinicDashboardController({
 
   const openSupport = useCallback(() => setSupportOpen(true), [])
 
+  const selectLocation = useCallback((locationId: ClinicDashboardLocationId) => {
+    dispatchLocationSelection({ locationId, type: "location-selected" })
+  }, [])
+
   const clearProfileFocusRequest = useCallback(() => {
     setProfileFocusTarget(undefined)
   }, [])
@@ -139,6 +150,7 @@ export function useClinicDashboardController({
       openPatientInquiry,
       openProfileTask,
       openSupport,
+      selectLocation,
       setNotificationsOpen,
       setPatientInquiryOpen,
       setProfileTaskOpen,
@@ -154,6 +166,7 @@ export function useClinicDashboardController({
       profileFocusTarget,
       profileTaskOpen,
       reviewsFocusRequested,
+      selectedLocationId,
       selectedProfileTask,
       supportOpen,
     },

@@ -1,12 +1,16 @@
 import type { DashboardProfileTask } from "./profile-tasks"
 import type { DashboardReportingSnapshot } from "./reporting"
 
+export type DashboardLocationSummary = Readonly<{
+  location: string
+  name: string
+}>
+
 export type DashboardViewModel = Readonly<{
-  clinicPreview: Readonly<{
-    location: string
-    name: string
-    ratingLabel: string
-  }>
+  clinicPreview: DashboardLocationSummary &
+    Readonly<{
+      ratingLabel: string
+    }>
   profileCompletion: string
   profileTasks: readonly DashboardProfileTask[]
   rating: Readonly<{

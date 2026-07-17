@@ -10,7 +10,7 @@ type ClinicPreviewProps = Readonly<{
 
 export function ClinicPreview({ clinic }: ClinicPreviewProps) {
   return (
-    <Card className="overflow-hidden">
+    <Card aria-label="Dashboard clinic location summary" className="overflow-hidden">
       <div className="relative h-28">
         <Image
           alt="Exterior of Berlin Health Clinic"
