@@ -162,3 +162,93 @@ export const SubscriptionsDark: Story = {
     await expect(canvas.getByRole("heading", { level: 1, name: "Subscriptions" })).toBeInTheDocument()
   },
 }
+
+export const VisualReferenceCertificatesAndAccreditations: Story = {
+  args: { prototypeMode: "visual-reference" },
+  render: () => <ClinicDashboardWorkspaceHarness prototypeMode="visual-reference" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const destination = canvas.getByRole("button", { name: "Certificates and accreditations" })
+
+    await userEvent.click(destination)
+
+    await expect(destination).toHaveAttribute("aria-current", "page")
+    await expect(
+      canvas.getByRole("heading", { level: 1, name: "Certificates and accreditations" }),
+    ).toBeInTheDocument()
+    await expect(
+      canvas.getByText(
+        "This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this prototype.",
+      ),
+    ).toBeInTheDocument()
+  },
+}
+
+export const PresentationHidesCertificatesAndAccreditations: Story = {
+  args: { prototypeMode: "presentation" },
+  render: () => (
+    <ClinicDashboardWorkspaceHarness
+      prototypeMode="presentation"
+      start={{ section: "certificates-accreditations" }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(
+      canvas.queryByRole("button", { name: "Certificates and accreditations" }),
+    ).not.toBeInTheDocument()
+    await expect(
+      canvas.queryByRole("heading", { level: 1, name: "Certificates and accreditations" }),
+    ).not.toBeInTheDocument()
+    await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
+  },
+}
+
+export const CertificatesAndAccreditationsAt320: Story = {
+  args: { prototypeMode: "visual-reference" },
+  globals: { viewport: { value: "mobile320Short" } },
+  render: () => (
+    <ClinicDashboardWorkspaceHarness
+      prototypeMode="visual-reference"
+      start={{ section: "certificates-accreditations" }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(
+      canvas.getByRole("heading", { level: 1, name: "Certificates and accreditations" }),
+    ).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
+
+    const navigation = within(canvas.getByRole("dialog", { name: "Clinic navigation" }))
+    const destination = navigation.getByRole("button", { name: "Certificates and accreditations" })
+    const label = within(destination).getByText("Certificates and accreditations")
+
+    await expect(destination).toHaveAttribute("aria-current", "page")
+    await expect(destination.scrollWidth).toBeLessThanOrEqual(destination.clientWidth)
+    await expect(destination.scrollHeight).toBeLessThanOrEqual(destination.clientHeight)
+    await expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
+    await expect(label.getBoundingClientRect().height).toBeGreaterThan(20)
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+
+export const CertificatesAndAccreditationsDark: Story = {
+  args: { prototypeMode: "visual-reference" },
+  globals: { theme: "dark" },
+  render: () => (
+    <ClinicDashboardWorkspaceHarness
+      prototypeMode="visual-reference"
+      start={{ section: "certificates-accreditations" }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(
+      canvas.getByRole("heading", { level: 1, name: "Certificates and accreditations" }),
+    ).toBeInTheDocument()
+  },
+}

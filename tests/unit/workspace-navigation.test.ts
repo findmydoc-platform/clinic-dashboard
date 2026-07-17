@@ -9,11 +9,19 @@ describe("clinic dashboard workspace navigation", () => {
   it("keeps visual-reference destinations unique and ordered", () => {
     const capabilities = getClinicDashboardCapabilities("visual-reference")
     const items = selectClinicDashboardNavigationItems({
+      showCertificatesAccreditationsPlaceholder: capabilities.showCertificatesAccreditationsPlaceholder,
       showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
     })
     const ids = items.map(({ id }) => id)
 
-    expect(ids).toEqual(["dashboard", "messages", "reviews", "profile", "subscriptions"])
+    expect(ids).toEqual([
+      "dashboard",
+      "messages",
+      "reviews",
+      "profile",
+      "subscriptions",
+      "certificates-accreditations",
+    ])
     expect(new Set(ids).size).toBe(ids.length)
   })
 
@@ -23,24 +31,49 @@ describe("clinic dashboard workspace navigation", () => {
 
     expect(
       selectClinicDashboardNavigationItems({
+        showCertificatesAccreditationsPlaceholder: visualReference.showCertificatesAccreditationsPlaceholder,
         showSubscriptionsPlaceholder: visualReference.showSubscriptionsPlaceholder,
       }),
     ).toContainEqual({ id: "subscriptions", label: "Subscriptions" })
     const presentationItems = selectClinicDashboardNavigationItems({
+      showCertificatesAccreditationsPlaceholder: presentation.showCertificatesAccreditationsPlaceholder,
       showSubscriptionsPlaceholder: presentation.showSubscriptionsPlaceholder,
     })
 
     expect(presentationItems).not.toContainEqual({ id: "subscriptions", label: "Subscriptions" })
+    expect(presentationItems).not.toContainEqual({
+      id: "certificates-accreditations",
+      label: "Certificates and accreditations",
+    })
     expect(presentationItems.map(({ id }) => id)).toEqual(["dashboard", "messages", "reviews", "profile"])
+  })
+
+  it("filters both future destinations independently", () => {
+    expect(
+      selectClinicDashboardNavigationItems({
+        showCertificatesAccreditationsPlaceholder: false,
+        showSubscriptionsPlaceholder: true,
+      }).map(({ id }) => id),
+    ).toEqual(["dashboard", "messages", "reviews", "profile", "subscriptions"])
+    expect(
+      selectClinicDashboardNavigationItems({
+        showCertificatesAccreditationsPlaceholder: true,
+        showSubscriptionsPlaceholder: false,
+      }).map(({ id }) => id),
+    ).toEqual(["dashboard", "messages", "reviews", "profile", "certificates-accreditations"])
   })
 
   it("returns to Dashboard when the current destination is gated", () => {
     const presentation = getClinicDashboardCapabilities("presentation")
     const presentationItems = selectClinicDashboardNavigationItems({
+      showCertificatesAccreditationsPlaceholder: presentation.showCertificatesAccreditationsPlaceholder,
       showSubscriptionsPlaceholder: presentation.showSubscriptionsPlaceholder,
     })
 
     expect(selectSafeClinicDashboardSection("subscriptions", presentationItems)).toBe("dashboard")
+    expect(selectSafeClinicDashboardSection("certificates-accreditations", presentationItems)).toBe(
+      "dashboard",
+    )
     expect(selectSafeClinicDashboardSection("reviews", presentationItems)).toBe("reviews")
   })
 })

@@ -35,3 +35,27 @@ export const SubscriptionsSelection: Story = {
     await expect(args.onSectionSelect).toHaveBeenCalledWith("subscriptions")
   },
 }
+
+export const CertificatesAndAccreditationsAt320: Story = {
+  args: { activeSection: "certificates-accreditations" },
+  globals: { viewport: { value: "mobile320Short" } },
+  render: (args) => (
+    <div className="w-58">
+      <ClinicDashboardNavigation {...args} />
+    </div>
+  ),
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const destination = canvas.getByRole("button", { name: "Certificates and accreditations" })
+    const label = within(destination).getByText("Certificates and accreditations")
+
+    await expect(destination).toHaveAttribute("aria-current", "page")
+    await expect(destination.scrollWidth).toBeLessThanOrEqual(destination.clientWidth)
+    await expect(destination.scrollHeight).toBeLessThanOrEqual(destination.clientHeight)
+    await expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
+    await expect(label.getBoundingClientRect().height).toBeGreaterThan(20)
+
+    await userEvent.click(destination)
+    await expect(args.onSectionSelect).toHaveBeenCalledWith("certificates-accreditations")
+  },
+}

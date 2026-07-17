@@ -11,18 +11,23 @@ export const clinicDashboardNavigationItems = [
   { id: "reviews", label: "Reviews" },
   { id: "profile", label: "Clinic profile" },
   { id: "subscriptions", label: "Subscriptions" },
+  { id: "certificates-accreditations", label: "Certificates and accreditations" },
 ] as const satisfies readonly ClinicDashboardNavigationItem[]
 
 type ClinicDashboardNavigationVisibility = Readonly<{
+  showCertificatesAccreditationsPlaceholder: boolean
   showSubscriptionsPlaceholder: boolean
 }>
 
 export function selectClinicDashboardNavigationItems({
+  showCertificatesAccreditationsPlaceholder,
   showSubscriptionsPlaceholder,
 }: ClinicDashboardNavigationVisibility) {
-  return showSubscriptionsPlaceholder
-    ? clinicDashboardNavigationItems
-    : clinicDashboardNavigationItems.filter(({ id }) => id !== "subscriptions")
+  return clinicDashboardNavigationItems.filter(
+    ({ id }) =>
+      (id !== "subscriptions" || showSubscriptionsPlaceholder) &&
+      (id !== "certificates-accreditations" || showCertificatesAccreditationsPlaceholder),
+  )
 }
 
 export function selectSafeClinicDashboardSection(

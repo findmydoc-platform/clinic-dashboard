@@ -1,12 +1,13 @@
 "use client"
 
-import { Building2, LayoutDashboard, MessageSquare, ReceiptText, Star } from "lucide-react"
+import { Building2, FileText, LayoutDashboard, MessageSquare, ReceiptText, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { ClinicDashboardSection } from "../../model/workspace"
 import type { ClinicDashboardNavigationItem } from "../../navigation"
 
 const navigationIcons = {
+  "certificates-accreditations": FileText,
   dashboard: LayoutDashboard,
   messages: MessageSquare,
   profile: Building2,
@@ -34,7 +35,7 @@ export function ClinicDashboardNavigation({
         return (
           <Button
             aria-current={isActive ? "page" : undefined}
-            className={cn("relative min-h-11 w-full justify-start gap-3", isActive && "pl-5")}
+            className={cn("relative h-auto min-h-11 w-full justify-start gap-3", isActive && "pl-5")}
             key={item.id}
             onClick={() => onSectionSelect(item.id)}
             variant={isActive ? "accent" : "ghost"}
@@ -46,7 +47,7 @@ export function ClinicDashboardNavigation({
               />
             ) : null}
             <Icon aria-hidden="true" className="size-5 shrink-0" />
-            <span>{item.label}</span>
+            <span className="min-w-0 flex-1 text-left break-words whitespace-normal">{item.label}</span>
           </Button>
         )
       })}

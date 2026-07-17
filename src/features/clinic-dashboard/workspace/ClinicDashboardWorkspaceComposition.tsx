@@ -127,6 +127,7 @@ export function ClinicDashboardWorkspaceComposition({
   const { actions, model } = controller
   const capabilities = getClinicDashboardCapabilities(model.activePrototypeMode)
   const navigationItems = selectClinicDashboardNavigationItems({
+    showCertificatesAccreditationsPlaceholder: capabilities.showCertificatesAccreditationsPlaceholder,
     showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
   })
   const activeSection = selectSafeClinicDashboardSection(model.activeSection, navigationItems)
@@ -265,6 +266,13 @@ export function ClinicDashboardWorkspaceComposition({
         <FutureAreaPlaceholderScreen
           description="This area is a visual placeholder only. Subscription details and actions are not available in this prototype."
           heading="Subscriptions"
+        />
+      ) : null}
+      {activeSection === "certificates-accreditations" &&
+      capabilities.showCertificatesAccreditationsPlaceholder ? (
+        <FutureAreaPlaceholderScreen
+          description="This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this prototype."
+          heading="Certificates and accreditations"
         />
       ) : null}
 

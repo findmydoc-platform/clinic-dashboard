@@ -17,16 +17,12 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-async function assertPlaceholderContract(canvasElement: HTMLElement) {
+async function assertPlaceholderContract(canvasElement: HTMLElement, heading: string, description: string) {
   const canvas = within(canvasElement)
-  const region = canvas.getByRole("region", { name: "Subscriptions" })
+  const region = canvas.getByRole("region", { name: heading })
 
-  await expect(within(region).getByRole("heading", { level: 1, name: "Subscriptions" })).toBeInTheDocument()
-  await expect(
-    within(region).getByText(
-      "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
-    ),
-  ).toBeInTheDocument()
+  await expect(within(region).getByRole("heading", { level: 1, name: heading })).toBeInTheDocument()
+  await expect(within(region).getByText(description)).toBeInTheDocument()
   await expect(region).not.toHaveAttribute("aria-busy")
   await expect(within(region).queryByRole("progressbar")).not.toBeInTheDocument()
   await expect(region.querySelector("[aria-live]")).not.toBeInTheDocument()
@@ -43,14 +39,37 @@ async function assertPlaceholderContract(canvasElement: HTMLElement) {
 
 export const Default: Story = {
   play: async ({ canvasElement }) => {
-    await assertPlaceholderContract(canvasElement)
+    await assertPlaceholderContract(
+      canvasElement,
+      "Subscriptions",
+      "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
+    )
+  },
+}
+
+export const CertificatesAndAccreditations: Story = {
+  args: {
+    description:
+      "This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this prototype.",
+    heading: "Certificates and accreditations",
+  },
+  play: async ({ canvasElement }) => {
+    await assertPlaceholderContract(
+      canvasElement,
+      "Certificates and accreditations",
+      "This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this prototype.",
+    )
   },
 }
 
 export const At320: Story = {
   globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
-    await assertPlaceholderContract(canvasElement)
+    await assertPlaceholderContract(
+      canvasElement,
+      "Subscriptions",
+      "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
+    )
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }
@@ -58,6 +77,10 @@ export const At320: Story = {
 export const Dark: Story = {
   globals: { theme: "dark" },
   play: async ({ canvasElement }) => {
-    await assertPlaceholderContract(canvasElement)
+    await assertPlaceholderContract(
+      canvasElement,
+      "Subscriptions",
+      "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
+    )
   },
 }

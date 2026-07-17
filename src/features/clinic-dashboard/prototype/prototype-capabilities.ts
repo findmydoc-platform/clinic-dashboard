@@ -19,6 +19,12 @@ const clinicDashboardVisibilityPolicy = {
     presentation: "hidden",
     visualReference: "interactive",
   },
+  certificatesAccreditationsPlaceholder: {
+    area: "Certificates and accreditations placeholder",
+    issue: websiteIssue(1523),
+    presentation: "hidden",
+    visualReference: "read-only",
+  },
   dashboardReporting: {
     area: "Dashboard reporting periods and profile-view export",
     issue: websiteIssue(1531),
@@ -104,6 +110,7 @@ export type ClinicDashboardCapabilities = Readonly<{
   canSwitchLocations: boolean
   profileManagement: VisibilityBehavior
   showCertificateTasks: boolean
+  showCertificatesAccreditationsPlaceholder: boolean
   showNotifications: boolean
   showSupport: boolean
   showSubscriptionsPlaceholder: boolean
@@ -127,6 +134,7 @@ export function deriveClinicDashboardCapabilities(
     canSwitchLocations: isInteractive(visibility.locationSwitching),
     profileManagement: visibility.profileWrites,
     showCertificateTasks: isInteractive(visibility.certificateTasks),
+    showCertificatesAccreditationsPlaceholder: visibility.certificatesAccreditationsPlaceholder !== "hidden",
     showNotifications: isInteractive(visibility.notifications),
     showSupport: isInteractive(visibility.support),
     showSubscriptionsPlaceholder: visibility.subscriptionsPlaceholder !== "hidden",
@@ -139,6 +147,10 @@ export function getClinicDashboardCapabilities(
 ): ClinicDashboardCapabilities {
   return deriveClinicDashboardCapabilities({
     certificateTasks: getVisibilityBehavior(prototypeMode, "certificateTasks"),
+    certificatesAccreditationsPlaceholder: getVisibilityBehavior(
+      prototypeMode,
+      "certificatesAccreditationsPlaceholder",
+    ),
     dashboardReporting: getVisibilityBehavior(prototypeMode, "dashboardReporting"),
     inquiryProfile: getVisibilityBehavior(prototypeMode, "inquiryProfile"),
     locationSwitching: getVisibilityBehavior(prototypeMode, "locationSwitching"),
