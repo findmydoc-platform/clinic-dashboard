@@ -22,7 +22,6 @@ export const FullCapabilities: Story = {
     },
     canDownloadProfileViews: true,
     model: dashboardViewModel,
-    period: "7 days",
     showCertificateTasks: true,
   },
   play: async ({ args, canvasElement }) => {
@@ -47,7 +46,6 @@ export const PresentationCapabilities: Story = {
     },
     canDownloadProfileViews: false,
     model: dashboardViewModel,
-    period: "7 days",
     showCertificateTasks: false,
   },
   play: async ({ canvasElement }) => {

@@ -163,7 +163,6 @@ export function ClinicDashboardWorkspace({
           }}
           canDownloadProfileViews={capabilities.canUseDashboardReporting}
           model={dashboardController.model.viewModel}
-          period={dashboardController.model.reportingPeriod}
           showCertificateTasks={capabilities.showCertificateTasks}
         />
       ) : null}
