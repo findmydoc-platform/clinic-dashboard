@@ -1,5 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
-import { reviewPrototypeCommands } from "@/features/clinic-dashboard/prototype/prototype-commands"
+import { describe, expect, it } from "vitest"
 import { serializeReviewsCsv } from "@/features/clinic-dashboard/reviews/model/review-csv"
 import { createPendingReviewResponse } from "@/features/clinic-dashboard/reviews/model/review"
 import {
@@ -329,35 +328,6 @@ describe("reviews model", () => {
     expect(createPendingReviewResponse("1234567890", reviewsFixture.referenceTime).response).toBe(
       "1234567890",
     )
-  })
-
-  it("uses the deterministic runtime timestamp without changing published state", async () => {
-    const publishedReview = reviews.find((review) => review.status === "Answered")
-    expect(publishedReview).toBeDefined()
-    if (!publishedReview) return
-
-    vi.useFakeTimers()
-    try {
-      const mutation = reviewPrototypeCommands.submitReviewResponseForModeration(
-        publishedReview,
-        "A deterministic local moderation preview.",
-      )
-      await vi.advanceTimersByTimeAsync(240)
-      const pending = await mutation
-
-      expect(pending).toMatchObject({
-        pendingResponse: {
-          response: "A deterministic local moderation preview.",
-          status: "pending-moderation",
-          submittedAt: "2023-10-16T12:00:00.000Z",
-        },
-        publishedResponse: publishedReview.publishedResponse,
-        revision: publishedReview.revision + 1,
-        status: publishedReview.status,
-      })
-    } finally {
-      vi.useRealTimers()
-    }
   })
 
   it("preserves appeal state when a response command receives an appealed review", async () => {

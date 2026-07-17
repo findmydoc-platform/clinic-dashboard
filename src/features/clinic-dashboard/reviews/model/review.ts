@@ -1,6 +1,6 @@
 export const reviewStatuses = ["Answered", "Open", "Under review"] as const
 
-export const pendingReviewResponseStatus = "pending-moderation" as const
+const pendingReviewResponseStatus = "pending-moderation" as const
 
 export type ReviewStatus = (typeof reviewStatuses)[number]
 
