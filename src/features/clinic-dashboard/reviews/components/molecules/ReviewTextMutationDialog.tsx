@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { Field } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 import type { ClinicReview } from "../../model/review"
+import type { ReviewMutationResult } from "../../model/reviews-view-model"
 import { ReviewMutationDialog } from "./ReviewMutationDialog"
 
 type ReviewTextMutationDialogProps = Readonly<{
@@ -11,7 +12,7 @@ type ReviewTextMutationDialogProps = Readonly<{
   initialValue?: string
   label: string
   onClose: () => void
-  onSubmit: (value: string) => Promise<void>
+  onSubmit: (value: string) => Promise<ReviewMutationResult>
   placeholder: string
   review: ClinicReview
   submitLabel: string
@@ -38,11 +39,11 @@ export function ReviewTextMutationDialog({
     if (trimmedValue.length < 10) {
       setValueError("Enter at least 10 characters.")
       valueRef.current?.focus()
-      return
+      return "discarded" as const
     }
 
     setValueError("")
-    await onSubmit(trimmedValue)
+    return onSubmit(trimmedValue)
   }
 
   return (

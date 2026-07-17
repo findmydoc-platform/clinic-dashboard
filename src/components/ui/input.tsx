@@ -1,10 +1,11 @@
 import { forwardRef, type ChangeEvent, type InputHTMLAttributes } from "react"
 import { cn } from "@/lib/utils"
 
-type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "onChange"> &
-  Readonly<{
+type InputProps = Readonly<
+  Omit<InputHTMLAttributes<HTMLInputElement>, "onChange"> & {
     onValueChange?: (value: string) => void
-  }>
+  }
+>
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { className, onValueChange, ...props },

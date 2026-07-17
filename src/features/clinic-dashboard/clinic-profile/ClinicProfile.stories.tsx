@@ -29,13 +29,11 @@ const renderOwnedClinicProfileCommands = {
 
 const meta = {
   args: {
-    canManageProfile: true,
-    canManageTeam: true,
     commands: renderOwnedClinicProfileCommands,
     initialProfile: clinicProfileFixture,
     onFocusHandled: fn(),
-    showProfileManagement: true,
-    showTeamManagement: true,
+    profileManagement: "interactive",
+    teamManagement: "interactive",
   },
   component: ClinicProfile,
   parameters: { layout: "fullscreen" },
@@ -51,15 +49,25 @@ function CapabilityToggleClinicProfile({
   commands: _commands,
   ...props
 }: ComponentProps<typeof ClinicProfile>) {
-  const [canManageProfile, setCanManageProfile] = useState(true)
+  const [managementAccess, setManagementAccess] =
+    useState<ComponentProps<typeof ClinicProfile>["profileManagement"]>("interactive")
   const [commands] = useState<ClinicProfileCommands>(() => createClinicProfileCommandsFixture())
 
   return (
     <>
-      <Button onClick={() => setCanManageProfile((current) => !current)}>
-        {canManageProfile ? "Disable profile management" : "Enable profile management"}
+      <Button
+        onClick={() =>
+          setManagementAccess((current) => (current === "interactive" ? "read-only" : "interactive"))
+        }
+      >
+        {managementAccess === "interactive" ? "Disable profile management" : "Enable profile management"}
       </Button>
-      <ClinicProfile {...props} canManageProfile={canManageProfile} commands={commands} />
+      <ClinicProfile
+        {...props}
+        commands={commands}
+        profileManagement={managementAccess}
+        teamManagement={managementAccess}
+      />
     </>
   )
 }
@@ -109,9 +117,53 @@ export const CapabilityChangeClosesUnavailableDialog: Story = {
 
     await userEvent.click(page.getByRole("button", { name: "Disable profile management" }))
     await waitFor(() => expect(page.queryByRole("dialog", { name: "Edit address" })).not.toBeInTheDocument())
+    await expect(page.getByText("Clinics / View profile")).toBeInTheDocument()
 
     await userEvent.click(page.getByRole("button", { name: "Enable profile management" }))
     await expect(page.queryByRole("dialog", { name: "Edit address" })).not.toBeInTheDocument()
+    await expect(page.getByText("Clinics / Edit profile")).toBeInTheDocument()
+  },
+}
+
+export const CapabilityWithdrawalProjectsSavedProfile: Story = {
+  render: (args) => <CapabilityToggleClinicProfile {...args} />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    const clinicName = page.getByRole("textbox", { name: "Clinic name" })
+
+    await userEvent.clear(clinicName)
+    await userEvent.type(clinicName, "Hidden draft clinic")
+    await userEvent.click(page.getByRole("button", { name: "Remove Laser teeth whitening" }))
+    await expect(page.getByRole("button", { name: "Undo removal" })).toBeVisible()
+
+    await userEvent.click(page.getByRole("button", { name: "Disable profile management" }))
+
+    await expect(page.getByText("Clinics / View profile")).toBeInTheDocument()
+    await expect(clinicName).toHaveValue(clinicProfileFixture.name)
+    await expect(clinicName).toBeDisabled()
+    await expect(page.queryByText("Hidden draft clinic")).not.toBeInTheDocument()
+    await expect(page.queryByRole("button", { name: "Undo removal" })).not.toBeInTheDocument()
+    await expect(page.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument()
+    await expect(page.queryByRole("button", { name: "Add team member" })).not.toBeInTheDocument()
+    await expect(page.queryByRole("button", { name: "New treatment" })).not.toBeInTheDocument()
+    await expect(page.getByText("Laser teeth whitening")).toBeVisible()
+
+    await userEvent.click(page.getByRole("button", { name: "View Laser teeth whitening" }))
+    const treatmentDialog = page.getByRole("dialog", { name: "Treatment details" })
+    await expect(within(treatmentDialog).getByRole("textbox", { name: "Treatment name" })).toBeDisabled()
+    await expect(
+      within(treatmentDialog).queryByRole("button", { name: /Save treatment/ }),
+    ).not.toBeInTheDocument()
+    await userEvent.click(within(treatmentDialog).getByRole("button", { name: "Done" }))
+
+    const member = clinicProfileFixture.team[0]
+    if (!member) throw new Error("Team fixture requires one member.")
+    await userEvent.click(page.getByRole("button", { name: `View ${member.name}` }))
+    const teamDialog = page.getByRole("dialog", { name: "Team member details" })
+    await expect(within(teamDialog).getByRole("textbox", { name: "First name" })).toBeDisabled()
+    await expect(
+      within(teamDialog).queryByRole("button", { name: /Save team member/ }),
+    ).not.toBeInTheDocument()
   },
 }
 
@@ -121,12 +173,35 @@ export const GalleryCoverSelection: Story = {
     const gallery = page.getByRole("region", { name: "Clinic image gallery" })
     await userEvent.click(within(gallery).getByRole("button", { name: /more images/ }))
 
-    const dialog = page.getByRole("dialog", { name: "Clinic images" })
+    const dialog = page.getByRole("dialog", { name: "Edit clinic images" })
     await userEvent.click(within(dialog).getAllByRole("button", { name: "Set cover" })[0]!)
     await userEvent.click(within(dialog).getByRole("button", { name: "Done" }))
 
     await expect(page.getByText("Gallery cover staged.")).toBeInTheDocument()
     await expect(within(gallery).getAllByRole("img")[0]).toHaveAccessibleName("Berlin Health Clinic exterior")
+  },
+}
+
+export const ReadOnlyGalleryBrowsing: Story = {
+  args: {
+    profileManagement: "read-only",
+    teamManagement: "read-only",
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    const gallery = page.getByRole("region", { name: "Clinic image gallery" })
+    await userEvent.click(within(gallery).getByRole("button", { name: /more images/ }))
+
+    const dialog = page.getByRole("dialog", { name: "Clinic image gallery" })
+    await expect(
+      within(dialog).getByText("View the images currently shown on the public clinic profile."),
+    ).toBeInTheDocument()
+    await expect(within(dialog).getByText("Cover image")).toBeInTheDocument()
+    await expect(within(dialog).queryByRole("button", { name: "Set cover" })).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole("button", { name: "Close gallery" }))
+    await waitFor(() =>
+      expect(page.queryByRole("dialog", { name: "Clinic image gallery" })).not.toBeInTheDocument(),
+    )
   },
 }
 

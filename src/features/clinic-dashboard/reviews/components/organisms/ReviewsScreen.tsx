@@ -70,7 +70,11 @@ export function ReviewsScreen({ actions, model }: ReviewsScreenProps) {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <PageHeading
           data-reviews-heading
-          description="Manage patient feedback and respond to reviews."
+          description={
+            model.showManagement
+              ? "Manage patient feedback and respond to reviews."
+              : "View patient feedback and published review activity."
+          }
           tabIndex={-1}
         >
           Reviews

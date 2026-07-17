@@ -13,36 +13,36 @@ import { TreatmentDialog } from "./components/organisms/TreatmentDialog"
 import { useClinicProfileController } from "./hooks/useClinicProfileController"
 import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
 import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "./model/clinic-profile"
+import {
+  isClinicProfileManagementInteractive,
+  isClinicProfileManagementVisible,
+  type ClinicProfileManagementAccess,
+} from "./model/clinic-profile-management"
 
 export type ClinicProfileProps = Readonly<{
-  canManageProfile: boolean
-  canManageTeam: boolean
   commands: ClinicProfileCommands
   focusTarget?: ClinicProfileFocusTarget
   initialDialog?: "team-member" | "treatment"
   initialProfile: ClinicProfileDraft
   onFocusHandled: () => void
-  showProfileManagement: boolean
-  showTeamManagement: boolean
+  profileManagement: ClinicProfileManagementAccess
+  teamManagement: ClinicProfileManagementAccess
 }>
 
 export function ClinicProfile({
-  canManageProfile,
-  canManageTeam,
   commands,
   focusTarget,
   initialDialog,
   initialProfile,
   onFocusHandled,
-  showProfileManagement,
-  showTeamManagement,
+  profileManagement,
+  teamManagement,
 }: ClinicProfileProps) {
   const controller = useClinicProfileController({
     commands,
     dialogAvailability: {
-      canManageProfile,
-      showProfileManagement,
-      showTeamManagement,
+      profileManagement,
+      teamManagement,
     },
     initialDialog,
     initialProfile,
@@ -62,11 +62,11 @@ export function ClinicProfile({
     onSpecialtyDialogOpen: () => actions.openDialog("specialty"),
     onSpecialtyRemove: actions.removeSpecialty,
     onTeamMemberCreate: () => actions.openTeamMemberDialog(),
-    onTeamMemberEdit: actions.openTeamMemberDialog,
+    onTeamMemberOpen: actions.openTeamMemberDialog,
     onTeamMemberRemove: actions.removeTeamMember,
     onTreatmentCreate: () => actions.openTreatmentDialog(),
-    onTreatmentEdit: actions.openTreatmentDialog,
     onTreatmentMove: actions.moveTreatment,
+    onTreatmentOpen: actions.openTreatmentDialog,
     onTreatmentRemove: actions.removeTreatment,
   }
 
@@ -75,11 +75,9 @@ export function ClinicProfile({
       <ClinicProfileScreen
         actions={screenActions}
         model={{
-          canManageProfile,
-          canManageTeam,
           focusTarget,
-          showProfileManagement,
-          showTeamManagement,
+          profileManagement,
+          teamManagement,
           ...model,
         }}
       />
@@ -94,6 +92,7 @@ export function ClinicProfile({
       {dialog === "gallery" ? (
         <GalleryDialog
           gallery={model.profile.gallery}
+          isReadOnly={!isClinicProfileManagementInteractive(profileManagement)}
           onOpenChange={(open) => actions.setDialogOpen("gallery", open)}
           onSelectCover={actions.selectGalleryCover}
           open
@@ -115,20 +114,24 @@ export function ClinicProfile({
           open
         />
       ) : null}
-      {dialog === "team-member" && showTeamManagement ? (
+      {dialog === "team-member" &&
+      isClinicProfileManagementVisible(teamManagement) &&
+      (model.selectedTeamMember || isClinicProfileManagementInteractive(teamManagement)) ? (
         <TeamMemberDialog
           initialMember={model.selectedTeamMember}
-          isReadOnly={!canManageTeam}
+          isReadOnly={!isClinicProfileManagementInteractive(teamManagement)}
           key={model.selectedTeamMember?.id ?? "new-team-member"}
           onOpenChange={(open) => actions.setDialogOpen("team-member", open)}
           onSave={actions.saveTeamMember}
           open
         />
       ) : null}
-      {dialog === "treatment" && showProfileManagement ? (
+      {dialog === "treatment" &&
+      isClinicProfileManagementVisible(profileManagement) &&
+      (model.selectedTreatment || isClinicProfileManagementInteractive(profileManagement)) ? (
         <TreatmentDialog
           initialTreatment={model.selectedTreatment}
-          isReadOnly={!canManageProfile}
+          isReadOnly={!isClinicProfileManagementInteractive(profileManagement)}
           key={model.selectedTreatment?.id ?? "new-treatment"}
           onOpenChange={(open) => actions.setDialogOpen("treatment", open)}
           onSave={actions.saveTreatment}

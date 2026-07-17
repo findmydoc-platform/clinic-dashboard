@@ -9,6 +9,11 @@ import type {
   ClinicTeamMember,
   ClinicTreatment,
 } from "../../model/clinic-profile"
+import {
+  isClinicProfileManagementInteractive,
+  isClinicProfileManagementVisible,
+  type ClinicProfileManagementAccess,
+} from "../../model/clinic-profile-management"
 import { ClinicProfileBasics } from "./ClinicProfileBasics"
 import { ClinicProfileDetails } from "./ClinicProfileDetails"
 import { ClinicProfileGallery } from "./ClinicProfileGallery"
@@ -16,15 +21,13 @@ import { ClinicProfileTeam } from "./ClinicProfileTeam"
 import { ClinicProfileTreatments } from "./ClinicProfileTreatments"
 
 export type ClinicProfileScreenModel = Readonly<{
-  canManageProfile: boolean
-  canManageTeam: boolean
   focusTarget?: ClinicProfileFocusTarget
   isDirty: boolean
   profile: ClinicProfileDraft
+  profileManagement: ClinicProfileManagementAccess
   saveState: "idle" | "saved" | "saving"
-  showProfileManagement: boolean
-  showTeamManagement: boolean
   statusMessage: string
+  teamManagement: ClinicProfileManagementAccess
   undoKind?: "team" | "treatment"
   undoMessage?: string
 }>
@@ -42,11 +45,11 @@ export type ClinicProfileScreenActions = Readonly<{
   onSpecialtyDialogOpen: () => void
   onSpecialtyRemove: (specialty: string) => void
   onTeamMemberCreate: () => void
-  onTeamMemberEdit: (member: ClinicTeamMember) => void
+  onTeamMemberOpen: (member: ClinicTeamMember) => void
   onTeamMemberRemove: (id: string) => void
   onTreatmentCreate: () => void
-  onTreatmentEdit: (treatment: ClinicTreatment) => void
   onTreatmentMove: (id: string, direction: -1 | 1) => void
+  onTreatmentOpen: (treatment: ClinicTreatment) => void
   onTreatmentRemove: (id: string) => void
 }>
 
@@ -58,8 +61,11 @@ type ClinicProfileScreenProps = Readonly<{
 export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps) {
   const galleryRef = useRef<HTMLElement>(null)
   const teamRef = useRef<HTMLElement>(null)
+  const canManageProfile = isClinicProfileManagementInteractive(model.profileManagement)
+  const canManageTeam = isClinicProfileManagementInteractive(model.teamManagement)
+  const canSaveProfile = canManageProfile || canManageTeam
   const isBusy = model.saveState === "saving"
-  const isEditingDisabled = !model.canManageProfile || isBusy
+  const isEditingDisabled = !canManageProfile || isBusy
   const { onFocusHandled } = actions
 
   useEffect(() => {
@@ -97,10 +103,12 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
     <div aria-busy={isBusy} className="space-y-6 pb-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="mb-1 text-sm text-[var(--foreground)]">Clinics / Edit profile</p>
+          <p className="mb-1 text-sm text-[var(--foreground)]">
+            {canSaveProfile ? "Clinics / Edit profile" : "Clinics / View profile"}
+          </p>
           <PageHeading>Clinic profile</PageHeading>
         </div>
-        {model.canManageProfile ? (
+        {canSaveProfile ? (
           <div aria-label="Profile page actions" className="flex items-center gap-2" role="group">
             {saveControls}
           </div>
@@ -114,7 +122,6 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
       <ClinicProfileGallery
         gallery={model.profile.gallery}
         galleryTotal={model.profile.galleryTotal}
-        isDisabled={isEditingDisabled}
         onOpen={actions.onGalleryOpen}
         ref={galleryRef}
       />
@@ -129,30 +136,34 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             onNameChange={actions.onNameChange}
             onSpecialtyAdd={actions.onSpecialtyDialogOpen}
             onSpecialtyRemove={actions.onSpecialtyRemove}
-            showSpecialtyActions={model.canManageProfile}
+            showSpecialtyActions={canManageProfile}
             specialties={model.profile.specialties}
           />
           <ClinicProfileTeam
             isBusy={isBusy}
             members={model.profile.team}
             onCreate={actions.onTeamMemberCreate}
-            onEdit={actions.onTeamMemberEdit}
+            onMemberOpen={actions.onTeamMemberOpen}
             onRemove={actions.onTeamMemberRemove}
             onUndo={actions.onRemovalUndo}
             ref={teamRef}
-            showCreateAction={model.showTeamManagement}
-            showMemberActions={model.canManageTeam}
+            showCreateAction={canManageTeam}
+            showMemberActions={canManageTeam}
+            showMemberViewAction={isClinicProfileManagementVisible(model.teamManagement) && !canManageTeam}
             undoMessage={model.undoKind === "team" ? model.undoMessage : undefined}
           />
           <ClinicProfileTreatments
             isBusy={isBusy}
             onCreate={actions.onTreatmentCreate}
-            onEdit={actions.onTreatmentEdit}
             onMove={actions.onTreatmentMove}
             onRemove={actions.onTreatmentRemove}
+            onTreatmentOpen={actions.onTreatmentOpen}
             onUndo={actions.onRemovalUndo}
-            showCreateAction={model.showProfileManagement}
-            showTreatmentActions={model.canManageProfile}
+            showCreateAction={canManageProfile}
+            showTreatmentActions={canManageProfile}
+            showTreatmentViewAction={
+              isClinicProfileManagementVisible(model.profileManagement) && !canManageProfile
+            }
             treatments={model.profile.treatments}
             undoMessage={model.undoKind === "treatment" ? model.undoMessage : undefined}
           />
@@ -164,11 +175,11 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
           onAddressEdit={actions.onAddressEdit}
           onOpeningHoursEdit={actions.onOpeningHoursEdit}
           openingHours={model.profile.openingHours}
-          showEditActions={model.canManageProfile}
+          showEditActions={canManageProfile}
         />
       </div>
 
-      {model.canManageProfile && model.isDirty ? (
+      {canSaveProfile && model.isDirty ? (
         <div className="fixed right-0 bottom-0 left-0 z-30 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] px-4 py-3 shadow-2xl backdrop-blur md:left-64">
           <div className="mx-auto flex max-w-[100rem] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-sm font-bold text-[var(--secondary)]">Profile changes not saved</span>

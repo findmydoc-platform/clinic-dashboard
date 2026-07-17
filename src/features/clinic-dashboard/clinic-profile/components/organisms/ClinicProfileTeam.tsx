@@ -1,5 +1,5 @@
 import { forwardRef } from "react"
-import { Pencil, Trash2, UserPlus } from "lucide-react"
+import { Eye, Pencil, Trash2, UserPlus } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -10,16 +10,28 @@ type ClinicProfileTeamProps = Readonly<{
   isBusy: boolean
   members: readonly ClinicTeamMember[]
   onCreate: () => void
-  onEdit: (member: ClinicTeamMember) => void
+  onMemberOpen: (member: ClinicTeamMember) => void
   onRemove: (id: string) => void
   onUndo: () => void
   showCreateAction: boolean
   showMemberActions: boolean
+  showMemberViewAction: boolean
   undoMessage?: string
 }>
 
 export const ClinicProfileTeam = forwardRef<HTMLElement, ClinicProfileTeamProps>(function ClinicProfileTeam(
-  { isBusy, members, onCreate, onEdit, onRemove, onUndo, showCreateAction, showMemberActions, undoMessage },
+  {
+    isBusy,
+    members,
+    onCreate,
+    onMemberOpen,
+    onRemove,
+    onUndo,
+    showCreateAction,
+    showMemberActions,
+    showMemberViewAction,
+    undoMessage,
+  },
   ref,
 ) {
   return (
@@ -57,7 +69,7 @@ export const ClinicProfileTeam = forwardRef<HTMLElement, ClinicProfileTeamProps>
                 <Button
                   aria-label={`Edit ${member.name}`}
                   disabled={isBusy}
-                  onClick={() => onEdit(member)}
+                  onClick={() => onMemberOpen(member)}
                   size="icon"
                   title={`Edit ${member.name}`}
                   variant="ghost"
@@ -76,6 +88,18 @@ export const ClinicProfileTeam = forwardRef<HTMLElement, ClinicProfileTeamProps>
                   <Trash2 aria-hidden="true" className="size-4" />
                 </Button>
               </div>
+            ) : showMemberViewAction ? (
+              <Button
+                aria-label={`View ${member.name}`}
+                disabled={isBusy}
+                onClick={() => onMemberOpen(member)}
+                size="small"
+                title={`View ${member.name}`}
+                variant="ghost"
+              >
+                <Eye aria-hidden="true" className="size-4" />
+                View
+              </Button>
             ) : null}
           </div>
         ))}

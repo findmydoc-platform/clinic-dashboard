@@ -9,6 +9,7 @@ import {
   isClinicProfileDialogAvailabilityEqual,
   selectAvailableClinicProfileDialog,
 } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-dialogs"
+import { selectClinicProfileEditorProjection } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile.selectors"
 import { clinicProfileFixture } from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile.fixtures"
 
 describe("clinic profile editor reducer", () => {
@@ -45,23 +46,95 @@ describe("clinic profile editor reducer", () => {
 
   it("makes dialog availability an explicit capability decision", () => {
     const presentationAvailability = {
-      canManageProfile: false,
-      showProfileManagement: false,
-      showTeamManagement: false,
-    }
+      profileManagement: "hidden",
+      teamManagement: "hidden",
+    } as const
     const readOnlyPreviewAvailability = {
-      canManageProfile: false,
-      showProfileManagement: true,
-      showTeamManagement: true,
-    }
+      profileManagement: "read-only",
+      teamManagement: "read-only",
+    } as const
 
     expect(isClinicProfileDialogAvailable("address", presentationAvailability)).toBe(false)
+    expect(isClinicProfileDialogAvailable("gallery", presentationAvailability)).toBe(true)
+    expect(isClinicProfileDialogAvailable("gallery", readOnlyPreviewAvailability)).toBe(true)
     expect(
       isClinicProfileDialogAvailabilityEqual(presentationAvailability, readOnlyPreviewAvailability),
     ).toBe(false)
     expect(selectAvailableClinicProfileDialog("address", presentationAvailability)).toBeUndefined()
-    expect(selectAvailableClinicProfileDialog("team-member", readOnlyPreviewAvailability)).toBe("team-member")
-    expect(selectAvailableClinicProfileDialog("treatment", readOnlyPreviewAvailability)).toBe("treatment")
+    expect(selectAvailableClinicProfileDialog("team-member", readOnlyPreviewAvailability)).toBeUndefined()
+    expect(selectAvailableClinicProfileDialog("treatment", readOnlyPreviewAvailability)).toBeUndefined()
+    expect(selectAvailableClinicProfileDialog("team-member", readOnlyPreviewAvailability, true)).toBe(
+      "team-member",
+    )
+    expect(selectAvailableClinicProfileDialog("treatment", readOnlyPreviewAvailability, true)).toBe(
+      "treatment",
+    )
+  })
+
+  it("projects only saved profile and team state after management is withdrawn", () => {
+    const initial = createClinicProfileEditorState(clinicProfileFixture)
+    const changedName = clinicProfileEditorReducer(initial, {
+      name: "Hidden draft clinic",
+      type: "nameChanged",
+    })
+    const treatment = changedName.draft.treatments[0]
+    const member = changedName.draft.team[0]
+    expect(treatment).toBeDefined()
+    expect(member).toBeDefined()
+    if (!treatment || !member) return
+
+    const withoutTreatment = clinicProfileEditorReducer(changedName, {
+      id: treatment.id,
+      type: "treatmentRemoved",
+    })
+    const withoutMember = clinicProfileEditorReducer(withoutTreatment, {
+      id: member.id,
+      type: "teamMemberRemoved",
+    })
+    const projection = selectClinicProfileEditorProjection(withoutMember, {
+      profileManagement: "read-only",
+      teamManagement: "read-only",
+    })
+
+    expect(projection).toEqual({
+      isDirty: false,
+      profile: withoutMember.saved,
+      saveState: "idle",
+      statusMessage: "",
+      undoKind: undefined,
+      undoMessage: undefined,
+    })
+  })
+
+  it("projects independently gated profile and team drafts", () => {
+    const initial = createClinicProfileEditorState(clinicProfileFixture)
+    const renamed = clinicProfileEditorReducer(initial, {
+      name: "Allowed profile draft",
+      type: "nameChanged",
+    })
+    const member = renamed.draft.team[0]
+    expect(member).toBeDefined()
+    if (!member) return
+
+    const teamRemoved = clinicProfileEditorReducer(renamed, {
+      id: member.id,
+      type: "teamMemberRemoved",
+    })
+    const profileOnlyProjection = selectClinicProfileEditorProjection(teamRemoved, {
+      profileManagement: "interactive",
+      teamManagement: "read-only",
+    })
+    const teamOnlyProjection = selectClinicProfileEditorProjection(teamRemoved, {
+      profileManagement: "read-only",
+      teamManagement: "interactive",
+    })
+
+    expect(profileOnlyProjection.profile.name).toBe("Allowed profile draft")
+    expect(profileOnlyProjection.profile.team).toEqual(initial.saved.team)
+    expect(profileOnlyProjection.undoKind).toBeUndefined()
+    expect(teamOnlyProjection.profile.name).toBe(initial.saved.name)
+    expect(teamOnlyProjection.profile.team).toEqual(teamRemoved.draft.team)
+    expect(teamOnlyProjection.undoKind).toBe("team")
   })
 
   it("stages, removes, and restores a treatment without mutating the saved profile", () => {

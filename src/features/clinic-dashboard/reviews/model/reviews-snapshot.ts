@@ -6,7 +6,7 @@ export type ReviewDistributionEntry = Readonly<{
   stars: number
 }>
 
-export type ReviewsData = Readonly<{
+export type ReviewsSnapshot = Readonly<{
   distribution: readonly ReviewDistributionEntry[]
   items: readonly ClinicReview[]
   rating: number

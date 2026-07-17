@@ -84,10 +84,11 @@ export const CreateTreatment: Story = {
 export const ReadOnly: Story = {
   args: { isReadOnly: true },
   play: async ({ canvasElement }) => {
-    const dialog = within(canvasElement).getByRole("dialog", { name: "Edit treatment" })
+    const dialog = within(canvasElement).getByRole("dialog", { name: "Treatment details" })
     await expect(within(dialog).getByRole("textbox", { name: "Treatment name" })).toBeDisabled()
     await expect(
       within(dialog).queryByRole("button", { name: "Save treatment changes" }),
     ).not.toBeInTheDocument()
+    await expect(within(dialog).getByRole("button", { name: "Done" })).toBeEnabled()
   },
 }

@@ -20,23 +20,21 @@ const actions = {
   onSpecialtyDialogOpen: fn(),
   onSpecialtyRemove: fn(),
   onTeamMemberCreate: fn(),
-  onTeamMemberEdit: fn(),
+  onTeamMemberOpen: fn(),
   onTeamMemberRemove: fn(),
   onTreatmentCreate: fn(),
-  onTreatmentEdit: fn(),
   onTreatmentMove: fn(),
+  onTreatmentOpen: fn(),
   onTreatmentRemove: fn(),
 } satisfies ClinicProfileScreenActions
 
 const readOnlyModel = {
-  canManageProfile: false,
-  canManageTeam: false,
   isDirty: false,
   profile: clinicProfileFixture,
+  profileManagement: "hidden",
   saveState: "idle",
-  showProfileManagement: false,
-  showTeamManagement: false,
   statusMessage: "",
+  teamManagement: "hidden",
 } satisfies ClinicProfileScreenModel
 
 const meta = {
@@ -68,12 +66,10 @@ export const EditableWithUndo: Story = {
     actions,
     model: {
       ...readOnlyModel,
-      canManageProfile: true,
-      canManageTeam: true,
       isDirty: true,
-      showProfileManagement: true,
-      showTeamManagement: true,
+      profileManagement: "interactive",
       statusMessage: "Treatment removed.",
+      teamManagement: "interactive",
       undoKind: "treatment",
       undoMessage: "FUE hair transplant removed. Undo restores this item.",
     },
@@ -94,16 +90,22 @@ export const ReadOnlyManagementPreview: Story = {
     actions,
     model: {
       ...readOnlyModel,
-      showProfileManagement: true,
-      showTeamManagement: true,
+      profileManagement: "read-only",
+      teamManagement: "read-only",
     },
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
 
     await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toBeDisabled()
-    await expect(canvas.getByRole("button", { name: "Add team member" })).toBeEnabled()
-    await expect(canvas.getByRole("button", { name: "New treatment" })).toBeEnabled()
+    await expect(canvas.queryByRole("button", { name: "Add team member" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "New treatment" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "View Dr Markus Weber" })).toBeEnabled()
+    await expect(canvas.getByRole("button", { name: /View Laser teeth whitening/ })).toBeEnabled()
+    const openGallery = canvas.getByRole("button", { name: /more images/ })
+    await expect(openGallery).toBeEnabled()
+    await userEvent.click(openGallery)
+    await expect(args.actions.onGalleryOpen).toHaveBeenCalledOnce()
     await expect(canvas.queryByRole("group", { name: "Profile page actions" })).not.toBeInTheDocument()
   },
 }

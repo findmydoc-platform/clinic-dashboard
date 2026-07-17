@@ -1,10 +1,11 @@
 import { forwardRef, type ChangeEvent, type SelectHTMLAttributes } from "react"
 import { cn } from "@/lib/utils"
 
-type SelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, "onChange"> &
-  Readonly<{
+type SelectProps = Readonly<
+  Omit<SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
     onValueChange?: (value: string) => void
-  }>
+  }
+>
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
   { className, onValueChange, ...props },

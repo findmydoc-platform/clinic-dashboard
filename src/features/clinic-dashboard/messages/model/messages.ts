@@ -39,7 +39,7 @@ export type ClinicMessage = Readonly<{
   time: string
 }>
 
-export type MessagesData = Readonly<{
+export type MessagesSnapshot = Readonly<{
   activeConversationId: string
   conversations: readonly ClinicConversation[]
   dateLabel: string

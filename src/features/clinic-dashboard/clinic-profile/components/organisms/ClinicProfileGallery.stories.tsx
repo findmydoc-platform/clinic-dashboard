@@ -7,7 +7,6 @@ const meta = {
   args: {
     gallery: clinicProfileFixture.gallery,
     galleryTotal: clinicProfileFixture.galleryTotal,
-    isDisabled: false,
     onOpen: fn(),
   },
   component: ClinicProfileGallery,
@@ -30,10 +29,12 @@ export const CoverFirst: Story = {
   },
 }
 
-export const MobileReadOnly: Story = {
-  args: { isDisabled: true },
+export const MobileReadOnlyGalleryAccess: Story = {
   globals: { viewport: { value: "mobile390Tall" } },
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole("button", { name: /more images/ })).toBeDisabled()
+  play: async ({ args, canvasElement }) => {
+    const openGallery = within(canvasElement).getByRole("button", { name: /more images/ })
+    await expect(openGallery).toBeEnabled()
+    await userEvent.click(openGallery)
+    await expect(args.onOpen).toHaveBeenCalledOnce()
   },
 }

@@ -1,10 +1,15 @@
+import {
+  isClinicProfileManagementInteractive,
+  isClinicProfileManagementVisible,
+  type ClinicProfileManagementAccess,
+} from "./clinic-profile-management"
+
 export type ClinicProfileDialogId =
   "address" | "gallery" | "hours" | "specialty" | "team-member" | "treatment"
 
 export type ClinicProfileDialogAvailability = Readonly<{
-  canManageProfile: boolean
-  showProfileManagement: boolean
-  showTeamManagement: boolean
+  profileManagement: ClinicProfileManagementAccess
+  teamManagement: ClinicProfileManagementAccess
 }>
 
 export function isClinicProfileDialogAvailabilityEqual(
@@ -12,24 +17,37 @@ export function isClinicProfileDialogAvailabilityEqual(
   next: ClinicProfileDialogAvailability,
 ) {
   return (
-    current.canManageProfile === next.canManageProfile &&
-    current.showProfileManagement === next.showProfileManagement &&
-    current.showTeamManagement === next.showTeamManagement
+    current.profileManagement === next.profileManagement && current.teamManagement === next.teamManagement
   )
 }
 
 export function isClinicProfileDialogAvailable(
   dialog: ClinicProfileDialogId,
   availability: ClinicProfileDialogAvailability,
+  hasSelectedEntity = false,
 ) {
-  if (dialog === "team-member") return availability.showTeamManagement
-  if (dialog === "treatment") return availability.showProfileManagement
-  return availability.canManageProfile
+  if (dialog === "gallery") return true
+  if (dialog === "team-member") {
+    return (
+      isClinicProfileManagementInteractive(availability.teamManagement) ||
+      (hasSelectedEntity && isClinicProfileManagementVisible(availability.teamManagement))
+    )
+  }
+  if (dialog === "treatment") {
+    return (
+      isClinicProfileManagementInteractive(availability.profileManagement) ||
+      (hasSelectedEntity && isClinicProfileManagementVisible(availability.profileManagement))
+    )
+  }
+  return isClinicProfileManagementInteractive(availability.profileManagement)
 }
 
 export function selectAvailableClinicProfileDialog(
   dialog: ClinicProfileDialogId | undefined,
   availability: ClinicProfileDialogAvailability,
+  hasSelectedEntity = false,
 ) {
-  return dialog && isClinicProfileDialogAvailable(dialog, availability) ? dialog : undefined
+  return dialog && isClinicProfileDialogAvailable(dialog, availability, hasSelectedEntity)
+    ? dialog
+    : undefined
 }

@@ -10,8 +10,8 @@ const meta = {
   args: productionArgs,
   component: ClinicDashboardWorkspace,
   parameters: { layout: "fullscreen" },
-  tags: ["domain:workspace", "layer:template", "status:prototype"],
-  title: "Clinic Dashboard/Workspace/Templates/Clinic Dashboard Workspace",
+  tags: ["domain:workspace", "layer:page", "status:prototype"],
+  title: "Clinic Dashboard/Workspace/Pages/Clinic Dashboard Workspace",
 } satisfies Meta<typeof ClinicDashboardWorkspace>
 
 export default meta

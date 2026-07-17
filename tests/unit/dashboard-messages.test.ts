@@ -5,7 +5,7 @@ import {
   getConversationUnreadCount,
   getTotalUnreadCount,
   type ClinicConversation,
-  type MessagesData,
+  type MessagesSnapshot,
 } from "@/features/clinic-dashboard/messages/model/messages"
 import {
   createMessagesState,
@@ -123,6 +123,24 @@ describe("dashboard message prototype", () => {
     ).toBe(state)
   })
 
+  it("closes the transient menu when interaction is withdrawn without losing authored state", () => {
+    const state: MessagesState = {
+      ...createMessagesState(messagesFixture),
+      draft: "Preserved draft",
+      menuOpen: true,
+      searchQuery: "Markus",
+      selection: {
+        conversationId: "markus-schmidt",
+        mobilePane: "thread",
+      },
+    }
+
+    const withdrawn = messagesReducer(state, { type: "interaction-withdrawn" }, messagesFixture)
+
+    expect(withdrawn).toEqual({ ...state, menuOpen: false })
+    expect(messagesReducer(withdrawn, { type: "interaction-withdrawn" }, messagesFixture)).toBe(withdrawn)
+  })
+
   it("toggles unread state without duplicating conversation ids", () => {
     const state = createMessagesState(messagesFixture)
     const readState = messagesReducer(state, { type: "unreadToggled" }, messagesFixture)
@@ -229,22 +247,63 @@ describe("dashboard message prototype", () => {
     })
     expect(interactiveModel.sections.flatMap(({ conversations: items }) => items)).toHaveLength(1)
     expect(presentationModel).toMatchObject({
+      draft: "",
+      hasFullConversation: true,
       menuOpen: false,
       mobileThreadOpen: false,
+      searchQuery: "",
+      selectedConversation: { id: data.activeConversationId },
+      totalConversationCount: data.conversations.length,
+      totalUnreadCount: 1,
+      visibleMessages: data.messages,
     })
+    expect(presentationModel.sections.flatMap(({ conversations: items }) => items)).toHaveLength(
+      data.conversations.length,
+    )
+  })
+
+  it("projects a canonical snapshot when interaction is withdrawn", () => {
+    const data = messagesFixture
+    const staleState: MessagesState = {
+      draft: "Hidden draft",
+      localMessages: [createLocalClinicMessage("Hidden local message", 1)],
+      menuOpen: true,
+      readConversationIds: [data.activeConversationId],
+      searchQuery: "Markus",
+      selection: {
+        conversationId: "markus-schmidt",
+        mobilePane: "thread",
+      },
+    }
+
+    const projection = selectMessagesViewModel(staleState, data, false)
+
+    expect(projection).toMatchObject({
+      draft: "",
+      hasFullConversation: true,
+      isInteractive: false,
+      menuOpen: false,
+      mobileThreadOpen: false,
+      searchQuery: "",
+      selectedConversation: { id: data.activeConversationId },
+      totalConversationCount: data.conversations.length,
+      totalUnreadCount: 1,
+    })
+    expect(projection.visibleMessages).toEqual(data.messages)
+    expect(projection.visibleMessages).not.toContainEqual(staleState.localMessages[0])
   })
 
   it("normalizes an invalid initial selection and rejects an empty conversation source", () => {
-    const invalidSelectionData: MessagesData = {
+    const invalidSelectionSnapshot: MessagesSnapshot = {
       ...messagesFixture,
       activeConversationId: "missing-conversation",
     }
-    const normalizedState = createMessagesState(invalidSelectionData)
+    const normalizedState = createMessagesState(invalidSelectionSnapshot)
     expect(normalizedState.selection.conversationId).toBe(conversations[0]?.id)
 
     expect(() =>
       createMessagesState({
-        ...invalidSelectionData,
+        ...invalidSelectionSnapshot,
         conversations: [],
       }),
     ).toThrow("Messages require at least one conversation.")

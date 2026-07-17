@@ -51,11 +51,15 @@ export function TeamMemberDialog({
 
   return (
     <Modal
-      description="Add a team member to the public clinic profile."
+      description={
+        isReadOnly
+          ? "View this team member on the public clinic profile."
+          : "Add or update a team member on the public clinic profile."
+      }
       footer={
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={() => onOpenChange(false)} variant="outline">
-            Cancel
+            {isReadOnly ? "Done" : "Cancel"}
           </Button>
           {!isReadOnly ? (
             <Button disabled={!canSave} onClick={save}>
@@ -66,7 +70,7 @@ export function TeamMemberDialog({
       }
       onOpenChange={onOpenChange}
       open={open}
-      title={initialMember ? "Edit team member" : "Add team member"}
+      title={isReadOnly ? "Team member details" : initialMember ? "Edit team member" : "Add team member"}
     >
       <fieldset className="grid gap-5" disabled={isReadOnly}>
         <div className="flex flex-wrap items-center gap-4">

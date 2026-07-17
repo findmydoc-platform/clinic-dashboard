@@ -25,6 +25,7 @@ export type ReviewsAction =
   | Readonly<{ statusMessage: string; type: "refresh-completed" }>
   | Readonly<{ statusMessage: string; type: "status-message-changed" }>
   | Readonly<{ type: "filters-applied" }>
+  | Readonly<{ type: "management-withdrawn" }>
   | Readonly<{ type: "review-dialog-closed" }>
   | Readonly<{ type: "refresh-started" }>
 
@@ -52,6 +53,23 @@ export function reviewsReducer(state: ReviewsState, action: ReviewsAction): Revi
         isMobileFiltersOpen: false,
         page: 1,
         statusMessage: "Review filters applied.",
+      }
+    case "management-withdrawn":
+      if (
+        state.dialog.kind === "closed" &&
+        !state.isMobileFiltersOpen &&
+        !state.isRefreshing &&
+        state.statusMessage.length === 0
+      ) {
+        return state
+      }
+
+      return {
+        ...state,
+        dialog: { kind: "closed" },
+        isMobileFiltersOpen: false,
+        isRefreshing: false,
+        statusMessage: "",
       }
     case "mobile-filters-open-changed":
       return { ...state, isMobileFiltersOpen: action.isOpen }

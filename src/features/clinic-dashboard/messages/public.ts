@@ -4,7 +4,7 @@ export { useMessagesController } from "./hooks/useMessagesController"
 export type {
   ClinicConversation,
   ClinicMessage,
-  MessagesData,
+  MessagesSnapshot,
   MessagesScreenActions,
   MessagesViewModel,
   PatientInquiryProfile,

@@ -1,6 +1,6 @@
 import type { ReviewCommands } from "../model/review-commands"
 import type { ClinicReview } from "../model/review"
-import type { ReviewsData } from "../model/reviews-data"
+import type { ReviewsSnapshot } from "../model/reviews-snapshot"
 
 export const reviewsFixture = {
   referenceTime: "2023-10-16T12:00:00.000Z",
@@ -100,7 +100,7 @@ export const reviewsFixture = {
   ],
   rating: 4.8,
   total: 1248,
-} satisfies ReviewsData
+} satisfies ReviewsSnapshot
 
 export const openReviewFixture = reviewsFixture.items.find(
   (review) => review.status === "Open",

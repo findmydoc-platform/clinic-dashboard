@@ -47,14 +47,16 @@ export function TreatmentDialog({
   return (
     <Modal
       description={
-        initialTreatment
-          ? "Update this treatment on the public clinic profile."
-          : "Add a treatment to the public clinic profile."
+        isReadOnly
+          ? "View this treatment on the public clinic profile."
+          : initialTreatment
+            ? "Update this treatment on the public clinic profile."
+            : "Add a treatment to the public clinic profile."
       }
       footer={
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={() => onOpenChange(false)} variant="outline">
-            Cancel
+            {isReadOnly ? "Done" : "Cancel"}
           </Button>
           {!isReadOnly ? (
             <Button disabled={!canSave} onClick={save}>
@@ -65,7 +67,7 @@ export function TreatmentDialog({
       }
       onOpenChange={onOpenChange}
       open={open}
-      title={initialTreatment ? "Edit treatment" : "Create new treatment"}
+      title={isReadOnly ? "Treatment details" : initialTreatment ? "Edit treatment" : "Create new treatment"}
     >
       <fieldset className="grid gap-5" disabled={isReadOnly}>
         <Field isRequired label="Treatment name">

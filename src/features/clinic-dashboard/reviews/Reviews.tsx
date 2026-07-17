@@ -4,25 +4,25 @@ import { useEffect, useRef } from "react"
 import { ReviewsScreen } from "./components/organisms/ReviewsScreen"
 import { useReviewsController } from "./hooks/useReviewsController"
 import type { ReviewCommands } from "./model/review-commands"
-import type { ReviewsData } from "./model/reviews-data"
+import type { ReviewsSnapshot } from "./model/reviews-snapshot"
 
 export type ReviewsProps = Readonly<{
   commands: ReviewCommands
-  data: ReviewsData
   focusHeading?: boolean
   onFocusHandled?: () => void
   showManagement: boolean
+  snapshot: ReviewsSnapshot
 }>
 
 export function Reviews({
   commands,
-  data,
   focusHeading = false,
   onFocusHandled,
   showManagement,
+  snapshot,
 }: ReviewsProps) {
   const rootRef = useRef<HTMLDivElement>(null)
-  const controller = useReviewsController({ commands, data, showManagement })
+  const controller = useReviewsController({ commands, showManagement, snapshot })
 
   useEffect(() => {
     if (!focusHeading) return

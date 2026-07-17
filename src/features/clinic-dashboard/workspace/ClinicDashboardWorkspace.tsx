@@ -15,7 +15,7 @@ import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/p
 import { reviewsPrototypeData } from "@/features/clinic-dashboard/reviews/reviews.prototype-data"
 import {
   ClinicDashboardWorkspaceComposition,
-  type ClinicDashboardWorkspaceCompositionData,
+  type ClinicDashboardWorkspaceSnapshot,
 } from "./ClinicDashboardWorkspaceComposition"
 import { clinicDashboardWorkspacePrototypeData } from "./workspace.prototype-data"
 
@@ -25,7 +25,7 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
   showPrototypeModeToggle?: boolean
 }>
 
-const clinicDashboardWorkspaceData = {
+const clinicDashboardWorkspaceSnapshot = {
   account: clinicDashboardWorkspacePrototypeData.account,
   clinicName: clinicDashboardWorkspacePrototypeData.clinicName,
   clinicProfile: clinicProfilePrototypeData,
@@ -34,7 +34,7 @@ const clinicDashboardWorkspaceData = {
   notifications: clinicDashboardWorkspacePrototypeData.notifications,
   patientInquiry: patientInquiryPrototypeData,
   reviews: reviewsPrototypeData,
-} satisfies ClinicDashboardWorkspaceCompositionData
+} satisfies ClinicDashboardWorkspaceSnapshot
 
 export function ClinicDashboardWorkspace({
   persistWorkspaceStateInSession = false,
@@ -44,11 +44,11 @@ export function ClinicDashboardWorkspace({
   return (
     <ClinicDashboardWorkspaceComposition
       clinicProfileCommands={clinicProfilePrototypeCommands}
-      data={clinicDashboardWorkspaceData}
       persistWorkspaceStateInSession={persistWorkspaceStateInSession}
       prototypeMode={prototypeMode}
       reviewCommands={reviewPrototypeCommands}
       showPrototypeModeToggle={showPrototypeModeToggle}
+      snapshot={clinicDashboardWorkspaceSnapshot}
       supportCommands={supportPrototypeCommands}
     />
   )

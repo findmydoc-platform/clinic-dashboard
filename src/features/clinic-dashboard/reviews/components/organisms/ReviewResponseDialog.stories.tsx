@@ -5,6 +5,15 @@ import { ReviewResponseDialog } from "./ReviewResponseDialog"
 
 const meta = {
   component: ReviewResponseDialog,
+  render: (args) => (
+    <ReviewResponseDialog
+      {...args}
+      onSubmit={async (submission) => {
+        await args.onSubmit(submission)
+        return "applied"
+      }}
+    />
+  ),
   tags: ["domain:reviews", "layer:organism", "status:prototype"],
   title: "Clinic Dashboard/Reviews/Organisms/Review Response Dialog",
 } satisfies Meta<typeof ReviewResponseDialog>
@@ -15,7 +24,7 @@ type Story = StoryObj<typeof meta>
 export const NewResponse: Story = {
   args: {
     onClose: fn(),
-    onSubmit: fn().mockResolvedValue(undefined),
+    onSubmit: fn(),
     review: openReviewFixture,
   },
   play: async ({ args, canvasElement }) => {
@@ -33,7 +42,7 @@ export const NewResponse: Story = {
     await waitFor(() =>
       expect(args.onSubmit).toHaveBeenCalledWith({ response: "Thank you for the helpful feedback." }),
     )
-    await expect(args.onClose).toHaveBeenCalledOnce()
+    await waitFor(() => expect(args.onClose).toHaveBeenCalledOnce())
   },
 }
 

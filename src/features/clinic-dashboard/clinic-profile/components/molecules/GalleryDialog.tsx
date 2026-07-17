@@ -8,24 +8,35 @@ import type { ClinicGalleryItem } from "../../model/clinic-profile"
 
 type GalleryDialogProps = Readonly<{
   gallery: readonly ClinicGalleryItem[]
+  isReadOnly: boolean
   onOpenChange: (open: boolean) => void
   onSelectCover: (id: string) => void
   open: boolean
 }>
 
-export function GalleryDialog({ gallery, onOpenChange, onSelectCover, open }: GalleryDialogProps) {
+export function GalleryDialog({
+  gallery,
+  isReadOnly,
+  onOpenChange,
+  onSelectCover,
+  open,
+}: GalleryDialogProps) {
   return (
     <Modal
-      description="Choose the image shown first on the public clinic profile."
+      description={
+        isReadOnly
+          ? "View the images currently shown on the public clinic profile."
+          : "Choose the image shown first on the public clinic profile."
+      }
       footer={
         <div className="flex justify-end">
-          <Button onClick={() => onOpenChange(false)}>Done</Button>
+          <Button onClick={() => onOpenChange(false)}>{isReadOnly ? "Close gallery" : "Done"}</Button>
         </div>
       }
       onOpenChange={onOpenChange}
       open={open}
       panelClassName="max-w-3xl"
-      title="Clinic images"
+      title={isReadOnly ? "Clinic image gallery" : "Edit clinic images"}
     >
       <div className="grid gap-4 sm:grid-cols-2">
         {gallery.map((item) => (
@@ -42,20 +53,28 @@ export function GalleryDialog({ gallery, onOpenChange, onSelectCover, open }: Ga
             </div>
             <div className="flex items-center justify-between gap-3 p-3">
               <span className="min-w-0 truncate text-sm font-bold">{item.alt}</span>
-              <Button
-                aria-pressed={item.isCover}
-                disabled={item.isCover}
-                onClick={() => onSelectCover(item.id)}
-                size="small"
-                variant={item.isCover ? "secondary" : "outline"}
-              >
-                {item.isCover ? (
-                  <Check aria-hidden="true" className="size-4" />
-                ) : (
-                  <ImageIcon aria-hidden="true" className="size-4" />
-                )}
-                {item.isCover ? "Cover" : "Set cover"}
-              </Button>
+              {isReadOnly ? (
+                item.isCover ? (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-[var(--foreground)]">
+                    <Check aria-hidden="true" className="size-4" /> Cover image
+                  </span>
+                ) : null
+              ) : (
+                <Button
+                  aria-pressed={item.isCover}
+                  disabled={item.isCover}
+                  onClick={() => onSelectCover(item.id)}
+                  size="small"
+                  variant={item.isCover ? "secondary" : "outline"}
+                >
+                  {item.isCover ? (
+                    <Check aria-hidden="true" className="size-4" />
+                  ) : (
+                    <ImageIcon aria-hidden="true" className="size-4" />
+                  )}
+                  {item.isCover ? "Cover" : "Set cover"}
+                </Button>
+              )}
             </div>
           </article>
         ))}

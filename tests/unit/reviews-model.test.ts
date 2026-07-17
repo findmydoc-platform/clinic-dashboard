@@ -135,6 +135,38 @@ describe("reviews model", () => {
     expect(statusChanged.statusMessage).toBe("Review CSV exported.")
   })
 
+  it("clears management transients on withdrawal while retaining filters and review state", () => {
+    const openReview = reviews.find((review) => review.status === "Open")
+    expect(openReview).toBeDefined()
+    if (!openReview) return
+
+    const retainedFilters = { ...defaultReviewFilters, status: "Open" as const }
+    const state = {
+      ...createReviewsState(reviews),
+      dialog: { kind: "response", reviewId: openReview.id } as const,
+      draftFilters: retainedFilters,
+      filters: retainedFilters,
+      isMobileFiltersOpen: true,
+      isRefreshing: true,
+      page: 2,
+      statusMessage: "Refreshing reviews.",
+    }
+
+    const withdrawn = reviewsReducer(state, { type: "management-withdrawn" })
+
+    expect(withdrawn).toMatchObject({
+      dialog: { kind: "closed" },
+      draftFilters: retainedFilters,
+      filters: retainedFilters,
+      isMobileFiltersOpen: false,
+      isRefreshing: false,
+      page: 2,
+      reviews: state.reviews,
+      statusMessage: "",
+    })
+    expect(reviewsReducer(withdrawn, { type: "management-withdrawn" })).toBe(withdrawn)
+  })
+
   it("derives the filtered list and complete view model from reducer state", () => {
     const openReview = reviews.find((review) => review.status === "Open")
     expect(openReview).toBeDefined()
@@ -192,6 +224,45 @@ describe("reviews model", () => {
       kind: "history",
       review,
     })
+  })
+
+  it("projects the canonical snapshot when management is withdrawn", () => {
+    const mutatedReview = {
+      ...reviews[0],
+      response: "Hidden local response",
+      status: "Answered" as const,
+    }
+    const staleState = {
+      ...createReviewsState(reviews),
+      dialog: { kind: "response", reviewId: reviews[0].id } as const,
+      draftFilters: { ...defaultReviewFilters, status: "Open" as const },
+      filters: { ...defaultReviewFilters, status: "Open" as const },
+      isMobileFiltersOpen: true,
+      isRefreshing: true,
+      page: 2,
+      reviews: [mutatedReview, ...reviews.slice(1)],
+      statusMessage: "Hidden status",
+    }
+
+    const projection = selectReviewsViewModel(staleState, reviewsFixture, false)
+
+    expect(projection).toMatchObject({
+      dialog: { kind: "closed" },
+      filters: {
+        draft: defaultReviewFilters,
+        isDirty: false,
+        isMobileOpen: false,
+      },
+      isRefreshing: false,
+      list: {
+        filteredCount: reviews.length,
+        page: 1,
+      },
+      showManagement: false,
+      statusMessage: "",
+    })
+    expect(projection.list.reviews).toEqual(reviews.slice(0, 3))
+    expect(projection.list.reviews[0]).not.toEqual(mutatedReview)
   })
 
   it("serializes a stable, escaped CSV report", () => {

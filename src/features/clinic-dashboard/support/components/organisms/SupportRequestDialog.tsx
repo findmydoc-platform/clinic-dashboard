@@ -23,15 +23,13 @@ const directChannels = [
   { href: "mailto:support@example.com", icon: Mail, label: "Email", value: "support@example.com" },
 ] as const
 
-export function SupportRequestDialog({
-  commands,
-  onOpenChange,
-  open,
-}: {
+type SupportRequestDialogProps = Readonly<{
   commands: SupportCommands
   onOpenChange: (open: boolean) => void
   open: boolean
-}) {
+}>
+
+export function SupportRequestDialog({ commands, onOpenChange, open }: SupportRequestDialogProps) {
   const {
     actions,
     model,

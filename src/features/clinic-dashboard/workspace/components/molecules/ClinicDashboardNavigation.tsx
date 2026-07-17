@@ -2,8 +2,8 @@
 
 import { Building2, LayoutDashboard, MessageSquare, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { ClinicDashboardSection } from "./model/workspace"
-import type { ClinicDashboardNavigationItem } from "./navigation"
+import type { ClinicDashboardSection } from "../../model/workspace"
+import type { ClinicDashboardNavigationItem } from "../../navigation"
 
 const navigationIcons = {
   dashboard: LayoutDashboard,

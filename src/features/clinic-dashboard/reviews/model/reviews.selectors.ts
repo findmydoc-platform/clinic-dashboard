@@ -1,8 +1,8 @@
 import { areReviewFiltersEqual, filterClinicReviews, getReviewTreatmentOptions } from "./review-filters"
 import type { ReviewDialogModel } from "./review-dialog"
 import { paginateClinicReviews } from "./review-pagination"
-import type { ReviewsData } from "./reviews-data"
-import type { ReviewsState } from "./reviews.reducer"
+import type { ReviewsSnapshot } from "./reviews-snapshot"
+import { createReviewsState, type ReviewsState } from "./reviews.reducer"
 import type { ReviewsViewModel } from "./reviews-view-model"
 
 const reviewPageSize = 3
@@ -32,21 +32,22 @@ export function selectFilteredReviews(state: ReviewsState, referenceTime: string
 
 export function selectReviewsViewModel(
   state: ReviewsState,
-  data: ReviewsData,
+  snapshot: ReviewsSnapshot,
   showManagement: boolean,
 ): ReviewsViewModel {
-  const filteredReviews = selectFilteredReviews(state, data.referenceTime)
-  const pagination = paginateClinicReviews(filteredReviews, state.page, reviewPageSize)
+  const projectedState = showManagement ? state : createReviewsState(snapshot.items)
+  const filteredReviews = selectFilteredReviews(projectedState, snapshot.referenceTime)
+  const pagination = paginateClinicReviews(filteredReviews, projectedState.page, reviewPageSize)
 
   return {
-    dialog: selectReviewDialog(state),
+    dialog: selectReviewDialog(projectedState),
     filters: {
-      draft: state.draftFilters,
-      isDirty: !areReviewFiltersEqual(state.draftFilters, state.filters),
-      isMobileOpen: state.isMobileFiltersOpen,
-      treatmentOptions: getReviewTreatmentOptions(state.reviews),
+      draft: projectedState.draftFilters,
+      isDirty: !areReviewFiltersEqual(projectedState.draftFilters, projectedState.filters),
+      isMobileOpen: projectedState.isMobileFiltersOpen,
+      treatmentOptions: getReviewTreatmentOptions(projectedState.reviews),
     },
-    isRefreshing: state.isRefreshing,
+    isRefreshing: projectedState.isRefreshing,
     list: {
       filteredCount: filteredReviews.length,
       page: pagination.page,
@@ -54,14 +55,14 @@ export function selectReviewsViewModel(
       rangeEnd: pagination.rangeEnd,
       rangeStart: pagination.rangeStart,
       reviews: pagination.items,
-      totalPublicReviews: data.total,
+      totalPublicReviews: snapshot.total,
     },
     showManagement,
-    statusMessage: state.statusMessage,
+    statusMessage: projectedState.statusMessage,
     summary: {
-      distribution: data.distribution,
-      rating: data.rating,
-      total: data.total,
+      distribution: snapshot.distribution,
+      rating: snapshot.rating,
+      total: snapshot.total,
     },
   }
 }

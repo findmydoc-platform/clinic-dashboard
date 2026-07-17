@@ -1,6 +1,7 @@
 import { useState, type ComponentProps } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
+import { Button } from "@/components/ui/button"
 import { MessagesScreen } from "./MessagesScreen"
 import { useMessagesController } from "../../hooks/useMessagesController"
 import type { MessagesScreenActions } from "../../model/messages"
@@ -27,8 +28,8 @@ function createStoryModel(isInteractive: boolean) {
 
 function ControlledMessagesScreen({ model: initialModel }: ComponentProps<typeof MessagesScreen>) {
   const { actions, model } = useMessagesController({
-    data: messagesFixture,
     isInteractive: initialModel.isInteractive,
+    snapshot: messagesFixture,
   })
   const [patientInquiryOpened, setPatientInquiryOpened] = useState(false)
 
@@ -44,6 +45,20 @@ function ControlledMessagesScreen({ model: initialModel }: ComponentProps<typeof
       <p aria-label="Patient inquiry harness state" className="sr-only" role="status">
         {patientInquiryOpened ? "Patient inquiry opened" : "Patient inquiry closed"}
       </p>
+    </>
+  )
+}
+
+function CapabilityToggleMessagesScreen() {
+  const [isInteractive, setIsInteractive] = useState(true)
+  const { actions, model } = useMessagesController({ isInteractive, snapshot: messagesFixture })
+
+  return (
+    <>
+      <Button onClick={() => setIsInteractive((current) => !current)}>
+        {isInteractive ? "Disable messaging" : "Enable messaging"}
+      </Button>
+      <MessagesScreen actions={{ ...actions, onPatientInquiryOpen: () => undefined }} model={model} />
     </>
   )
 }
@@ -161,5 +176,50 @@ export const ReadOnly: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.queryByLabelText("Write a message")).not.toBeInTheDocument()
     await expect(canvas.queryByLabelText("Search conversations")).not.toBeInTheDocument()
+  },
+}
+
+export const CapabilityWithdrawalProjectsSnapshot: Story = {
+  render: () => <CapabilityToggleMessagesScreen />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+    const preservedDraft = "This draft must survive the capability roundtrip."
+
+    await userEvent.type(canvas.getByRole("textbox", { name: "Write a message" }), preservedDraft)
+    await userEvent.type(canvas.getByRole("searchbox", { name: "Search conversations" }), "Markus")
+    await userEvent.click(canvas.getByRole("button", { name: /Markus Schmidt/ }))
+
+    await userEvent.click(canvas.getByRole("button", { name: "Disable messaging" }))
+
+    const enableMessaging = canvas.getByRole("button", { name: "Enable messaging" })
+    await expect(enableMessaging).toHaveFocus()
+    await expect(canvas.queryByRole("searchbox", { name: "Search conversations" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("textbox", { name: "Write a message" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("region", { name: "Conversation with Lukas Weber" })).toBeVisible()
+    await expect(canvas.getByText("Markus Schmidt")).toBeVisible()
+    await expect(canvas.queryByRole("button", { name: /Markus Schmidt/ })).not.toBeInTheDocument()
+
+    await userEvent.click(enableMessaging)
+
+    const search = canvas.getByRole("searchbox", { name: "Search conversations" })
+    await expect(search).toHaveValue("Markus")
+    await expect(canvas.getByRole("region", { name: "Conversation with Markus Schmidt" })).toBeVisible()
+    await userEvent.clear(search)
+    await userEvent.click(canvas.getByRole("button", { name: /Lukas Weber/ }))
+    await expect(canvas.getByRole("textbox", { name: "Write a message" })).toHaveValue(preservedDraft)
+
+    await userEvent.click(canvas.getByRole("button", { name: "Conversation menu" }))
+    await expect(await page.findByRole("menuitem", { name: "Mark as unread" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Disable messaging" }))
+    await expect(page.queryByRole("menuitem", { name: "Mark as unread" })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Enable messaging" }))
+
+    await expect(page.queryByRole("menuitem", { name: "Mark as unread" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Conversation menu" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    )
+    await expect(canvas.getByRole("textbox", { name: "Write a message" })).toHaveValue(preservedDraft)
   },
 }

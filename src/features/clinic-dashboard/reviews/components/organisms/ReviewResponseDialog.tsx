@@ -1,10 +1,11 @@
 import type { ClinicReview } from "../../model/review"
 import type { ReviewResponseSubmission } from "../../model/review-dialog"
+import type { ReviewMutationResult } from "../../model/reviews-view-model"
 import { ReviewTextMutationDialog } from "../molecules/ReviewTextMutationDialog"
 
 type ReviewResponseDialogProps = Readonly<{
   onClose: () => void
-  onSubmit: (submission: ReviewResponseSubmission) => Promise<void>
+  onSubmit: (submission: ReviewResponseSubmission) => Promise<ReviewMutationResult>
   review: ClinicReview
 }>
 

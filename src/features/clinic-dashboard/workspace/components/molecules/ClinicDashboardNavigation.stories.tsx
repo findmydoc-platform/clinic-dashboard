@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, within } from "storybook/test"
 import { ClinicDashboardNavigation } from "./ClinicDashboardNavigation"
-import { clinicDashboardNavigationItems } from "./navigation"
+import { clinicDashboardNavigationItems } from "../../navigation"
 
 const meta = {
   args: {

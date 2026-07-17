@@ -63,17 +63,47 @@ export const ProfileTaskToProfileDestination: Story = {
 export const PresentationProfileManagementPreview: Story = {
   args: {
     prototypeMode: "presentation",
-    start: { dialog: "treatment", section: "profile" },
+    start: { section: "profile" },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
+    await expect(canvas.getByText("Clinics / View profile")).toBeInTheDocument()
     await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toBeDisabled()
-    await expect(canvas.getByRole("button", { name: "Add team member" })).toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "Add team member" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "New treatment" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("dialog", { name: "Create new treatment" })).not.toBeInTheDocument()
 
-    const dialog = canvas.getByRole("dialog", { name: "Create new treatment" })
-    await expect(within(dialog).getByRole("textbox", { name: "Treatment name" })).toBeDisabled()
-    await expect(within(dialog).queryByRole("button", { name: "Save treatment" })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: /more images/ }))
+    const galleryDialog = canvas.getByRole("dialog", { name: "Clinic image gallery" })
+    await expect(within(galleryDialog).getByText("Cover image")).toBeInTheDocument()
+    await expect(within(galleryDialog).queryByRole("button", { name: "Set cover" })).not.toBeInTheDocument()
+    await userEvent.click(within(galleryDialog).getByRole("button", { name: "Close gallery" }))
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog", { name: "Clinic image gallery" })).not.toBeInTheDocument(),
+    )
+
+    await userEvent.click(canvas.getByRole("button", { name: "View Dr Markus Weber" }))
+    const teamDialog = canvas.getByRole("dialog", { name: "Team member details" })
+    await expect(within(teamDialog).getByRole("textbox", { name: "First name" })).toBeDisabled()
+    await expect(
+      within(teamDialog).queryByRole("button", { name: /Save team member/ }),
+    ).not.toBeInTheDocument()
+    await userEvent.click(within(teamDialog).getByRole("button", { name: "Done" }))
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog", { name: "Team member details" })).not.toBeInTheDocument(),
+    )
+
+    await userEvent.click(canvas.getByRole("button", { name: "View Laser teeth whitening" }))
+    const treatmentDialog = canvas.getByRole("dialog", { name: "Treatment details" })
+    await expect(within(treatmentDialog).getByRole("textbox", { name: "Treatment name" })).toBeDisabled()
+    await expect(
+      within(treatmentDialog).queryByRole("button", { name: /Save treatment/ }),
+    ).not.toBeInTheDocument()
+    await userEvent.click(within(treatmentDialog).getByRole("button", { name: "Done" }))
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog", { name: "Treatment details" })).not.toBeInTheDocument(),
+    )
   },
 }
 

@@ -1,4 +1,4 @@
-import type { ReviewsData } from "./model/reviews-data"
+import type { ReviewsSnapshot } from "./model/reviews-snapshot"
 
 export const reviewsPrototypeData = {
   referenceTime: "2023-10-16T12:00:00.000Z",
@@ -98,4 +98,4 @@ export const reviewsPrototypeData = {
   ],
   rating: 4.8,
   total: 1248,
-} satisfies ReviewsData
+} satisfies ReviewsSnapshot
