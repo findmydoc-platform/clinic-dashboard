@@ -121,6 +121,7 @@ export function useClinicDashboardController({
     (show: boolean) => {
       const nextPrototypeMode: ClinicDashboardPrototypeMode = show ? "visual-reference" : "presentation"
       if (!show) {
+        setActiveSection((section) => (section === "subscriptions" ? "dashboard" : section))
         setNotificationsOpen(false)
         setProfileTaskOpen((open) => (selectedProfileTask.visibility === "full-interface" ? false : open))
         setSupportOpen(false)

@@ -16,6 +16,7 @@ const hiddenCapabilityVisibility = {
   profileWrites: "hidden",
   reviewManagement: "hidden",
   support: "hidden",
+  subscriptionsPlaceholder: "hidden",
   teamWrites: "hidden",
 } as const satisfies ClinicDashboardCapabilityVisibility
 
@@ -29,6 +30,7 @@ const hiddenCapabilities = {
   showCertificateTasks: false,
   showNotifications: false,
   showSupport: false,
+  showSubscriptionsPlaceholder: false,
   teamManagement: "hidden",
 } as const satisfies ClinicDashboardCapabilities
 
@@ -44,6 +46,7 @@ describe("clinic dashboard prototype capabilities", () => {
       showCertificateTasks: false,
       showNotifications: false,
       showSupport: false,
+      showSubscriptionsPlaceholder: false,
       teamManagement: "read-only",
     })
   })
@@ -59,6 +62,7 @@ describe("clinic dashboard prototype capabilities", () => {
       showCertificateTasks: true,
       showNotifications: true,
       showSupport: true,
+      showSubscriptionsPlaceholder: true,
       teamManagement: "interactive",
     })
   })
@@ -68,6 +72,7 @@ describe("clinic dashboard prototype capabilities", () => {
     ["locationSwitching", "canSwitchLocations"],
     ["notifications", "showNotifications"],
     ["support", "showSupport"],
+    ["subscriptionsPlaceholder", "showSubscriptionsPlaceholder"],
   ] as const)("derives %s independently as %s", (visibilityField, capabilityField) => {
     const capabilities = deriveClinicDashboardCapabilities({
       ...hiddenCapabilityVisibility,
@@ -97,6 +102,7 @@ describe("clinic dashboard prototype capabilities", () => {
     ["locationSwitching", "canSwitchLocations"],
     ["notifications", "showNotifications"],
     ["support", "showSupport"],
+    ["subscriptionsPlaceholder", "showSubscriptionsPlaceholder"],
   ] as const)("does not treat read-only %s as active %s", (visibilityField, capabilityField) => {
     const capabilities = deriveClinicDashboardCapabilities({
       ...hiddenCapabilityVisibility,

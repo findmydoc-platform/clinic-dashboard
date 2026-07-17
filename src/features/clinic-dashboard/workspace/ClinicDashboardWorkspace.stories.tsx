@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { ClinicDashboardWorkspace, type ClinicDashboardWorkspaceProps } from "./ClinicDashboardWorkspace"
+import { ClinicDashboardWorkspaceHarness } from "./testing/public"
 
 const productionArgs = {
   prototypeMode: "presentation",
@@ -96,5 +97,68 @@ export const Mobile: Story = {
       }),
     )
     await expect(await canvas.findByRole("heading", { level: 1, name: "Messages" })).toBeInTheDocument()
+  },
+}
+
+export const VisualReferenceSubscriptions: Story = {
+  args: { prototypeMode: "visual-reference" },
+  render: () => <ClinicDashboardWorkspaceHarness prototypeMode="visual-reference" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const subscriptions = canvas.getByRole("button", { name: "Subscriptions" })
+
+    await userEvent.click(subscriptions)
+
+    await expect(subscriptions).toHaveAttribute("aria-current", "page")
+    await expect(canvas.getByRole("heading", { level: 1, name: "Subscriptions" })).toBeInTheDocument()
+    await expect(
+      canvas.getByText(
+        "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
+      ),
+    ).toBeInTheDocument()
+  },
+}
+
+export const PresentationHidesSubscriptions: Story = {
+  args: { prototypeMode: "presentation" },
+  render: () => (
+    <ClinicDashboardWorkspaceHarness prototypeMode="presentation" start={{ section: "subscriptions" }} />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.queryByRole("button", { name: "Subscriptions" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("heading", { level: 1, name: "Subscriptions" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
+  },
+}
+
+export const SubscriptionsAt320: Story = {
+  args: { prototypeMode: "visual-reference" },
+  globals: { viewport: { value: "mobile320Short" } },
+  render: () => (
+    <ClinicDashboardWorkspaceHarness prototypeMode="visual-reference" start={{ section: "subscriptions" }} />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const region = canvas.getByRole("region", { name: "Subscriptions" })
+
+    await expect(within(region).getByRole("heading", { level: 1, name: "Subscriptions" })).toBeInTheDocument()
+    await expect(within(region).queryByRole("button")).not.toBeInTheDocument()
+    await expect(within(region).queryByRole("link")).not.toBeInTheDocument()
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+
+export const SubscriptionsDark: Story = {
+  args: { prototypeMode: "visual-reference" },
+  globals: { theme: "dark" },
+  render: () => (
+    <ClinicDashboardWorkspaceHarness prototypeMode="visual-reference" start={{ section: "subscriptions" }} />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.getByRole("heading", { level: 1, name: "Subscriptions" })).toBeInTheDocument()
   },
 }

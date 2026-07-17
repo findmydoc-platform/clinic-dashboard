@@ -16,6 +16,7 @@ const gateIds = [
   "profileWrites",
   "reviewManagement",
   "support",
+  "subscriptionsPlaceholder",
   "teamWrites",
 ] as const satisfies ReadonlyArray<ClinicDashboardGateId>
 
@@ -43,6 +44,7 @@ describe("clinic dashboard visibility contract", () => {
     expect(getVisibilityBehavior("presentation", "notifications")).toBe("hidden")
     expect(getVisibilityBehavior("presentation", "profileWrites")).toBe("read-only")
     expect(getVisibilityBehavior("presentation", "support")).toBe("hidden")
+    expect(getVisibilityBehavior("presentation", "subscriptionsPlaceholder")).toBe("hidden")
     expect(getVisibilityBehavior("presentation", "teamWrites")).toBe("read-only")
   })
 })
