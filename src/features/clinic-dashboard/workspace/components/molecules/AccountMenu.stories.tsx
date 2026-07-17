@@ -102,7 +102,7 @@ export const ProfileDialog: Story = {
     await userEvent.click(trigger)
     await userEvent.click(page.getByRole("menuitem", { name: "Account profile" }))
 
-    const dialog = page.getByRole("dialog", { name: "Signed-in staff member" })
+    const dialog = page.getByRole("dialog", { name: "Staff profile" })
     const closeButton = within(dialog).getByRole("button", { name: "Close" })
 
     await waitFor(() => expect(closeButton).toHaveFocus())
@@ -110,7 +110,9 @@ export const ProfileDialog: Story = {
     await expect(within(dialog).getByText(account.role)).toBeInTheDocument()
     await expect(dialog.querySelector("img")).toHaveAttribute("alt", "")
     await expect(within(dialog).getAllByRole("button")).toHaveLength(1)
-    await expect(dialog).not.toHaveTextContent(/email|phone|password|authentication|two-factor/i)
+    await expect(dialog).not.toHaveTextContent(
+      /authenticated|authentication|email|password|phone|signed-in|two-factor/i,
+    )
 
     await userEvent.keyboard("{Escape}")
     await waitFor(() => expect(trigger).toHaveFocus())
@@ -157,7 +159,7 @@ export const ProfileDialogDark: Story = {
     await expect(page.getByRole("menuitemcheckbox", { name: "Dark mode" })).toBeChecked()
     await userEvent.click(page.getByRole("menuitem", { name: "Account profile" }))
 
-    const dialog = page.getByRole("dialog", { name: "Signed-in staff member" })
+    const dialog = page.getByRole("dialog", { name: "Staff profile" })
     await expect(within(dialog).getByText(account.name)).toBeInTheDocument()
     await expect(within(dialog).getByText(account.role)).toBeInTheDocument()
     await expect(within(dialog).getAllByRole("button")).toHaveLength(1)

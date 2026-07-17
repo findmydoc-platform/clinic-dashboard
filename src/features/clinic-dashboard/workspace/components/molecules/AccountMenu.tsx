@@ -9,7 +9,7 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu"
 import { Modal } from "@/components/ui/modal"
 import { useThemeMode } from "@/components/ui/use-theme-mode"
 import { cn } from "@/lib/utils"
-import { accountMenuActions, createSignedInStaffProfile } from "../../model/account"
+import { accountMenuActions, createStaffProfile } from "../../model/account"
 
 type AccountMenuProps = Readonly<{
   avatar?: StaticImageData | string
@@ -24,7 +24,7 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
   const [profileOpen, setProfileOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const { isDark, setDarkMode } = useThemeMode()
-  const profile = createSignedInStaffProfile({ initials, name, role })
+  const profile = createStaffProfile({ initials, name, role })
 
   return (
     <div className="relative">
@@ -97,12 +97,7 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
           </form>
         </DropdownMenu.Content>
       </DropdownMenu>
-      <Modal
-        onOpenChange={setProfileOpen}
-        open={profileOpen}
-        title="Signed-in staff member"
-        triggerRef={triggerRef}
-      >
+      <Modal onOpenChange={setProfileOpen} open={profileOpen} title="Staff profile" triggerRef={triggerRef}>
         <div className="flex items-center gap-4">
           <Avatar className="size-16 text-base" initials={profile.initials} loading="eager" src={avatar} />
           <div className="min-w-0">

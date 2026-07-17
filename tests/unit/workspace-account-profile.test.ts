@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  accountMenuActions,
-  createSignedInStaffProfile,
-} from "@/features/clinic-dashboard/workspace/model/account"
+import { accountMenuActions, createStaffProfile } from "@/features/clinic-dashboard/workspace/model/account"
 
 describe("workspace account profile", () => {
   it("keeps account profile, theme, and sign-out as separate visible actions", () => {
@@ -23,7 +20,7 @@ describe("workspace account profile", () => {
       role: "Clinic administrator",
     }
 
-    expect(createSignedInStaffProfile(source)).toEqual({
+    expect(createStaffProfile(source)).toEqual({
       initials: "SS",
       name: "Sarah Schmidt",
       role: "Clinic administrator",

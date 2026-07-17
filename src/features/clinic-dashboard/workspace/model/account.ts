@@ -10,16 +10,12 @@ type WorkspaceAccountIdentity = Readonly<{
   role: string
 }>
 
-export type SignedInStaffProfile = Readonly<{
+export type StaffProfile = Readonly<{
   initials: string
   name: string
   role: string
 }>
 
-export function createSignedInStaffProfile({
-  initials,
-  name,
-  role,
-}: WorkspaceAccountIdentity): SignedInStaffProfile {
+export function createStaffProfile({ initials, name, role }: WorkspaceAccountIdentity): StaffProfile {
   return { initials, name, role }
 }
