@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { ClinicDashboardApp } from "@/components/organisms/ClinicDashboard/ClinicDashboardApp"
+import { ClinicDashboardWorkspace } from "@/features/clinic-dashboard/public"
 import { DASHBOARD_AUTH_COOKIE, isValidDashboardSessionToken } from "@/lib/security/dashboard-auth"
 
 export default async function HomePage() {
@@ -9,5 +9,11 @@ export default async function HomePage() {
     redirect("/login")
   }
 
-  return <ClinicDashboardApp persistInterfaceModeInSession showInterfaceModeToggle variant="presentation" />
+  return (
+    <ClinicDashboardWorkspace
+      persistWorkspaceStateInSession
+      prototypeMode="presentation"
+      showPrototypeModeToggle
+    />
+  )
 }
