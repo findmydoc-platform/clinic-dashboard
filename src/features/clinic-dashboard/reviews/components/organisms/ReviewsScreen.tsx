@@ -1,5 +1,3 @@
-import { Download } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageHeading } from "@/components/ui/page-heading"
 import type { ReviewsActions, ReviewsViewModel } from "../../model/reviews-view-model"
@@ -68,24 +66,17 @@ function ReviewDialogSlot({ actions, dialog }: ReviewDialogSlotProps) {
 export function ReviewsScreen({ actions, model }: ReviewsScreenProps) {
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <PageHeading
-          data-reviews-heading
-          description={
-            model.showManagement
-              ? "Manage patient feedback and respond to reviews."
-              : "View patient feedback and published review activity."
-          }
-          tabIndex={-1}
-        >
-          Reviews
-        </PageHeading>
-        {model.showManagement ? (
-          <Button onClick={actions.exportReviews} variant="outline">
-            <Download aria-hidden="true" className="size-4" /> Export
-          </Button>
-        ) : null}
-      </div>
+      <PageHeading
+        data-reviews-heading
+        description={
+          model.showManagement
+            ? "Manage patient feedback and respond to reviews."
+            : "View patient feedback and published review activity."
+        }
+        tabIndex={-1}
+      >
+        Reviews
+      </PageHeading>
 
       <section aria-label="Review summary" className="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <Card>

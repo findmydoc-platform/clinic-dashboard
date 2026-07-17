@@ -71,6 +71,13 @@ describe("clinic dashboard prototype capabilities", () => {
     })
   })
 
+  it("keeps review management without a raw export capability", () => {
+    const capabilities = getClinicDashboardCapabilities("visual-reference")
+
+    expect(capabilities.canManageReviews).toBe(true)
+    expect(capabilities).not.toHaveProperty("canExportReviews")
+  })
+
   it.each([
     ["certificateTasks", "showCertificateTasks"],
     ["locationSwitching", "canSwitchLocations"],

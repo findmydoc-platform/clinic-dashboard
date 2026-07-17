@@ -23,7 +23,6 @@ export type ReviewsAction =
   | Readonly<{ reviewId: string; type: "review-response-opened" }>
   | Readonly<{ review: ClinicReview; statusMessage: string; type: "review-mutation-succeeded" }>
   | Readonly<{ statusMessage: string; type: "refresh-completed" }>
-  | Readonly<{ statusMessage: string; type: "status-message-changed" }>
   | Readonly<{ type: "filters-applied" }>
   | Readonly<{ type: "management-withdrawn" }>
   | Readonly<{ type: "review-dialog-closed" }>
@@ -107,7 +106,5 @@ export function reviewsReducer(state: ReviewsState, action: ReviewsAction): Revi
         reviews: state.reviews.map((review) => (review.id === action.review.id ? action.review : review)),
         statusMessage: action.statusMessage,
       }
-    case "status-message-changed":
-      return { ...state, statusMessage: action.statusMessage }
   }
 }

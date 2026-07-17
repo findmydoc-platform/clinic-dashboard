@@ -290,7 +290,7 @@ The Workspace's private cross-area composition exceptions are limited to runtime
 
 Screens receive view models. Controllers receive the smallest command contract they need. A later approved Payload adapter can implement the same commands and mapping boundaries; it is not preimplemented.
 
-Browser effects use narrow named adapters. Dashboard and Reviews may each own a pure CSV serializer while both call one domain-neutral `downloadTextFile` browser adapter.
+Browser effects use narrow named adapters. Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
 
 ## Storybook Contract
 

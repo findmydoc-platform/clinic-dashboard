@@ -147,6 +147,20 @@ const mutationCases: readonly ReviewMutationCase[] = [
 afterEach(cleanup)
 
 describe("reviews controller", () => {
+  it("does not expose a raw review export action", () => {
+    const hook = renderHook(() =>
+      useReviewsController({
+        commands: createReviewCommandsFixture(),
+        showManagement: true,
+        snapshot: reviewsFixture,
+      }),
+    )
+
+    expect(hook.result.current.actions).not.toHaveProperty("exportReviews")
+
+    hook.unmount()
+  })
+
   it("applies the only appeal status transition inside review history", async () => {
     const submittedReview = reviewsFixture.items.find((review) => review.appealCase?.status === "submitted")
     if (!submittedReview) throw new Error("Reviews fixture requires a submitted appeal case.")

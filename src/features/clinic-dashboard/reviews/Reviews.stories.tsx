@@ -54,6 +54,7 @@ export const VisualReference: Story = {
     await expect(canvas.getByRole("button", { name: "Apply filters" })).toBeDisabled()
     await expect(canvas.getByRole("button", { name: "Edit pending response" })).toBeInTheDocument()
     await expect(canvas.getByRole("button", { name: "Responses locked" })).toBeDisabled()
+    await expect(canvas.queryByRole("button", { name: /export/i })).not.toBeInTheDocument()
   },
 }
 
@@ -335,16 +336,6 @@ export const RefreshFeedback: Story = {
   },
 }
 
-export const ExportFeedback: Story = {
-  args: createReviewsArgs(),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-
-    await userEvent.click(canvas.getByRole("button", { name: "Export" }))
-    await expect(canvas.getByText("Review CSV exported.")).toBeInTheDocument()
-  },
-}
-
 export const MobileFilters: Story = {
   args: createReviewsArgs(),
   globals: { viewport: { value: "mobile390Tall" } },
@@ -459,7 +450,7 @@ export const Presentation: Story = {
     await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeInTheDocument()
     await expect(canvas.getByText("View patient feedback and published review activity.")).toBeInTheDocument()
     await expect(canvas.getByText("Based on 1,248 reviews")).toBeInTheDocument()
-    await expect(canvas.queryByRole("button", { name: "Export" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: /export/i })).not.toBeInTheDocument()
     const threeStarRating = canvas.getByRole("img", { name: "3 out of 5 stars" })
     await expect(threeStarRating.querySelectorAll('[data-star-state="full"]')).toHaveLength(3)
     await expect(threeStarRating.querySelectorAll('[data-star-state="empty"]')).toHaveLength(2)
@@ -498,7 +489,6 @@ export const CapabilityWithdrawalProjectsSnapshot: Story = {
     )
     await expect(canvas.queryByText("Review filters applied.")).not.toBeInTheDocument()
     await expect(canvas.queryByLabelText("Status")).not.toBeInTheDocument()
-    await expect(canvas.queryByRole("button", { name: "Export" })).not.toBeInTheDocument()
     await expect(canvas.getByText("View patient feedback and published review activity.")).toBeInTheDocument()
     await expect(canvas.getByText("Markus Schmidt")).toBeVisible()
 

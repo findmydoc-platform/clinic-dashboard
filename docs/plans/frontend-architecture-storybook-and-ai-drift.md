@@ -12,6 +12,7 @@ The migration was completed on one feature branch after the interaction-fix base
 - Storybook now discovers colocated, business-owned stories with focused browser tests; the former 816-line application story was removed.
 - Architecture and Storybook governance now fail on every finding, with no baseline or exemption.
 - The pull-request Quality workflow owns formatting, static and governance checks, AI instruction checks, dead-code checks, unit and Storybook browser tests, Storybook and application builds, and the E2E smoke suite.
+- A later bounded cleanup removed the raw Reviews CSV surface. The aggregate Dashboard profile-views export remains the only current CSV capability.
 
 ## Decision Summary
 
@@ -311,7 +312,6 @@ src/
           reviews.reducer.ts
           reviews.selectors.ts
           review-commands.ts
-          review-csv.ts
           review-filters.ts
           review-pagination.ts
         hooks/
@@ -440,7 +440,7 @@ The source names in the first column refer to the `d1a39bd0` baseline. The targe
 | `SupportDialog`                      | `useSupportRequestController` and `SupportRequestDialog`       | Separates validation and async commands from rendering.                      |
 | `ThemeProvider` under organisms      | `src/providers/ThemeProvider.tsx`                              | Provider infrastructure has no Atomic layer.                                 |
 
-At baseline, one catch-all visibility gate grouped unrelated capabilities. The migration replaces it with the explicit `certificateTasks`, `notifications`, and `support` policy fields, which independently derive `showCertificateTasks`, `showNotifications`, and `showSupport`. Reply templates remain owned by `messaging`; dashboard and review exports remain owned by their reporting and review-management policies. No appointment capability is emitted because the current UI has no appointment surface.
+At baseline, one catch-all visibility gate grouped unrelated capabilities. The migration replaces it with the explicit `certificateTasks`, `notifications`, and `support` policy fields, which independently derive `showCertificateTasks`, `showNotifications`, and `showSupport`. Reply templates remain owned by `messaging`; the aggregate profile-views export remains owned by Dashboard reporting, while Reviews exposes no export. No appointment capability is emitted because the current UI has no appointment surface.
 
 ## Atomic Design Contract
 
@@ -863,17 +863,17 @@ Exit criteria:
 
 ### Phase 6 — Migrate Reviews and its command boundary
 
-**Goal:** separate review state, filtering, mutations, export behavior, and rendering.
+**Goal:** separate review state, filtering, mutations, and rendering.
 
 Work:
 
 1. Split `ReviewCommands` from the cross-domain data source.
 2. Extract `useReviewsController`, a review reducer, and selectors for filters, pagination, and mutation state.
 3. Rename `ReviewsManagement` to `ReviewsScreen` and provide a reviews view model/actions contract.
-4. Extract a pure Reviews CSV serializer and use the narrow shared browser-download adapter.
+4. Keep Reviews free of download behavior; the raw Reviews CSV serializer and browser adapter were removed by the later export cleanup.
 5. Replace the generic review-action submit payload with typed review actions.
 6. Move review UI into its local Atomic folders.
-7. Add unit tests and direct stories for filtering, retry, response, appeal, notes, history, export, read-only, and mobile states.
+7. Add unit tests and direct stories for filtering, retry, response, appeal, notes, history, explicit export absence, read-only, and mobile states.
 
 Exit criteria:
 
@@ -954,7 +954,7 @@ Exit criteria:
 | 3   | Workspace/controller/shell cut                             | One central seam with cross-feature smoke evidence.                |
 | 4   | Dashboard vertical slice                                   | Proves view-model and pure-logic pattern on a read-heavy area.     |
 | 5   | Messages vertical slice                                    | Isolates the highest interaction/state migration.                  |
-| 6   | Reviews vertical slice                                     | Isolates review state, commands, retries, and export behavior.     |
+| 6   | Reviews vertical slice                                     | Isolates review state, commands, retries, and rendering behavior.  |
 | 7   | Clinic Profile and Support vertical slices                 | Completes the remaining stateful feature ownership.                |
 | 8   | Prototype-data and story consolidation                     | Deletes the two remaining cross-domain monoliths.                  |
 | 9   | Strict governance and cleanup                              | Removes transition exceptions and locks the result.                |

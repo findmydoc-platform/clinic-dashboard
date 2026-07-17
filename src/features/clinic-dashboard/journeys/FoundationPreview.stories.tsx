@@ -156,7 +156,7 @@ export const InterfaceModeUnlocksManagement: Story = {
 
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
     await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeInTheDocument()
-    await expect(canvas.getByRole("button", { name: "Export" })).toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: /export/i })).not.toBeInTheDocument()
   },
 }
 
