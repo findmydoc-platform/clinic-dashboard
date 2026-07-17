@@ -15,9 +15,10 @@ describe("clinic profile prototype contract", () => {
     const saved = cloneClinicProfile(clinicProfileFixture)
     const draft = cloneClinicProfile(saved)
     expect(isClinicProfileDirty(saved, draft)).toBe(false)
+    expect(draft.address).not.toBe(saved.address)
 
-    draft.address.city = "Hamburg"
-    expect(isClinicProfileDirty(saved, draft)).toBe(true)
+    const changedDraft = { ...draft, address: { ...draft.address, city: "Hamburg" } }
+    expect(isClinicProfileDirty(saved, changedDraft)).toBe(true)
     expect(saved.address.city).toBe("Berlin")
   })
 

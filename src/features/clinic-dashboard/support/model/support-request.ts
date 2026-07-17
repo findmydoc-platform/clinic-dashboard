@@ -4,31 +4,33 @@ export const supportReplyChannels = ["Email", "Phone", "WhatsApp"] as const
 export type SupportCategory = (typeof supportCategories)[number]
 export type SupportReplyChannel = (typeof supportReplyChannels)[number]
 
-export type SupportScreenshot = {
+export type SupportScreenshot = Readonly<{
   name: string
   size: number
   type: string
-}
+}>
 
-export type SupportRequest = {
+export type SupportRequest = Readonly<{
   category: SupportCategory | ""
   message: string
   preferredReplyChannel: SupportReplyChannel
   screenshot?: SupportScreenshot
   subject: string
-}
+}>
 
-export type SupportReceipt = {
+export type SupportReceipt = Readonly<{
   expectedResponse: string
   ticketId: string
-}
+}>
 
-export type SupportRequestErrors = Partial<Record<"category" | "message" | "screenshot" | "subject", string>>
+type SupportRequestErrorFields = Partial<Record<"category" | "message" | "screenshot" | "subject", string>>
+
+export type SupportRequestErrors = Readonly<SupportRequestErrorFields>
 
 const maximumScreenshotBytes = 5 * 1024 * 1024
 
 export function validateSupportRequest(request: SupportRequest): SupportRequestErrors {
-  const errors: SupportRequestErrors = {}
+  const errors: SupportRequestErrorFields = {}
   if (!request.category) errors.category = "Choose a support category."
   if (request.subject.trim().length < 5) errors.subject = "Enter a subject with at least 5 characters."
   if (request.message.trim().length < 20) {
