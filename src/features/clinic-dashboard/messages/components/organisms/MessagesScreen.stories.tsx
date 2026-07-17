@@ -1,61 +1,62 @@
+import { useState, type ComponentProps } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { MessagesScreen } from "./MessagesScreen"
-import type { MessagesScreenActions, MessagesViewModel } from "../../model/messages"
+import { useMessagesController } from "../../hooks/useMessagesController"
+import type { MessagesScreenActions } from "../../model/messages"
+import { createMessagesState } from "../../model/messages.reducer"
+import { selectMessagesViewModel } from "../../model/messages.selectors"
 import { messagesFixture } from "../../testing/messages.fixtures"
 
-const selectedConversation = messagesFixture.conversations[0]
+function createStoryActions(): MessagesScreenActions {
+  return {
+    onConversationSelect: () => undefined,
+    onDraftChange: () => undefined,
+    onMenuOpenChange: () => undefined,
+    onMessageSend: () => undefined,
+    onMobileBack: () => undefined,
+    onPatientInquiryOpen: () => undefined,
+    onSearchQueryChange: () => undefined,
+    onUnreadToggle: () => undefined,
+  }
+}
 
-const actions = {
-  onConversationSelect: fn(),
-  onDraftChange: fn(),
-  onMenuOpenChange: fn(),
-  onMessageSend: fn(),
-  onMobileBack: fn(),
-  onPatientInquiryOpen: fn(),
-  onSearchQueryChange: fn(),
-  onUnreadToggle: fn(),
-} satisfies MessagesScreenActions
+function createStoryModel(isInteractive: boolean) {
+  return selectMessagesViewModel(createMessagesState(messagesFixture), messagesFixture, isInteractive)
+}
 
-const model = {
-  dateLabel: messagesFixture.dateLabel,
-  draft: "",
-  hasFullConversation: true,
-  isInteractive: true,
-  menuOpen: false,
-  mobileThreadOpen: true,
-  searchQuery: "",
-  sections: [
-    {
-      conversations: [
-        {
-          conversation: selectedConversation,
-          isActive: true,
-          unreadCount: 1,
-        },
-      ],
-      name: "New inquiries",
-    },
-    {
-      conversations: messagesFixture.conversations.slice(1).map((conversation) => ({
-        conversation,
-        isActive: false,
-        unreadCount: 0,
-      })),
-      name: "Recent chats",
-    },
-  ],
-  selectedConversation,
-  selectedUnreadCount: 1,
-  totalConversationCount: messagesFixture.conversations.length,
-  totalUnreadCount: 1,
-  visibleMessages: messagesFixture.messages,
-} satisfies MessagesViewModel
+function ControlledMessagesScreen({ model: initialModel }: ComponentProps<typeof MessagesScreen>) {
+  const { actions, model } = useMessagesController({
+    data: messagesFixture,
+    isInteractive: initialModel.isInteractive,
+  })
+  const [patientInquiryOpened, setPatientInquiryOpened] = useState(false)
+
+  return (
+    <>
+      <MessagesScreen
+        actions={{
+          ...actions,
+          onPatientInquiryOpen: () => setPatientInquiryOpened(true),
+        }}
+        model={model}
+      />
+      <p aria-label="Patient inquiry harness state" className="sr-only" role="status">
+        {patientInquiryOpened ? "Patient inquiry opened" : "Patient inquiry closed"}
+      </p>
+    </>
+  )
+}
 
 const meta = {
-  args: { actions, model },
+  args: {
+    actions: createStoryActions(),
+    model: createStoryModel(true),
+  },
   component: MessagesScreen,
+  globals: { viewport: { value: "desktop1280" } },
   parameters: { layout: "fullscreen" },
+  render: (args) => <ControlledMessagesScreen {...args} />,
   tags: ["domain:messages", "layer:organism", "status:prototype"],
   title: "Clinic Dashboard/Messages/Organisms/Messages Screen",
 } satisfies Meta<typeof MessagesScreen>
@@ -63,22 +64,98 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Interactive: Story = {
-  play: async ({ args, canvasElement }) => {
+export const ConversationSelection: Story = {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByRole("heading", { level: 1, name: "Messages" })).toBeInTheDocument()
+    const conversation = canvas.getByRole("button", { name: /Markus Schmidt/ })
+
+    await userEvent.click(conversation)
+
+    await expect(conversation).toHaveAttribute("aria-current", "page")
+    await expect(canvas.getByRole("region", { name: "Conversation with Markus Schmidt" })).toBeVisible()
+    await expect(canvas.getByRole("heading", { name: "Conversation preview" })).toBeVisible()
+  },
+}
+
+export const ConversationSearch: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const search = canvas.getByRole("searchbox", { name: "Search conversations" })
+
+    await userEvent.type(search, "Sarah Meyer")
+
+    await expect(search).toHaveValue("Sarah Meyer")
+    await expect(canvas.getByRole("button", { name: /Sarah Meyer/ })).toBeVisible()
+    await expect(canvas.queryByRole("button", { name: /Lukas Weber/ })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: /Markus Schmidt/ })).not.toBeInTheDocument()
+  },
+}
+
+export const MessageSending: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const composer = canvas.getByRole("textbox", { name: "Write a message" })
+    const message = "We can review the photos tomorrow."
+
+    await userEvent.type(composer, message)
+    await userEvent.click(canvas.getByRole("button", { name: "Send message" }))
+
+    await expect(composer).toHaveValue("")
+    await expect(
+      within(canvas.getByRole("log", { name: "Messages with Lukas Weber" })).getByText(message),
+    ).toBeVisible()
+  },
+}
+
+export const UnreadFilter: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+    const menuTrigger = canvas.getByRole("button", { name: "Conversation menu" })
+
+    await expect(canvas.getByLabelText("1 unread message")).toBeVisible()
+    await userEvent.click(menuTrigger)
+    const markAsRead = await page.findByRole("menuitem", { name: "Mark as read" })
+    await userEvent.click(markAsRead)
+
+    await expect(canvas.getByText("All read")).toBeVisible()
+    await expect(canvas.queryByLabelText("1 unread message")).not.toBeInTheDocument()
+
+    await userEvent.click(menuTrigger)
+    await expect(await page.findByRole("menuitem", { name: "Mark as unread" })).toBeVisible()
+  },
+}
+
+export const MobileBackToConversations: Story = {
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const selectedConversation = canvas.getByRole("button", { name: /Lukas Weber/ })
+
+    await userEvent.click(selectedConversation)
+    await expect(canvas.getByRole("region", { name: "Conversation with Lukas Weber" })).toBeVisible()
+
+    await userEvent.click(canvas.getByRole("button", { name: "Back to conversations" }))
+
+    await expect(canvas.getByRole("searchbox", { name: "Search conversations" })).toBeVisible()
+    await waitFor(() => expect(selectedConversation).toHaveFocus())
+  },
+}
+
+export const PatientInquiryAction: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const state = canvas.getByRole("status", { name: "Patient inquiry harness state" })
+
+    await expect(state).toHaveTextContent("Patient inquiry closed")
     await userEvent.click(canvas.getByRole("button", { name: "View patient inquiry" }))
-    await expect(args.actions.onPatientInquiryOpen).toHaveBeenCalledOnce()
+    await expect(state).toHaveTextContent("Patient inquiry opened")
   },
 }
 
 export const ReadOnly: Story = {
   args: {
-    model: {
-      ...model,
-      isInteractive: false,
-      mobileThreadOpen: false,
-    },
+    model: createStoryModel(false),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
