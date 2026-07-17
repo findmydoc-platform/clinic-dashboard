@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest"
 import * as sourceAnalysis from "../../scripts/governance/source-analysis.mjs"
 
 const fixtureRoot = path.join(path.sep, "tmp", "source-analysis-fixture")
-const { containsReferencedIdentifier, getCsfStoryExportNames, getModuleReferences } = sourceAnalysis
+const { containsReferencedIdentifier, getCsfStoryExportNames, getImportBindings, getModuleReferences } =
+  sourceAnalysis
 
 type ModuleReference = Readonly<{
   kind: string
@@ -55,6 +56,48 @@ describe("getCsfStoryExportNames", () => {
       expect(getCsfStoryExportNames(sourceFile)).toEqual([])
     },
   )
+
+  it.each([
+    'Object.assign(metaAlias, { excludeStories: ["Default"] })',
+    'Reflect.set(metaAlias, "excludeStories", ["Default"])',
+    'Reflect["set"](metaAlias, "excludeStories", ["Default"])',
+    'Object.defineProperty(metaAlias, "excludeStories", { value: ["Default"] })',
+    'Object["defineProperty"](metaAlias, "excludeStories", { value: ["Default"] })',
+    'Object.defineProperties(metaAlias, { excludeStories: { value: ["Default"] } })',
+    'Reflect.deleteProperty(metaAlias, "includeStories")',
+    "mutate(metaAlias)",
+    "new MetaMutator(metaAlias)",
+    "metaAlias.hideStories()",
+    'metaAlias["hideStories"]()',
+  ])("fails closed when an API mutates a meta object alias: %s", (mutation) => {
+    const sourceFile = parseSource(`
+      const meta = { title: "Shared/Atoms/Button" }
+      const metaAlias = meta
+      ${mutation}
+      export default meta
+      export const Default = {}
+    `)
+
+    expect(getCsfStoryExportNames(sourceFile)).toEqual([])
+  })
+
+  it("ignores mutations of unrelated aliases and shadowed meta bindings", () => {
+    const sourceFile = parseSource(`
+      const meta = { title: "Shared/Atoms/Button" }
+      const unrelated = {}
+      const unrelatedAlias = unrelated
+      Object.assign(unrelatedAlias, { excludeStories: ["Default"] })
+      unrelatedAlias.hideStories?.()
+      function mutate(meta: Record<string, unknown>) {
+        Reflect.set(meta, "excludeStories", ["Default"])
+      }
+      export default meta
+      export const Default = {}
+      void mutate
+    `)
+
+    expect(getCsfStoryExportNames(sourceFile)).toEqual(["Default"])
+  })
 })
 
 describe("getModuleReferences", () => {
@@ -64,9 +107,10 @@ describe("getModuleReferences", () => {
       export { value as exportedValue } from "./barrel"
       const commonJs = require("./commonjs")
       const resolved = require.resolve("./resolved")
+      import imported = require("./imported")
       type Imported = import("./types").Imported
       const lazy = import("./lazy")
-      void [value, commonJs, resolved, lazy]
+      void [value, commonJs, resolved, imported, lazy]
     `)
 
     expect(getModuleReferences(fixtureRoot, sourceFile) as ModuleReference[]).toEqual(
@@ -75,10 +119,80 @@ describe("getModuleReferences", () => {
         expect.objectContaining({ kind: "export", moduleSpecifier: "./barrel" }),
         expect.objectContaining({ kind: "require", moduleSpecifier: "./commonjs" }),
         expect.objectContaining({ kind: "require-resolve", moduleSpecifier: "./resolved" }),
+        expect.objectContaining({ kind: "import-equals", moduleSpecifier: "./imported" }),
         expect.objectContaining({ kind: "import-type", moduleSpecifier: "./types" }),
         expect.objectContaining({ kind: "dynamic-import", moduleSpecifier: "./lazy" }),
       ]),
     )
+  })
+
+  it("collects transitive require aliases and computed require.resolve calls", () => {
+    const sourceFile = parseSource(`
+      const load = require
+      const nestedLoad = load
+      const resolve = require["resolve"]
+      const { resolve: destructuredResolve } = nestedLoad
+      const loaded = nestedLoad("./aliased")
+      const resolved = resolve("./computed-resolve")
+      const destructured = destructuredResolve("./destructured-resolve")
+      const directResolved = require["resolve"]("./direct-computed-resolve")
+      void [loaded, resolved, destructured, directResolved]
+    `)
+
+    expect(getModuleReferences(fixtureRoot, sourceFile) as ModuleReference[]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "require", moduleSpecifier: "./aliased" }),
+        expect.objectContaining({ kind: "require-resolve", moduleSpecifier: "./computed-resolve" }),
+        expect.objectContaining({
+          kind: "require-resolve",
+          moduleSpecifier: "./destructured-resolve",
+        }),
+        expect.objectContaining({
+          kind: "require-resolve",
+          moduleSpecifier: "./direct-computed-resolve",
+        }),
+      ]),
+    )
+  })
+
+  it("ignores locally bound require callables", () => {
+    const sourceFile = parseSource(`
+      function loadLocal(require: (modulePath: string) => unknown) {
+        const load = require
+        const { resolve: localResolve } = require
+        return [
+          require("./local"),
+          load("./local-alias"),
+          require.resolve?.("./local-resolve"),
+          localResolve("./local-destructured-resolve"),
+        ]
+      }
+      void loadLocal
+    `)
+
+    expect(getModuleReferences(fixtureRoot, sourceFile)).toEqual([])
+  })
+
+  it("fails closed for non-literal require aliases and import-equals declarations", () => {
+    const sourceFile = parseSource(`
+      const modulePath = "./runtime"
+      const load = require
+      const resolve = require["resolve"]
+      load(modulePath)
+      resolve(modulePath)
+      import imported = require(ModulePath)
+      void imported
+    `)
+
+    const unresolved = (getModuleReferences(fixtureRoot, sourceFile) as ModuleReference[]).filter(
+      (reference) => reference.kind === "unresolved-dynamic-import",
+    )
+
+    expect(unresolved.map((reference) => reference.moduleSpecifier)).toEqual([
+      "<require call at line 5>",
+      "<require.resolve call at line 6>",
+      "<import equals declaration at line 7>",
+    ])
   })
 
   it("emits fail-closed markers for non-literal module references", () => {
@@ -102,6 +216,21 @@ describe("getModuleReferences", () => {
       "<import type at line 6>",
     ])
     expect(unresolved.every((reference) => reference.resolvedPath === null)).toBe(true)
+  })
+})
+
+describe("getImportBindings", () => {
+  it("collects namespace imports with their resolved module path", () => {
+    const sourceFile = parseSource(`
+      import * as Screens from "./screens"
+      void Screens
+    `)
+
+    expect(getImportBindings(fixtureRoot, sourceFile).get("Screens")).toEqual({
+      importedName: "*",
+      moduleSpecifier: "./screens",
+      resolvedPath: "src/screens",
+    })
   })
 })
 
@@ -146,6 +275,37 @@ describe("containsReferencedIdentifier", () => {
     ])
   })
 
+  it("reports original browser-global names through destructuring and transitive local aliases", () => {
+    const sourceFile = parseSource(`
+      const browser = globalThis
+      const nestedBrowser = browser
+      const {
+        window: { location: browserLocation },
+        localStorage: { getItem: readStorage },
+      } = nestedBrowser
+      const location = browserLocation
+      const read = readStorage
+      export const href = location.href
+      export const stored = read("key")
+    `)
+
+    expect([...containsReferencedIdentifier(sourceFile, browserGlobals)].sort()).toEqual([
+      "localStorage",
+      "window",
+    ])
+  })
+
+  it("treats a globalThis rest binding and its aliases conservatively as globalThis", () => {
+    const sourceFile = parseSource(`
+      const { crypto: ignoredCrypto, ...browserRest } = globalThis
+      const nestedRest = browserRest
+      export const width = nestedRest.window.innerWidth
+      void ignoredCrypto
+    `)
+
+    expect([...containsReferencedIdentifier(sourceFile, browserGlobals)].sort()).toEqual(["crypto", "window"])
+  })
+
   it("does not treat shadowed globalThis or alias names as browser globals", () => {
     const sourceFile = parseSource(`
       const browser = globalThis
@@ -154,6 +314,25 @@ describe("containsReferencedIdentifier", () => {
         globalThis: { localStorage: { length: number } },
       ) {
         return browser.window.innerWidth + globalThis.localStorage.length
+      }
+      void readWidth
+    `)
+
+    expect([...containsReferencedIdentifier(sourceFile, browserGlobals)]).toEqual([])
+  })
+
+  it("allows destructuring from a shadowed globalThis parameter", () => {
+    const sourceFile = parseSource(`
+      function readWidth(globalThis: {
+        window: { viewport: { innerWidth: number } }
+        localStorage: { length: number }
+      }) {
+        const {
+          window: { viewport: { innerWidth } },
+          localStorage: storage,
+          ...browserRest
+        } = globalThis
+        return innerWidth + storage.length + browserRest.window.viewport.innerWidth
       }
       void readWidth
     `)
