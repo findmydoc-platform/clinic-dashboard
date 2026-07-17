@@ -62,7 +62,7 @@ const clinicDashboardVisibilityPolicy = {
     visualReference: "interactive",
   },
   reviewManagement: {
-    area: "Review filtering, responses, appeals, notes, exports, and pagination",
+    area: "Review filtering, responses, appeals, notes, and pagination",
     issue: websiteIssue(1529),
     presentation: "hidden",
     visualReference: "interactive",

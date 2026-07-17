@@ -1,11 +1,10 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useReducer, useRef } from "react"
-import { downloadReviewsCsv } from "../adapters/download-reviews-csv"
 import type { ReviewCommands } from "../model/review-commands"
 import type { ReviewsSnapshot } from "../model/reviews-snapshot"
 import { createReviewsState, reviewsReducer } from "../model/reviews.reducer"
-import { selectFilteredReviews, selectReviewsViewModel } from "../model/reviews.selectors"
+import { selectReviewsViewModel } from "../model/reviews.selectors"
 import type { ReviewsActions } from "../model/reviews-view-model"
 
 type UseReviewsControllerInput = Readonly<{
@@ -78,12 +77,6 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
       })
       refreshTimerRef.current = undefined
     }, reviewRefreshDelayMs)
-  }
-
-  const exportReviews = () => {
-    if (!showManagement) return
-    downloadReviewsCsv(selectFilteredReviews(state, snapshot.referenceTime))
-    dispatch({ statusMessage: "Review CSV exported.", type: "status-message-changed" })
   }
 
   const markReviewAppealUnderReview: ReviewsActions["markReviewAppealUnderReview"] = async () => {
@@ -172,7 +165,6 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     changeMobileFiltersOpen,
     changePage,
     closeReviewDialog,
-    exportReviews,
     markReviewAppealUnderReview,
     openReviewAppeal,
     openReviewHistory,

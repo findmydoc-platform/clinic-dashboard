@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import { serializeReviewsCsv } from "@/features/clinic-dashboard/reviews/model/review-csv"
 import {
   createPendingReviewResponse,
   projectClinicReviewForPresentation,
@@ -108,7 +107,7 @@ describe("reviews model", () => {
     expect(pending.reviews.find((review) => review.id === openReview.id)).toEqual(pendingReview)
   })
 
-  it("handles dialog dismissal, mobile filters, pagination, refresh, and status transitions", () => {
+  it("handles dialog dismissal, mobile filters, pagination, and refresh", () => {
     const openReview = reviews.find((review) => review.status === "Open")
     expect(openReview).toBeDefined()
     if (!openReview) return
@@ -128,17 +127,11 @@ describe("reviews model", () => {
       statusMessage: "Reviews refreshed.",
       type: "refresh-completed",
     })
-    const statusChanged = reviewsReducer(refreshCompleted, {
-      statusMessage: "Review CSV exported.",
-      type: "status-message-changed",
-    })
-
     expect(dialogClosed.dialog).toEqual({ kind: "closed" })
     expect(mobileFiltersOpen.isMobileFiltersOpen).toBe(true)
     expect(secondPage.page).toBe(2)
     expect(refreshStarted).toMatchObject({ isRefreshing: true, statusMessage: "" })
     expect(refreshCompleted).toMatchObject({ isRefreshing: false, statusMessage: "Reviews refreshed." })
-    expect(statusChanged.statusMessage).toBe("Review CSV exported.")
   })
 
   it("clears management transients on withdrawal while retaining filters and review state", () => {
@@ -271,19 +264,6 @@ describe("reviews model", () => {
     })
     expect(projection.list.reviews).toEqual(reviews.slice(0, 3).map(projectClinicReviewForPresentation))
     expect(projection.list.reviews[0]).not.toEqual(mutatedReview)
-  })
-
-  it("serializes a stable, escaped CSV report", () => {
-    const review = {
-      ...reviews[0],
-      author: 'Clinic "One", Berlin',
-      id: "review-1",
-    }
-
-    expect(serializeReviewsCsv([review])).toBe(
-      '"id","author","rating","treatment","status","createdAt"\n' +
-        '"review-1","Clinic ""One"", Berlin","5","Hair transplant","Answered","2023-10-14T09:00:00.000Z"',
-    )
   })
 
   it("creates deterministic pending responses without changing publication or review status", async () => {
