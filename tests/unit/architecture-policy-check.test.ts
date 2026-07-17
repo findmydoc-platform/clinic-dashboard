@@ -417,17 +417,114 @@ describe("architecture policy checker process fixtures", () => {
     expect(output.match(/ERROR atomic-upward-import/gu)).toHaveLength(1)
   })
 
-  it("accepts an Atomic import through a barrel that only re-exports the same layer", () => {
+  it("rejects an Atomic upward import hidden by multi-step local re-export barrels with a cycle", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx": `
-        import { TrendIcon } from "../../ui"
-        export const StatusDot = TrendIcon
+        import { DashboardScreen } from "../../ui"
+        export const StatusDot = DashboardScreen
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        export function DashboardScreen() { return null }
+      `,
+      "src/features/clinic-dashboard/dashboard/ui-cycle.ts": `
+        import { DashboardScreen as CycleMarker } from "./ui"
+        export { CycleMarker }
+      `,
+      "src/features/clinic-dashboard/dashboard/ui-surface.ts": `
+        import { DashboardScreen } from "./components/organisms/DashboardScreen"
+        import { CycleMarker } from "./ui-cycle"
+        export { CycleMarker, DashboardScreen }
+      `,
+      "src/features/clinic-dashboard/dashboard/ui.ts": `
+        import { DashboardScreen } from "./ui-surface"
+        export { DashboardScreen }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR atomic-upward-import src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx",
+    )
+    expect(output).toContain("atoms must not import a barrel that re-exports the higher organisms layer")
+    expect(output.match(/ERROR atomic-upward-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects an Atomic upward import hidden by a multi-step local alias export", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx": `
+        import { Alias2 } from "../../ui"
+        export const StatusDot = Alias2
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        export function DashboardScreen() { return null }
+      `,
+      "src/features/clinic-dashboard/dashboard/ui.ts": `
+        import { DashboardScreen as Screen } from "./components/organisms/DashboardScreen"
+        const Alias = Screen
+        const Alias2 = Alias
+        export { Alias2 }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR atomic-upward-import src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx",
+    )
+    expect(output).toContain("atoms must not import a barrel that re-exports the higher organisms layer")
+    expect(output.match(/ERROR atomic-upward-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects an Atomic upward import hidden by a namespace re-export", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx": `
+        import { Screens } from "../../ui"
+        export const StatusDot = Screens
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        export function DashboardScreen() { return null }
+      `,
+      "src/features/clinic-dashboard/dashboard/ui.ts": `
+        import * as Screens from "./components/organisms/DashboardScreen"
+        export { Screens }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR atomic-upward-import src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx",
+    )
+    expect(output).toContain("atoms must not import a barrel that re-exports the higher organisms layer")
+    expect(output.match(/ERROR atomic-upward-import/gu)).toHaveLength(1)
+  })
+
+  it("accepts pure local alias exports and same-layer alias re-exports through a barrel", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx": `
+        import { localCycleA, localThreshold, TrendIcon } from "../../ui"
+        export const StatusDot = localThreshold > 0 ? TrendIcon : localCycleA
       `,
       "src/features/clinic-dashboard/dashboard/components/atoms/TrendIcon.tsx": `
         export function TrendIcon() { return null }
       `,
       "src/features/clinic-dashboard/dashboard/ui.ts": `
-        export { TrendIcon } from "./components/atoms/TrendIcon"
+        import { TrendIcon } from "./components/atoms/TrendIcon"
+        const localThreshold = 1
+        const LocalAlias = localThreshold
+        const LocalAlias2 = LocalAlias
+        const TrendAlias = TrendIcon
+        const TrendAlias2 = TrendAlias
+        const localCycleA = localCycleB
+        const localCycleB = localCycleA
+        export { LocalAlias2 as localThreshold, localCycleA, TrendAlias2 as TrendIcon }
       `,
     })
 
@@ -810,6 +907,48 @@ describe("architecture policy checker process fixtures", () => {
       `,
       "src/features/clinic-dashboard/messages/public.ts": `
         export { MessagesScreen } from "./MessagesScreen"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
+  it("rejects CommonJS assignments from feature public contracts", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/public.ts": `
+        const dashboard = { views: 1 }
+        module.exports = dashboard
+      `,
+      "src/features/clinic-dashboard/messages/public.ts": `
+        const Messages = () => null
+        module.exports.default = Messages
+      `,
+      "src/features/clinic-dashboard/reviews/public.ts": `
+        const Reviews = () => null
+        exports.default = Reviews
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR commonjs-public-export src/features/clinic-dashboard/dashboard/public.ts")
+    expect(output).toContain("ERROR commonjs-public-export src/features/clinic-dashboard/messages/public.ts")
+    expect(output).toContain("ERROR commonjs-public-export src/features/clinic-dashboard/reviews/public.ts")
+    expect(output.match(/ERROR commonjs-public-export/gu)).toHaveLength(3)
+  })
+
+  it("accepts ES named exports and ordinary nested exports properties", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/public.ts": `
+        const packageMetadata = { exports: { default: false } }
+        packageMetadata.exports.default = true
+        export { packageMetadata }
       `,
     })
 

@@ -7,6 +7,7 @@ import {
   collectSourceFiles,
   containsReferencedIdentifier,
   createFinding,
+  getImportBindings,
   getModuleReferences,
   hasWildcardExport,
   parseSourceFile,
@@ -126,6 +127,68 @@ function hasPublicDefaultExport(sourceFile) {
   })
 }
 
+function unwrapExpression(expression) {
+  let current = expression
+
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isTypeAssertionExpression(current)
+  ) {
+    current = current.expression
+  }
+
+  return current
+}
+
+function propertyAccessPath(expression) {
+  const current = unwrapExpression(expression)
+  if (ts.isIdentifier(current)) return [current.text]
+
+  if (ts.isPropertyAccessExpression(current)) {
+    const ownerPath = propertyAccessPath(current.expression)
+    return ownerPath ? [...ownerPath, current.name.text] : null
+  }
+
+  if (ts.isElementAccessExpression(current) && current.argumentExpression) {
+    const ownerPath = propertyAccessPath(current.expression)
+    const property = unwrapExpression(current.argumentExpression)
+    if (!ownerPath || (!ts.isStringLiteral(property) && !ts.isNoSubstitutionTemplateLiteral(property))) {
+      return null
+    }
+
+    return [...ownerPath, property.text]
+  }
+
+  return null
+}
+
+function hasCommonJsPublicExport(sourceFile) {
+  let found = false
+
+  const visit = (node) => {
+    if (found) return
+
+    if (ts.isBinaryExpression(node) && ts.isAssignmentOperator(node.operatorToken.kind)) {
+      const targetPath = propertyAccessPath(node.left)
+      if (
+        targetPath &&
+        ((targetPath[0] === "module" && targetPath[1] === "exports") ||
+          (targetPath[0] === "exports" && targetPath.length > 1))
+      ) {
+        found = true
+        return
+      }
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(sourceFile)
+  return found
+}
+
 function isWorkspaceCompositionSource(file) {
   return /^src\/features\/clinic-dashboard\/workspace\/ClinicDashboardWorkspace\.[cm]?[jt]sx?$/u.test(file)
 }
@@ -164,26 +227,90 @@ function isAllowedPrivateCompositionImport(file, reference) {
   )
 }
 
-function collectTransitiveReExportTargets(target, referencesByFile, visited = new Set()) {
+function collectLocalIdentifierAliases(sourceFile) {
+  const aliases = new Map()
+
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue
+
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue
+
+      const initializer = unwrapExpression(declaration.initializer)
+      if (ts.isIdentifier(initializer)) aliases.set(declaration.name.text, initializer.text)
+    }
+  }
+
+  return aliases
+}
+
+function resolveImportedBinding(localName, importBindings, localAliases, visited = new Set()) {
+  if (visited.has(localName)) return null
+  visited.add(localName)
+
+  const importBinding = importBindings.get(localName)
+  if (importBinding) return importBinding
+
+  const aliasedName = localAliases.get(localName)
+  return aliasedName ? resolveImportedBinding(aliasedName, importBindings, localAliases, visited) : null
+}
+
+function collectReExportTargetsByFile(rootDir, sourceEntries) {
+  return new Map(
+    sourceEntries.map(({ file, references, sourceFile }) => {
+      const targets = references.filter((reference) => reference.kind === "export").map(importTarget)
+      const importBindings = getImportBindings(rootDir, sourceFile)
+      const localAliases = collectLocalIdentifierAliases(sourceFile)
+
+      for (const statement of sourceFile.statements) {
+        if (ts.isExportAssignment(statement)) {
+          const expression = unwrapExpression(statement.expression)
+          const binding = ts.isIdentifier(expression)
+            ? resolveImportedBinding(expression.text, importBindings, localAliases)
+            : null
+          if (binding?.resolvedPath) targets.push(binding.resolvedPath)
+          continue
+        }
+
+        if (
+          !ts.isExportDeclaration(statement) ||
+          statement.moduleSpecifier ||
+          !statement.exportClause ||
+          !ts.isNamedExports(statement.exportClause)
+        ) {
+          continue
+        }
+
+        for (const element of statement.exportClause.elements) {
+          const localName = element.propertyName?.text ?? element.name.text
+          const binding = resolveImportedBinding(localName, importBindings, localAliases)
+          if (binding?.resolvedPath) targets.push(binding.resolvedPath)
+        }
+      }
+
+      return [file, [...new Set(targets)]]
+    }),
+  )
+}
+
+function collectTransitiveReExportTargets(target, reExportTargetsByFile, visited = new Set()) {
   if (visited.has(target)) return []
   visited.add(target)
 
-  const exportTargets = (referencesByFile.get(target) ?? [])
-    .filter((reference) => reference.kind === "export")
-    .map(importTarget)
+  const exportTargets = reExportTargetsByFile.get(target) ?? []
 
   return [
     ...exportTargets,
     ...exportTargets.flatMap((exportTarget) =>
-      collectTransitiveReExportTargets(exportTarget, referencesByFile, visited),
+      collectTransitiveReExportTargets(exportTarget, reExportTargetsByFile, visited),
     ),
   ]
 }
 
-function findHigherAtomicReExportTarget(sourceLayer, target, referencesByFile) {
+function findHigherAtomicReExportTarget(sourceLayer, target, reExportTargetsByFile) {
   const rank = { atoms: 0, molecules: 1, organisms: 2 }
 
-  return collectTransitiveReExportTargets(target, referencesByFile)
+  return collectTransitiveReExportTargets(target, reExportTargetsByFile)
     .filter((exportTarget) => {
       const exportTargetLayer = atomicLayer(exportTarget)
       return exportTargetLayer && rank[exportTargetLayer] > rank[sourceLayer]
@@ -201,7 +328,7 @@ function collectFindings() {
       sourceFile,
     }
   })
-  const referencesByFile = new Map(sourceEntries.map(({ file, references }) => [file, references]))
+  const reExportTargetsByFile = collectReExportTargetsByFile(rootDir, sourceEntries)
 
   for (const filePath of collectExecutableJavaScriptFiles(rootDir)) {
     const file = toRelative(rootDir, filePath)
@@ -292,6 +419,17 @@ function collectFindings() {
           file,
           "default-export",
           "Feature public contracts must expose explicit named exports, not a default export.",
+        ),
+      )
+    }
+
+    if (isFeaturePublicContractFile(file) && hasCommonJsPublicExport(sourceFile)) {
+      findings.push(
+        createFinding(
+          "commonjs-public-export",
+          file,
+          "commonjs-export",
+          "Feature public contracts must use explicit ES named exports, not CommonJS export assignments.",
         ),
       )
     }
@@ -565,7 +703,11 @@ function collectFindings() {
           ),
         )
       } else if (sourceLayer) {
-        const higherReExportTarget = findHigherAtomicReExportTarget(sourceLayer, target, referencesByFile)
+        const higherReExportTarget = findHigherAtomicReExportTarget(
+          sourceLayer,
+          target,
+          reExportTargetsByFile,
+        )
         const higherReExportLayer = higherReExportTarget ? atomicLayer(higherReExportTarget) : null
 
         if (higherReExportTarget && higherReExportLayer) {
