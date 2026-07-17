@@ -77,7 +77,8 @@ describe("dashboard reporting fixtures", () => {
       value: 4.8,
     })
     expect(dashboardFixture.rating.pendingResponses).toBe(
-      reviewsFixture.items.filter(({ status }) => status === "Open").length,
+      reviewsFixture.items.filter(({ pendingResponse }) => pendingResponse?.status === "pending-moderation")
+        .length,
     )
     expect(dashboardFixture.reporting["7 days"].reviewActivity).toContain("1 new review")
     expect(dashboardFixture.reporting["30 days"].reviewActivity).toContain("5 new reviews")
