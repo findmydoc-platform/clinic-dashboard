@@ -120,6 +120,25 @@ export default meta
 export const Default = {}
 `
 
+function mutatedMetaStorySource(mutation: string) {
+  return `
+import type { Meta } from "@storybook/react"
+import { ClinicProfile } from "./public"
+
+const meta = {
+  component: ClinicProfile,
+  tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
+  title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile",
+} satisfies Meta<typeof ClinicProfile>
+
+${mutation}
+
+export default meta
+
+export const Default = {}
+`
+}
+
 const moleculeComponentSource = `
 export function ConversationSummary() {
   return <section>Conversation</section>
@@ -208,6 +227,58 @@ const meta = {
   tags: ["domain:shared", "layer:molecule", "status:stable"],
   title: "Shared/Molecules/Button",
 } satisfies Meta<typeof Button>
+
+export default meta
+
+export const Default = {}
+`
+
+const sharedDropdownMenuSource = `
+export function DropdownMenu() {
+  return <div role="menu">Account actions</div>
+}
+`
+
+const mislabeledSharedDropdownMenuStorySource = `
+import type { Meta } from "@storybook/react"
+import { DropdownMenu } from "./dropdown-menu"
+
+const meta = {
+  component: DropdownMenu,
+  tags: ["domain:shared", "layer:atom", "status:stable"],
+  title: "Shared/Atoms/Dropdown Menu",
+} satisfies Meta<typeof DropdownMenu>
+
+export default meta
+
+export const Default = {}
+`
+
+const defaultComponentSource = `
+export default function ClinicProfile() {
+  return <section>Clinic profile</section>
+}
+`
+
+const defaultPublicContractSource = `
+export { default } from "./ClinicProfile"
+`
+
+const importedDefaultPublicContractSource = `
+import ClinicProfile from "./ClinicProfile"
+
+export default ClinicProfile
+`
+
+const defaultComponentStorySource = `
+import type { Meta } from "@storybook/react"
+import ClinicProfile from "./public"
+
+const meta = {
+  component: ClinicProfile,
+  tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
+  title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile",
+} satisfies Meta<typeof ClinicProfile>
 
 export default meta
 
@@ -311,6 +382,25 @@ describe("storybook governance public component coverage", () => {
     expect(output.match(/ERROR story-(?:title|tag)-path-layer-agreement/gu)).toHaveLength(2)
   })
 
+  it("rejects the shared dropdown menu when its title and tag present the molecule as an atom", () => {
+    const fixtureRoot = createFixture({
+      "src/components/ui/dropdown-menu.stories.tsx": mislabeledSharedDropdownMenuStorySource,
+      "src/components/ui/dropdown-menu.tsx": sharedDropdownMenuSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-title-path-layer-agreement src/components/ui/dropdown-menu.stories.tsx :: The component path requires the Molecules title layer.",
+    )
+    expect(output).toContain(
+      "ERROR story-tag-path-layer-agreement src/components/ui/dropdown-menu.stories.tsx :: The component path requires the layer:molecule tag.",
+    )
+    expect(output.match(/ERROR story-(?:title|tag)-path-layer-agreement/gu)).toHaveLength(2)
+  })
+
   it("rejects a negative fixture when a public.ts component export has no direct story", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
@@ -326,6 +416,39 @@ describe("storybook governance public component coverage", () => {
       "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: ClinicProfile requires a direct component story.",
     )
     expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it.each([
+    ["default re-export", defaultPublicContractSource],
+    ["import then default export", importedDefaultPublicContractSource],
+  ])("requires a direct story for a feature public.ts %s", (_kind, publicContract) => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": defaultComponentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContract,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: Default export from src/features/clinic-dashboard/clinic-profile/public.ts requires a direct component story.",
+    )
+    expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it("resolves a feature default re-export to its direct component story", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": defaultComponentStorySource,
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": defaultComponentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": defaultPublicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
   })
 
   it("ignores test-only public contracts while still enforcing production public contracts", () => {
@@ -394,6 +517,31 @@ describe("storybook governance public component coverage", () => {
   ])("rejects a %s meta filter that removes the only story export", (_kind, storySource) => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": storySource,
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-export src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Story files require at least one statically analyzable CSF story object export.",
+    )
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: ClinicProfile requires a direct component story.",
+    )
+    expect(output.match(/ERROR (?:missing-direct-story|story-export)/gu)).toHaveLength(2)
+  })
+
+  it.each([
+    ["Object.assign", 'Object.assign(meta, { excludeStories: ["Default"] })'],
+    ["property assignment", 'meta.excludeStories = ["Default"]'],
+    ["element assignment", 'meta["excludeStories"] = ["Default"]'],
+  ])("fails closed when %s mutates CSF meta after declaration", (_kind, mutation) => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx":
+        mutatedMetaStorySource(mutation),
       "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
       "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
     })

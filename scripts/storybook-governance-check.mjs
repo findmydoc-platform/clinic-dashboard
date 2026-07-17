@@ -36,6 +36,7 @@ const sharedComponentLayers = new Map([
   ["src/components/ui/avatar.tsx", "atom"],
   ["src/components/ui/button.tsx", "atom"],
   ["src/components/ui/card.tsx", "molecule"],
+  ["src/components/ui/dropdown-menu.tsx", "molecule"],
   ["src/components/ui/field.tsx", "molecule"],
   ["src/components/ui/input.tsx", "atom"],
   ["src/components/ui/modal.tsx", "molecule"],
@@ -166,6 +167,15 @@ function collectNamedReExports(rootDir, sourcePaths) {
     )
 
     for (const statement of sourceFile.statements) {
+      if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+        const exportedIdentifier = ts.isIdentifier(statement.expression) ? statement.expression.text : null
+        const importedBinding = exportedIdentifier ? importBindings.get(exportedIdentifier) : null
+        if (importedBinding?.resolvedPath) {
+          reExports.set(`${file}|default`, importedBinding)
+        }
+        continue
+      }
+
       if (
         !ts.isExportDeclaration(statement) ||
         statement.isTypeOnly ||
@@ -475,14 +485,14 @@ function collectFindings() {
         if (!key.startsWith(`${file}|`)) continue
 
         const exportedName = key.slice(file.length + 1)
-        if (!/^[A-Z]/u.test(exportedName)) continue
+        if (exportedName !== "default" && !/^[A-Z]/u.test(exportedName)) continue
 
         const resolvedBinding = resolveReExportBinding(binding, reExports)
         addDirectStoryRequirement(
           directStoryRequirements,
           resolvedBinding.resolvedPath,
           resolvedBinding.importedName,
-          exportedName,
+          exportedName === "default" ? `Default export from ${file}` : exportedName,
         )
       }
     }
