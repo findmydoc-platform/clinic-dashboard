@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import type { DashboardMetric, DashboardSelectableMetricId } from "../../model/reporting"
 
 const metricIcons = {
   completion: BadgeCheck,
@@ -19,23 +20,22 @@ const metricIcons = {
 } as const
 
 type MetricCardProps = Readonly<{
-  metric: {
-    delta?: string
-    id: string
-    label: string
-    note?: string
-    progress?: number
-    value: string
-  }
+  metric: DashboardMetric
+  selection?: Readonly<{
+    controlsId: string
+    isSelected: boolean
+    metricId: DashboardSelectableMetricId
+    onSelect: (metricId: DashboardSelectableMetricId) => void
+  }>
 }>
 
-export function MetricCard({ metric }: MetricCardProps) {
+export function MetricCard({ metric, selection }: MetricCardProps) {
   const Icon = metricIcons[metric.id as keyof typeof metricIcons] ?? BadgeCheck
   const negative = metric.delta?.startsWith("-")
   const Trend = negative ? ArrowDown : ArrowUp
 
-  return (
-    <Card className="min-w-0 p-4 shadow-none">
+  const content = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <span className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">
           {metric.label}
@@ -70,6 +70,30 @@ export function MetricCard({ metric }: MetricCardProps) {
         </div>
       ) : null}
       {metric.note ? <p className="mt-2 text-xs text-[var(--foreground)]">{metric.note}</p> : null}
+    </>
+  )
+
+  return (
+    <Card
+      className={cn(
+        "min-w-0 shadow-none transition-colors",
+        selection?.isSelected &&
+          "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--background))]",
+      )}
+    >
+      {selection ? (
+        <button
+          aria-controls={selection.controlsId}
+          aria-pressed={selection.isSelected}
+          className="h-full min-h-11 w-full rounded-xl p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          onClick={() => selection.onSelect(selection.metricId)}
+          type="button"
+        >
+          {content}
+        </button>
+      ) : (
+        <div className="p-4">{content}</div>
+      )}
     </Card>
   )
 }

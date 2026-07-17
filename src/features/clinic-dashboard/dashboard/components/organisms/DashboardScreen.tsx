@@ -1,12 +1,14 @@
 "use client"
 
+import { useId } from "react"
 import { PageHeading } from "@/components/ui/page-heading"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
+import { isDashboardSelectableMetricId } from "../../model/reporting"
 import { MetricCard } from "../molecules/MetricCard"
 import { ClinicPreview } from "./ClinicPreview"
 import { ConversionFunnel } from "./ConversionFunnel"
+import { DashboardMetricPanel } from "./DashboardMetricPanel"
 import { ProfileProgress } from "./ProfileProgress"
-import { ProfileViewsPanel } from "./ProfileViewsPanel"
 import { ReviewSummary } from "./ReviewSummary"
 
 type DashboardScreenProps = Readonly<{
@@ -22,6 +24,8 @@ export function DashboardScreen({
   model,
   showCertificateTasks,
 }: DashboardScreenProps) {
+  const metricPanelId = useId()
+
   return (
     <div className="space-y-6">
       <PageHeading description="A clear view of your clinic's visibility, enquiries, and profile health.">
@@ -29,9 +33,26 @@ export function DashboardScreen({
       </PageHeading>
 
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {model.reporting.metrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
-        ))}
+        {model.reporting.metrics.map((metric) => {
+          const isSelectable = isDashboardSelectableMetricId(metric.id)
+
+          return (
+            <MetricCard
+              key={metric.id}
+              metric={metric}
+              selection={
+                isSelectable
+                  ? {
+                      controlsId: metricPanelId,
+                      isSelected: model.selectedMetric.id === metric.id,
+                      metricId: metric.id,
+                      onSelect: actions.onMetricSelect,
+                    }
+                  : undefined
+              }
+            />
+          )
+        })}
       </section>
 
       <ConversionFunnel period={model.reporting.period} steps={model.reporting.funnel} />
@@ -43,10 +64,11 @@ export function DashboardScreen({
           showCertificateTasks={showCertificateTasks}
           tasks={model.profileTasks}
         />
-        <ProfileViewsPanel
-          canDownload={canDownloadProfileViews}
-          chart={model.reporting.chart}
-          onDownload={actions.onProfileViewsDownload}
+        <DashboardMetricPanel
+          canDownloadProfileViews={canDownloadProfileViews}
+          id={metricPanelId}
+          metric={model.selectedMetric}
+          onDownloadProfileViews={actions.onProfileViewsDownload}
           period={model.reporting.period}
         />
         <div className="space-y-6">

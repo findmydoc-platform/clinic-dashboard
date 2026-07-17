@@ -211,6 +211,7 @@ export function ClinicDashboardWorkspaceComposition({
       {model.activeSection === "dashboard" ? (
         <DashboardScreen
           actions={{
+            onMetricSelect: dashboardController.actions.selectMetric,
             onProfileTaskOpen: actions.openProfileTask,
             onProfileViewsDownload: dashboardController.actions.exportProfileViews,
             onReviewsOpen: actions.navigateToReviews,

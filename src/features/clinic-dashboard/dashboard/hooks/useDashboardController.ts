@@ -6,7 +6,7 @@ import { createDashboardPrototypeViewModel } from "../dashboard.prototype-data.m
 import type { DashboardSnapshot } from "../model/dashboard-snapshot"
 import type { DashboardLocationSummary } from "../model/dashboard-view-model"
 import { createProfileViewsCsvExport } from "../model/profile-views-export"
-import type { DashboardReportingPeriod } from "../model/reporting"
+import type { DashboardReportingPeriod, DashboardSelectableMetricId } from "../model/reporting"
 
 type UseDashboardControllerInput = Readonly<{
   canExportProfileViews: boolean
@@ -22,7 +22,13 @@ export function useDashboardController({
   snapshot,
 }: UseDashboardControllerInput) {
   const [reportingPeriod, setReportingPeriod] = useState(initialReportingPeriod)
-  const viewModel = createDashboardPrototypeViewModel(snapshot, reportingPeriod, locationSummary)
+  const [selectedMetricId, setSelectedMetricId] = useState<DashboardSelectableMetricId>("views")
+  const viewModel = createDashboardPrototypeViewModel(
+    snapshot,
+    reportingPeriod,
+    locationSummary,
+    selectedMetricId,
+  )
 
   const changeReportingPeriod = useCallback((period: DashboardReportingPeriod) => {
     setReportingPeriod(period)
@@ -31,16 +37,22 @@ export function useDashboardController({
   const exportProfileViews = useCallback(() => {
     if (!canExportProfileViews) return
 
-    downloadTextFile(createProfileViewsCsvExport(viewModel.reporting.chart.points, reportingPeriod))
-  }, [canExportProfileViews, reportingPeriod, viewModel.reporting.chart.points])
+    downloadTextFile(createProfileViewsCsvExport(viewModel.reporting.chart.series.views, reportingPeriod))
+  }, [canExportProfileViews, reportingPeriod, viewModel.reporting.chart.series.views])
+
+  const selectMetric = useCallback((metricId: DashboardSelectableMetricId) => {
+    setSelectedMetricId(metricId)
+  }, [])
 
   return {
     actions: {
       changeReportingPeriod,
       exportProfileViews,
+      selectMetric,
     },
     model: {
       reportingPeriod,
+      selectedMetricId,
       viewModel,
     },
   } as const

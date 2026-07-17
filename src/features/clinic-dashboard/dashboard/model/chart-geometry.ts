@@ -1,28 +1,29 @@
 import type { DashboardChartPoint } from "./reporting"
 
-const profileViewsChartBounds = {
+const dashboardChartBounds = {
   bottom: 235,
   left: 30,
-  right: 570,
   top: 25,
 } as const
 
-export type ProfileViewsChartCoordinate = DashboardChartPoint &
+export type DashboardChartCoordinate = DashboardChartPoint &
   Readonly<{
     x: number
     y: number
   }>
 
-export type ProfileViewsChartGeometry = Readonly<{
+export type DashboardChartGeometry = Readonly<{
   area: string
-  coordinates: readonly ProfileViewsChartCoordinate[]
+  coordinates: readonly DashboardChartCoordinate[]
   line: string
 }>
 
-export function createProfileViewsChartGeometry(
+export function createDashboardChartGeometry(
   points: readonly DashboardChartPoint[],
-): ProfileViewsChartGeometry {
-  const { bottom, left, right, top } = profileViewsChartBounds
+  width = 600,
+): DashboardChartGeometry {
+  const { bottom, left, top } = dashboardChartBounds
+  const right = width - left
   const maximumValue = Math.max(0, ...points.map((point) => point.value))
   const chartMaximum = maximumValue * 1.1
   const coordinates = points.map((point, index) => {
