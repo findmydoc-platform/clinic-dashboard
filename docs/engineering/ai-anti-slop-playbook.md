@@ -18,7 +18,8 @@ This playbook defines how instruction quality is governed in the clinic dashboar
 
 ## Enforcement Model
 
-- Local pre-push: `pnpm ai:slop-check:prepush` checks only changed instruction files.
+- Local pre-push: `pnpm ai:slop-check:prepush` checks changed instruction files and resolves conflicts against the complete effective instruction graph.
+- The effective graph follows Codex precedence per directory: a non-empty `AGENTS.override.md` replaces `AGENTS.md`; otherwise `AGENTS.md` applies.
 - PR Quality lane: `pnpm check` runs the complete `pnpm ai:slop-check`; any finding fails the workflow.
 - Deep Quality lane: scheduled or manual runs repeat the complete checker alongside broader audits.
 - Review: instruction changes should receive the read-only planning or security reviewer when relevant.
@@ -39,7 +40,7 @@ required merge check; that branch-protection policy is outside this playbook.
 - The root policy section is limited to 120 lines and 8 hard rules.
 - Scanned instruction files are limited to 180 lines, 24 hard rules, and one example block.
 - Skill reference files may contain up to three example blocks.
-- The checker detects filler phrases, contextual AI disclaimers, language conflicts, tone conflicts, and contradictory build rules.
+- The checker detects filler phrases, contextual AI disclaimers, language conflicts, tone conflicts, and contradictory build rules along effective parent-child `AGENTS.md` chains. Disjoint sibling scopes are evaluated independently.
 
 ## Exceptions
 

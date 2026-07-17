@@ -4,6 +4,7 @@ import ts from "typescript"
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"]
 const EXECUTABLE_JAVASCRIPT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"]
+const moduleResolutionConfigByRoot = new Map()
 const IGNORED_DIRECTORIES = new Set([
   ".git",
   ".next",
@@ -190,181 +191,502 @@ function getDefaultMetaBindingName(sourceFile) {
   return ts.isIdentifier(exportedExpression) ? exportedExpression.text : null
 }
 
-function hasCsfMetaMutation(sourceFile, metaBindingName) {
+export function createBindingMutationDetector(sourceFile) {
   const typeChecker = createSourceFileTypeChecker(sourceFile)
-  const exportAssignment = sourceFile.statements.find(
-    (statement) => ts.isExportAssignment(statement) && !statement.isExportEquals,
-  )
-  const exportedExpression =
-    exportAssignment && ts.isExportAssignment(exportAssignment)
-      ? unwrapExpression(exportAssignment.expression)
-      : null
-  const metaBindingSymbol =
-    exportedExpression && ts.isIdentifier(exportedExpression)
-      ? typeChecker.getSymbolAtLocation(exportedExpression)
-      : undefined
-  if (!metaBindingSymbol || exportedExpression.text !== metaBindingName) return true
+  const results = new Map()
 
-  let hasMutation = false
-  const metaAliasSymbols = new Set([metaBindingSymbol])
-  const aliasCandidates = []
-  const destructuringCandidates = []
-  const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
+  return (bindingName) => {
+    if (results.has(bindingName)) return results.get(bindingName)
 
-  const isMetaTainted = (expression) => {
-    const current = unwrapExpression(expression)
-    if (ts.isIdentifier(current)) {
-      const symbol = getSymbol(current)
-      return symbol !== undefined && metaAliasSymbols.has(symbol)
-    }
+    let bindingIdentifier = null
+    for (const statement of sourceFile.statements) {
+      if (!ts.isVariableStatement(statement)) continue
 
-    if (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
-      return isMetaTainted(current.expression)
-    }
-
-    return false
-  }
-
-  const collectAliasCandidates = (node) => {
-    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && node.initializer) {
-      if (ts.isIdentifier(node.name)) {
-        const symbol = getSymbol(node.name)
-        if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
-      } else if (ts.isObjectBindingPattern(node.name)) {
-        destructuringCandidates.push({ expression: node.initializer, pattern: node.name })
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name) && declaration.name.text === bindingName) {
+          bindingIdentifier = declaration.name
+          break
+        }
       }
+      if (bindingIdentifier) break
     }
 
-    if (
-      ts.isBinaryExpression(node) &&
-      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-      ts.isIdentifier(unwrapExpression(node.left))
-    ) {
-      const symbol = getSymbol(unwrapExpression(node.left))
-      if (symbol) aliasCandidates.push({ expression: node.right, symbol })
+    const bindingSymbol = bindingIdentifier ? typeChecker.getSymbolAtLocation(bindingIdentifier) : undefined
+    if (!bindingSymbol) {
+      results.set(bindingName, true)
+      return true
     }
 
-    ts.forEachChild(node, collectAliasCandidates)
-  }
+    let hasMutation = false
+    const aliasSymbols = new Set([bindingSymbol])
+    const taintedPropertyPathsBySymbol = new Map()
+    const aliasCandidates = []
+    const destructuringCandidates = []
+    const assignmentPatternCandidates = []
+    const propertyAliasCandidates = []
+    const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
 
-  collectAliasCandidates(sourceFile)
+    const getStaticAccessPath = (expression) => {
+      const current = unwrapExpression(expression)
+      if (ts.isIdentifier(current)) {
+        const symbol = getSymbol(current)
+        return symbol ? { path: [], symbol } : null
+      }
 
-  const bindMetaPattern = (pattern) => {
-    let changed = false
+      if (ts.isPropertyAccessExpression(current)) {
+        const ownerPath = getStaticAccessPath(current.expression)
+        return ownerPath ? { ...ownerPath, path: [...ownerPath.path, current.name.text] } : null
+      }
 
-    for (const element of pattern.elements) {
-      if (ts.isIdentifier(element.name)) {
-        const symbol = getSymbol(element.name)
-        if (symbol && !metaAliasSymbols.has(symbol)) {
-          metaAliasSymbols.add(symbol)
+      if (ts.isElementAccessExpression(current) && current.argumentExpression) {
+        const property = unwrapExpression(current.argumentExpression)
+        if (
+          !ts.isStringLiteral(property) &&
+          !ts.isNoSubstitutionTemplateLiteral(property) &&
+          !ts.isNumericLiteral(property)
+        ) {
+          return null
+        }
+
+        const ownerPath = getStaticAccessPath(current.expression)
+        return ownerPath ? { ...ownerPath, path: [...ownerPath.path, property.text] } : null
+      }
+
+      return null
+    }
+
+    const propertyPathKey = (propertyPath) => JSON.stringify(propertyPath)
+
+    const addTaintedPropertyTarget = (target) => {
+      const accessPath = getStaticAccessPath(target)
+      if (!accessPath || accessPath.path.length === 0 || aliasSymbols.has(accessPath.symbol)) return false
+
+      const paths = taintedPropertyPathsBySymbol.get(accessPath.symbol) ?? new Map()
+      const key = propertyPathKey(accessPath.path)
+      if (paths.has(key)) return false
+      paths.set(key, accessPath.path)
+      taintedPropertyPathsBySymbol.set(accessPath.symbol, paths)
+      return true
+    }
+
+    const getMatchingTaintedPropertyPath = (expression) => {
+      const accessPath = getStaticAccessPath(expression)
+      if (!accessPath) return null
+      if (aliasSymbols.has(accessPath.symbol)) return { accessPath, taintedPath: [] }
+
+      const paths = taintedPropertyPathsBySymbol.get(accessPath.symbol)
+      if (!paths) return null
+
+      const taintedPath = [...paths.values()].find(
+        (candidate) =>
+          candidate.length <= accessPath.path.length &&
+          candidate.every((segment, index) => segment === accessPath.path[index]),
+      )
+      return taintedPath ? { accessPath, taintedPath } : null
+    }
+
+    const isTainted = (expression) => {
+      const current = unwrapExpression(expression)
+      return (
+        (ts.isIdentifier(current) ||
+          ts.isPropertyAccessExpression(current) ||
+          ts.isElementAccessExpression(current)) &&
+        getMatchingTaintedPropertyPath(current) !== null
+      )
+    }
+
+    const containsTaintedReference = (expression) => {
+      const current = unwrapExpression(expression)
+      if (isTainted(current)) return true
+
+      if (ts.isObjectLiteralExpression(current)) {
+        return current.properties.some((property) => {
+          if (ts.isSpreadAssignment(property)) return containsTaintedReference(property.expression)
+          if (ts.isPropertyAssignment(property)) return containsTaintedReference(property.initializer)
+          if (ts.isShorthandPropertyAssignment(property)) {
+            const symbol = typeChecker.getShorthandAssignmentValueSymbol(property)
+            return symbol !== undefined && aliasSymbols.has(symbol)
+          }
+          return false
+        })
+      }
+
+      if (ts.isArrayLiteralExpression(current)) {
+        return current.elements.some((element) =>
+          ts.isSpreadElement(element)
+            ? containsTaintedReference(element.expression)
+            : containsTaintedReference(element),
+        )
+      }
+
+      return false
+    }
+
+    const collectAliasCandidates = (node) => {
+      if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && node.initializer) {
+        if (ts.isIdentifier(node.name)) {
+          const symbol = getSymbol(node.name)
+          if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+        } else if (ts.isObjectBindingPattern(node.name) || ts.isArrayBindingPattern(node.name)) {
+          destructuringCandidates.push({ expression: node.initializer, pattern: node.name })
+        }
+      }
+
+      if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        const assignmentTarget = unwrapExpression(node.left)
+        if (ts.isIdentifier(assignmentTarget)) {
+          const symbol = getSymbol(assignmentTarget)
+          if (symbol) aliasCandidates.push({ expression: node.right, symbol })
+        } else if (
+          ts.isObjectLiteralExpression(assignmentTarget) ||
+          ts.isArrayLiteralExpression(assignmentTarget)
+        ) {
+          assignmentPatternCandidates.push({ expression: node.right, pattern: assignmentTarget })
+        } else if (
+          ts.isPropertyAccessExpression(assignmentTarget) ||
+          ts.isElementAccessExpression(assignmentTarget)
+        ) {
+          propertyAliasCandidates.push({ expression: node.right, target: assignmentTarget })
+        }
+      }
+
+      ts.forEachChild(node, collectAliasCandidates)
+    }
+
+    collectAliasCandidates(sourceFile)
+
+    const bindPattern = (pattern) => {
+      let changed = false
+
+      for (const element of pattern.elements) {
+        if (ts.isOmittedExpression(element)) continue
+
+        if (ts.isIdentifier(element.name)) {
+          const symbol = getSymbol(element.name)
+          if (symbol && !aliasSymbols.has(symbol)) {
+            aliasSymbols.add(symbol)
+            changed = true
+          }
+        } else if (
+          (ts.isObjectBindingPattern(element.name) || ts.isArrayBindingPattern(element.name)) &&
+          bindPattern(element.name)
+        ) {
           changed = true
         }
-      } else if (ts.isObjectBindingPattern(element.name) && bindMetaPattern(element.name)) {
-        changed = true
       }
+
+      return changed
     }
 
-    return changed
-  }
+    const bindAssignmentTarget = (target) => {
+      const current = unwrapExpression(target)
 
-  let discoveredAlias = true
-  while (discoveredAlias) {
-    discoveredAlias = false
+      if (ts.isIdentifier(current)) {
+        const symbol = getSymbol(current)
+        if (!symbol || aliasSymbols.has(symbol)) return false
+        aliasSymbols.add(symbol)
+        return true
+      }
 
-    for (const candidate of aliasCandidates) {
-      if (metaAliasSymbols.has(candidate.symbol) || !isMetaTainted(candidate.expression)) continue
-      metaAliasSymbols.add(candidate.symbol)
-      discoveredAlias = true
+      if (ts.isBinaryExpression(current) && current.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        return bindAssignmentTarget(current.left)
+      }
+
+      if (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
+        return addTaintedPropertyTarget(current)
+      }
+
+      if (ts.isArrayLiteralExpression(current)) {
+        let changed = false
+        for (const element of current.elements) {
+          if (ts.isOmittedExpression(element)) continue
+          const elementTarget = ts.isSpreadElement(element) ? element.expression : element
+          if (bindAssignmentTarget(elementTarget)) changed = true
+        }
+        return changed
+      }
+
+      if (ts.isObjectLiteralExpression(current)) {
+        let changed = false
+        for (const property of current.properties) {
+          if (ts.isShorthandPropertyAssignment(property)) {
+            const symbol = typeChecker.getShorthandAssignmentValueSymbol(property)
+            if (symbol && !aliasSymbols.has(symbol)) {
+              aliasSymbols.add(symbol)
+              changed = true
+            }
+          } else if (ts.isPropertyAssignment(property)) {
+            if (bindAssignmentTarget(property.initializer)) changed = true
+          } else if (ts.isSpreadAssignment(property)) {
+            if (bindAssignmentTarget(property.expression)) changed = true
+          }
+        }
+        return changed
+      }
+
+      return false
     }
 
-    for (const candidate of destructuringCandidates) {
-      if (isMetaTainted(candidate.expression) && bindMetaPattern(candidate.pattern)) {
+    let discoveredAlias = true
+    while (discoveredAlias) {
+      discoveredAlias = false
+
+      for (const candidate of aliasCandidates) {
+        if (aliasSymbols.has(candidate.symbol) || !containsTaintedReference(candidate.expression)) continue
+        aliasSymbols.add(candidate.symbol)
         discoveredAlias = true
       }
+
+      for (const candidate of destructuringCandidates) {
+        if (containsTaintedReference(candidate.expression) && bindPattern(candidate.pattern)) {
+          discoveredAlias = true
+        }
+      }
+
+      for (const candidate of assignmentPatternCandidates) {
+        if (containsTaintedReference(candidate.expression) && bindAssignmentTarget(candidate.pattern)) {
+          discoveredAlias = true
+        }
+      }
+
+      for (const candidate of propertyAliasCandidates) {
+        if (containsTaintedReference(candidate.expression) && addTaintedPropertyTarget(candidate.target)) {
+          discoveredAlias = true
+        }
+      }
     }
-  }
 
-  const isMetaTarget = (expression) => isMetaTainted(expression)
-
-  const isMetaPropertyTarget = (expression) => {
-    const current = unwrapExpression(expression)
-    return (
-      (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) &&
-      isMetaTarget(current)
-    )
-  }
-
-  const isMetaBindingReassignment = (expression) => {
-    const current = unwrapExpression(expression)
-    return ts.isIdentifier(current) && getSymbol(current) === metaBindingSymbol
-  }
-
-  const visit = (node) => {
-    if (hasMutation) return
-
-    if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
-      const argumentsContainMeta = (node.arguments ?? []).some((argument) =>
-        ts.isSpreadElement(argument) ? isMetaTarget(argument.expression) : isMetaTarget(argument),
+    const isPropertyTarget = (expression) => {
+      const current = unwrapExpression(expression)
+      return (
+        (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) &&
+        isTainted(current)
       )
-      const callsMetaMethod = isMetaTarget(node.expression)
+    }
 
-      if (argumentsContainMeta || callsMetaMethod) {
+    const isBindingReassignment = (expression) => {
+      const current = unwrapExpression(expression)
+      return ts.isIdentifier(current) && getSymbol(current) === bindingSymbol
+    }
+
+    const replacesTrackedAliasSlot = (node) => {
+      if (!ts.isBinaryExpression(node) || node.operatorToken.kind !== ts.SyntaxKind.EqualsToken) return false
+
+      const match = getMatchingTaintedPropertyPath(node.left)
+      return (
+        match !== null &&
+        match.taintedPath.length > 0 &&
+        match.taintedPath.length === match.accessPath.path.length
+      )
+    }
+
+    const visit = (node) => {
+      if (hasMutation) return
+
+      if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+        const argumentsContainBinding = (node.arguments ?? []).some((argument) =>
+          ts.isSpreadElement(argument)
+            ? containsTaintedReference(argument.expression)
+            : containsTaintedReference(argument),
+        )
+        const callsBindingMethod = isTainted(node.expression)
+        if (argumentsContainBinding || callsBindingMethod) {
+          hasMutation = true
+          return
+        }
+      }
+
+      if (
+        ts.isBinaryExpression(node) &&
+        ts.isAssignmentOperator(node.operatorToken.kind) &&
+        ((isPropertyTarget(node.left) && !replacesTrackedAliasSlot(node)) || isBindingReassignment(node.left))
+      ) {
         hasMutation = true
         return
       }
+
+      if (
+        (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+        (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken) &&
+        (isPropertyTarget(node.operand) || isBindingReassignment(node.operand))
+      ) {
+        hasMutation = true
+        return
+      }
+
+      if (ts.isDeleteExpression(node) && isPropertyTarget(node.expression)) {
+        hasMutation = true
+        return
+      }
+
+      ts.forEachChild(node, visit)
     }
 
-    if (
-      ts.isBinaryExpression(node) &&
-      ts.isAssignmentOperator(node.operatorToken.kind) &&
-      (isMetaPropertyTarget(node.left) || isMetaBindingReassignment(node.left))
-    ) {
-      hasMutation = true
-      return
-    }
-
-    if (
-      (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
-      (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken) &&
-      (isMetaPropertyTarget(node.operand) || isMetaBindingReassignment(node.operand))
-    ) {
-      hasMutation = true
-      return
-    }
-
-    if (ts.isDeleteExpression(node) && isMetaPropertyTarget(node.expression)) {
-      hasMutation = true
-      return
-    }
-
-    ts.forEachChild(node, visit)
+    visit(sourceFile)
+    results.set(bindingName, hasMutation)
+    return hasMutation
   }
-
-  visit(sourceFile)
-  return hasMutation
 }
 
-function candidateModulePaths(basePath) {
-  if (SOURCE_EXTENSIONS.includes(path.extname(basePath))) return [basePath]
+function isPathInside(directory, filePath) {
+  const relativePath = path.relative(path.resolve(directory), path.resolve(filePath))
+  return (
+    relativePath === "" ||
+    (relativePath !== ".." && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath))
+  )
+}
 
-  return [
-    ...SOURCE_EXTENSIONS.map((extension) => `${basePath}${extension}`),
-    ...SOURCE_EXTENSIONS.map((extension) => path.join(basePath, `index${extension}`)),
-  ]
+function realRootPath(rootDir) {
+  return fs.existsSync(rootDir) ? fs.realpathSync(rootDir) : path.resolve(rootDir)
+}
+
+function isPathInsideRoot(rootDir, filePath) {
+  return isPathInside(rootDir, filePath) || isPathInside(realRootPath(rootDir), filePath)
+}
+
+function toRootRelative(rootDir, filePath) {
+  const matchingRoot = isPathInside(rootDir, filePath) ? rootDir : realRootPath(rootDir)
+  return toRelative(matchingRoot, filePath)
+}
+
+function isGovernedLocalPath(rootDir, filePath) {
+  if (!isPathInsideRoot(rootDir, filePath)) return false
+
+  const relativePath = toRootRelative(rootDir, filePath)
+  return !relativePath.split("/").includes("node_modules")
+}
+
+function formatConfigDiagnostic(diagnostic) {
+  return ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")
+}
+
+function getModuleResolutionConfig(rootDir) {
+  const normalizedRoot = path.resolve(rootDir)
+  const cachedConfig = moduleResolutionConfigByRoot.get(normalizedRoot)
+  if (cachedConfig) return cachedConfig
+
+  const configPath = ts.findConfigFile(normalizedRoot, ts.sys.fileExists, "tsconfig.json")
+  if (!configPath) {
+    const fallbackConfig = {
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+        paths: { "@/*": ["src/*"] },
+        pathsBasePath: normalizedRoot,
+      },
+      projectFileNames: null,
+    }
+    moduleResolutionConfigByRoot.set(normalizedRoot, fallbackConfig)
+    return fallbackConfig
+  }
+
+  const configFile = ts.readConfigFile(configPath, ts.sys.readFile)
+  if (configFile.error) {
+    throw new Error(`Cannot read ${configPath}: ${formatConfigDiagnostic(configFile.error)}`)
+  }
+
+  const parsedConfig = ts.parseJsonConfigFileContent(
+    configFile.config,
+    ts.sys,
+    path.dirname(configPath),
+    undefined,
+    configPath,
+  )
+  const configError = parsedConfig.errors.find((diagnostic) => diagnostic.code !== 18003)
+  if (configError) {
+    throw new Error(`Cannot parse ${configPath}: ${formatConfigDiagnostic(configError)}`)
+  }
+
+  const moduleResolutionConfig = {
+    compilerOptions: parsedConfig.options,
+    projectFileNames: parsedConfig.fileNames,
+  }
+  moduleResolutionConfigByRoot.set(normalizedRoot, moduleResolutionConfig)
+  return moduleResolutionConfig
+}
+
+export function collectProjectSourceFiles(rootDir) {
+  const { projectFileNames } = getModuleResolutionConfig(rootDir)
+  if (projectFileNames === null) return collectSourceFiles(rootDir, ["src", "tests"])
+
+  return [...new Set(projectFileNames.map((filePath) => path.resolve(filePath)))]
+    .filter((filePath) => isGovernedLocalPath(rootDir, filePath))
+    .filter((filePath) => SOURCE_EXTENSIONS.includes(path.extname(filePath)))
+    .filter((filePath) => {
+      const pathSegments = toRootRelative(rootDir, filePath).split("/")
+      return !pathSegments.some((segment) => IGNORED_DIRECTORIES.has(segment))
+    })
+    .sort()
+}
+
+function matchPathPattern(pattern, moduleSpecifier) {
+  const wildcardIndex = pattern.indexOf("*")
+  if (wildcardIndex === -1) {
+    return pattern === moduleSpecifier ? { pattern, prefixLength: pattern.length, wildcard: null } : null
+  }
+
+  const prefix = pattern.slice(0, wildcardIndex)
+  const suffix = pattern.slice(wildcardIndex + 1)
+  if (!moduleSpecifier.startsWith(prefix) || !moduleSpecifier.endsWith(suffix)) return null
+  if (moduleSpecifier.length < prefix.length + suffix.length) return null
+
+  return {
+    pattern,
+    prefixLength: prefix.length,
+    wildcard: moduleSpecifier.slice(prefix.length, moduleSpecifier.length - suffix.length),
+  }
+}
+
+function matchingPathEntry(paths, moduleSpecifier) {
+  return Object.entries(paths)
+    .map(([pattern, targets]) => ({ match: matchPathPattern(pattern, moduleSpecifier), targets }))
+    .filter(({ match, targets }) => match && Array.isArray(targets))
+    .sort((left, right) => {
+      const exactDifference = Number(right.match.wildcard === null) - Number(left.match.wildcard === null)
+      return exactDifference || right.match.prefixLength - left.match.prefixLength
+    })[0]
+}
+
+function unresolvedConfiguredPath(rootDir, moduleSpecifier, compilerOptions) {
+  const pathEntry = matchingPathEntry(compilerOptions.paths ?? {}, moduleSpecifier)
+  if (!pathEntry || pathEntry.match.pattern === "*") return null
+
+  const pathsBasePath = path.resolve(compilerOptions.baseUrl ?? compilerOptions.pathsBasePath ?? rootDir)
+  for (const target of pathEntry.targets) {
+    const mappedTarget =
+      pathEntry.match.wildcard === null ? target : target.replace("*", pathEntry.match.wildcard)
+    const unresolvedPath = path.resolve(pathsBasePath, mappedTarget)
+    if (isGovernedLocalPath(rootDir, unresolvedPath)) {
+      return toRootRelative(rootDir, unresolvedPath)
+    }
+  }
+
+  return null
 }
 
 function resolveModulePath(rootDir, sourceFilePath, moduleSpecifier) {
-  let basePath
-  if (moduleSpecifier.startsWith("@/")) {
-    basePath = path.join(rootDir, "src", moduleSpecifier.slice(2))
-  } else if (moduleSpecifier.startsWith(".")) {
-    basePath = path.resolve(path.dirname(sourceFilePath), moduleSpecifier)
-  } else {
-    return null
+  const { compilerOptions } = getModuleResolutionConfig(rootDir)
+  const resolvedModule = ts.resolveModuleName(
+    moduleSpecifier,
+    sourceFilePath,
+    compilerOptions,
+    ts.sys,
+  ).resolvedModule
+
+  if (resolvedModule) {
+    const resolvedPath = fs.realpathSync(resolvedModule.resolvedFileName)
+    if (resolvedModule.isExternalLibraryImport || !isGovernedLocalPath(rootDir, resolvedPath)) {
+      return null
+    }
+
+    return toRootRelative(rootDir, resolvedPath)
   }
 
-  const resolvedPath = candidateModulePaths(basePath).find((candidate) => fs.existsSync(candidate))
-  return toRelative(rootDir, resolvedPath ?? basePath)
+  if (moduleSpecifier.startsWith(".")) {
+    return toRootRelative(rootDir, path.resolve(path.dirname(sourceFilePath), moduleSpecifier))
+  }
+
+  return unresolvedConfiguredPath(rootDir, moduleSpecifier, compilerOptions)
 }
 
 export function getModuleReferences(rootDir, sourceFile) {
@@ -374,6 +696,7 @@ export function getModuleReferences(rootDir, sourceFile) {
   const requireResolveAliasSymbols = new Set()
   const aliasCandidates = []
   const destructuringCandidates = []
+  const assignmentPatternCandidates = []
   const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
 
   const addReference = (moduleSpecifier, kind) => {
@@ -429,13 +752,17 @@ export function getModuleReferences(rootDir, sourceFile) {
       }
     }
 
-    if (
-      ts.isBinaryExpression(node) &&
-      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-      ts.isIdentifier(unwrapExpression(node.left))
-    ) {
-      const symbol = getSymbol(unwrapExpression(node.left))
-      if (symbol) aliasCandidates.push({ expression: node.right, symbol })
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      const assignmentTarget = unwrapExpression(node.left)
+      if (ts.isIdentifier(assignmentTarget)) {
+        const symbol = getSymbol(assignmentTarget)
+        if (symbol) aliasCandidates.push({ expression: node.right, symbol })
+      } else if (
+        ts.isObjectLiteralExpression(assignmentTarget) ||
+        ts.isArrayLiteralExpression(assignmentTarget)
+      ) {
+        assignmentPatternCandidates.push({ expression: node.right, pattern: assignmentTarget })
+      }
     }
 
     ts.forEachChild(node, collectRequireAliasCandidates)
@@ -479,6 +806,111 @@ export function getModuleReferences(rootDir, sourceFile) {
     return changed
   }
 
+  const bindRequireAssignmentTarget = (target, sourceKind) => {
+    const current = unwrapExpression(target)
+
+    if (ts.isIdentifier(current)) {
+      const symbol = getSymbol(current)
+      return symbol ? addRequireAlias(symbol, sourceKind) : false
+    }
+
+    if (ts.isBinaryExpression(current) && current.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      return bindRequireAssignmentTarget(current.left, sourceKind)
+    }
+
+    if (!ts.isObjectLiteralExpression(current)) return false
+
+    let changed = false
+    for (const property of current.properties) {
+      const propertyName = property.name ? propertyNameText(property.name) : null
+      const childKind = ts.isSpreadAssignment(property)
+        ? sourceKind
+        : sourceKind === "require" && propertyName === "resolve"
+          ? "require-resolve"
+          : sourceKind === "require-resolve"
+            ? "require-resolve"
+            : null
+      if (!childKind) continue
+
+      if (ts.isShorthandPropertyAssignment(property)) {
+        const symbol = typeChecker.getShorthandAssignmentValueSymbol(property)
+        if (symbol && addRequireAlias(symbol, childKind)) changed = true
+        continue
+      }
+
+      const propertyTarget = ts.isPropertyAssignment(property)
+        ? property.initializer
+        : ts.isSpreadAssignment(property)
+          ? property.expression
+          : null
+      if (propertyTarget && bindRequireAssignmentTarget(propertyTarget, childKind)) changed = true
+    }
+
+    return changed
+  }
+
+  const getObjectLiteralValues = (objectLiteral) => {
+    const values = new Map()
+    for (const property of objectLiteral.properties) {
+      const propertyName = property.name ? propertyNameText(property.name) : null
+      if (propertyName === null) continue
+
+      if (ts.isPropertyAssignment(property)) {
+        values.set(propertyName, property.initializer)
+      } else if (ts.isShorthandPropertyAssignment(property)) {
+        values.set(propertyName, property.name)
+      }
+    }
+    return values
+  }
+
+  const bindRequireAssignmentPattern = (target, source) => {
+    const sourceKind = getRequireBindingKind(source)
+    if (sourceKind) return bindRequireAssignmentTarget(target, sourceKind)
+
+    const currentTarget = unwrapExpression(target)
+    const currentSource = unwrapExpression(source)
+    if (ts.isArrayLiteralExpression(currentTarget) && ts.isArrayLiteralExpression(currentSource)) {
+      let changed = false
+      for (const [index, targetElement] of currentTarget.elements.entries()) {
+        const sourceElement = currentSource.elements[index]
+        if (!sourceElement || ts.isOmittedExpression(targetElement) || ts.isSpreadElement(targetElement)) {
+          continue
+        }
+
+        const sourceExpression = ts.isSpreadElement(sourceElement) ? sourceElement.expression : sourceElement
+        if (bindRequireAssignmentPattern(targetElement, sourceExpression)) changed = true
+      }
+      return changed
+    }
+
+    if (ts.isObjectLiteralExpression(currentTarget) && ts.isObjectLiteralExpression(currentSource)) {
+      const sourceValues = getObjectLiteralValues(currentSource)
+      let changed = false
+
+      for (const property of currentTarget.properties) {
+        if (ts.isSpreadAssignment(property)) continue
+        const propertyName = property.name ? propertyNameText(property.name) : null
+        const sourceExpression = propertyName === null ? null : sourceValues.get(propertyName)
+        if (!sourceExpression) continue
+
+        if (ts.isShorthandPropertyAssignment(property)) {
+          const sourceKind = getRequireBindingKind(sourceExpression)
+          const symbol = typeChecker.getShorthandAssignmentValueSymbol(property)
+          if (sourceKind && symbol && addRequireAlias(symbol, sourceKind)) changed = true
+          continue
+        }
+
+        const propertyTarget = ts.isPropertyAssignment(property) ? property.initializer : null
+        if (propertyTarget && bindRequireAssignmentPattern(propertyTarget, sourceExpression)) changed = true
+      }
+
+      return changed
+    }
+
+    return false
+  }
+
   let discoveredAlias = true
   while (discoveredAlias) {
     discoveredAlias = false
@@ -495,6 +927,10 @@ export function getModuleReferences(rootDir, sourceFile) {
     for (const candidate of destructuringCandidates) {
       const kind = getRequireBindingKind(candidate.expression)
       if (kind && bindRequirePattern(candidate.pattern, kind)) discoveredAlias = true
+    }
+
+    for (const candidate of assignmentPatternCandidates) {
+      if (bindRequireAssignmentPattern(candidate.pattern, candidate.expression)) discoveredAlias = true
     }
   }
 
@@ -633,7 +1069,7 @@ export function getExportedComponentNames(sourceFile) {
 
 export function getCsfStoryExportNames(sourceFile) {
   const metaBindingName = getDefaultMetaBindingName(sourceFile)
-  if (metaBindingName && hasCsfMetaMutation(sourceFile, metaBindingName)) return []
+  if (metaBindingName && createBindingMutationDetector(sourceFile)(metaBindingName)) return []
 
   const storyVariableNames = new Set()
   const exportedNames = new Set()

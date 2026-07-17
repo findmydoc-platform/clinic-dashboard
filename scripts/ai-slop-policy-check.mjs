@@ -61,12 +61,41 @@ const BANNED_PHRASES = [
 
 const CONTEXTUAL_BANNED_PATTERNS = [/as an ai language model/i, /i cannot guarantee/i, /i am just an ai/i]
 
+const USER_COMMUNICATION_LANGUAGE_CONFLICT_DESCRIPTION =
+  "Conflicting chat language policies (German and English) detected."
+
+function wordSet(...groups) {
+  return new Set(groups.flatMap((group) => group.split(" ")))
+}
+
+const LANGUAGE_ALIASES = {
+  english: wordSet("english englisch"),
+  german: wordSet("deutsch german"),
+}
+
+const COMMUNICATION_TERMS = wordSet(
+  "answer answered answering answers respond responded responding responds response responses",
+  "chat chats chatted chatting explanation explanations",
+  "antwort antworte antworten antwortest antwortet beantworte beantworten erklarung erklarungen",
+)
+
+const WRITE_TERMS = wordSet("write writes writing written schreib schreibe schreiben schreibst schreibt")
+const USER_TERMS = wordSet("benutzer nutzer user users")
+const DIRECTIVE_TERMS = wordSet(
+  "always default mandatory must only prefer preferred required shall should use used using",
+  "ausschliesslich grundsatzlich immer soll sollen standardmassig verwende verwenden",
+)
+const TECHNICAL_LANGUAGE_CONTEXT_TERMS = wordSet(
+  "api brand button code comment comments component components copy documentation docs",
+  "file files interface json label labels storybook title titles ui",
+)
+const NEGATION_TERMS = wordSet("dont kein keine keinen never niemals nicht no not without")
+const CONDITIONAL_LANGUAGE_TERMS = wordSet(
+  "choice depending either falls if preference requested selected upon wenn when",
+)
+const USER_DIRECTION_TERMS = wordSet("an dem den der for fur to")
+
 const CONFLICT_RULES = [
-  {
-    description: "Conflicting chat language policies (German and English) detected.",
-    positive: /chat and explanations.*(?:english|englisch)|explanations in english/i,
-    negative: /chat and explanations.*(?:german|deutsch)|explanations in german/i,
-  },
   {
     description: "Conflicting tone policies (forbid filler vs allow filler) detected.",
     positive: /(?:avoid .*filler|no filler|no fluff|no cheerleading|direct and factual)/i,
@@ -85,6 +114,8 @@ function walkAgentInstructionFiles(dirPath) {
   const entries = fs.readdirSync(dirPath, { withFileTypes: true })
   /** @type {string[]} */
   const files = []
+  const activeInstructionFile = getActiveAgentInstructionFile(dirPath)
+  if (activeInstructionFile) files.push(activeInstructionFile)
 
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name)
@@ -94,15 +125,20 @@ function walkAgentInstructionFiles(dirPath) {
       }
 
       files.push(...walkAgentInstructionFiles(fullPath))
-      continue
-    }
-
-    if (entry.isFile() && AGENT_FILE_NAMES.has(entry.name)) {
-      files.push(fullPath)
     }
   }
 
   return files
+}
+
+function getActiveAgentInstructionFile(dirPath) {
+  const overridePath = path.join(dirPath, "AGENTS.override.md")
+  if (fs.existsSync(overridePath) && fs.readFileSync(overridePath, "utf8").trim().length > 0) {
+    return overridePath
+  }
+
+  const standardPath = path.join(dirPath, ROUTER_RELATIVE_PATH)
+  return fs.existsSync(standardPath) ? standardPath : null
 }
 
 function walkCodexInstructionFiles(rootDir) {
@@ -156,8 +192,172 @@ function loadFile(filePath) {
   return fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : null
 }
 
+function normalizeInstructionText(value) {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .replace(/ß/gu, "ss")
+    .replace(/[’']/gu, "")
+    .toLowerCase()
+}
+
+function tokenizeInstructionText(value) {
+  return normalizeInstructionText(value).match(/[\p{L}\p{N}]+/gu) ?? []
+}
+
+function isCommunicationAction(token) {
+  return (
+    COMMUNICATION_TERMS.has(token) ||
+    WRITE_TERMS.has(token) ||
+    token.startsWith("beantwort") ||
+    token.startsWith("erklar")
+  )
+}
+
+function getCommunicationTargetIndexes(tokens) {
+  /** @type {number[]} */
+  const indexes = []
+  const userIndexes = tokens
+    .map((token, index) => (USER_TERMS.has(token) ? index : -1))
+    .filter((index) => index >= 0)
+
+  for (const [index, token] of tokens.entries()) {
+    if (COMMUNICATION_TERMS.has(token) || token.startsWith("beantwort") || token.startsWith("erklar")) {
+      indexes.push(index)
+      continue
+    }
+
+    if (
+      WRITE_TERMS.has(token) &&
+      userIndexes.some((userIndex) => {
+        const start = Math.min(index, userIndex)
+        const end = Math.max(index, userIndex)
+        return end - start <= 6 && tokens.slice(start + 1, end).some((term) => USER_DIRECTION_TERMS.has(term))
+      })
+    ) {
+      indexes.push(index)
+    }
+  }
+
+  return indexes
+}
+
+function isNegatedLanguage(tokens, languageIndex) {
+  const context = tokens.slice(Math.max(0, languageIndex - 4), languageIndex)
+  return context.some((token) => NEGATION_TERMS.has(token))
+}
+
+function hasTechnicalCommunicationContext(tokens, targetIndex) {
+  const userContext = tokens.slice(Math.max(0, targetIndex - 4), targetIndex + 5)
+  if (userContext.some((token) => USER_TERMS.has(token))) return false
+
+  const technicalContext = tokens.slice(Math.max(0, targetIndex - 2), targetIndex + 3)
+  return technicalContext.some((token) => TECHNICAL_LANGUAGE_CONTEXT_TERMS.has(token))
+}
+
+function collectInstructionClauses(content) {
+  /** @type {Array<{isListItem: boolean, text: string}>} */
+  const clauses = []
+  let inFence = false
+  let inHtmlComment = false
+
+  for (const rawLine of content.split(/\r?\n/u)) {
+    const trimmedLine = rawLine.trim()
+    if (/^(?:```|~~~)/u.test(trimmedLine)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence || /^\s*>/u.test(rawLine)) continue
+
+    let line = rawLine
+    if (inHtmlComment) {
+      const commentEnd = line.indexOf("-->")
+      if (commentEnd === -1) continue
+      line = line.slice(commentEnd + 3)
+      inHtmlComment = false
+    }
+
+    const commentStart = line.indexOf("<!--")
+    if (commentStart >= 0) {
+      const commentEnd = line.indexOf("-->", commentStart + 4)
+      if (commentEnd === -1) {
+        line = line.slice(0, commentStart)
+        inHtmlComment = true
+      } else {
+        line = `${line.slice(0, commentStart)} ${line.slice(commentEnd + 3)}`
+      }
+    }
+
+    const isListItem = /^\s*(?:[-*+]\s+|\d+[.)]\s+)/u.test(line)
+    line = line
+      .replace(/`[^`\n]*`/gu, " ")
+      .replace(/"[^"\n]*"/gu, " ")
+      .replace(/“[^”\n]*”|„[^“\n]*“|‘[^’\n]*’/gu, " ")
+      .replace(/'[^'\n]+'/gu, " ")
+      .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/u, "")
+
+    for (const clause of line.split(/\s*(?:[.;]|\b(?:aber|but|hingegen|whereas|while|wahrend)\b)\s*/iu)) {
+      if (clause.trim().length > 0) clauses.push({ isListItem, text: clause })
+    }
+  }
+
+  return clauses
+}
+
+function classifyUserCommunicationLanguages(content) {
+  /** @type {Set<'english' | 'german'>} */
+  const languages = new Set()
+
+  for (const { isListItem, text } of collectInstructionClauses(content)) {
+    const tokens = tokenizeInstructionText(text)
+    const targetIndexes = getCommunicationTargetIndexes(tokens).filter(
+      (targetIndex) => !hasTechnicalCommunicationContext(tokens, targetIndex),
+    )
+    if (targetIndexes.length === 0) continue
+
+    const hasDirective =
+      isListItem ||
+      tokens.some((token) => DIRECTIVE_TERMS.has(token)) ||
+      tokens.slice(0, 2).some((token) => isCommunicationAction(token))
+    if (!hasDirective) continue
+
+    /** @type {Array<{distance: number, language: 'english' | 'german'}>} */
+    const candidates = []
+    for (const [language, aliases] of Object.entries(LANGUAGE_ALIASES)) {
+      for (const [index, token] of tokens.entries()) {
+        if (!aliases.has(token) || isNegatedLanguage(tokens, index)) continue
+        candidates.push({
+          distance: Math.min(...targetIndexes.map((targetIndex) => Math.abs(targetIndex - index))),
+          language,
+        })
+      }
+    }
+
+    if (candidates.length === 0) continue
+
+    const candidateLanguages = new Set(candidates.map((candidate) => candidate.language))
+
+    if (tokens.some((token) => CONDITIONAL_LANGUAGE_TERMS.has(token))) {
+      continue
+    }
+
+    const minimumDistance = Math.min(...candidates.map((candidate) => candidate.distance))
+    const nearestLanguages = new Set(
+      candidates
+        .filter((candidate) => candidate.distance === minimumDistance)
+        .map((candidate) => candidate.language),
+    )
+
+    if (candidateLanguages.size === 1 || nearestLanguages.size === 1) {
+      for (const language of nearestLanguages) languages.add(language)
+    }
+  }
+
+  return languages
+}
+
 function getRouterPath(rootDir) {
-  return path.join(rootDir, ROUTER_RELATIVE_PATH)
+  return getActiveAgentInstructionFile(rootDir)
 }
 
 function collectFilesToScan(rootDir) {
@@ -217,8 +417,15 @@ function resolveChangedFiles(rootDir, changedFiles) {
 
   const resolved = changedFiles
     .map((filePath) => path.resolve(rootDir, filePath))
-    .filter((filePath) => fs.existsSync(filePath))
     .filter((filePath) => isScopedInstructionFile(rootDir, filePath))
+    .map((filePath) =>
+      AGENT_FILE_NAMES.has(path.basename(filePath))
+        ? getActiveAgentInstructionFile(path.dirname(filePath))
+        : fs.existsSync(filePath)
+          ? filePath
+          : null,
+    )
+    .filter((filePath) => filePath !== null)
 
   return [...new Set(resolved)]
 }
@@ -286,6 +493,10 @@ function extractPolicySection(content) {
 
 function checkPolicySection(rootDir, failures) {
   const routerPath = getRouterPath(rootDir)
+  if (routerPath === null) {
+    failures.push(`Missing active root instruction file: ${ROUTER_RELATIVE_PATH}`)
+    return
+  }
   const content = loadFile(routerPath)
   if (content === null) {
     failures.push(`Missing required router file: ${toRelative(rootDir, routerPath)}`)
@@ -383,11 +594,50 @@ function checkInstructionBudgets(rootDir, files, failures) {
 }
 
 function collectConflictFiles(rootDir, scannedFiles) {
-  const requiredPaths = [path.join(rootDir, ROUTER_RELATIVE_PATH)].filter((filePath) =>
-    fs.existsSync(filePath),
-  )
+  const routerPath = getRouterPath(rootDir)
+  const requiredPaths = routerPath ? [routerPath] : []
 
-  return [...new Set([...scannedFiles, ...requiredPaths])]
+  return [...new Set([...collectFilesToScan(rootDir), ...scannedFiles, ...requiredPaths])]
+}
+
+function getAgentInstructionScope(rootDir, filePath) {
+  const relativePath = toRelative(rootDir, filePath)
+  if (!/(?:^|\/)AGENTS(?:\.override)?\.md$/u.test(relativePath)) return null
+
+  const directory = path.posix.dirname(relativePath)
+  return directory === "." ? "" : directory
+}
+
+function isScopeAncestor(ancestor, descendant) {
+  return ancestor === "" || ancestor === descendant || descendant.startsWith(`${ancestor}/`)
+}
+
+function canInstructionFilesApplyTogether(rootDir, firstPath, secondPath) {
+  if (firstPath === secondPath) return true
+
+  const firstScope = getAgentInstructionScope(rootDir, firstPath)
+  const secondScope = getAgentInstructionScope(rootDir, secondPath)
+  if (firstScope === null || secondScope === null) return false
+
+  return isScopeAncestor(firstScope, secondScope) || isScopeAncestor(secondScope, firstScope)
+}
+
+function collectEffectiveConflictFiles(rootDir, positives, negatives) {
+  const effectivePositives = new Set()
+  const effectiveNegatives = new Set()
+
+  for (const positive of positives) {
+    for (const negative of negatives) {
+      if (!canInstructionFilesApplyTogether(rootDir, positive.path, negative.path)) continue
+      effectivePositives.add(toRelative(rootDir, positive.path))
+      effectiveNegatives.add(toRelative(rootDir, negative.path))
+    }
+  }
+
+  return {
+    negatives: [...effectiveNegatives],
+    positives: [...effectivePositives],
+  }
 }
 
 function checkConflicts(rootDir, files, failures) {
@@ -399,15 +649,28 @@ function checkConflicts(rootDir, files, failures) {
     .filter((entry) => entry.content !== null)
     .map((entry) => ({ path: entry.path, content: entry.content }))
 
+  const languagePolicies = contents.map((entry) => ({
+    ...entry,
+    languages: classifyUserCommunicationLanguages(entry.content),
+  }))
+  const englishPolicies = languagePolicies.filter((entry) => entry.languages.has("english"))
+  const germanPolicies = languagePolicies.filter((entry) => entry.languages.has("german"))
+  const languageConflictFiles = collectEffectiveConflictFiles(rootDir, englishPolicies, germanPolicies)
+
+  if (languageConflictFiles.positives.length > 0 && languageConflictFiles.negatives.length > 0) {
+    failures.push(
+      `${USER_COMMUNICATION_LANGUAGE_CONFLICT_DESCRIPTION} Positive files: [${languageConflictFiles.positives.join(", ")}] Negative files: [${languageConflictFiles.negatives.join(", ")}]`,
+    )
+  }
+
   for (const rule of CONFLICT_RULES) {
     const positives = contents.filter((entry) => rule.positive.test(entry.content))
     const negatives = contents.filter((entry) => rule.negative.test(entry.content))
+    const conflictFiles = collectEffectiveConflictFiles(rootDir, positives, negatives)
 
-    if (positives.length > 0 && negatives.length > 0) {
-      const positiveFiles = positives.map((entry) => toRelative(rootDir, entry.path)).join(", ")
-      const negativeFiles = negatives.map((entry) => toRelative(rootDir, entry.path)).join(", ")
+    if (conflictFiles.positives.length > 0 && conflictFiles.negatives.length > 0) {
       failures.push(
-        `${rule.description} Positive files: [${positiveFiles}] Negative files: [${negativeFiles}]`,
+        `${rule.description} Positive files: [${conflictFiles.positives.join(", ")}] Negative files: [${conflictFiles.negatives.join(", ")}]`,
       )
     }
   }

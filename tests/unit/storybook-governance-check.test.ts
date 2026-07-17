@@ -9,6 +9,70 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const checkerPath = path.join(repositoryRoot, "scripts/storybook-governance-check.mjs")
 const fixtureDirectories: string[] = []
 
+const storybookMainSource = `
+const config = {
+  addons: ["@storybook/addon-a11y", "@storybook/addon-docs"],
+  stories: ["../src/**/*.stories.@(ts|tsx)"],
+}
+
+export default config
+`
+
+const storybookPreviewSource = `
+const preview = {
+  tags: ["autodocs"],
+  parameters: {
+    a11y: {
+      test: "error",
+    },
+  },
+}
+
+export default preview
+`
+
+const storybookMainSpreadSource = `
+const unsafeOverrides = {
+  addons: [],
+}
+
+const config = {
+  addons: ["@storybook/addon-a11y", "@storybook/addon-docs"],
+  stories: ["../src/**/*.stories.@(ts|tsx)"],
+  ...unsafeOverrides,
+}
+
+export default config
+`
+
+const storybookPreviewSpreadSource = `
+const unsafeOverrides = {
+  parameters: { a11y: { test: "off" } },
+  tags: [],
+}
+
+const preview = {
+  tags: ["autodocs"],
+  parameters: { a11y: { test: "error" } },
+  ...unsafeOverrides,
+}
+
+export default preview
+`
+
+function mutatedStorybookPreviewSource(mutation: string) {
+  return `
+let preview = {
+  tags: ["autodocs"],
+  parameters: { a11y: { test: "error" } },
+}
+
+${mutation}
+
+export default preview
+`
+}
+
 const componentSource = `
 export type ClinicProfileProps = Readonly<{ name: string }>
 
@@ -32,6 +96,33 @@ const workspaceHarnessSource = `
 export function ClinicDashboardWorkspaceHarness() {
   return <main>Clinic dashboard fixture</main>
 }
+`
+
+const workspaceCompositionSource = `
+export function ClinicDashboardWorkspaceComposition() {
+  return <main>Clinic dashboard composition</main>
+}
+`
+
+const workspacePageSource = `
+export function ClinicDashboardWorkspace() {
+  return <main>Clinic dashboard workspace</main>
+}
+`
+
+const workspacePageStorySource = `
+import type { Meta } from "@storybook/react"
+import { ClinicDashboardWorkspace } from "./ClinicDashboardWorkspace"
+
+const meta = {
+  component: ClinicDashboardWorkspace,
+  tags: ["domain:workspace", "layer:page", "status:prototype"],
+  title: "Clinic Dashboard/Workspace/Pages/Clinic Dashboard Workspace",
+} satisfies Meta<typeof ClinicDashboardWorkspace>
+
+export default meta
+
+export const Default = {}
 `
 
 const testingPublicContractSource = `
@@ -145,8 +236,22 @@ export function ConversationSummary() {
 }
 `
 
+const memoMoleculeComponentSource = `
+import { memo } from "react"
+
+function ConversationSummaryView() {
+  return <section>Conversation</section>
+}
+
+export const ConversationSummary = memo(ConversationSummaryView)
+`
+
 const moleculePublicContractSource = `
 export { ConversationSummary } from "./components/molecules/ConversationSummary"
+`
+
+const misplacedMoleculePublicContractSource = `
+export { ConversationSummary } from "./widgets/ConversationSummary"
 `
 
 const importThenExportPublicContractSource = `
@@ -272,6 +377,73 @@ export default meta
 export const Default = {}
 `
 
+const journeyAutodocsOptOutStorySource = `
+import type { Meta } from "@storybook/react"
+import { ConversationSummary } from "../messages/components/molecules/ConversationSummary"
+
+const meta = {
+  component: ConversationSummary,
+  tags: ["domain:workspace", "layer:page", "status:prototype", "!autodocs"],
+  title: "Clinic Dashboard/Journeys/Pages/Conversation Summary",
+} satisfies Meta<typeof ConversationSummary>
+
+export default meta
+
+export const Default = {}
+`
+
+function storyPolicySource(options: {
+  metaParameters?: string
+  metaTags?: string
+  storyBody?: string
+  trailingSource?: string
+}) {
+  const {
+    metaParameters = "",
+    metaTags = '["domain:clinic-profile", "layer:organism", "status:prototype"]',
+    storyBody = "{}",
+    trailingSource = "",
+  } = options
+
+  return `
+import type { Meta } from "@storybook/react"
+import { ClinicProfile } from "./public"
+
+const meta = {
+  component: ClinicProfile,
+  ${metaParameters}
+  tags: ${metaTags},
+  title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile",
+} satisfies Meta<typeof ClinicProfile>
+
+export default meta
+
+export const Default = ${storyBody}
+${trailingSource}
+`
+}
+
+const spreadStoryPolicySource = `
+import type { Meta } from "@storybook/react"
+import { ClinicProfile } from "./public"
+
+const meta = {
+  component: ClinicProfile,
+  tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
+  title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile",
+} satisfies Meta<typeof ClinicProfile>
+
+export default meta
+
+const UnsafeAccessibility = {
+  parameters: { a11y: { test: "off" } },
+}
+
+export const Default = {
+  ...UnsafeAccessibility,
+}
+`
+
 const sharedButtonSource = `
 export function Button() {
   return <button type="button">Save</button>
@@ -372,7 +544,13 @@ function createFixture(files: Readonly<Record<string, string>>) {
   const fixtureRoot = mkdtempSync(path.join(tmpdir(), "storybook-governance-"))
   fixtureDirectories.push(fixtureRoot)
 
-  for (const [relativePath, content] of Object.entries(files)) {
+  const fixtureFiles = {
+    ".storybook/main.ts": storybookMainSource,
+    ".storybook/preview.ts": storybookPreviewSource,
+    ...files,
+  }
+
+  for (const [relativePath, content] of Object.entries(fixtureFiles)) {
     const filePath = path.join(fixtureRoot, relativePath)
     mkdirSync(path.dirname(filePath), { recursive: true })
     writeFileSync(filePath, content.trimStart())
@@ -399,7 +577,34 @@ afterEach(() => {
 })
 
 describe("storybook governance public component coverage", () => {
-  it("accepts a root-level feature facade without inferring an Atomic path layer", () => {
+  it("accepts the concrete workspace composition as a Page outside the journeys area", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.stories.tsx":
+        workspacePageStorySource,
+      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx": workspacePageSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+
+  it("accepts the explicitly named non-Atomic workspace composition root", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspaceComposition.tsx":
+        workspaceCompositionSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+
+  it("accepts an explicitly classified root-level controller facade", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": directStorySource,
       "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
@@ -863,5 +1068,346 @@ describe("storybook governance public component coverage", () => {
       "ERROR story-component-missing-atomic-layer src/features/clinic-dashboard/messages/components/ConversationSummary.stories.tsx",
     )
     expect(output.match(/ERROR story-component-missing-atomic-layer/gu)).toHaveLength(1)
+  })
+
+  it("rejects an unclassified visual component at a feature root", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/ConversationSummary.stories.tsx":
+        moleculeStorySource("molecule"),
+      "src/features/clinic-dashboard/messages/ConversationSummary.tsx": moleculeComponentSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR feature-component-placement src/features/clinic-dashboard/messages/ConversationSummary.tsx",
+    )
+    expect(output.match(/ERROR feature-component-placement/gu)).toHaveLength(1)
+  })
+
+  it("rejects a publicly exported visual component hidden in an arbitrary feature subdirectory", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/public.ts": misplacedMoleculePublicContractSource,
+      "src/features/clinic-dashboard/messages/widgets/ConversationSummary.stories.tsx":
+        moleculeStorySource("molecule"),
+      "src/features/clinic-dashboard/messages/widgets/ConversationSummary.tsx": memoMoleculeComponentSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR feature-component-placement src/features/clinic-dashboard/messages/widgets/ConversationSummary.tsx",
+    )
+    expect(output.match(/ERROR feature-component-placement/gu)).toHaveLength(1)
+  })
+
+  it("rejects production TSX under model in a newly introduced feature area", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/billing/model/HiddenWidget.tsx": `
+export function HiddenWidget() {
+  return <section>Hidden</section>
+}
+`,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR feature-component-placement src/features/clinic-dashboard/billing/model/HiddenWidget.tsx",
+    )
+    expect(output.match(/ERROR feature-component-placement/gu)).toHaveLength(1)
+  })
+
+  it.each(["model", "hooks"])(
+    "rejects production TSX under the non-visual %s boundary",
+    (nonVisualDirectory) => {
+      const fixtureRoot = createFixture({
+        [`src/features/clinic-dashboard/messages/${nonVisualDirectory}/HiddenWidget.tsx`]: `
+export const HiddenWidget = { label: "Conversation" }
+`,
+      })
+
+      const result = runChecker(fixtureRoot)
+      const output = combinedOutput(result)
+
+      expect(result.status).toBe(1)
+      expect(output).toContain(
+        `ERROR feature-component-placement src/features/clinic-dashboard/messages/${nonVisualDirectory}/HiddenWidget.tsx`,
+      )
+      expect(output.match(/ERROR feature-component-placement/gu)).toHaveLength(1)
+    },
+  )
+
+  it.each(["__tests__", "fixtures", "test", "tests", "testing"])(
+    "allows a test-only TSX harness under %s",
+    (testDirectory) => {
+      const fixtureRoot = createFixture({
+        [`src/features/clinic-dashboard/messages/${testDirectory}/HiddenWidget.tsx`]: `
+export function HiddenWidget() {
+  return <section>Fixture</section>
+}
+`,
+      })
+
+      const result = runChecker(fixtureRoot)
+
+      expect(result.status).toBe(0)
+      expect(result.stderr).toBe("")
+      expect(result.stdout).toContain("storybook governance: 0 findings")
+    },
+  )
+
+  it("allows a feature-root TSX fixture module", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/HiddenWidget.fixtures.tsx": `
+export function HiddenWidget() {
+  return <section>Fixture</section>
+}
+`,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+
+  it("allows an exported model constant in a TypeScript source", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/model/ConversationSummary.ts": `
+export const ConversationSummary = { label: "Conversation" }
+`,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+})
+
+describe("storybook accessibility and Autodocs policy", () => {
+  it("rejects a meta-level accessibility disable override", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": storyPolicySource({
+        metaParameters: "parameters: { a11y: { disable: true } },",
+      }),
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-a11y-policy src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Stories must not disable the globally enforced accessibility test.",
+    )
+  })
+
+  it("rejects a story-level accessibility test downgrade", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": storyPolicySource({
+        storyBody: '{ parameters: { a11y: { test: "off" } } }',
+      }),
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      'ERROR story-a11y-policy src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Story accessibility overrides must keep test: "error".',
+    )
+  })
+
+  it("rejects an accessibility downgrade inherited through a local story spread", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": spreadStoryPolicySource,
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      'ERROR story-a11y-policy src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Story accessibility overrides must keep test: "error".',
+    )
+  })
+
+  it("fails closed when an alias mutates a public story export", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": storyPolicySource({
+        trailingSource: `
+const storyAlias = Default
+storyAlias.parameters = { a11y: { test: "off" } }
+`,
+      }),
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-policy-static src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Story export Default must remain statically analyzable and immutable so accessibility and Autodocs cannot be overridden indirectly.",
+    )
+  })
+
+  it("rejects an Autodocs opt-out for a component story", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx": storyPolicySource({
+        metaTags: '["domain:clinic-profile", "layer:organism", "status:prototype", "!autodocs"]',
+      }),
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-autodocs-policy src/features/clinic-dashboard/clinic-profile/ClinicProfile.stories.tsx :: Only explicitly located journey stories may opt out of global Autodocs.",
+    )
+  })
+
+  it("allows the narrow Autodocs opt-out for an explicitly located journey", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/journeys/ConversationSummary.stories.tsx":
+        journeyAutodocsOptOutStorySource,
+      "src/features/clinic-dashboard/messages/components/molecules/ConversationSummary.tsx":
+        moleculeComponentSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("storybook governance: 0 findings")
+  })
+})
+
+describe("storybook global configuration contract", () => {
+  it.each([
+    ["main", ".storybook/main.ts", storybookMainSpreadSource, "storybook-main-config-static"],
+    ["preview", ".storybook/preview.ts", storybookPreviewSpreadSource, "storybook-preview-config-static"],
+  ])("fails closed when the %s config contains a spread override", (_kind, file, source, ruleId) => {
+    const fixtureRoot = createFixture({ [file]: source })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(`ERROR ${ruleId} ${file}`)
+  })
+
+  it.each([
+    ["property assignment", 'preview.parameters.a11y.test = "off"'],
+    ["alias mutation", 'const accessibility = preview.parameters.a11y\naccessibility.test = "off"'],
+    [
+      "property mutation helper",
+      'const accessibility = preview.parameters.a11y\nObject.assign(accessibility, { test: "off" })',
+    ],
+    ["binding reassignment", 'preview = { tags: [], parameters: { a11y: { test: "off" } } }'],
+    [
+      "array assignment alias mutation",
+      'let escaped\n;[escaped] = [preview]\nescaped.parameters.a11y.test = "off"',
+    ],
+    [
+      "object assignment alias mutation",
+      'let escaped\n;({ escaped } = { escaped: preview })\nescaped.parameters.a11y.test = "off"',
+    ],
+    [
+      "property container alias mutation",
+      'const holder = { current: null }\nholder.current = preview\nholder.current.parameters.a11y.test = "off"',
+    ],
+  ])("fails closed after a preview %s", (_kind, mutation) => {
+    const fixtureRoot = createFixture({
+      ".storybook/preview.ts": mutatedStorybookPreviewSource(mutation),
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR storybook-preview-config-static .storybook/preview.ts")
+  })
+
+  it("rejects disabling the fail-closed global accessibility test", () => {
+    const fixtureRoot = createFixture({
+      ".storybook/preview.ts": storybookPreviewSource.replace('test: "error"', 'test: "off"'),
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      'ERROR storybook-a11y-test .storybook/preview.ts :: Keep global Storybook accessibility enforcement set to test: "error".',
+    )
+    expect(output.match(/ERROR storybook-a11y-test/gu)).toHaveLength(1)
+  })
+
+  it("rejects removing the accessibility addon from Storybook main", () => {
+    const fixtureRoot = createFixture({
+      ".storybook/main.ts": storybookMainSource.replace('"@storybook/addon-a11y", ', ""),
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR storybook-a11y-addon .storybook/main.ts :: Keep @storybook/addon-a11y enabled in the global Storybook configuration.",
+    )
+    expect(output.match(/ERROR storybook-a11y-addon/gu)).toHaveLength(1)
+  })
+
+  it("rejects removing the colocated source story glob from Storybook main", () => {
+    const fixtureRoot = createFixture({
+      ".storybook/main.ts": storybookMainSource.replace(
+        '"../src/**/*.stories.@(ts|tsx)"',
+        '"../stories/**/*.stories.tsx"',
+      ),
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR storybook-story-glob .storybook/main.ts :: Keep ../src/**/*.stories.@(ts|tsx) in the global Storybook story discovery contract.",
+    )
+    expect(output.match(/ERROR storybook-story-glob/gu)).toHaveLength(1)
+  })
+
+  it("rejects disabling global Autodocs", () => {
+    const fixtureRoot = createFixture({
+      ".storybook/preview.ts": storybookPreviewSource.replace('["autodocs"]', "[]"),
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR storybook-autodocs .storybook/preview.ts :: Keep Autodocs enabled in the global Storybook preview contract.",
+    )
+    expect(output.match(/ERROR storybook-autodocs/gu)).toHaveLength(1)
   })
 })
