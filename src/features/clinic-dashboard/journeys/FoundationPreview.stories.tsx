@@ -1,15 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import { ClinicDashboardWorkspace } from "@/features/clinic-dashboard/public"
+import { ClinicDashboardWorkspaceHarness } from "@/features/clinic-dashboard/workspace/testing/public"
 
 const meta = {
-  component: ClinicDashboardWorkspace,
+  component: ClinicDashboardWorkspaceHarness,
   parameters: {
     layout: "fullscreen",
   },
   tags: ["domain:workspace", "layer:page", "status:prototype"],
   title: "Clinic Dashboard/Journeys/Pages/Foundation Preview",
-} satisfies Meta<typeof ClinicDashboardWorkspace>
+} satisfies Meta<typeof ClinicDashboardWorkspaceHarness>
 
 export default meta
 type Story = StoryObj<typeof meta>
@@ -61,13 +61,15 @@ export const ProfileTaskToProfileDestination: Story = {
 }
 
 export const PresentationProfileManagementPreview: Story = {
-  args: { initialSection: "profile", prototypeMode: "presentation" },
+  args: {
+    prototypeMode: "presentation",
+    start: { dialog: "treatment", section: "profile" },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
     await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toBeDisabled()
     await expect(canvas.getByRole("button", { name: "Add team member" })).toBeInTheDocument()
-    await userEvent.click(canvas.getByRole("button", { name: "New treatment" }))
 
     const dialog = canvas.getByRole("dialog", { name: "Create new treatment" })
     await expect(within(dialog).getByRole("textbox", { name: "Treatment name" })).toBeDisabled()
@@ -93,7 +95,7 @@ export const InterfaceModeUnlocksManagement: Story = {
 }
 
 export const MobileNavigation: Story = {
-  args: { initialSection: "messages", prototypeMode: "visual-reference" },
+  args: { prototypeMode: "visual-reference", start: { section: "messages" } },
   parameters: {
     viewport: { defaultViewport: "mobile390Tall" },
   },
