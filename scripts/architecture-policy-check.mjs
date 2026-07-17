@@ -2,6 +2,7 @@
 
 import path from "node:path"
 import {
+  collectExecutableJavaScriptFiles,
   collectSourceFiles,
   containsReferencedIdentifier,
   createFinding,
@@ -14,6 +15,8 @@ import {
 
 const rootDir = process.cwd()
 const browserGlobals = new Set(["crypto", "document", "localStorage", "sessionStorage", "window"])
+const atomicLayers = new Set(["atoms", "molecules", "organisms"])
+const catchAllDirectoryPattern = /^(?:catch-?all|common|helpers?|misc|primitives|utilities|utils?)$/iu
 
 function importTarget(reference) {
   return reference.resolvedPath ?? reference.moduleSpecifier
@@ -56,6 +59,24 @@ function getFeatureArea(file) {
 function atomicLayer(file) {
   const match = file.match(/\/components\/(atoms|molecules|organisms)\//u)
   return match?.[1] ?? null
+}
+
+function featureAtomicPlacement(file) {
+  const match = file.match(/^src\/features\/.+?\/components\/(.+)$/u)
+  if (!match) return null
+
+  const pathSegments = match[1].split("/")
+  return {
+    layer: pathSegments.length > 1 ? pathSegments[0] : null,
+  }
+}
+
+function catchAllDirectory(file) {
+  if (!file.startsWith("src/features/")) return null
+  return file
+    .split("/")
+    .slice(0, -1)
+    .find((segment) => catchAllDirectoryPattern.test(segment))
 }
 
 function isPublicContract(reference) {
@@ -131,6 +152,18 @@ function isAllowedPrivateCompositionImport(file, reference) {
 function collectFindings() {
   const findings = []
 
+  for (const filePath of collectExecutableJavaScriptFiles(rootDir)) {
+    const file = toRelative(rootDir, filePath)
+    findings.push(
+      createFinding(
+        "javascript-source-forbidden",
+        file,
+        file,
+        "Executable source under src must use TypeScript; JavaScript source files are outside the governed architecture.",
+      ),
+    )
+  }
+
   for (const filePath of collectSourceFiles(rootDir, ["src", "tests"])) {
     const file = toRelative(rootDir, filePath)
     const sourceFile = parseSourceFile(filePath)
@@ -161,6 +194,39 @@ function collectFindings() {
       )
     }
 
+    const atomicPlacement = featureAtomicPlacement(file)
+    if (atomicPlacement && atomicPlacement.layer === null) {
+      findings.push(
+        createFinding(
+          "missing-atomic-layer",
+          file,
+          file,
+          "Feature components must be placed under an atoms, molecules, or organisms directory.",
+        ),
+      )
+    } else if (atomicPlacement && !atomicLayers.has(atomicPlacement.layer)) {
+      findings.push(
+        createFinding(
+          "unknown-atomic-layer",
+          file,
+          atomicPlacement.layer,
+          `Feature components must use atoms, molecules, or organisms; ${atomicPlacement.layer} is not an allowed Atomic layer.`,
+        ),
+      )
+    }
+
+    const forbiddenDirectory = catchAllDirectory(file)
+    if (forbiddenDirectory) {
+      findings.push(
+        createFinding(
+          "forbidden-catchall-directory",
+          file,
+          forbiddenDirectory,
+          `Replace the ${forbiddenDirectory} directory with a concrete business or technical responsibility.`,
+        ),
+      )
+    }
+
     if (/\/public\.[cm]?[jt]sx?$/u.test(file) && hasWildcardExport(sourceFile)) {
       findings.push(
         createFinding(
@@ -186,6 +252,18 @@ function collectFindings() {
     }
 
     for (const reference of references) {
+      if (reference.kind === "unresolved-dynamic-import") {
+        findings.push(
+          createFinding(
+            "unresolved-dynamic-import",
+            file,
+            reference.moduleSpecifier,
+            "Governed source must use a statically analyzable dynamic import target.",
+          ),
+        )
+        continue
+      }
+
       const target = importTarget(reference)
       const prototypeDataImport = isPrototypeDataImport(reference)
       const runtimePrototypeCommandImport = isRuntimePrototypeCommandImport(reference)
@@ -201,6 +279,17 @@ function collectFindings() {
             file,
             reference.moduleSpecifier,
             "Feature production internals must import local or sibling contracts directly, not back-import the Clinic Dashboard root public contract.",
+          ),
+        )
+      }
+
+      if (/^src\/features\//u.test(file) && /^src\/app(?:\/|$)/u.test(target)) {
+        findings.push(
+          createFinding(
+            "feature-app-import",
+            file,
+            reference.moduleSpecifier,
+            "Feature source must not import App Router implementation files.",
           ),
         )
       }
@@ -381,6 +470,28 @@ function collectFindings() {
             file,
             reference.moduleSpecifier,
             `Cross-area import ${reference.moduleSpecifier} must use the sibling area's explicit public.ts contract.`,
+          ),
+        )
+      }
+
+      const hasDedicatedFeatureBoundary =
+        Boolean(sourceArea) ||
+        /^src\/app\//u.test(file) ||
+        /^src\/components\/ui\//u.test(file) ||
+        /^src\/providers\//u.test(file)
+      if (
+        /^src\//u.test(file) &&
+        !hasDedicatedFeatureBoundary &&
+        !isFeaturePublicContractFile(file) &&
+        targetArea &&
+        !isPublicContract(reference)
+      ) {
+        findings.push(
+          createFinding(
+            "neutral-feature-private-import",
+            file,
+            reference.moduleSpecifier,
+            "Neutral source must not expose or import feature-private implementation; use the owning public.ts contract.",
           ),
         )
       }

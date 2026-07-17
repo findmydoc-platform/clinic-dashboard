@@ -498,4 +498,183 @@ describe("architecture policy checker process fixtures", () => {
     )
     expect(output.match(/ERROR public-prototype-data-export/gu)).toHaveLength(1)
   })
+
+  it("rejects unknown Atomic layers and catch-all feature directories", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/widgets/MessageWidget.tsx": `
+        export function MessageWidget() { return null }
+      `,
+      "src/features/clinic-dashboard/messages/model/common/format.ts": `
+        export const format = (value: string) => value
+      `,
+      "src/features/clinic-dashboard/messages/model/helper/format.ts": `
+        export const format = (value: string) => value
+      `,
+      "src/features/clinic-dashboard/messages/model/primitives/format.ts": `
+        export const format = (value: string) => value
+      `,
+      "src/features/clinic-dashboard/messages/model/utils/format.ts": `
+        export const format = (value: string) => value
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR unknown-atomic-layer src/features/clinic-dashboard/messages/components/widgets/MessageWidget.tsx",
+    )
+    expect(output.match(/ERROR unknown-atomic-layer/gu)).toHaveLength(1)
+    expect(output.match(/ERROR forbidden-catchall-directory/gu)).toHaveLength(4)
+  })
+
+  it("rejects feature components placed directly under components without an Atomic layer", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/MessageCard.tsx": `
+        export function MessageCard() { return null }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR missing-atomic-layer src/features/clinic-dashboard/messages/components/MessageCard.tsx :: Feature components must be placed under an atoms, molecules, or organisms directory.",
+    )
+    expect(output.match(/ERROR missing-atomic-layer/gu)).toHaveLength(1)
+  })
+
+  it("analyzes literal dynamic imports through template, parentheses, as, and satisfies syntax", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/organisms/AsScreen.tsx": `
+        export async function AsScreen() {
+          return import("../../../messages/messages.prototype-data" as string)
+        }
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/ParenthesizedScreen.tsx": `
+        export async function ParenthesizedScreen() {
+          return import(("../../../messages/messages.prototype-data"))
+        }
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/SatisfiesScreen.tsx": `
+        export async function SatisfiesScreen() {
+          return import("../../../messages/messages.prototype-data" satisfies string)
+        }
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/TemplateScreen.tsx": `
+        export async function TemplateScreen() {
+          return import(\`../../../messages/messages.prototype-data\`)
+        }
+      `,
+      "src/features/clinic-dashboard/messages/messages.prototype-data.ts": `
+        export const messagesPrototypeData = []
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output.match(/ERROR feature-ui-runtime-data-import/gu)).toHaveLength(4)
+  })
+
+  it("rejects dynamic imports whose targets are not statically analyzable", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/model/lazy-message-module.ts": `
+        const modulePath = "./messages"
+        export const loadMessages = () => import(modulePath)
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR unresolved-dynamic-import src/features/clinic-dashboard/messages/model/lazy-message-module.ts :: Governed source must use a statically analyzable dynamic import target.",
+    )
+    expect(output.match(/ERROR unresolved-dynamic-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects alias and relative Feature to App Router imports", () => {
+    const fixtureRoot = createFixture({
+      "src/app/actions.ts": `
+        export const save = () => undefined
+      `,
+      "src/features/clinic-dashboard/messages/components/molecules/MessageCard.tsx": `
+        import { save } from "../../../../../app/actions"
+        export function MessageCard() { return save() }
+      `,
+      "src/features/clinic-dashboard/messages/model/message-action.ts": `
+        import { save } from "@/app/actions"
+        export const saveMessage = save
+      `,
+      "src/features/clinic-dashboard/messages/model/message-action-loader.ts": `
+        export const loadMessageAction = () => import("../../../../app/actions")
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output.match(/ERROR feature-app-import/gu)).toHaveLength(3)
+  })
+
+  it("rejects neutral barrels that expose feature-private implementation", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/molecules/MetricCard.tsx": `
+        export function MetricCard() { return null }
+      `,
+      "src/features/clinic-dashboard/messages/components/molecules/MessageCard.tsx": `
+        import { MetricCard } from "@/lib/dashboard-internals"
+        export const MessageCard = MetricCard
+      `,
+      "src/lib/dashboard-internals.ts": `
+        export { MetricCard } from "@/features/clinic-dashboard/dashboard/components/molecules/MetricCard"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR neutral-feature-private-import src/lib/dashboard-internals.ts")
+    expect(output.match(/ERROR neutral-feature-private-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects executable JavaScript source under src", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/legacy.cjs": "module.exports = {}",
+      "src/features/clinic-dashboard/messages/legacy.js": "export const legacy = true",
+      "src/features/clinic-dashboard/messages/legacy.jsx": "export const Legacy = () => null",
+      "src/features/clinic-dashboard/messages/legacy.mjs": "export const legacy = true",
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output.match(/ERROR javascript-source-forbidden/gu)).toHaveLength(4)
+  })
+
+  it("rejects namespace wildcard exports from feature public contracts", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/model/internal.ts": `
+        export const internal = true
+      `,
+      "src/features/clinic-dashboard/messages/public.ts": `
+        export * as internals from "./model/internal"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR wildcard-public-export src/features/clinic-dashboard/messages/public.ts")
+    expect(output.match(/ERROR wildcard-public-export/gu)).toHaveLength(1)
+  })
 })

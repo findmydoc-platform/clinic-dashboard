@@ -29,6 +29,7 @@ const allowedDomains = new Set([
 ])
 const allowedLayers = new Set(["atom", "molecule", "organism", "page", "template"])
 const allowedStatuses = new Set(["prototype", "stable"])
+const atomicPathLayers = new Set(["atoms", "molecules", "organisms"])
 const sharedComponentLayers = new Map([
   ["src/components/brand/BrandMark.tsx", "atom"],
   ["src/components/ui/avatar.tsx", "atom"],
@@ -124,6 +125,16 @@ function expectedPathLayer(componentPath) {
   if (match) return match[1].slice(0, -1)
 
   return sharedComponentLayers.get(componentPath) ?? null
+}
+
+function featureAtomicPlacement(componentPath) {
+  const match = componentPath.match(/^src\/features\/.+?\/components\/(.+)$/u)
+  if (!match) return null
+
+  const pathSegments = match[1].split("/")
+  return {
+    layer: pathSegments.length > 1 ? pathSegments[0] : null,
+  }
 }
 
 function expectedColocatedStory(componentPath) {
@@ -260,6 +271,26 @@ function collectFindings() {
       )
     } else {
       const resolvedComponentBinding = resolveReExportBinding(componentBinding, reExports)
+      const atomicPlacement = featureAtomicPlacement(resolvedComponentBinding.resolvedPath)
+      if (atomicPlacement && atomicPlacement.layer === null) {
+        findings.push(
+          createFinding(
+            "story-component-missing-atomic-layer",
+            file,
+            resolvedComponentBinding.resolvedPath,
+            "Story components must be placed under an atoms, molecules, or organisms directory.",
+          ),
+        )
+      } else if (atomicPlacement && !atomicPathLayers.has(atomicPlacement.layer)) {
+        findings.push(
+          createFinding(
+            "story-component-atomic-layer",
+            file,
+            atomicPlacement.layer,
+            `Story components must use atoms, molecules, or organisms; ${atomicPlacement.layer} is not an allowed Atomic layer.`,
+          ),
+        )
+      }
       coveredComponents.add(
         `${resolvedComponentBinding.resolvedPath}|${resolvedComponentBinding.importedName}`,
       )
