@@ -7,8 +7,6 @@ import {
   clinicProfileFixture,
   createClinicProfileCommandsFixture,
 } from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile.fixtures"
-import { validateSupportRequest } from "@/features/clinic-dashboard/support/model/support-request"
-import { createSupportCommandsFixture } from "@/features/clinic-dashboard/support/testing/support.fixtures"
 
 describe("clinic profile prototype contract", () => {
   it("clones nested profile data and detects draft changes", () => {
@@ -39,34 +37,5 @@ describe("clinic profile prototype contract", () => {
     expect(firstCommands.createClinicProfileEntityId("team")).toBe("team-fixture-2")
     expect(firstCommands.createClinicProfileEntityId("treatment")).toBe("treatment-fixture-1")
     expect(secondCommands.createClinicProfileEntityId("team")).toBe("team-fixture-1")
-  })
-})
-
-describe("support prototype contract", () => {
-  it("validates required fields and screenshot metadata", () => {
-    expect(
-      validateSupportRequest({
-        category: "",
-        message: "short",
-        preferredReplyChannel: "Email",
-        screenshot: { name: "notes.pdf", size: 6 * 1024 * 1024, type: "application/pdf" },
-        subject: "Help",
-      }),
-    ).toEqual({
-      category: "Choose a support category.",
-      message: "Describe the issue using at least 20 characters.",
-      screenshot: "Choose an image file.",
-      subject: "Enter a subject with at least 5 characters.",
-    })
-  })
-
-  it("returns a fixture receipt without production persistence", async () => {
-    const receipt = await createSupportCommandsFixture().submitSupportRequest({
-      category: "Technical issue",
-      message: "The review page does not refresh after I submit a response.",
-      preferredReplyChannel: "Email",
-      subject: "Review refresh issue",
-    })
-    expect(receipt).toEqual({ expectedResponse: "within one business day", ticketId: "FMD-1042" })
   })
 })

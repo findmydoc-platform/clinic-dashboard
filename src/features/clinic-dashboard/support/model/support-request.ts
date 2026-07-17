@@ -1,8 +1,10 @@
 export const supportCategories = ["Technical issue", "Account access", "Profile or review", "Other"] as const
-export const supportReplyChannels = ["Email", "Phone", "WhatsApp"] as const
+export const supportRequestPolicy = {
+  replyMethodLabel: "Email",
+  resultMessage: "Prototype only — no request was sent.",
+} as const
 
 export type SupportCategory = (typeof supportCategories)[number]
-export type SupportReplyChannel = (typeof supportReplyChannels)[number]
 
 export type SupportScreenshot = Readonly<{
   name: string
@@ -13,14 +15,13 @@ export type SupportScreenshot = Readonly<{
 export type SupportRequest = Readonly<{
   category: SupportCategory | ""
   message: string
-  preferredReplyChannel: SupportReplyChannel
   screenshot?: SupportScreenshot
   subject: string
 }>
 
-export type SupportReceipt = Readonly<{
-  expectedResponse: string
-  ticketId: string
+export type SupportRequestResult = Readonly<{
+  message: typeof supportRequestPolicy.resultMessage
+  status: "prototype-only"
 }>
 
 type SupportRequestErrorFields = Partial<Record<"category" | "message" | "screenshot" | "subject", string>>
@@ -28,6 +29,20 @@ type SupportRequestErrorFields = Partial<Record<"category" | "message" | "screen
 export type SupportRequestErrors = Readonly<SupportRequestErrorFields>
 
 const maximumScreenshotBytes = 5 * 1024 * 1024
+
+export const emptySupportRequest = {
+  category: "",
+  message: "",
+  screenshot: undefined,
+  subject: "",
+} satisfies SupportRequest
+
+export function createSupportRequestResult(): SupportRequestResult {
+  return {
+    message: supportRequestPolicy.resultMessage,
+    status: "prototype-only",
+  }
+}
 
 export function validateSupportRequest(request: SupportRequest): SupportRequestErrors {
   const errors: SupportRequestErrorFields = {}
