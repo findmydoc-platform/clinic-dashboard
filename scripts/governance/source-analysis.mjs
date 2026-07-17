@@ -143,6 +143,75 @@ export function getDefaultMetaObject(sourceFile) {
   return initializer && ts.isObjectLiteralExpression(initializer) ? initializer : null
 }
 
+function getDefaultMetaBindingName(sourceFile) {
+  const exportAssignment = sourceFile.statements.find(
+    (statement) => ts.isExportAssignment(statement) && !statement.isExportEquals,
+  )
+  if (!exportAssignment || !ts.isExportAssignment(exportAssignment)) return null
+
+  const exportedExpression = unwrapExpression(exportAssignment.expression)
+  return ts.isIdentifier(exportedExpression) ? exportedExpression.text : null
+}
+
+function hasCsfMetaMutation(sourceFile, metaBindingName) {
+  let hasMutation = false
+
+  const isMetaTarget = (expression) => {
+    let current = unwrapExpression(expression)
+
+    while (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
+      current = unwrapExpression(current.expression)
+    }
+
+    return ts.isIdentifier(current) && current.text === metaBindingName
+  }
+
+  const visit = (node) => {
+    if (hasMutation) return
+
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(unwrapExpression(node.expression.expression)) &&
+      unwrapExpression(node.expression.expression).text === "Object" &&
+      node.expression.name.text === "assign" &&
+      node.arguments[0] &&
+      isMetaTarget(node.arguments[0])
+    ) {
+      hasMutation = true
+      return
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      ts.isAssignmentOperator(node.operatorToken.kind) &&
+      isMetaTarget(node.left)
+    ) {
+      hasMutation = true
+      return
+    }
+
+    if (
+      (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+      (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken) &&
+      isMetaTarget(node.operand)
+    ) {
+      hasMutation = true
+      return
+    }
+
+    if (ts.isDeleteExpression(node) && isMetaTarget(node.expression)) {
+      hasMutation = true
+      return
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(sourceFile)
+  return hasMutation
+}
+
 function candidateModulePaths(basePath) {
   if (SOURCE_EXTENSIONS.includes(path.extname(basePath))) return [basePath]
 
@@ -177,6 +246,25 @@ export function getModuleReferences(rootDir, sourceFile) {
     })
   }
 
+  const addUnresolvedReference = (node, label) => {
+    const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
+    references.push({
+      kind: "unresolved-dynamic-import",
+      moduleSpecifier: `<${label} at line ${line + 1}>`,
+      resolvedPath: null,
+    })
+  }
+
+  const addExpressionReference = (node, expression, kind, label) => {
+    const moduleSpecifier = getStringLiteralValue(expression ? unwrapExpression(expression) : null)
+
+    if (moduleSpecifier !== null) {
+      addReference(moduleSpecifier, kind)
+    } else {
+      addUnresolvedReference(node, label)
+    }
+  }
+
   for (const statement of sourceFile.statements) {
     if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
       addReference(statement.moduleSpecifier.text, "import")
@@ -193,19 +281,26 @@ export function getModuleReferences(rootDir, sourceFile) {
 
   const visit = (node) => {
     if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-      const argument = node.arguments[0] ? unwrapExpression(node.arguments[0]) : null
-      const moduleSpecifier = getStringLiteralValue(argument)
+      addExpressionReference(node, node.arguments[0], "dynamic-import", "dynamic import")
+    } else if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(unwrapExpression(node.expression)) &&
+      unwrapExpression(node.expression).text === "require"
+    ) {
+      addExpressionReference(node, node.arguments[0], "require", "require call")
+    } else if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(unwrapExpression(node.expression.expression)) &&
+      unwrapExpression(node.expression.expression).text === "require" &&
+      node.expression.name.text === "resolve"
+    ) {
+      addExpressionReference(node, node.arguments[0], "require-resolve", "require.resolve call")
+    }
 
-      if (moduleSpecifier !== null) {
-        addReference(moduleSpecifier, "dynamic-import")
-      } else {
-        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
-        references.push({
-          kind: "unresolved-dynamic-import",
-          moduleSpecifier: `<dynamic import at line ${line + 1}>`,
-          resolvedPath: null,
-        })
-      }
+    if (ts.isImportTypeNode(node)) {
+      const argument = ts.isLiteralTypeNode(node.argument) ? node.argument.literal : null
+      addExpressionReference(node, argument, "import-type", "import type")
     }
 
     ts.forEachChild(node, visit)
@@ -297,6 +392,9 @@ export function getExportedComponentNames(sourceFile) {
 }
 
 export function getCsfStoryExportNames(sourceFile) {
+  const metaBindingName = getDefaultMetaBindingName(sourceFile)
+  if (metaBindingName && hasCsfMetaMutation(sourceFile, metaBindingName)) return []
+
   const storyVariableNames = new Set()
   const exportedNames = new Set()
 
@@ -409,10 +507,106 @@ function getStoryExportMatcher(sourceFile, meta, propertyName) {
 export function containsReferencedIdentifier(sourceFile, identifierNames) {
   const found = new Set()
 
+  const compilerOptions = {
+    noLib: true,
+    noResolve: true,
+    target: ts.ScriptTarget.Latest,
+  }
+  const compilerHost = ts.createCompilerHost(compilerOptions, true)
+  const sourceFileName = path.resolve(sourceFile.fileName)
+  compilerHost.fileExists = (fileName) => path.resolve(fileName) === sourceFileName
+  compilerHost.readFile = (fileName) =>
+    path.resolve(fileName) === sourceFileName ? sourceFile.text : undefined
+  compilerHost.getSourceFile = (fileName) =>
+    path.resolve(fileName) === sourceFileName ? sourceFile : undefined
+
+  const typeChecker = ts.createProgram([sourceFile.fileName], compilerOptions, compilerHost).getTypeChecker()
+  const globalThisAliasSymbols = new Set()
+  const aliasCandidates = []
+
+  const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
+
+  const isGlobalThisReference = (expression) => {
+    const current = unwrapExpression(expression)
+    if (!ts.isIdentifier(current)) return false
+
+    const symbol = getSymbol(current)
+    return (
+      (current.text === "globalThis" && !symbol?.declarations?.length) ||
+      (symbol !== undefined && globalThisAliasSymbols.has(symbol))
+    )
+  }
+
+  const collectAliasCandidates = (node) => {
+    if (
+      (ts.isVariableDeclaration(node) || ts.isParameter(node)) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer
+    ) {
+      const symbol = getSymbol(node.name)
+      if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(unwrapExpression(node.left))
+    ) {
+      const symbol = getSymbol(unwrapExpression(node.left))
+      if (symbol) aliasCandidates.push({ expression: node.right, symbol })
+    }
+
+    ts.forEachChild(node, collectAliasCandidates)
+  }
+
+  collectAliasCandidates(sourceFile)
+
+  let discoveredAlias = true
+  while (discoveredAlias) {
+    discoveredAlias = false
+
+    for (const candidate of aliasCandidates) {
+      if (globalThisAliasSymbols.has(candidate.symbol)) continue
+      if (!isGlobalThisReference(candidate.expression)) continue
+
+      globalThisAliasSymbols.add(candidate.symbol)
+      discoveredAlias = true
+    }
+  }
+
+  const isIdentifierInTypePosition = (identifier) => {
+    let current = identifier.parent
+
+    while (current && !ts.isStatement(current) && !ts.isExpression(current)) {
+      if (ts.isTypeNode(current)) return true
+      current = current.parent
+    }
+
+    return false
+  }
+
+  const isNonReferenceIdentifier = (identifier) => {
+    const parent = identifier.parent
+    if (!parent) return true
+    if (isIdentifierInTypePosition(identifier)) return true
+    if (ts.isShorthandPropertyAssignment(parent)) return false
+    if ("name" in parent && parent.name === identifier) return true
+    if (ts.isBindingElement(parent) && parent.propertyName === identifier) return true
+    if (ts.isExportSpecifier(parent) || ts.isQualifiedName(parent)) return true
+    if (
+      (ts.isLabeledStatement(parent) || ts.isBreakStatement(parent) || ts.isContinueStatement(parent)) &&
+      parent.label === identifier
+    ) {
+      return true
+    }
+
+    return false
+  }
+
   const visit = (node) => {
     if (ts.isPropertyAccessExpression(node)) {
       const owner = unwrapExpression(node.expression)
-      if (ts.isIdentifier(owner) && owner.text === "globalThis" && identifierNames.has(node.name.text)) {
+      if (isGlobalThisReference(owner) && identifierNames.has(node.name.text)) {
         found.add(node.name.text)
       }
     }
@@ -420,29 +614,18 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
     if (ts.isElementAccessExpression(node) && node.argumentExpression) {
       const owner = unwrapExpression(node.expression)
       const propertyName = getStringLiteralValue(unwrapExpression(node.argumentExpression))
-      if (
-        ts.isIdentifier(owner) &&
-        owner.text === "globalThis" &&
-        propertyName !== null &&
-        identifierNames.has(propertyName)
-      ) {
+      if (isGlobalThisReference(owner) && propertyName !== null && identifierNames.has(propertyName)) {
         found.add(propertyName)
       }
     }
 
-    if (ts.isIdentifier(node) && identifierNames.has(node.text)) {
-      const parent = node.parent
-      const isPropertyName =
-        (ts.isPropertyAccessExpression(parent) && parent.name === node) ||
-        ((ts.isPropertyAssignment(parent) || ts.isPropertyDeclaration(parent)) && parent.name === node)
-      const isDeclarationName =
-        (ts.isVariableDeclaration(parent) ||
-          ts.isFunctionDeclaration(parent) ||
-          ts.isParameter(parent) ||
-          ts.isImportSpecifier(parent)) &&
-        parent.name === node
-
-      if (!isPropertyName && !isDeclarationName) found.add(node.text)
+    if (
+      ts.isIdentifier(node) &&
+      identifierNames.has(node.text) &&
+      !isNonReferenceIdentifier(node) &&
+      getSymbol(node) === undefined
+    ) {
+      found.add(node.text)
     }
 
     ts.forEachChild(node, visit)
