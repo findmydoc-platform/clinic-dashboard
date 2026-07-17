@@ -228,7 +228,7 @@ If the table cannot classify a file, clarify its responsibility. Do not invent a
 
 Avoid `Manager`, `Utils`, `Helpers`, `Common`, `Misc`, `Primitives`, `Data`, and `App` when a specific product or technical responsibility can be named.
 
-The current cross-domain `ClinicDashboardDataSource` migrates to `ClinicProfileCommands`, `ReviewCommands`, and `SupportCommands`. Their current prototype implementations may share a factory, but consumers receive only the contract they use.
+The current cross-domain `ClinicDashboardDataSource` migrates to `ClinicProfileCommands` and `ReviewCommands`. Support request state deliberately remains local-only while no approved external support capability exists. A future named support adapter and command contract require separate approval and are not preimplemented.
 
 ## Component API Rules
 

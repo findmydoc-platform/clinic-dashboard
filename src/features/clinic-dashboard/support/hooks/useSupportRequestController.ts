@@ -2,27 +2,19 @@
 
 import { useCallback, useRef, useState } from "react"
 import {
+  createSupportRequestResult,
+  emptySupportRequest,
   validateSupportRequest,
-  type SupportReceipt,
   type SupportRequest,
   type SupportRequestErrors,
+  type SupportRequestResult,
   type SupportScreenshot,
 } from "../model/support-request"
-import type { SupportCommands } from "../model/support-commands"
 
-const emptyRequest: SupportRequest = {
-  category: "",
-  message: "",
-  preferredReplyChannel: "Email",
-  subject: "",
-}
-
-export function useSupportRequestController(commands: SupportCommands) {
-  const [request, setRequest] = useState<SupportRequest>(emptyRequest)
+export function useSupportRequestController() {
+  const [request, setRequest] = useState<SupportRequest>(emptySupportRequest)
   const [errors, setErrors] = useState<SupportRequestErrors>({})
-  const [submitError, setSubmitError] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [receipt, setReceipt] = useState<SupportReceipt>()
+  const [result, setResult] = useState<SupportRequestResult>()
   const categoryRef = useRef<HTMLSelectElement>(null)
   const subjectRef = useRef<HTMLInputElement>(null)
   const messageRef = useRef<HTMLTextAreaElement>(null)
@@ -31,7 +23,6 @@ export function useSupportRequestController(commands: SupportCommands) {
   const update = useCallback(<Key extends keyof SupportRequest>(key: Key, value: SupportRequest[Key]) => {
     setRequest((current) => ({ ...current, [key]: value }))
     setErrors((current) => ({ ...current, [key]: undefined }))
-    setSubmitError("")
   }, [])
 
   const selectScreenshot = useCallback(
@@ -41,7 +32,7 @@ export function useSupportRequestController(commands: SupportCommands) {
     [update],
   )
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(() => {
     const nextErrors = validateSupportRequest(request)
     setErrors(nextErrors)
     const firstError = Object.keys(nextErrors)[0] as keyof SupportRequestErrors | undefined
@@ -57,20 +48,12 @@ export function useSupportRequestController(commands: SupportCommands) {
       return
     }
 
-    setIsSubmitting(true)
-    setSubmitError("")
-    try {
-      setReceipt(await commands.submitSupportRequest(request))
-    } catch {
-      setSubmitError("We couldn't send the support request. Check the details and try again.")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }, [commands, request])
+    setResult(createSupportRequestResult())
+  }, [request])
 
   return {
     actions: { selectScreenshot, submit, update },
-    model: { errors, isSubmitting, receipt, request, submitError },
+    model: { errors, request, result },
     refs: { categoryRef, messageRef, screenshotRef, subjectRef },
   } as const
 }

@@ -1,18 +1,16 @@
 import { describe, expect, it } from "vitest"
 import type { ClinicProfileDraft } from "@/features/clinic-dashboard/clinic-profile/public"
-import type { SupportCommands } from "@/features/clinic-dashboard/support/public"
 import {
   validateSupportRequest,
+  type SupportRequest,
   type SupportRequestErrors,
+  type SupportRequestResult,
 } from "@/features/clinic-dashboard/support/model/support-request"
-
-type SupportRequestContract = Parameters<SupportCommands["submitSupportRequest"]>[0]
-type SupportReceiptContract = Awaited<ReturnType<SupportCommands["submitSupportRequest"]>>
 
 function assertReadonlyDomainContracts(
   profile: ClinicProfileDraft,
-  request: SupportRequestContract,
-  receipt: SupportReceiptContract,
+  request: SupportRequest,
+  result: SupportRequestResult,
   errors: SupportRequestErrors,
 ) {
   // @ts-expect-error The exported profile root is readonly.
@@ -27,8 +25,8 @@ function assertReadonlyDomainContracts(
   request.subject = "Changed outside the controller"
   // @ts-expect-error Nested support request objects are readonly.
   request.screenshot!.name = "replacement.png"
-  // @ts-expect-error Support receipts are readonly command results.
-  receipt.ticketId = "FMD-0000"
+  // @ts-expect-error Support result state is readonly.
+  result.message = "Changed outside the controller"
   // @ts-expect-error Validation errors are readonly controller inputs.
   errors.subject = "Replaced outside the controller"
 }
@@ -40,15 +38,13 @@ describe("readonly domain contracts", () => {
     const request = Object.freeze({
       category: "Technical issue",
       message: "The clinic dashboard does not load the profile overview.",
-      preferredReplyChannel: "Email",
       subject: "Dashboard profile issue",
-    }) satisfies SupportRequestContract
+    }) satisfies SupportRequest
 
     expect(validateSupportRequest(request)).toEqual({})
     expect(request).toEqual({
       category: "Technical issue",
       message: "The clinic dashboard does not load the profile overview.",
-      preferredReplyChannel: "Email",
       subject: "Dashboard profile issue",
     })
   })

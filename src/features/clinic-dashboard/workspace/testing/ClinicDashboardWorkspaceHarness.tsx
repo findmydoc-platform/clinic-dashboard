@@ -11,7 +11,6 @@ import {
   createReviewCommandsFixture,
   reviewsFixture,
 } from "@/features/clinic-dashboard/reviews/testing/public"
-import { createSupportCommandsFixture } from "@/features/clinic-dashboard/support/testing/public"
 import type { DashboardReportingPeriod } from "@/features/clinic-dashboard/dashboard/public"
 import type { ClinicDashboardWorkspaceProps } from "../ClinicDashboardWorkspace"
 import {
@@ -53,7 +52,6 @@ export function ClinicDashboardWorkspaceHarness({
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
   const [reviewCommands] = useState(() => createReviewCommandsFixture())
-  const [supportCommands] = useState(() => createSupportCommandsFixture())
 
   return (
     <ClinicDashboardWorkspaceComposition
@@ -67,7 +65,6 @@ export function ClinicDashboardWorkspaceHarness({
       showPrototypeModeToggle={showPrototypeModeToggle}
       start={start}
       snapshot={clinicDashboardWorkspaceFixture}
-      supportCommands={supportCommands}
     />
   )
 }

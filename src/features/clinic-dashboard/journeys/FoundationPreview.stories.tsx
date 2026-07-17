@@ -27,6 +27,22 @@ export const PresentationDashboard: Story = {
   },
 }
 
+export const PresentationHidesSupport: Story = {
+  args: { prototypeMode: "presentation" },
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await expect(canvas.queryByRole("button", { name: "Contact support" })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
+
+    const navigation = await canvas.findByRole("dialog", { name: "Clinic navigation" })
+    await expect(
+      within(navigation).queryByRole("button", { name: "Contact support" }),
+    ).not.toBeInTheDocument()
+  },
+}
+
 export const FullInterfaceNavigationAndReporting: Story = {
   args: { prototypeMode: "visual-reference" },
   play: async ({ canvasElement }) => {
@@ -134,14 +150,15 @@ export const MobileNavigation: Story = {
 
     await expect(canvas.getByRole("heading", { level: 1, name: "Messages" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
-    const navigation = canvas.getByRole("dialog", { name: "Clinic navigation" })
+    const navigation = await canvas.findByRole("dialog", { name: "Clinic navigation" })
     await userEvent.click(within(navigation).getByRole("button", { name: "Clinic profile" }))
     await expect(await canvas.findByRole("heading", { level: 1, name: "Clinic profile" })).toBeInTheDocument()
 
     const navigationTrigger = canvas.getByRole("button", { name: "Open navigation" })
     await userEvent.click(navigationTrigger)
+    const reopenedNavigation = await canvas.findByRole("dialog", { name: "Clinic navigation" })
     await userEvent.click(
-      within(canvas.getByRole("dialog", { name: "Clinic navigation" })).getByRole("button", {
+      within(reopenedNavigation).getByRole("button", {
         name: "Contact support",
       }),
     )

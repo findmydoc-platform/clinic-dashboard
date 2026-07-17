@@ -33,7 +33,7 @@ import {
   type ReviewCommands,
   type ReviewsSnapshot,
 } from "@/features/clinic-dashboard/reviews/public"
-import { SupportRequestDialog, type SupportCommands } from "@/features/clinic-dashboard/support/public"
+import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
 import { NotificationCenter } from "./components/organisms/NotificationCenter"
@@ -83,7 +83,6 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   showPrototypeModeToggle: boolean
   snapshot: ClinicDashboardWorkspaceSnapshot
   start?: ClinicDashboardWorkspaceStartState
-  supportCommands: SupportCommands
 }>
 
 export function ClinicDashboardWorkspaceComposition({
@@ -97,7 +96,6 @@ export function ClinicDashboardWorkspaceComposition({
   showPrototypeModeToggle,
   snapshot,
   start = {},
-  supportCommands,
 }: ClinicDashboardWorkspaceCompositionProps) {
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
@@ -243,7 +241,7 @@ export function ClinicDashboardWorkspaceComposition({
         task={model.selectedProfileTask}
       />
       {capabilities.showSupport && model.supportOpen ? (
-        <SupportRequestDialog commands={supportCommands} onOpenChange={actions.setSupportOpen} open />
+        <SupportRequestDialog onOpenChange={actions.setSupportOpen} open />
       ) : null}
     </ClinicDashboardShell>
   )

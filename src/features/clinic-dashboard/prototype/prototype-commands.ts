@@ -1,6 +1,5 @@
 import type { ClinicProfileCommands } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { ReviewCommands } from "@/features/clinic-dashboard/reviews/public"
-import type { SupportCommands } from "@/features/clinic-dashboard/support/public"
 
 const prototypeTimestamp = "2023-10-16T12:00:00.000Z"
 const prototypeLatencyMs = 240
@@ -40,13 +39,5 @@ export const reviewPrototypeCommands: ReviewCommands = {
       notice: `Appeal submitted. ${reason}: ${detail.trim()} A moderation response is expected within three to five working days.`,
       revision: review.revision + 1,
       status: "Under review" as const,
-    }),
-}
-
-export const supportPrototypeCommands: SupportCommands = {
-  submitSupportRequest: async () =>
-    resolvePrototypeValue({
-      expectedResponse: "within one business day",
-      ticketId: "FMD-1042",
     }),
 }

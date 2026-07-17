@@ -9,7 +9,6 @@ import {
 import {
   clinicProfilePrototypeCommands,
   reviewPrototypeCommands,
-  supportPrototypeCommands,
 } from "@/features/clinic-dashboard/prototype/prototype-commands"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import { reviewsPrototypeData } from "@/features/clinic-dashboard/reviews/reviews.prototype-data"
@@ -49,7 +48,6 @@ export function ClinicDashboardWorkspace({
       reviewCommands={reviewPrototypeCommands}
       showPrototypeModeToggle={showPrototypeModeToggle}
       snapshot={clinicDashboardWorkspaceSnapshot}
-      supportCommands={supportPrototypeCommands}
     />
   )
 }
