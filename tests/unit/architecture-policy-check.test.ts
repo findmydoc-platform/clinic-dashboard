@@ -1,0 +1,501 @@
+import { spawnSync } from "node:child_process"
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { afterEach, describe, expect, it } from "vitest"
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
+const checkerPath = path.join(repositoryRoot, "scripts/architecture-policy-check.mjs")
+const fixtureDirectories: string[] = []
+
+function createFixture(files: Readonly<Record<string, string>>) {
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "architecture-policy-"))
+  fixtureDirectories.push(fixtureRoot)
+
+  for (const [relativePath, content] of Object.entries(files)) {
+    const filePath = path.join(fixtureRoot, relativePath)
+    mkdirSync(path.dirname(filePath), { recursive: true })
+    writeFileSync(filePath, content.trimStart())
+  }
+
+  return fixtureRoot
+}
+
+function runChecker(fixtureRoot: string) {
+  return spawnSync(process.execPath, [checkerPath], {
+    cwd: fixtureRoot,
+    encoding: "utf8",
+  })
+}
+
+function combinedOutput(result: ReturnType<typeof runChecker>) {
+  return `${result.stdout}${result.stderr}`
+}
+
+afterEach(() => {
+  for (const fixtureDirectory of fixtureDirectories.splice(0)) {
+    rmSync(fixtureDirectory, { force: true, recursive: true })
+  }
+})
+
+describe("architecture policy checker process fixtures", () => {
+  it("accepts independent test fixtures and the explicit runtime composition boundaries", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/dashboard.prototype-data.mapper.ts": `
+        import { dashboardPrototypeData } from "./dashboard.prototype-data"
+        export const dashboardViewModel = { count: dashboardPrototypeData.length }
+      `,
+      "src/features/clinic-dashboard/dashboard/dashboard.prototype-data.ts": `
+        export const dashboardPrototypeData = [{ id: "runtime-metric" }] as const
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        export function DashboardScreen() { return null }
+      `,
+      "src/features/clinic-dashboard/dashboard/public.ts": `
+        export { DashboardScreen } from "./components/organisms/DashboardScreen"
+      `,
+      "src/features/clinic-dashboard/journeys/FoundationPreview.stories.tsx": `
+        import { ClinicDashboardWorkspace } from "../public"
+        export const FoundationPreview = ClinicDashboardWorkspace
+      `,
+      "src/features/clinic-dashboard/messages/components/organisms/MessagesScreen.stories.tsx": `
+        import { messagesFixture } from "../../testing/messages.fixtures"
+        import { MessagesScreen } from "./MessagesScreen"
+        export const Default = { args: { messages: messagesFixture } }
+        void MessagesScreen
+      `,
+      "src/features/clinic-dashboard/messages/components/organisms/MessagesScreen.tsx": `
+        import type { Message } from "../../model/messages"
+        export function MessagesScreen({ messages }: { messages: readonly Message[] }) {
+          return messages.length
+        }
+      `,
+      "src/features/clinic-dashboard/messages/messages.prototype-data.ts": `
+        export const messagesPrototypeData = [{ id: "runtime-message" }] as const
+      `,
+      "src/features/clinic-dashboard/messages/model/messages.ts": `
+        export type Message = Readonly<{ id: string }>
+      `,
+      "src/features/clinic-dashboard/messages/testing/messages.fixtures.ts": `
+        export const messagesFixture = [{ id: "story-message" }] as const
+      `,
+      "src/features/clinic-dashboard/prototype/components/molecules/PrototypeModeSwitch.tsx": `
+        export function PrototypeModeSwitch() { return null }
+      `,
+      "src/features/clinic-dashboard/prototype/prototype-commands.ts": `
+        export const clinicDashboardPrototypeCommands = { save: async () => undefined }
+      `,
+      "src/features/clinic-dashboard/public.ts": `
+        export { ClinicDashboardWorkspace } from "./workspace/ClinicDashboardWorkspace"
+      `,
+      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx": `
+        import { DashboardScreen } from "../dashboard/public"
+        import { dashboardViewModel } from "../dashboard/dashboard.prototype-data.mapper"
+        import { messagesPrototypeData } from "../messages/messages.prototype-data"
+        import { PrototypeModeSwitch } from "../prototype/components/molecules/PrototypeModeSwitch"
+        import { clinicDashboardPrototypeCommands } from "../prototype/prototype-commands"
+        export const ClinicDashboardWorkspace = {
+          commands: clinicDashboardPrototypeCommands,
+          dashboard: dashboardViewModel,
+          messages: messagesPrototypeData,
+          screen: DashboardScreen,
+          switch: PrototypeModeSwitch,
+        }
+      `,
+      "tests/unit/messages-model.test.ts": `
+        import type { Message } from "../../src/features/clinic-dashboard/messages/model/messages"
+        export const message: Message = { id: "unit-message" }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
+  it("accepts a pure feature model without browser globals", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/model/messages.selectors.ts": `
+        export function selectUnreadCount(messages: readonly { unread: boolean }[]) {
+          return messages.filter((message) => message.unread).length
+        }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
+  it("rejects globalThis.window property access from a pure feature model", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/model/browser-width.ts": `
+        export const browserWidth = globalThis.window.innerWidth
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR model-browser-global src/features/clinic-dashboard/messages/model/browser-width.ts :: Pure model code must not reference window.",
+    )
+    expect(output.match(/ERROR model-browser-global/gu)).toHaveLength(1)
+  })
+
+  it('rejects globalThis["localStorage"] element access from a pure feature model', () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/model/stored-filter.ts": `
+        export const storedFilter = globalThis["localStorage"].getItem("messages-filter")
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR model-browser-global src/features/clinic-dashboard/messages/model/stored-filter.ts :: Pure model code must not reference localStorage.",
+    )
+    expect(output.match(/ERROR model-browser-global/gu)).toHaveLength(1)
+  })
+
+  it("rejects direct and globalThis Web Crypto access from pure feature models", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/model/direct-entity-id.ts": `
+        export const entityId = crypto.randomUUID()
+      `,
+      "src/features/clinic-dashboard/clinic-profile/model/global-entity-id.ts": `
+        export const entityId = globalThis.crypto.randomUUID()
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR model-browser-global src/features/clinic-dashboard/clinic-profile/model/direct-entity-id.ts :: Pure model code must not reference crypto.",
+    )
+    expect(output).toContain(
+      "ERROR model-browser-global src/features/clinic-dashboard/clinic-profile/model/global-entity-id.ts :: Pure model code must not reference crypto.",
+    )
+    expect(output.match(/ERROR model-browser-global/gu)).toHaveLength(2)
+  })
+
+  it("accepts Web Crypto in the runtime prototype command adapter", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/prototype/prototype-commands.ts": `
+        export const createEntityId = () => globalThis.crypto.randomUUID()
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
+  it("rejects a story that imports runtime prototype data", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/messages.prototype-data.ts": `
+        export const messagesPrototypeData = []
+      `,
+      "src/features/clinic-dashboard/messages/MessagesScreen.stories.tsx": `
+        import { messagesPrototypeData } from "./messages.prototype-data"
+        export const Default = { args: { messages: messagesPrototypeData } }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-testing-runtime-prototype-import src/features/clinic-dashboard/messages/MessagesScreen.stories.tsx",
+    )
+    expect(output.match(/ERROR story-testing-runtime-prototype-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects a feature testing fixture that imports runtime command implementations", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/testing/messages.fixtures.ts": `
+        import { clinicDashboardPrototypeCommands } from "../../prototype/prototype-commands"
+        export const commands = clinicDashboardPrototypeCommands
+      `,
+      "src/features/clinic-dashboard/prototype/prototype-commands.ts": `
+        export const clinicDashboardPrototypeCommands = { save: async () => undefined }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR story-testing-runtime-prototype-import src/features/clinic-dashboard/messages/testing/messages.fixtures.ts",
+    )
+    expect(output.match(/ERROR story-testing-runtime-prototype-import/gu)).toHaveLength(1)
+  })
+
+  it("scans tests outside src and rejects their runtime prototype imports", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/dashboard.prototype-data.ts": `
+        export const dashboardPrototypeData = { views: 1 }
+      `,
+      "tests/unit/dashboard.test.ts": `
+        import { dashboardPrototypeData } from "../../src/features/clinic-dashboard/dashboard/dashboard.prototype-data"
+        export const views = dashboardPrototypeData.views
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR story-testing-runtime-prototype-import tests/unit/dashboard.test.ts")
+    expect(output.match(/ERROR story-testing-runtime-prototype-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects runtime prototype data from feature UI and non-UI production modules", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/components/organisms/MessagesScreen.tsx": `
+        import { messagesPrototypeData } from "../../messages.prototype-data"
+        export const MessagesScreen = () => messagesPrototypeData.length
+      `,
+      "src/features/clinic-dashboard/messages/messages.prototype-data.ts": `
+        export const messagesPrototypeData = []
+      `,
+      "src/features/clinic-dashboard/messages/useMessagesController.ts": `
+        import { messagesPrototypeData } from "./messages.prototype-data"
+        export const useMessagesController = () => messagesPrototypeData
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR feature-ui-runtime-data-import")
+    expect(output).toContain("ERROR runtime-prototype-data-boundary")
+    expect(
+      output.match(/ERROR (?:feature-ui-runtime-data-import|runtime-prototype-data-boundary)/gu),
+    ).toHaveLength(2)
+  })
+
+  it("rejects a prototype-data mapper that imports another feature's runtime source", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/dashboard.prototype-data.mapper.ts": `
+        import { messagesPrototypeData } from "../messages/messages.prototype-data"
+        export const dashboardViewModel = { count: messagesPrototypeData.length }
+      `,
+      "src/features/clinic-dashboard/messages/messages.prototype-data.ts": `
+        export const messagesPrototypeData = []
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR runtime-prototype-data-boundary src/features/clinic-dashboard/dashboard/dashboard.prototype-data.mapper.ts",
+    )
+    expect(output.match(/ERROR runtime-prototype-data-boundary/gu)).toHaveLength(1)
+  })
+
+  it("rejects runtime prototype commands from shells and non-UI production modules", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/MessagesShell.tsx": `
+        import { clinicDashboardPrototypeCommands } from "../prototype/prototype-commands"
+        export const MessagesShell = () => clinicDashboardPrototypeCommands
+      `,
+      "src/features/clinic-dashboard/messages/useMessagesCommands.ts": `
+        import { clinicDashboardPrototypeCommands } from "../prototype/prototype-commands"
+        export const useMessagesCommands = () => clinicDashboardPrototypeCommands
+      `,
+      "src/features/clinic-dashboard/prototype/prototype-commands.ts": `
+        export const clinicDashboardPrototypeCommands = { save: async () => undefined }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR render-boundary-runtime-command-import")
+    expect(output).toContain("ERROR runtime-prototype-command-boundary")
+    expect(
+      output.match(/ERROR (?:render-boundary-runtime-command-import|runtime-prototype-command-boundary)/gu),
+    ).toHaveLength(2)
+  })
+
+  it("rejects a feature production module that back-imports the Clinic Dashboard root public contract", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/useDashboardController.ts": `
+        import { ClinicDashboardWorkspace } from "@/features/clinic-dashboard/public"
+        export const workspace = ClinicDashboardWorkspace
+      `,
+      "src/features/clinic-dashboard/public.ts": `
+        export { ClinicDashboardWorkspace } from "./workspace/ClinicDashboardWorkspace"
+      `,
+      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx": `
+        export function ClinicDashboardWorkspace() { return null }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR feature-root-public-back-import src/features/clinic-dashboard/dashboard/useDashboardController.ts",
+    )
+    expect(output.match(/ERROR feature-root-public-back-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects an Atomic component that imports through its own public contract", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/molecules/MetricCard.tsx": `
+        import { DashboardScreen } from "@/features/clinic-dashboard/dashboard/public"
+        export const MetricCard = DashboardScreen
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        export function DashboardScreen() { return null }
+      `,
+      "src/features/clinic-dashboard/dashboard/public.ts": `
+        export { DashboardScreen } from "./components/organisms/DashboardScreen"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR feature-same-area-public-import src/features/clinic-dashboard/dashboard/components/molecules/MetricCard.tsx",
+    )
+    expect(output.match(/ERROR feature-same-area-public-import/gu)).toHaveLength(1)
+    expect(output).not.toContain("ERROR atomic-upward-import")
+  })
+
+  it("rejects a model that hides a same-area organism import behind public.ts", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        export function DashboardScreen() { return null }
+      `,
+      "src/features/clinic-dashboard/dashboard/model/dashboard-view-model.ts": `
+        import { DashboardScreen } from "../public"
+        export const dashboardScreen = DashboardScreen
+      `,
+      "src/features/clinic-dashboard/dashboard/public.ts": `
+        export { DashboardScreen } from "./components/organisms/DashboardScreen"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR feature-same-area-public-import src/features/clinic-dashboard/dashboard/model/dashboard-view-model.ts",
+    )
+    expect(output.match(/ERROR feature-same-area-public-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects a hook that imports through its own public contract", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/hooks/useDashboardController.ts": `
+        import type { DashboardViewModel } from "../public"
+        export const useDashboardController = (): DashboardViewModel => ({ views: 1 })
+      `,
+      "src/features/clinic-dashboard/dashboard/model/dashboard-view-model.ts": `
+        export type DashboardViewModel = Readonly<{ views: number }>
+      `,
+      "src/features/clinic-dashboard/dashboard/public.ts": `
+        export type { DashboardViewModel } from "./model/dashboard-view-model"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR feature-same-area-public-import src/features/clinic-dashboard/dashboard/hooks/useDashboardController.ts",
+    )
+    expect(output.match(/ERROR feature-same-area-public-import/gu)).toHaveLength(1)
+  })
+
+  it("accepts a production module that imports another area's public contract", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/model/dashboard-view-model.ts": `
+        export type DashboardViewModel = Readonly<{ views: number }>
+      `,
+      "src/features/clinic-dashboard/dashboard/public.ts": `
+        export type { DashboardViewModel } from "./model/dashboard-view-model"
+      `,
+      "src/features/clinic-dashboard/messages/hooks/useMessagesController.ts": `
+        import type { DashboardViewModel } from "@/features/clinic-dashboard/dashboard/public"
+        export const dashboard: DashboardViewModel = { views: 1 }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
+  it("rejects private imports into workspace and prototype areas", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/useMessagesController.ts": `
+        import { capabilities } from "../prototype/model/capabilities"
+        import type { ClinicDashboardSection } from "../workspace/model/workspace"
+        export const state: ClinicDashboardSection = capabilities.section
+      `,
+      "src/features/clinic-dashboard/prototype/model/capabilities.ts": `
+        export const capabilities = { section: "dashboard" as const }
+      `,
+      "src/features/clinic-dashboard/workspace/model/workspace.ts": `
+        export type ClinicDashboardSection = "dashboard"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("../prototype/model/capabilities")
+    expect(output).toContain("../workspace/model/workspace")
+    expect(output.match(/ERROR cross-area-private-import/gu)).toHaveLength(2)
+  })
+
+  it("rejects runtime prototype data re-exported from a feature public contract", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/messages.prototype-data.ts": `
+        export const messagesPrototypeData = []
+      `,
+      "src/features/clinic-dashboard/messages/public.ts": `
+        export { messagesPrototypeData } from "./messages.prototype-data"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR public-prototype-data-export src/features/clinic-dashboard/messages/public.ts",
+    )
+    expect(output.match(/ERROR public-prototype-data-export/gu)).toHaveLength(1)
+  })
+})

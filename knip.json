@@ -1,10 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "scripts/ai-slop-policy-check.mjs",
-    "scripts/ai-slop-pre-push-check.mjs",
-    "scripts/setup-hooks.mjs",
-    "src/lib/security/public-routes.ts",
-    "tests/setup/vitest.ts"
-  ]
+  "entry": ["src/lib/security/public-routes.ts", "tests/setup/vitest.ts"]
 }

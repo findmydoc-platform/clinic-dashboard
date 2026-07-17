@@ -17,7 +17,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck",
+    "check": "pnpm lint && pnpm typecheck && pnpm governance:check && pnpm ai:slop-check && pnpm deadcode:check",
     "test": "vitest run --project unit",
     "test:unit": "vitest run --project unit",
     "test:storybook": "STORYBOOK_DISABLE_TELEMETRY=1 vitest run --project storybook",
@@ -30,8 +30,11 @@
     "format:check": "prettier --check .",
     "ai:slop-check": "node scripts/ai-slop-policy-check.mjs",
     "ai:slop-check:prepush": "node scripts/ai-slop-pre-push-check.mjs",
+    "architecture:check": "node scripts/architecture-policy-check.mjs",
+    "stories:governance:check": "node scripts/storybook-governance-check.mjs",
+    "governance:check": "pnpm architecture:check && pnpm stories:governance:check",
     "hooks:install": "node scripts/setup-hooks.mjs",
-    "deadcode:check": "knip --production --strict --include files,exports",
+    "deadcode:check": "knip --include files,exports",
     "deps:audit": "audit-ci --high --package-manager pnpm --report-type summary"
   },
   "dependencies": {

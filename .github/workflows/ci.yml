@@ -44,7 +44,7 @@ jobs:
       - name: Format
         run: pnpm format:check
 
-      - name: Static checks
+      - name: Static checks, AI drift, and dead code
         run: pnpm check
 
       - name: Unit tests
