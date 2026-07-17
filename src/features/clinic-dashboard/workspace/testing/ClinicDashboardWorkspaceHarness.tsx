@@ -16,7 +16,7 @@ import type { DashboardReportingPeriod } from "@/features/clinic-dashboard/dashb
 import type { ClinicDashboardWorkspaceProps } from "../ClinicDashboardWorkspace"
 import {
   ClinicDashboardWorkspaceComposition,
-  type ClinicDashboardWorkspaceCompositionData,
+  type ClinicDashboardWorkspaceSnapshot,
   type ClinicDashboardWorkspaceStartState,
 } from "../ClinicDashboardWorkspaceComposition"
 import { notificationsFixture, workspaceAccountFixture } from "./workspace.fixtures"
@@ -32,7 +32,7 @@ type ClinicDashboardWorkspaceHarnessProps = Readonly<
   }
 >
 
-const clinicDashboardWorkspaceFixtureData = {
+const clinicDashboardWorkspaceFixture = {
   account: workspaceAccountFixture,
   clinicName: "Berlin Health Clinic",
   clinicProfile: clinicProfileFixture,
@@ -41,7 +41,7 @@ const clinicDashboardWorkspaceFixtureData = {
   notifications: notificationsFixture,
   patientInquiry: patientInquiryFixture,
   reviews: reviewsFixture,
-} satisfies ClinicDashboardWorkspaceCompositionData
+} satisfies ClinicDashboardWorkspaceSnapshot
 
 export function ClinicDashboardWorkspaceHarness({
   notificationState,
@@ -58,7 +58,6 @@ export function ClinicDashboardWorkspaceHarness({
   return (
     <ClinicDashboardWorkspaceComposition
       clinicProfileCommands={clinicProfileCommands}
-      data={clinicDashboardWorkspaceFixtureData}
       initialNotificationReadIds={notificationState?.readIds}
       initialNotificationsOpen={notificationState?.isOpen}
       initialReportingPeriod={reportingPeriod}
@@ -67,6 +66,7 @@ export function ClinicDashboardWorkspaceHarness({
       reviewCommands={reviewCommands}
       showPrototypeModeToggle={showPrototypeModeToggle}
       start={start}
+      snapshot={clinicDashboardWorkspaceFixture}
       supportCommands={supportCommands}
     />
   )

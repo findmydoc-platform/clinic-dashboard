@@ -5,6 +5,15 @@ import { ReviewAppealDialog } from "./ReviewAppealDialog"
 
 const meta = {
   component: ReviewAppealDialog,
+  render: (args) => (
+    <ReviewAppealDialog
+      {...args}
+      onSubmit={async (submission) => {
+        await args.onSubmit(submission)
+        return "applied"
+      }}
+    />
+  ),
   tags: ["domain:reviews", "layer:organism", "status:prototype"],
   title: "Clinic Dashboard/Reviews/Organisms/Review Appeal Dialog",
 } satisfies Meta<typeof ReviewAppealDialog>
@@ -15,7 +24,7 @@ type Story = StoryObj<typeof meta>
 export const ModerationRequest: Story = {
   args: {
     onClose: fn(),
-    onSubmit: fn().mockResolvedValue(undefined),
+    onSubmit: fn(),
     review: openReviewFixture,
   },
   play: async ({ args, canvasElement }) => {
@@ -38,7 +47,7 @@ export const ModerationRequest: Story = {
         reason: "Incorrect clinic",
       }),
     )
-    await expect(args.onClose).toHaveBeenCalledOnce()
+    await waitFor(() => expect(args.onClose).toHaveBeenCalledOnce())
   },
 }
 

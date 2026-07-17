@@ -85,40 +85,36 @@ export function getVisibilityBehavior(
 }
 
 export type ClinicDashboardCapabilities = Readonly<{
-  canManageProfile: boolean
   canManageReviews: boolean
-  canManageTeam: boolean
   canUseDashboardReporting: boolean
   canUseMessaging: boolean
   canViewDetailedPatientInquiry: boolean
+  profileManagement: VisibilityBehavior
   showCertificateTasks: boolean
   showNotifications: boolean
-  showProfileManagement: boolean
   showSupport: boolean
-  showTeamManagement: boolean
+  teamManagement: VisibilityBehavior
 }>
 
 export type ClinicDashboardCapabilityVisibility = Readonly<Record<ClinicDashboardGateId, VisibilityBehavior>>
 
-function isVisible(behavior: VisibilityBehavior) {
-  return behavior !== "hidden"
+function isInteractive(behavior: VisibilityBehavior) {
+  return behavior === "interactive"
 }
 
 export function deriveClinicDashboardCapabilities(
   visibility: ClinicDashboardCapabilityVisibility,
 ): ClinicDashboardCapabilities {
   return {
-    canManageProfile: visibility.profileWrites === "interactive",
-    canManageReviews: isVisible(visibility.reviewManagement),
-    canManageTeam: visibility.teamWrites === "interactive",
-    canUseDashboardReporting: isVisible(visibility.dashboardReporting),
-    canUseMessaging: isVisible(visibility.messaging),
-    canViewDetailedPatientInquiry: visibility.inquiryProfile === "interactive",
-    showCertificateTasks: isVisible(visibility.certificateTasks),
-    showNotifications: isVisible(visibility.notifications),
-    showProfileManagement: isVisible(visibility.profileWrites),
-    showSupport: isVisible(visibility.support),
-    showTeamManagement: isVisible(visibility.teamWrites),
+    canManageReviews: isInteractive(visibility.reviewManagement),
+    canUseDashboardReporting: isInteractive(visibility.dashboardReporting),
+    canUseMessaging: isInteractive(visibility.messaging),
+    canViewDetailedPatientInquiry: isInteractive(visibility.inquiryProfile),
+    profileManagement: visibility.profileWrites,
+    showCertificateTasks: isInteractive(visibility.certificateTasks),
+    showNotifications: isInteractive(visibility.notifications),
+    showSupport: isInteractive(visibility.support),
+    teamManagement: visibility.teamWrites,
   }
 }
 

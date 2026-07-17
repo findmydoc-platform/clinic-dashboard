@@ -7,12 +7,11 @@ import type { ClinicGalleryItem } from "../../model/clinic-profile"
 type ClinicProfileGalleryProps = Readonly<{
   gallery: readonly ClinicGalleryItem[]
   galleryTotal: number
-  isDisabled: boolean
   onOpen: () => void
 }>
 
 export const ClinicProfileGallery = forwardRef<HTMLElement, ClinicProfileGalleryProps>(
-  function ClinicProfileGallery({ gallery, galleryTotal, isDisabled, onOpen }, ref) {
+  function ClinicProfileGallery({ gallery, galleryTotal, onOpen }, ref) {
     const cover = gallery.find((item) => item.isCover) ?? gallery[0]
     const orderedGallery = cover ? [cover, ...gallery.filter((item) => item.id !== cover.id)] : gallery
 
@@ -51,7 +50,6 @@ export const ClinicProfileGallery = forwardRef<HTMLElement, ClinicProfileGallery
             {index === 3 ? (
               <Button
                 className="absolute right-3 bottom-3 min-h-9 bg-[var(--background)] px-3 py-1 text-xs shadow"
-                disabled={isDisabled}
                 onClick={onOpen}
                 size="small"
                 variant="secondary"

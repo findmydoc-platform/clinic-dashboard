@@ -1,4 +1,4 @@
-import type { DashboardViewModelSource } from "./dashboard.prototype-data.mapper"
+import type { DashboardSnapshot } from "./model/dashboard-snapshot"
 import { createDashboardReportingSnapshot } from "./model/reporting"
 
 const canonicalReviewTotal = 1_248
@@ -172,4 +172,4 @@ export const dashboardPrototypeData = {
       },
     }),
   },
-} satisfies DashboardViewModelSource
+} satisfies DashboardSnapshot

@@ -7,12 +7,13 @@ const meta = {
   args: {
     isBusy: false,
     onCreate: fn(),
-    onEdit: fn(),
     onMove: fn(),
     onRemove: fn(),
+    onTreatmentOpen: fn(),
     onUndo: fn(),
     showCreateAction: true,
     showTreatmentActions: true,
+    showTreatmentViewAction: false,
     treatments: clinicProfileFixture.treatments,
   },
   component: ClinicProfileTreatments,
@@ -45,11 +46,20 @@ export const UndoAvailable: Story = {
 }
 
 export const MobileReadOnly: Story = {
-  args: { showCreateAction: false, showTreatmentActions: false },
+  args: {
+    showCreateAction: false,
+    showTreatmentActions: false,
+    showTreatmentViewAction: true,
+  },
   globals: { viewport: { value: "mobile390Tall" } },
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
+    const treatment = clinicProfileFixture.treatments[0]
+    if (!treatment) throw new Error("Treatment fixture requires one treatment.")
+
     await expect(canvas.getByText("Laser teeth whitening")).toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: /Move Laser teeth whitening/ })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: `View ${treatment.name}` }))
+    await expect(args.onTreatmentOpen).toHaveBeenCalledWith(treatment)
   },
 }

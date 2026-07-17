@@ -1,7 +1,7 @@
 import lukasWeberAvatar from "@/assets/clinic-dashboard/lukas-weber.jpg"
 import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
-import type { MessagesData, PatientInquiryProfile } from "../model/messages"
+import type { MessagesSnapshot, PatientInquiryProfile } from "../model/messages"
 
 export const messagesFixture = {
   activeConversationId: "lukas-weber",
@@ -59,7 +59,7 @@ export const messagesFixture = {
       time: "11:02",
     },
   ],
-} satisfies MessagesData
+} satisfies MessagesSnapshot
 
 export const patientInquiryFixture = {
   avatar: lukasWeberAvatar,

@@ -18,9 +18,9 @@ const actions = {
   openReviewNote: fn(),
   openReviewResponse: fn(),
   refreshReviews: fn(),
-  submitReviewAppeal: fn().mockResolvedValue(undefined),
-  submitReviewNote: fn().mockResolvedValue(undefined),
-  submitReviewResponse: fn().mockResolvedValue(undefined),
+  submitReviewAppeal: fn().mockResolvedValue("applied" as const),
+  submitReviewNote: fn().mockResolvedValue("applied" as const),
+  submitReviewResponse: fn().mockResolvedValue("applied" as const),
 } satisfies ReviewsActions
 
 const meta = {
@@ -40,6 +40,7 @@ export const Management: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeInTheDocument()
+    await expect(canvas.getByText("Manage patient feedback and respond to reviews.")).toBeInTheDocument()
     const openReview = canvasElement.querySelector('[data-review-status="Open"]')
     await expect(openReview).not.toBeNull()
     if (!openReview) return
@@ -55,6 +56,7 @@ export const Presentation: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    await expect(canvas.getByText("View patient feedback and published review activity.")).toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: "Export" })).not.toBeInTheDocument()
     await expect(canvas.queryByLabelText("Review filters")).not.toBeInTheDocument()
   },

@@ -6,7 +6,7 @@ import type {
   ReviewNoteSubmission,
   ReviewResponseSubmission,
 } from "./review-dialog"
-import type { ReviewDistributionEntry } from "./reviews-data"
+import type { ReviewDistributionEntry } from "./reviews-snapshot"
 
 export type ReviewsViewModel = Readonly<{
   dialog: ReviewDialogModel
@@ -47,7 +47,9 @@ export type ReviewsActions = Readonly<{
   openReviewNote: (reviewId: string) => void
   openReviewResponse: (reviewId: string) => void
   refreshReviews: () => void
-  submitReviewAppeal: (submission: ReviewAppealSubmission) => Promise<void>
-  submitReviewNote: (submission: ReviewNoteSubmission) => Promise<void>
-  submitReviewResponse: (submission: ReviewResponseSubmission) => Promise<void>
+  submitReviewAppeal: (submission: ReviewAppealSubmission) => Promise<ReviewMutationResult>
+  submitReviewNote: (submission: ReviewNoteSubmission) => Promise<ReviewMutationResult>
+  submitReviewResponse: (submission: ReviewResponseSubmission) => Promise<ReviewMutationResult>
 }>
+
+export type ReviewMutationResult = "applied" | "discarded"

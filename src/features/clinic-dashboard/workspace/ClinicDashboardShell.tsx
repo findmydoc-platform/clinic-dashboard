@@ -5,9 +5,9 @@ import { Headphones, Menu } from "lucide-react"
 import { BrandMark } from "@/components/brand/BrandMark"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
-import type { ClinicDashboardSection } from "./model/workspace"
 import { cn } from "@/lib/utils"
-import { ClinicDashboardNavigation } from "./ClinicDashboardNavigation"
+import { ClinicDashboardNavigation } from "./components/molecules/ClinicDashboardNavigation"
+import type { ClinicDashboardSection } from "./model/workspace"
 import type { ClinicDashboardNavigationItem } from "./navigation"
 
 type ClinicDashboardShellProps = Readonly<{
@@ -26,7 +26,7 @@ type ClinicDashboardShellProps = Readonly<{
   onSupportRequest?: () => void
 }>
 
-function PrototypeBrandMark({ className }: { className?: string }) {
+function PrototypeBrandMark({ className }: Readonly<{ className?: string }>) {
   return (
     <span className={cn("relative inline-flex pb-4", className)}>
       <BrandMark priority />

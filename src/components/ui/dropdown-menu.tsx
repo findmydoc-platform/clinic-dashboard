@@ -20,11 +20,12 @@ type DropdownMenuRootProps = Readonly<{
   open: boolean
 }>
 
-type DropdownMenuItemProps = ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> &
-  Readonly<{
+type DropdownMenuItemProps = Readonly<
+  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean
     variant?: "default" | "destructive"
-  }>
+  }
+>
 
 const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(null)
 

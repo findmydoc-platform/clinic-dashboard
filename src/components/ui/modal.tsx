@@ -5,7 +5,7 @@ import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-type ModalProps = {
+type ModalProps = Readonly<{
   children: ReactNode
   description?: string
   footer?: ReactNode
@@ -16,7 +16,7 @@ type ModalProps = {
   side?: "center" | "left"
   title: string
   triggerRef?: RefObject<HTMLButtonElement | null>
-}
+}>
 
 export function Modal({
   children,

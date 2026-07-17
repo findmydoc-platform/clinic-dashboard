@@ -8,11 +8,12 @@ const meta = {
     isBusy: false,
     members: clinicProfileFixture.team,
     onCreate: fn(),
-    onEdit: fn(),
+    onMemberOpen: fn(),
     onRemove: fn(),
     onUndo: fn(),
     showCreateAction: true,
     showMemberActions: true,
+    showMemberViewAction: false,
   },
   component: ClinicProfileTeam,
   tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
@@ -29,7 +30,7 @@ export const Management: Story = {
     if (!member) throw new Error("Team fixture requires one member.")
 
     await userEvent.click(canvas.getByRole("button", { name: `Edit ${member.name}` }))
-    await expect(args.onEdit).toHaveBeenCalledWith(member)
+    await expect(args.onMemberOpen).toHaveBeenCalledWith(member)
     await userEvent.click(canvas.getByRole("button", { name: "Add team member" }))
     await expect(args.onCreate).toHaveBeenCalledOnce()
   },
@@ -46,10 +47,15 @@ export const UndoAvailable: Story = {
 }
 
 export const ReadOnlyManagementPreview: Story = {
-  args: { showMemberActions: false },
-  play: async ({ canvasElement }) => {
+  args: { showCreateAction: false, showMemberActions: false, showMemberViewAction: true },
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByRole("button", { name: "Add team member" })).toBeEnabled()
+    const member = clinicProfileFixture.team[0]
+    if (!member) throw new Error("Team fixture requires one member.")
+
+    await expect(canvas.queryByRole("button", { name: "Add team member" })).not.toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: /Edit Dr/ })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: `View ${member.name}` }))
+    await expect(args.onMemberOpen).toHaveBeenCalledWith(member)
   },
 }

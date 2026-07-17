@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Eye, Pencil, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import type { ClinicTreatment } from "../../model/clinic-profile"
@@ -7,12 +7,13 @@ import { RemovalUndoBanner } from "../molecules/RemovalUndoBanner"
 type ClinicProfileTreatmentsProps = Readonly<{
   isBusy: boolean
   onCreate: () => void
-  onEdit: (treatment: ClinicTreatment) => void
   onMove: (id: string, direction: -1 | 1) => void
   onRemove: (id: string) => void
+  onTreatmentOpen: (treatment: ClinicTreatment) => void
   onUndo: () => void
   showCreateAction: boolean
   showTreatmentActions: boolean
+  showTreatmentViewAction: boolean
   treatments: readonly ClinicTreatment[]
   undoMessage?: string
 }>
@@ -20,12 +21,13 @@ type ClinicProfileTreatmentsProps = Readonly<{
 export function ClinicProfileTreatments({
   isBusy,
   onCreate,
-  onEdit,
   onMove,
   onRemove,
+  onTreatmentOpen,
   onUndo,
   showCreateAction,
   showTreatmentActions,
+  showTreatmentViewAction,
   treatments,
   undoMessage,
 }: ClinicProfileTreatmentsProps) {
@@ -88,7 +90,7 @@ export function ClinicProfileTreatments({
                 <Button
                   aria-label={`Edit ${treatment.name}`}
                   disabled={isBusy}
-                  onClick={() => onEdit(treatment)}
+                  onClick={() => onTreatmentOpen(treatment)}
                   size="icon"
                   title={`Edit ${treatment.name}`}
                   variant="ghost"
@@ -107,6 +109,19 @@ export function ClinicProfileTreatments({
                   <Trash2 aria-hidden="true" className="size-4" />
                 </Button>
               </div>
+            ) : showTreatmentViewAction ? (
+              <Button
+                aria-label={`View ${treatment.name}`}
+                className="justify-self-start"
+                disabled={isBusy}
+                onClick={() => onTreatmentOpen(treatment)}
+                size="small"
+                title={`View ${treatment.name}`}
+                variant="ghost"
+              >
+                <Eye aria-hidden="true" className="size-4" />
+                View
+              </Button>
             ) : null}
           </div>
         ))}

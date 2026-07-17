@@ -2,7 +2,7 @@ import {
   createLocalClinicMessage,
   getConversationUnreadCount,
   type ClinicMessage,
-  type MessagesData,
+  type MessagesSnapshot,
 } from "./messages"
 
 export type MessagesSelection = Readonly<{
@@ -22,15 +22,16 @@ export type MessagesState = Readonly<{
 export type MessagesAction =
   | Readonly<{ conversationId: string; type: "conversationSelected" }>
   | Readonly<{ draft: string; type: "draftChanged" }>
+  | Readonly<{ type: "interaction-withdrawn" }>
   | Readonly<{ open: boolean; type: "menuOpenChanged" }>
   | Readonly<{ message: string; type: "messageSubmitted" }>
   | Readonly<{ type: "mobileInboxRequested" }>
   | Readonly<{ query: string; type: "searchQueryChanged" }>
   | Readonly<{ type: "unreadToggled" }>
 
-function requireInitialConversation(data: MessagesData) {
+function requireInitialConversation(snapshot: MessagesSnapshot) {
   const conversation =
-    data.conversations.find(({ id }) => id === data.activeConversationId) ?? data.conversations[0]
+    snapshot.conversations.find(({ id }) => id === snapshot.activeConversationId) ?? snapshot.conversations[0]
 
   if (!conversation) throw new Error("Messages require at least one conversation.")
 
@@ -43,8 +44,8 @@ function addReadConversationId(readConversationIds: readonly string[], conversat
     : [...readConversationIds, conversationId]
 }
 
-export function createMessagesState(data: MessagesData): MessagesState {
-  const initialConversation = requireInitialConversation(data)
+export function createMessagesState(snapshot: MessagesSnapshot): MessagesState {
+  const initialConversation = requireInitialConversation(snapshot)
 
   return {
     draft: "",
@@ -62,11 +63,11 @@ export function createMessagesState(data: MessagesData): MessagesState {
 export function messagesReducer(
   state: MessagesState,
   action: MessagesAction,
-  data: MessagesData,
+  snapshot: MessagesSnapshot,
 ): MessagesState {
   switch (action.type) {
     case "conversationSelected": {
-      const conversation = data.conversations.find(({ id }) => id === action.conversationId)
+      const conversation = snapshot.conversations.find(({ id }) => id === action.conversationId)
       if (!conversation) return state
 
       return {
@@ -83,11 +84,13 @@ export function messagesReducer(
     }
     case "draftChanged":
       return action.draft === state.draft ? state : { ...state, draft: action.draft }
+    case "interaction-withdrawn":
+      return state.menuOpen ? { ...state, menuOpen: false } : state
     case "menuOpenChanged":
       return action.open === state.menuOpen ? state : { ...state, menuOpen: action.open }
     case "messageSubmitted": {
       const message = action.message.trim()
-      if (state.selection.conversationId !== data.activeConversationId || message.length === 0) {
+      if (state.selection.conversationId !== snapshot.activeConversationId || message.length === 0) {
         return state
       }
 
@@ -112,7 +115,7 @@ export function messagesReducer(
     case "searchQueryChanged":
       return action.query === state.searchQuery ? state : { ...state, searchQuery: action.query }
     case "unreadToggled": {
-      const conversation = data.conversations.find(({ id }) => id === state.selection.conversationId)
+      const conversation = snapshot.conversations.find(({ id }) => id === state.selection.conversationId)
       if (!conversation?.unread) return state
 
       const unreadCount = getConversationUnreadCount(conversation, state.readConversationIds)

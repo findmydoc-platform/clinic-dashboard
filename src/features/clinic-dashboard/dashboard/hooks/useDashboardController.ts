@@ -2,26 +2,24 @@
 
 import { useCallback, useState } from "react"
 import { downloadTextFile } from "@/lib/browser/download-text-file"
-import {
-  createDashboardPrototypeViewModel,
-  type DashboardViewModelSource,
-} from "../dashboard.prototype-data.mapper"
+import { createDashboardPrototypeViewModel } from "../dashboard.prototype-data.mapper"
+import type { DashboardSnapshot } from "../model/dashboard-snapshot"
 import { createProfileViewsCsvExport } from "../model/profile-views-export"
 import type { DashboardReportingPeriod } from "../model/reporting"
 
 type UseDashboardControllerInput = Readonly<{
   canExportProfileViews: boolean
-  data: DashboardViewModelSource
   initialReportingPeriod: DashboardReportingPeriod
+  snapshot: DashboardSnapshot
 }>
 
 export function useDashboardController({
   canExportProfileViews,
-  data,
   initialReportingPeriod,
+  snapshot,
 }: UseDashboardControllerInput) {
   const [reportingPeriod, setReportingPeriod] = useState(initialReportingPeriod)
-  const viewModel = createDashboardPrototypeViewModel(data, reportingPeriod)
+  const viewModel = createDashboardPrototypeViewModel(snapshot, reportingPeriod)
 
   const changeReportingPeriod = useCallback((period: DashboardReportingPeriod) => {
     setReportingPeriod(period)

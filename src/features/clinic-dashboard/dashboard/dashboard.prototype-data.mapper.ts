@@ -1,15 +1,9 @@
 import type { DashboardViewModel } from "./model/dashboard-view-model"
-import type { DashboardProfileTask } from "./model/profile-tasks"
-import type { DashboardReportingPeriod, DashboardReportingSnapshots } from "./model/reporting"
-
-export type DashboardViewModelSource = Readonly<{
-  profileTasks: readonly DashboardProfileTask[]
-  rating: DashboardViewModel["rating"]
-  reporting: DashboardReportingSnapshots
-}>
+import type { DashboardSnapshot } from "./model/dashboard-snapshot"
+import type { DashboardReportingPeriod } from "./model/reporting"
 
 export function createDashboardPrototypeViewModel(
-  data: DashboardViewModelSource,
+  snapshot: DashboardSnapshot,
   period: DashboardReportingPeriod,
 ): DashboardViewModel {
   return {
@@ -19,8 +13,8 @@ export function createDashboardPrototypeViewModel(
       ratingLabel: "4.8 ★",
     },
     profileCompletion: "82%",
-    profileTasks: data.profileTasks,
-    rating: data.rating,
-    reporting: data.reporting[period],
+    profileTasks: snapshot.profileTasks,
+    rating: snapshot.rating,
+    reporting: snapshot.reporting[period],
   }
 }

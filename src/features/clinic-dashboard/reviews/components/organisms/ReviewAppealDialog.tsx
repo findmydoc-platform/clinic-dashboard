@@ -11,11 +11,12 @@ import {
   type ReviewAppealReason,
   type ReviewAppealSubmission,
 } from "../../model/review-dialog"
+import type { ReviewMutationResult } from "../../model/reviews-view-model"
 import { ReviewMutationDialog } from "../molecules/ReviewMutationDialog"
 
 type ReviewAppealDialogProps = Readonly<{
   onClose: () => void
-  onSubmit: (submission: ReviewAppealSubmission) => Promise<void>
+  onSubmit: (submission: ReviewAppealSubmission) => Promise<ReviewMutationResult>
   review: ClinicReview
 }>
 
@@ -32,17 +33,17 @@ export function ReviewAppealDialog({ onClose, onSubmit, review }: ReviewAppealDi
     if (!reason) {
       setReasonError("Choose an appeal reason.")
       reasonRef.current?.focus()
-      return
+      return "discarded" as const
     }
     if (trimmedDetail.length < 10) {
       setDetailError("Enter at least 10 characters.")
       detailRef.current?.focus()
-      return
+      return "discarded" as const
     }
 
     setDetailError("")
     setReasonError("")
-    await onSubmit({ detail: trimmedDetail, reason })
+    return onSubmit({ detail: trimmedDetail, reason })
   }
 
   return (

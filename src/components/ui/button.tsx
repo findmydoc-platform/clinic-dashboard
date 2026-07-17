@@ -33,10 +33,12 @@ const buttonVariants = cva(
   },
 )
 
-export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }
+export type ButtonProps = Readonly<
+  ButtonHTMLAttributes<HTMLButtonElement> &
+    VariantProps<typeof buttonVariants> & {
+      asChild?: boolean
+    }
+>
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { asChild = false, className, size, type = "button", variant, ...props },

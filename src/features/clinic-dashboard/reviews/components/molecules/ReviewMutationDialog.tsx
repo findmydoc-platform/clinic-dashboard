@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { RatingStars } from "@/components/ui/rating-stars"
 import type { ClinicReview } from "../../model/review"
+import type { ReviewMutationResult } from "../../model/reviews-view-model"
 
 type ReviewMutationDialogProps = Readonly<{
   children: ReactNode
   description: string
   isSubmitDisabled: boolean
   onClose: () => void
-  onSubmit: () => Promise<void>
+  onSubmit: () => Promise<ReviewMutationResult>
   review: ClinicReview
   submitLabel: string
   title: string
@@ -35,8 +36,8 @@ export function ReviewMutationDialog({
     setSubmitError("")
 
     try {
-      await onSubmit()
-      onClose()
+      const result = await onSubmit()
+      if (result === "applied") onClose()
     } catch {
       setSubmitError("We couldn't save this change. Try again.")
     } finally {

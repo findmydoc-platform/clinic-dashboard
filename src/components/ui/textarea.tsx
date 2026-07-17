@@ -1,10 +1,11 @@
 import { forwardRef, type ChangeEvent, type TextareaHTMLAttributes } from "react"
 import { cn } from "@/lib/utils"
 
-type TextareaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange"> &
-  Readonly<{
+type TextareaProps = Readonly<
+  Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange"> & {
     onValueChange?: (value: string) => void
-  }>
+  }
+>
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
   { className, onValueChange, ...props },

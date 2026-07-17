@@ -12,12 +12,13 @@ import {
   DashboardScreen,
   ProfileTaskDialog,
   type DashboardReportingPeriod,
+  type DashboardSnapshot,
   useDashboardController,
 } from "@/features/clinic-dashboard/dashboard/public"
 import {
   MessagesScreen,
   PatientInquiryProfileDialog,
-  type MessagesData,
+  type MessagesSnapshot,
   type PatientInquiryProfile,
   useMessagesController,
 } from "@/features/clinic-dashboard/messages/public"
@@ -27,7 +28,11 @@ import {
   PrototypeModeSwitch,
   type ClinicDashboardPrototypeMode,
 } from "@/features/clinic-dashboard/prototype/public"
-import { Reviews, type ReviewCommands, type ReviewsData } from "@/features/clinic-dashboard/reviews/public"
+import {
+  Reviews,
+  type ReviewCommands,
+  type ReviewsSnapshot,
+} from "@/features/clinic-dashboard/reviews/public"
 import { SupportRequestDialog, type SupportCommands } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
@@ -37,9 +42,7 @@ import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/work
 import { clinicDashboardNavigationItems } from "./navigation"
 import { useClinicDashboardController } from "./useClinicDashboardController"
 
-type DashboardData = Parameters<typeof useDashboardController>[0]["data"]
-
-export type ClinicDashboardWorkspaceCompositionData = Readonly<{
+export type ClinicDashboardWorkspaceSnapshot = Readonly<{
   account: Readonly<{
     avatar?: StaticImageData | string
     initials: string
@@ -48,11 +51,11 @@ export type ClinicDashboardWorkspaceCompositionData = Readonly<{
   }>
   clinicName: string
   clinicProfile: ClinicProfileDraft
-  dashboard: DashboardData
-  messages: MessagesData
+  dashboard: DashboardSnapshot
+  messages: MessagesSnapshot
   notifications: readonly ClinicDashboardNotification[]
   patientInquiry: PatientInquiryProfile
-  reviews: ReviewsData
+  reviews: ReviewsSnapshot
 }>
 
 export type ClinicDashboardWorkspaceStartState =
@@ -71,7 +74,6 @@ export type ClinicDashboardWorkspaceStartState =
 
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   clinicProfileCommands: ClinicProfileCommands
-  data: ClinicDashboardWorkspaceCompositionData
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
   initialReportingPeriod?: DashboardReportingPeriod
@@ -79,13 +81,13 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   prototypeMode: ClinicDashboardPrototypeMode
   reviewCommands: ReviewCommands
   showPrototypeModeToggle: boolean
+  snapshot: ClinicDashboardWorkspaceSnapshot
   start?: ClinicDashboardWorkspaceStartState
   supportCommands: SupportCommands
 }>
 
 export function ClinicDashboardWorkspaceComposition({
   clinicProfileCommands,
-  data,
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
   initialReportingPeriod = "30 days",
@@ -93,6 +95,7 @@ export function ClinicDashboardWorkspaceComposition({
   prototypeMode,
   reviewCommands,
   showPrototypeModeToggle,
+  snapshot,
   start = {},
   supportCommands,
 }: ClinicDashboardWorkspaceCompositionProps) {
@@ -100,7 +103,7 @@ export function ClinicDashboardWorkspaceComposition({
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
 
-  const initialProfileTask = data.dashboard.profileTasks[0]
+  const initialProfileTask = snapshot.dashboard.profileTasks[0]
   if (!initialProfileTask) throw new Error("The clinic dashboard requires at least one profile task.")
 
   const controller = useClinicDashboardController({
@@ -109,7 +112,7 @@ export function ClinicDashboardWorkspaceComposition({
     initialPatientInquiryOpen: start.dialog === "patient-inquiry",
     initialProfileTask,
     initialSection: start.section ?? "dashboard",
-    notifications: data.notifications,
+    notifications: snapshot.notifications,
     persistWorkspaceStateInSession,
     prototypeMode,
   })
@@ -117,12 +120,12 @@ export function ClinicDashboardWorkspaceComposition({
   const capabilities = getClinicDashboardCapabilities(model.activePrototypeMode)
   const dashboardController = useDashboardController({
     canExportProfileViews: capabilities.canUseDashboardReporting,
-    data: data.dashboard,
     initialReportingPeriod,
+    snapshot: snapshot.dashboard,
   })
   const messagesController = useMessagesController({
-    data: data.messages,
     isInteractive: capabilities.canUseMessaging,
+    snapshot: snapshot.messages,
   })
 
   const openProfileDestination = (destination: ClinicProfileFocusTarget) => {
@@ -133,14 +136,14 @@ export function ClinicDashboardWorkspaceComposition({
     <ClinicDashboardShell
       accountMenu={
         <AccountMenu
-          avatar={data.account.avatar}
-          initials={data.account.initials}
-          name={data.account.name}
-          role={data.account.role}
+          avatar={snapshot.account.avatar}
+          initials={snapshot.account.initials}
+          name={snapshot.account.name}
+          role={snapshot.account.role}
         />
       }
       activeSection={model.activeSection}
-      clinicName={data.clinicName}
+      clinicName={snapshot.clinicName}
       headerActions={
         model.activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
           <DashboardPeriodControl
@@ -172,7 +175,7 @@ export function ClinicDashboardWorkspaceComposition({
       notificationCenter={
         capabilities.showNotifications ? (
           <NotificationCenter
-            notifications={data.notifications}
+            notifications={snapshot.notifications}
             onMarkAllAsRead={actions.markAllNotificationsRead}
             onOpenChange={actions.setNotificationsOpen}
             open={model.notificationsOpen}
@@ -207,25 +210,23 @@ export function ClinicDashboardWorkspaceComposition({
       <div hidden={model.activeSection !== "reviews"}>
         <Reviews
           commands={reviewCommands}
-          data={data.reviews}
           focusHeading={model.reviewsFocusRequested}
           onFocusHandled={actions.clearReviewsFocusRequest}
           showManagement={capabilities.canManageReviews}
+          snapshot={snapshot.reviews}
         />
       </div>
       <div hidden={model.activeSection !== "profile"}>
         <ClinicProfile
-          canManageProfile={capabilities.canManageProfile}
-          canManageTeam={capabilities.canManageTeam}
           commands={clinicProfileCommands}
           focusTarget={model.profileFocusTarget}
           initialDialog={
             start.dialog === "team-member" || start.dialog === "treatment" ? start.dialog : undefined
           }
-          initialProfile={data.clinicProfile}
+          initialProfile={snapshot.clinicProfile}
           onFocusHandled={actions.clearProfileFocusRequest}
-          showProfileManagement={capabilities.showProfileManagement}
-          showTeamManagement={capabilities.showTeamManagement}
+          profileManagement={capabilities.profileManagement}
+          teamManagement={capabilities.teamManagement}
         />
       </div>
 
@@ -233,7 +234,7 @@ export function ClinicDashboardWorkspaceComposition({
         canViewDetailedInquiry={capabilities.canViewDetailedPatientInquiry}
         onOpenChange={actions.setPatientInquiryOpen}
         open={model.patientInquiryOpen}
-        patient={data.patientInquiry}
+        patient={snapshot.patientInquiry}
       />
       <ProfileTaskDialog
         onOpenChange={actions.setProfileTaskOpen}
