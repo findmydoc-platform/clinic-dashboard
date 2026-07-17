@@ -30,11 +30,13 @@ export function TreatmentDialog({
   const [masterTreatmentId, setMasterTreatmentId] = useState(initialTreatment?.masterTreatmentId ?? "")
   const [price, setPrice] = useState(initialTreatment?.price ?? "")
   const isCreating = !initialTreatment
-  const canSave = Boolean(masterTreatmentId && price.trim())
+  const normalizedPrice = price.trim()
+  const hasPriceChanged = isCreating || normalizedPrice !== initialTreatment.price.trim()
+  const canSave = Boolean(masterTreatmentId && normalizedPrice && hasPriceChanged)
 
   const save = () => {
     if (!canSave) return
-    const accepted = onSave({ masterTreatmentId, price: price.trim() })
+    const accepted = onSave({ masterTreatmentId, price: normalizedPrice })
     if (accepted) onOpenChange(false)
   }
 

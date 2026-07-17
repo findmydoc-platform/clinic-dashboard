@@ -35,9 +35,14 @@ export const EditablePrice: Story = {
     await expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument()
 
     const price = within(dialog).getByRole("textbox", { name: "Price" })
+    const save = within(dialog).getByRole("button", { name: "Save price" })
+    await expect(save).toBeDisabled()
+    await userEvent.clear(price)
+    await userEvent.type(price, "  €250  ")
+    await expect(save).toBeDisabled()
     await userEvent.clear(price)
     await userEvent.type(price, "€275")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save price" }))
+    await userEvent.click(save)
 
     await expect(args.onSave).toHaveBeenCalledWith({
       masterTreatmentId: treatment.masterTreatmentId,
@@ -95,4 +100,9 @@ export const ReadOnly: Story = {
 export const MobileAddTreatment: Story = {
   args: { initialTreatment: undefined },
   globals: { viewport: { value: "mobile320Short" } },
+}
+
+export const DarkAddTreatment: Story = {
+  args: { initialTreatment: undefined },
+  globals: { theme: "dark" },
 }

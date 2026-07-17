@@ -175,6 +175,13 @@ export function clinicProfileEditorReducer(
       )
       if (saveError) return { ...state, statusMessage: saveError }
 
+      const currentTreatment = action.editingMasterTreatmentId
+        ? state.draft.treatments.find(
+            (treatment) => treatment.masterTreatmentId === action.editingMasterTreatmentId,
+          )
+        : undefined
+      if (currentTreatment?.price.trim() === action.treatment.price.trim()) return state
+
       return withDraft(
         state,
         {

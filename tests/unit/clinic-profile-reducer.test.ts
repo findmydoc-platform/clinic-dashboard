@@ -9,6 +9,10 @@ import {
   isClinicProfileDialogAvailabilityEqual,
   selectAvailableClinicProfileDialog,
 } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-dialogs"
+import {
+  selectAvailableMasterTreatments,
+  selectClinicTreatmentViews,
+} from "@/features/clinic-dashboard/clinic-profile/model/clinic-treatments"
 import { selectClinicProfileEditorProjection } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile.selectors"
 import {
   clinicProfileFixture,
@@ -225,6 +229,48 @@ describe("clinic profile editor reducer", () => {
     expect(selectClinicProfileDirty(edited)).toBe(true)
   })
 
+  it("maps assigned catalogue treatments and leaves only the unassigned entry available", () => {
+    expect(
+      selectAvailableMasterTreatments(clinicTreatmentCatalogueFixture, clinicProfileFixture.treatments),
+    ).toEqual([{ id: "master-hair-transplant", name: "Hair transplant" }])
+    expect(
+      selectClinicTreatmentViews(clinicTreatmentCatalogueFixture, clinicProfileFixture.treatments),
+    ).toEqual([
+      {
+        masterTreatmentId: "master-laser-teeth-whitening",
+        name: "Laser teeth whitening",
+        price: "€250",
+      },
+      {
+        masterTreatmentId: "master-ceramic-veneers",
+        name: "Ceramic veneers (per tooth)",
+        price: "€850",
+      },
+      {
+        masterTreatmentId: "master-skin-analysis",
+        name: "Skin analysis and treatment",
+        price: "€120",
+      },
+    ])
+  })
+
+  it("ignores a normalized no-op price edit", () => {
+    const initial = createInitialState()
+    const existing = initial.draft.treatments[0]
+    expect(existing).toBeDefined()
+    if (!existing) return
+
+    const unchanged = clinicProfileEditorReducer(initial, {
+      editingMasterTreatmentId: existing.masterTreatmentId,
+      treatment: { ...existing, price: `  ${existing.price}  ` },
+      type: "treatmentSaved",
+    })
+
+    expect(unchanged).toBe(initial)
+    expect(selectClinicProfileDirty(unchanged)).toBe(false)
+    expect(unchanged.statusMessage).toBe("")
+  })
+
   it("rejects unknown, duplicate, and changed master-treatment relationships", () => {
     const initial = createInitialState()
     const existing = initial.draft.treatments[0]
@@ -276,6 +322,16 @@ describe("clinic profile editor reducer", () => {
         clinicTreatmentCatalogueFixture,
       ),
     ).toThrow("already assigned")
+
+    expect(() =>
+      createClinicProfileEditorState(
+        {
+          ...clinicProfileFixture,
+          treatments: [{ ...clinicProfileFixture.treatments[0]!, price: "   " }],
+        },
+        clinicTreatmentCatalogueFixture,
+      ),
+    ).toThrow("Enter a clinic price")
   })
 
   it("tracks saving, failure, success, and cancellation as explicit transitions", () => {
