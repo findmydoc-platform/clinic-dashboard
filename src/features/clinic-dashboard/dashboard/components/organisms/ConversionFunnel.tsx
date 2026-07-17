@@ -38,6 +38,7 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
       <ol
         aria-label="Conversion stages"
         className="flex list-none flex-col gap-2 p-4 xl:grid xl:grid-cols-[minmax(0,10rem)_minmax(3rem,1fr)_minmax(0,10rem)_minmax(3rem,1fr)_minmax(0,10rem)_minmax(3rem,1fr)_minmax(0,10rem)_minmax(3rem,1fr)_minmax(0,10rem)] xl:gap-0 xl:p-5"
+        role="list"
       >
         {steps.map((step, index) => {
           const iconConfig = funnelIcons[step.label as keyof typeof funnelIcons] ?? {

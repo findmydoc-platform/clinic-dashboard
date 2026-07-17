@@ -37,6 +37,22 @@ function getFunnelLayout(canvasElement: HTMLElement) {
   return { arrows, stages }
 }
 
+async function expectStackedFunnel(canvasElement: HTMLElement) {
+  const { arrows, stages } = getFunnelLayout(canvasElement)
+  const stageBounds = stages.map((stage) => stage.getBoundingClientRect())
+
+  for (const [index, bounds] of stageBounds.entries()) {
+    await expect(bounds.width).toBeLessThanOrEqual(canvasElement.clientWidth)
+    if (index > 0) {
+      await expect(bounds.top - stageBounds[index - 1].bottom).toBeGreaterThanOrEqual(7.5)
+    }
+  }
+
+  for (const arrow of arrows) {
+    await expect(arrow.getBoundingClientRect().width).toBe(0)
+  }
+}
+
 export const SevenDayJourney: Story = {
   args: {
     period: "7 days",
@@ -80,21 +96,17 @@ export const NarrowViewport: Story = {
   globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
     await expectSevenDayJourney(canvasElement)
-
-    const { arrows, stages } = getFunnelLayout(canvasElement)
-    const stageBounds = stages.map((stage) => stage.getBoundingClientRect())
-
-    for (const [index, bounds] of stageBounds.entries()) {
-      await expect(bounds.width).toBeLessThanOrEqual(canvasElement.clientWidth)
-      if (index > 0) {
-        await expect(bounds.top - stageBounds[index - 1].bottom).toBeGreaterThanOrEqual(7.5)
-      }
-    }
-
-    for (const arrow of arrows) {
-      await expect(arrow.getBoundingClientRect().width).toBe(0)
-    }
+    await expectStackedFunnel(canvasElement)
 
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+
+export const BelowXlLayout: Story = {
+  ...SevenDayJourney,
+  globals: { viewport: { value: "desktop1279" } },
+  play: async ({ canvasElement }) => {
+    await expectSevenDayJourney(canvasElement)
+    await expectStackedFunnel(canvasElement)
   },
 }

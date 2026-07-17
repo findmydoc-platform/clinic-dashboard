@@ -1,4 +1,8 @@
 export const storybookViewports = {
+  desktop1279: {
+    name: "Desktop 1279",
+    styles: { height: "1200px", width: "1279px" },
+  },
   desktop1280: {
     name: "Desktop 1280",
     styles: { height: "900px", width: "1280px" },
