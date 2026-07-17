@@ -483,7 +483,7 @@ export const CapabilityWithdrawalProjectsSnapshot: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Disable review management" }))
 
     const enableManagement = canvas.getByRole("button", { name: "Enable review management" })
-    await expect(enableManagement).toHaveFocus()
+    await waitFor(() => expect(enableManagement).toHaveFocus())
     await waitFor(() =>
       expect(page.queryByRole("dialog", { name: "Review history" })).not.toBeInTheDocument(),
     )
@@ -495,7 +495,9 @@ export const CapabilityWithdrawalProjectsSnapshot: Story = {
     await new Promise((resolve) => setTimeout(resolve, 400))
     await userEvent.click(enableManagement)
 
-    await expect(canvas.getByRole("button", { name: "Disable review management" })).toHaveFocus()
+    await waitFor(() =>
+      expect(canvas.getByRole("button", { name: "Disable review management" })).toHaveFocus(),
+    )
     await expect(canvas.getByText("Manage patient feedback and respond to reviews.")).toBeInTheDocument()
     await expect(page.queryByRole("dialog", { name: "Review history" })).not.toBeInTheDocument()
     await expect(canvas.queryByText("Reviews refreshed.")).not.toBeInTheDocument()
