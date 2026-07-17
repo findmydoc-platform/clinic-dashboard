@@ -114,9 +114,15 @@ const DropdownMenuContent = forwardRef<
     useEffect(() => {
       if (!open) return
 
-      const frame = requestAnimationFrame(() =>
-        contentRef.current?.querySelector<HTMLElement>(menuItemSelector)?.focus(),
-      )
+      const frame = requestAnimationFrame(() => {
+        const content = contentRef.current
+        if (!content) return
+
+        const focusedMenuItem = content.ownerDocument.activeElement?.closest(menuItemSelector)
+        if (focusedMenuItem && content.contains(focusedMenuItem)) return
+
+        content.querySelector<HTMLElement>(menuItemSelector)?.focus()
+      })
       return () => cancelAnimationFrame(frame)
     }, [open])
 
