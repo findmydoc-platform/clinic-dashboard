@@ -11,59 +11,59 @@ export type ClinicProfileImageSource =
       width: number
     }>
 
-export type ClinicTeamMember = {
+export type ClinicTeamMember = Readonly<{
   avatar?: ClinicProfileImageSource
   biography: string
   id: string
   initials: string
   name: string
   specialty: string
-}
+}>
 
 export type ClinicTeamMemberInput = Readonly<Omit<ClinicTeamMember, "id">>
 
-export type ClinicTreatment = {
+export type ClinicTreatment = Readonly<{
   category: string
   description: string
   duration: string
   id: string
   name: string
   price: string
-}
+}>
 
 export type ClinicTreatmentInput = Readonly<Omit<ClinicTreatment, "id">>
 
-export type ClinicOpeningHours = {
+export type ClinicOpeningHours = Readonly<{
   days: string
   hours: string
-}
+}>
 
-export type ClinicGalleryItem = {
+export type ClinicGalleryItem = Readonly<{
   alt: string
   id: string
   isCover: boolean
   src: ClinicProfileImageSource
-}
+}>
 
-export type ClinicProfileDraft = {
-  address: {
+export type ClinicProfileDraft = Readonly<{
+  address: Readonly<{
     city: string
     phone: string
     postalCode: string
     street: string
-  }
+  }>
   description: string
-  gallery: ClinicGalleryItem[]
+  gallery: readonly ClinicGalleryItem[]
   galleryTotal: number
   id: string
   name: string
-  openingHours: ClinicOpeningHours[]
+  openingHours: readonly ClinicOpeningHours[]
   revision: number
-  specialties: string[]
-  team: ClinicTeamMember[]
-  treatments: ClinicTreatment[]
+  specialties: readonly string[]
+  team: readonly ClinicTeamMember[]
+  treatments: readonly ClinicTreatment[]
   updatedAt: string
-}
+}>
 
 export function cloneClinicProfile(profile: ClinicProfileDraft): ClinicProfileDraft {
   return {
