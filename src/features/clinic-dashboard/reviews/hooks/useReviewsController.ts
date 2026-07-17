@@ -135,7 +135,7 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     }
     dispatch({
       review,
-      statusMessage: "Review response submitted for moderation.",
+      statusMessage: "Prototype only — response saved locally; nothing was submitted.",
       type: "review-mutation-succeeded",
     })
     return "applied"

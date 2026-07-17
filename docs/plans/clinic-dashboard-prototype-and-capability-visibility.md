@@ -106,7 +106,7 @@ Dashboard overview data remains fixture-backed until [website#1531](https://gith
 
 Later reporting reads approved behavioural aggregates from PostHog server-side and authoritative inquiry, review, and completeness facts from Payload through the website-owned contract. The dashboard receives only the shaped response.
 
-Review fixtures keep published and pending-moderation responses as separate values. Submitting the local response draft creates only a deterministic pending-moderation value; it does not replace published text, change review or appeal status, or imply that the clinic can publish directly. Pending values remain management-only, while presentation mode projects only published review activity. The matching Website Capability Matrix row remains unchanged: website#1529 owns the future schema and authorized moderation contract, and only approved responses may affect public cached output.
+Review fixtures keep published and pending-moderation responses as separate values. Saving the local response preview creates only a deterministic pending-moderation value and explicitly states that nothing was submitted or sent; it does not replace published text, change review or appeal status, or imply that the clinic can publish directly. Pending values remain management-only, while presentation mode projects only published review activity. The matching Website Capability Matrix row remains unchanged: website#1529 owns the future schema and authorized moderation contract, and only approved responses may affect public cached output.
 
 ## Test and Acceptance Plan
 

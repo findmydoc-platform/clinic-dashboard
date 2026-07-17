@@ -79,7 +79,7 @@ export function ReviewCard({
               <Clock3 aria-hidden="true" className="size-4" /> Pending moderation
             </div>
             <time className="text-xs text-[var(--foreground)]" dateTime={review.pendingResponse.submittedAt}>
-              Submitted {review.pendingResponse.submittedAt.replace("T", " ").replace(".000Z", " UTC")}
+              Saved {review.pendingResponse.submittedAt.replace("T", " ").replace(".000Z", " UTC")}
             </time>
           </div>
           <p className="mt-2 text-sm italic">{review.pendingResponse.response}</p>

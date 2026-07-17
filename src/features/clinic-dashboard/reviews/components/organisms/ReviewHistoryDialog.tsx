@@ -51,7 +51,7 @@ export function ReviewHistoryDialog({ onClose, review }: ReviewHistoryDialogProp
                   className="block text-xs text-[var(--foreground)]"
                   dateTime={review.pendingResponse.submittedAt}
                 >
-                  Submitted {review.pendingResponse.submittedAt.replace("T", " ").replace(".000Z", " UTC")}
+                  Saved {review.pendingResponse.submittedAt.replace("T", " ").replace(".000Z", " UTC")}
                 </time>
               </div>
             ) : (

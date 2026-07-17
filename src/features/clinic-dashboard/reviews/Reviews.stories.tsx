@@ -69,9 +69,11 @@ export const NewResponsePendingModeration: Story = {
       within(responseDialog).getByLabelText("Response for moderation"),
       "Thank you for the helpful feedback. We will review the reception process.",
     )
-    await userEvent.click(within(responseDialog).getByRole("button", { name: "Submit for moderation" }))
+    await userEvent.click(within(responseDialog).getByRole("button", { name: "Save moderation preview" }))
     await waitFor(() =>
-      expect(page.getByText("Review response submitted for moderation.")).toBeInTheDocument(),
+      expect(
+        page.getByText("Prototype only — response saved locally; nothing was submitted."),
+      ).toBeInTheDocument(),
     )
     await expect(within(openReview).getByText("Open")).toBeInTheDocument()
     await expect(within(openReview).queryByText("Answered")).not.toBeInTheDocument()
@@ -88,9 +90,12 @@ export const NewResponsePendingModeration: Story = {
     await userEvent.click(editPendingResponse)
     const editDialog = page.getByRole("dialog", { name: "Respond to review" })
     const editResponse = within(editDialog).getByLabelText("Response for moderation")
+    const editSubmit = within(editDialog).getByRole("button", { name: "Save moderation preview" })
+    await expect(editSubmit).toBeDisabled()
     await userEvent.clear(editResponse)
     await userEvent.type(editResponse, "Thank you. Our reception process has now been reviewed.")
-    await userEvent.click(within(editDialog).getByRole("button", { name: "Submit for moderation" }))
+    await expect(editSubmit).toBeEnabled()
+    await userEvent.click(editSubmit)
     await waitFor(() => expect(within(openReview).getByText(/has now been reviewed/)).toBeInTheDocument())
   },
 }
@@ -111,10 +116,13 @@ export const PublishedResponseEditPendingModeration: Story = {
     await userEvent.click(within(publishedReview).getByRole("button", { name: "Edit response" }))
     const dialog = page.getByRole("dialog", { name: "Respond to review" })
     const responseDraft = within(dialog).getByLabelText("Response for moderation")
+    const savePreview = within(dialog).getByRole("button", { name: "Save moderation preview" })
     await expect(responseDraft).toHaveValue(publishedResponse)
+    await expect(savePreview).toBeDisabled()
     await userEvent.clear(responseDraft)
     await userEvent.type(responseDraft, "Thank you. We have shared your feedback with the clinic team.")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Submit for moderation" }))
+    await expect(savePreview).toBeEnabled()
+    await userEvent.click(savePreview)
 
     await waitFor(() => expect(within(publishedReview).getByText("Pending moderation")).toBeInTheDocument())
     await expect(within(publishedReview).getByText(publishedResponse)).toBeInTheDocument()
@@ -143,6 +151,42 @@ export const PendingModerationDark: Story = {
     await expect(
       within(publishedReview).queryByRole("button", { name: /retry|withdraw/i }),
     ).not.toBeInTheDocument()
+  },
+}
+
+export const ResponseDialogDismissal: Story = {
+  args: createReviewsArgs(),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const openReview = getOpenReview(canvasElement)
+    const respond = within(openReview).getByRole("button", { name: "Respond" })
+
+    await userEvent.click(respond)
+    let dialog = page.getByRole("dialog", { name: "Respond to review" })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(page.queryByRole("dialog", { name: "Respond to review" })).toBeNull())
+    await expect(respond).toHaveFocus()
+
+    await userEvent.click(respond)
+    dialog = page.getByRole("dialog", { name: "Respond to review" })
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(page.queryByRole("dialog", { name: "Respond to review" })).toBeNull())
+    await expect(respond).toHaveFocus()
+  },
+}
+
+export const PendingModerationMobile320: Story = {
+  args: createReviewsArgs(),
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const pending = canvas.getByText("Pending moderation").closest<HTMLElement>("[data-review-status]")
+    if (!pending) throw new Error("Expected a pending moderation review card")
+
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+    const bounds = pending.getBoundingClientRect()
+    await expect(bounds.left).toBeGreaterThanOrEqual(-0.5)
+    await expect(bounds.right).toBeLessThanOrEqual(canvasElement.clientWidth + 0.5)
   },
 }
 
@@ -329,7 +373,7 @@ export const MutationRetry: Story = {
       within(dialog).getByLabelText("Response for moderation"),
       "A valid retry response for this review.",
     )
-    const submit = within(dialog).getByRole("button", { name: "Submit for moderation" })
+    const submit = within(dialog).getByRole("button", { name: "Save moderation preview" })
     await userEvent.click(submit)
     await expect(within(dialog).getByRole("alert")).toHaveTextContent("couldn't save")
     await expect(submit).toBeEnabled()
@@ -420,7 +464,7 @@ export const CapabilityWithdrawalDiscardsPendingMutation: Story = {
     await userEvent.click(within(openReview).getByRole("button", { name: "Respond" }))
     const responseDialog = page.getByRole("dialog", { name: "Respond to review" })
     await userEvent.type(within(responseDialog).getByLabelText("Response for moderation"), response)
-    await userEvent.click(within(responseDialog).getByRole("button", { name: "Submit for moderation" }))
+    await userEvent.click(within(responseDialog).getByRole("button", { name: "Save moderation preview" }))
     await expect(canvas.getByRole("button", { name: "Resolve deferred command" })).toBeEnabled()
 
     await userEvent.click(canvas.getByRole("button", { name: "Disable review management" }))
@@ -431,7 +475,9 @@ export const CapabilityWithdrawalDiscardsPendingMutation: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Enable review management" }))
 
     await expect(canvas.getByText("Manage patient feedback and respond to reviews.")).toBeInTheDocument()
-    await expect(canvas.queryByText("Review response submitted for moderation.")).not.toBeInTheDocument()
+    await expect(
+      canvas.queryByText("Prototype only — response saved locally; nothing was submitted."),
+    ).not.toBeInTheDocument()
     await expect(canvas.queryByText(response)).not.toBeInTheDocument()
     await expect(within(getOpenReview(canvasElement)).getByText("Open")).toBeInTheDocument()
     await expect(page.queryByRole("dialog", { name: "Respond to review" })).not.toBeInTheDocument()

@@ -59,6 +59,7 @@ export const PendingModerationHistory: Story = {
 
     await expect(within(dialog).getByText("Published clinic response")).toBeInTheDocument()
     await expect(within(dialog).getByText("Pending moderation")).toBeInTheDocument()
+    await expect(within(dialog).getByText(/^Saved 2023-10-16/)).toBeInTheDocument()
     await expect(
       within(dialog).getByText("Thank you. We have shared your feedback with the consultation team."),
     ).toBeInTheDocument()

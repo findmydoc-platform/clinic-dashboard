@@ -31,13 +31,16 @@ export const NewResponse: Story = {
     const dialog = within(canvasElement.ownerDocument.body).getByRole("dialog", {
       name: "Respond to review",
     })
-    const submit = within(dialog).getByRole("button", { name: "Submit for moderation" })
+    const submit = within(dialog).getByRole("button", { name: "Save moderation preview" })
+    const response = within(dialog).getByLabelText("Response for moderation")
 
     await expect(submit).toBeDisabled()
-    await userEvent.type(
-      within(dialog).getByLabelText("Response for moderation"),
-      "Thank you for the helpful feedback.",
-    )
+    await userEvent.type(response, "123456789")
+    await expect(submit).toBeDisabled()
+    await userEvent.type(response, "0")
+    await expect(submit).toBeEnabled()
+    await userEvent.clear(response)
+    await userEvent.type(response, "Thank you for the helpful feedback.")
     await userEvent.click(submit)
     await waitFor(() =>
       expect(args.onSubmit).toHaveBeenCalledWith({ response: "Thank you for the helpful feedback." }),
@@ -60,9 +63,13 @@ export const ExistingPublishedResponse: Story = {
       publishedReviewFixture.publishedResponse,
     )
     await expect(
-      within(dialog).getByText(/published response stays unchanged until the pending response is approved/i),
+      within(dialog).getByText(/published response stays unchanged\. Nothing is submitted or sent/i),
     ).toBeInTheDocument()
-    await expect(within(dialog).getByRole("button", { name: "Submit for moderation" })).toBeEnabled()
+    const submit = within(dialog).getByRole("button", { name: "Save moderation preview" })
+    const response = within(dialog).getByLabelText("Response for moderation")
+    await expect(submit).toBeDisabled()
+    await userEvent.type(response, " Updated")
+    await expect(submit).toBeEnabled()
   },
 }
 
@@ -79,5 +86,10 @@ export const ExistingPendingResponse: Story = {
     await expect(within(dialog).getByLabelText("Response for moderation")).toHaveValue(
       "Thank you. We have shared your feedback with the consultation team.",
     )
+    const response = within(dialog).getByLabelText("Response for moderation")
+    const submit = within(dialog).getByRole("button", { name: "Save moderation preview" })
+    await expect(submit).toBeDisabled()
+    await userEvent.type(response, " Updated")
+    await expect(submit).toBeEnabled()
   },
 }

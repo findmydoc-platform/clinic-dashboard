@@ -43,6 +43,7 @@ export const PublishedResponseWithPendingEdit: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText("Published clinic response")).toBeInTheDocument()
     await expect(canvas.getByText("Pending moderation")).toBeInTheDocument()
+    await expect(canvas.getByText(/^Saved 2023-10-16/)).toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: /retry|withdraw/i })).not.toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Edit pending response" }))
     await expect(args.onResponseOpen).toHaveBeenCalledWith(publishedReviewFixture.id)
