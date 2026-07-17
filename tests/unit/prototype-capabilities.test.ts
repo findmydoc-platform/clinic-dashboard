@@ -8,6 +8,7 @@ import {
 
 const hiddenCapabilityVisibility = {
   certificateTasks: "hidden",
+  certificatesAccreditationsPlaceholder: "hidden",
   dashboardReporting: "hidden",
   inquiryProfile: "hidden",
   locationSwitching: "hidden",
@@ -28,6 +29,7 @@ const hiddenCapabilities = {
   canSwitchLocations: false,
   profileManagement: "hidden",
   showCertificateTasks: false,
+  showCertificatesAccreditationsPlaceholder: false,
   showNotifications: false,
   showSupport: false,
   showSubscriptionsPlaceholder: false,
@@ -44,6 +46,7 @@ describe("clinic dashboard prototype capabilities", () => {
       canSwitchLocations: false,
       profileManagement: "read-only",
       showCertificateTasks: false,
+      showCertificatesAccreditationsPlaceholder: false,
       showNotifications: false,
       showSupport: false,
       showSubscriptionsPlaceholder: false,
@@ -60,6 +63,7 @@ describe("clinic dashboard prototype capabilities", () => {
       canSwitchLocations: true,
       profileManagement: "interactive",
       showCertificateTasks: true,
+      showCertificatesAccreditationsPlaceholder: true,
       showNotifications: true,
       showSupport: true,
       showSubscriptionsPlaceholder: true,
@@ -72,7 +76,6 @@ describe("clinic dashboard prototype capabilities", () => {
     ["locationSwitching", "canSwitchLocations"],
     ["notifications", "showNotifications"],
     ["support", "showSupport"],
-    ["subscriptionsPlaceholder", "showSubscriptionsPlaceholder"],
   ] as const)("derives %s independently as %s", (visibilityField, capabilityField) => {
     const capabilities = deriveClinicDashboardCapabilities({
       ...hiddenCapabilityVisibility,
@@ -111,15 +114,39 @@ describe("clinic dashboard prototype capabilities", () => {
     expect(capabilities[capabilityField]).toBe(false)
   })
 
-  it("keeps the read-only Subscriptions placeholder visible", () => {
+  it.each([
+    ["subscriptionsPlaceholder", "showSubscriptionsPlaceholder"],
+    ["certificatesAccreditationsPlaceholder", "showCertificatesAccreditationsPlaceholder"],
+  ] as const)("keeps the read-only %s visible as %s", (visibilityField, capabilityField) => {
     const capabilities = deriveClinicDashboardCapabilities({
       ...hiddenCapabilityVisibility,
-      subscriptionsPlaceholder: "read-only",
+      [visibilityField]: "read-only",
     })
 
     expect(capabilities).toEqual({
       ...hiddenCapabilities,
-      showSubscriptionsPlaceholder: true,
+      [capabilityField]: true,
+    })
+  })
+
+  it("keeps the Certificates and accreditations placeholder independent from certificate tasks", () => {
+    expect(
+      deriveClinicDashboardCapabilities({
+        ...hiddenCapabilityVisibility,
+        certificateTasks: "interactive",
+      }),
+    ).toEqual({
+      ...hiddenCapabilities,
+      showCertificateTasks: true,
+    })
+    expect(
+      deriveClinicDashboardCapabilities({
+        ...hiddenCapabilityVisibility,
+        certificatesAccreditationsPlaceholder: "read-only",
+      }),
+    ).toEqual({
+      ...hiddenCapabilities,
+      showCertificatesAccreditationsPlaceholder: true,
     })
   })
 
