@@ -143,7 +143,7 @@ export const dashboardFixture = {
 export const dashboardViewModel = {
   clinicPreview: {
     location: "Mitte, Berlin",
-    name: "Berlin Health",
+    name: "Berlin Health Clinic — Mitte",
     ratingLabel: "4.8 ★",
   },
   profileCompletion: "82%",

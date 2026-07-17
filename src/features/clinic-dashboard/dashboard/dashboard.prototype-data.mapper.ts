@@ -1,15 +1,16 @@
-import type { DashboardViewModel } from "./model/dashboard-view-model"
+import type { DashboardLocationSummary, DashboardViewModel } from "./model/dashboard-view-model"
 import type { DashboardSnapshot } from "./model/dashboard-snapshot"
 import type { DashboardReportingPeriod } from "./model/reporting"
 
 export function createDashboardPrototypeViewModel(
   snapshot: DashboardSnapshot,
   period: DashboardReportingPeriod,
+  locationSummary: DashboardLocationSummary,
 ): DashboardViewModel {
   return {
     clinicPreview: {
-      location: "Mitte, Berlin",
-      name: "Berlin Health",
+      location: locationSummary.location,
+      name: locationSummary.name,
       ratingLabel: "4.8 ★",
     },
     profileCompletion: "82%",

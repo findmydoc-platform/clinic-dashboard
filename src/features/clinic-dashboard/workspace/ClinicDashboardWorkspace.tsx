@@ -26,9 +26,9 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
 
 const clinicDashboardWorkspaceSnapshot = {
   account: clinicDashboardWorkspacePrototypeData.account,
-  clinicName: clinicDashboardWorkspacePrototypeData.clinicName,
   clinicProfile: clinicProfilePrototypeData,
   dashboard: dashboardPrototypeData,
+  locations: clinicDashboardWorkspacePrototypeData.locations,
   messages: messagesPrototypeData,
   notifications: clinicDashboardWorkspacePrototypeData.notifications,
   patientInquiry: patientInquiryPrototypeData,

@@ -19,6 +19,69 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 
+export const VisualReferenceLocationSwitching: Story = {
+  args: { prototypeMode: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const header = within(canvas.getByRole("banner"))
+    const dashboardLocation = within(
+      canvas.getByRole("region", { name: "Dashboard clinic location summary" }),
+    )
+    const locationSelector = canvas.getByRole("combobox", { name: "Clinic location" })
+
+    await expect(locationSelector).toHaveValue("berlin-mitte")
+    await expect(locationSelector).toHaveDisplayValue("Mitte")
+    await expect(
+      header.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
+    ).toBeInTheDocument()
+    await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
+
+    await userEvent.selectOptions(locationSelector, "berlin-charlottenburg")
+    await expect(locationSelector).toHaveDisplayValue("Charlottenburg")
+
+    await expect(
+      header.getByRole("group", {
+        name: "Current clinic identity: Berlin Health Clinic — Charlottenburg",
+      }),
+    ).toBeInTheDocument()
+    await expect(dashboardLocation.getByText("Charlottenburg, Berlin")).toBeInTheDocument()
+    await expect(
+      canvas.getByRole("button", { name: "Open account menu for Sarah Schmidt" }),
+    ).toBeInTheDocument()
+  },
+}
+
+export const PresentationUsesDefaultLocation: Story = {
+  args: { prototypeMode: "presentation" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const header = within(canvas.getByRole("banner"))
+    const dashboardLocation = within(
+      canvas.getByRole("region", { name: "Dashboard clinic location summary" }),
+    )
+
+    await expect(canvas.queryByRole("combobox", { name: "Clinic location" })).not.toBeInTheDocument()
+    await expect(
+      header.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
+    ).toBeInTheDocument()
+    await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
+  },
+}
+
+export const LocationSwitchingAt320: Story = {
+  args: { prototypeMode: "visual-reference" },
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const locationSelector = canvas.getByRole("combobox", { name: "Clinic location" })
+
+    await userEvent.selectOptions(locationSelector, "berlin-charlottenburg")
+    await expect(locationSelector).toHaveValue("berlin-charlottenburg")
+    await expect(locationSelector).toHaveDisplayValue("Charlottenburg")
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+
 export const Mobile: Story = {
   args: { prototypeMode: "visual-reference" },
   globals: { viewport: { value: "mobile390Tall" } },
