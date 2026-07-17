@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { Button } from "@/components/ui/button"
 import { Reviews } from "./Reviews"
+import type { ReviewsSnapshot } from "./model/reviews-snapshot"
 import {
   createReviewCommandsFixture,
   createRetryReviewCommandsFixture,
@@ -19,11 +20,23 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-function createReviewsArgs(showManagement = true): ComponentProps<typeof Reviews> {
+const publishedEditSnapshot: ReviewsSnapshot = {
+  ...reviewsFixture,
+  items: reviewsFixture.items.map((review) =>
+    review.id === "review-markus-schmidt"
+      ? { ...review, pendingResponse: undefined, revision: review.revision - 1 }
+      : review,
+  ),
+}
+
+function createReviewsArgs(
+  showManagement = true,
+  snapshot: ReviewsSnapshot = reviewsFixture,
+): ComponentProps<typeof Reviews> {
   return {
     commands: createReviewCommandsFixture(),
     showManagement,
-    snapshot: reviewsFixture,
+    snapshot,
   }
 }
 
@@ -39,12 +52,12 @@ export const VisualReference: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText("Manage patient feedback and respond to reviews.")).toBeInTheDocument()
     await expect(canvas.getByRole("button", { name: "Apply filters" })).toBeDisabled()
-    await expect(canvas.getByRole("button", { name: "Edit response" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Edit pending response" })).toBeInTheDocument()
     await expect(canvas.getByRole("button", { name: "Responses locked" })).toBeDisabled()
   },
 }
 
-export const ResponseLifecycle: Story = {
+export const NewResponsePendingModeration: Story = {
   args: createReviewsArgs(),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)
@@ -53,21 +66,83 @@ export const ResponseLifecycle: Story = {
     await userEvent.click(within(openReview).getByRole("button", { name: "Respond" }))
     const responseDialog = page.getByRole("dialog", { name: "Respond to review" })
     await userEvent.type(
-      within(responseDialog).getByLabelText("Public response"),
+      within(responseDialog).getByLabelText("Response for moderation"),
       "Thank you for the helpful feedback. We will review the reception process.",
     )
-    await userEvent.click(within(responseDialog).getByRole("button", { name: "Save response" }))
-    await waitFor(() => expect(page.getByText("Review response saved.")).toBeInTheDocument())
-    await expect(within(openReview).getByText("Answered")).toBeInTheDocument()
+    await userEvent.click(within(responseDialog).getByRole("button", { name: "Submit for moderation" }))
+    await waitFor(() =>
+      expect(page.getByText("Review response submitted for moderation.")).toBeInTheDocument(),
+    )
+    await expect(within(openReview).getByText("Open")).toBeInTheDocument()
+    await expect(within(openReview).queryByText("Answered")).not.toBeInTheDocument()
+    await expect(within(openReview).getByText("Pending moderation")).toBeInTheDocument()
     await expect(within(openReview).getByText(/reception process/)).toBeInTheDocument()
+    const editPendingResponse = within(openReview).getByRole("button", {
+      name: "Edit pending response",
+    })
+    await expect(editPendingResponse).toHaveFocus()
+    await expect(
+      within(openReview).queryByRole("button", { name: /retry|withdraw/i }),
+    ).not.toBeInTheDocument()
 
-    await userEvent.click(within(openReview).getByRole("button", { name: "Edit response" }))
+    await userEvent.click(editPendingResponse)
     const editDialog = page.getByRole("dialog", { name: "Respond to review" })
-    const editResponse = within(editDialog).getByLabelText("Public response")
+    const editResponse = within(editDialog).getByLabelText("Response for moderation")
     await userEvent.clear(editResponse)
     await userEvent.type(editResponse, "Thank you. Our reception process has now been reviewed.")
-    await userEvent.click(within(editDialog).getByRole("button", { name: "Save response" }))
+    await userEvent.click(within(editDialog).getByRole("button", { name: "Submit for moderation" }))
     await waitFor(() => expect(within(openReview).getByText(/has now been reviewed/)).toBeInTheDocument())
+  },
+}
+
+export const PublishedResponseEditPendingModeration: Story = {
+  args: createReviewsArgs(true, publishedEditSnapshot),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+    const publishedReview = canvas
+      .getByText("Markus Schmidt")
+      .closest<HTMLElement>('[data-review-status="Answered"]')
+    if (!publishedReview) throw new Error("Expected a published response review in the fixture")
+    const publishedResponse =
+      "Thank you for your kind feedback. We are pleased that you are happy with the result."
+
+    await expect(within(publishedReview).getByText(publishedResponse)).toBeInTheDocument()
+    await userEvent.click(within(publishedReview).getByRole("button", { name: "Edit response" }))
+    const dialog = page.getByRole("dialog", { name: "Respond to review" })
+    const responseDraft = within(dialog).getByLabelText("Response for moderation")
+    await expect(responseDraft).toHaveValue(publishedResponse)
+    await userEvent.clear(responseDraft)
+    await userEvent.type(responseDraft, "Thank you. We have shared your feedback with the clinic team.")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Submit for moderation" }))
+
+    await waitFor(() => expect(within(publishedReview).getByText("Pending moderation")).toBeInTheDocument())
+    await expect(within(publishedReview).getByText(publishedResponse)).toBeInTheDocument()
+    await expect(within(publishedReview).getByText("Answered")).toBeInTheDocument()
+    await expect(
+      within(publishedReview).getByText("Thank you. We have shared your feedback with the clinic team."),
+    ).toBeInTheDocument()
+    await expect(
+      within(publishedReview).queryByRole("button", { name: /retry|withdraw/i }),
+    ).not.toBeInTheDocument()
+  },
+}
+
+export const PendingModerationDark: Story = {
+  args: createReviewsArgs(),
+  globals: { theme: "dark" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const publishedReview = canvas
+      .getByText("Markus Schmidt")
+      .closest<HTMLElement>('[data-review-status="Answered"]')
+    if (!publishedReview) throw new Error("Expected a pending response fixture")
+
+    await expect(within(publishedReview).getByText("Published clinic response")).toBeInTheDocument()
+    await expect(within(publishedReview).getByText("Pending moderation")).toBeInTheDocument()
+    await expect(
+      within(publishedReview).queryByRole("button", { name: /retry|withdraw/i }),
+    ).not.toBeInTheDocument()
   },
 }
 
@@ -200,28 +275,30 @@ function CapabilityToggleReviews(props: ComponentProps<typeof Reviews>) {
 }
 
 function DeferredMutationCapabilityToggleReviews(props: ComponentProps<typeof Reviews>) {
-  const [hasPendingResponse, setHasPendingResponse] = useState(false)
+  const [hasDeferredResponse, setHasDeferredResponse] = useState(false)
   const [showManagement, setShowManagement] = useState(true)
-  const pendingResponseResolveRef = useRef<(() => void) | undefined>(undefined)
+  const deferredResponseResolveRef = useRef<(() => void) | undefined>(undefined)
   const commands = useMemo(() => {
     const baseCommands = createReviewCommandsFixture()
 
     return {
       ...baseCommands,
-      saveReviewResponse: async (...input: Parameters<typeof baseCommands.saveReviewResponse>) => {
+      submitReviewResponseForModeration: async (
+        ...input: Parameters<typeof baseCommands.submitReviewResponseForModeration>
+      ) => {
         await new Promise<void>((resolve) => {
-          pendingResponseResolveRef.current = resolve
-          setHasPendingResponse(true)
+          deferredResponseResolveRef.current = resolve
+          setHasDeferredResponse(true)
         })
-        return baseCommands.saveReviewResponse(...input)
+        return baseCommands.submitReviewResponseForModeration(...input)
       },
     }
   }, [])
 
-  const resolvePendingResponse = () => {
-    const resolve = pendingResponseResolveRef.current
-    pendingResponseResolveRef.current = undefined
-    setHasPendingResponse(false)
+  const resolveDeferredResponse = () => {
+    const resolve = deferredResponseResolveRef.current
+    deferredResponseResolveRef.current = undefined
+    setHasDeferredResponse(false)
     resolve?.()
   }
 
@@ -231,8 +308,8 @@ function DeferredMutationCapabilityToggleReviews(props: ComponentProps<typeof Re
         <Button onClick={() => setShowManagement((current) => !current)}>
           {showManagement ? "Disable review management" : "Enable review management"}
         </Button>
-        <Button disabled={!hasPendingResponse} onClick={resolvePendingResponse} variant="outline">
-          Resolve pending response
+        <Button disabled={!hasDeferredResponse} onClick={resolveDeferredResponse} variant="outline">
+          Resolve deferred command
         </Button>
       </div>
       <Reviews {...props} commands={commands} showManagement={showManagement} />
@@ -249,10 +326,10 @@ export const MutationRetry: Story = {
     await userEvent.click(within(openReview).getByRole("button", { name: "Respond" }))
     const dialog = page.getByRole("dialog", { name: "Respond to review" })
     await userEvent.type(
-      within(dialog).getByLabelText("Public response"),
+      within(dialog).getByLabelText("Response for moderation"),
       "A valid retry response for this review.",
     )
-    const submit = within(dialog).getByRole("button", { name: "Save response" })
+    const submit = within(dialog).getByRole("button", { name: "Submit for moderation" })
     await userEvent.click(submit)
     await expect(within(dialog).getByRole("alert")).toHaveTextContent("couldn't save")
     await expect(submit).toBeEnabled()
@@ -260,7 +337,8 @@ export const MutationRetry: Story = {
     await waitFor(() =>
       expect(page.queryByRole("dialog", { name: "Respond to review" })).not.toBeInTheDocument(),
     )
-    await expect(within(openReview).getByText("Answered")).toBeInTheDocument()
+    await expect(within(openReview).getByText("Open")).toBeInTheDocument()
+    await expect(within(openReview).getByText("Pending moderation")).toBeInTheDocument()
   },
 }
 
@@ -275,6 +353,7 @@ export const Presentation: Story = {
     const threeStarRating = canvas.getByRole("img", { name: "3 out of 5 stars" })
     await expect(threeStarRating.querySelectorAll('[data-star-state="full"]')).toHaveLength(3)
     await expect(threeStarRating.querySelectorAll('[data-star-state="empty"]')).toHaveLength(2)
+    await expect(canvas.queryByText("Pending moderation")).not.toBeInTheDocument()
   },
 }
 
@@ -340,19 +419,19 @@ export const CapabilityWithdrawalDiscardsPendingMutation: Story = {
 
     await userEvent.click(within(openReview).getByRole("button", { name: "Respond" }))
     const responseDialog = page.getByRole("dialog", { name: "Respond to review" })
-    await userEvent.type(within(responseDialog).getByLabelText("Public response"), response)
-    await userEvent.click(within(responseDialog).getByRole("button", { name: "Save response" }))
-    await expect(canvas.getByRole("button", { name: "Resolve pending response" })).toBeEnabled()
+    await userEvent.type(within(responseDialog).getByLabelText("Response for moderation"), response)
+    await userEvent.click(within(responseDialog).getByRole("button", { name: "Submit for moderation" }))
+    await expect(canvas.getByRole("button", { name: "Resolve deferred command" })).toBeEnabled()
 
     await userEvent.click(canvas.getByRole("button", { name: "Disable review management" }))
     await waitFor(() =>
       expect(page.queryByRole("dialog", { name: "Respond to review" })).not.toBeInTheDocument(),
     )
-    await userEvent.click(canvas.getByRole("button", { name: "Resolve pending response" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Resolve deferred command" }))
     await userEvent.click(canvas.getByRole("button", { name: "Enable review management" }))
 
     await expect(canvas.getByText("Manage patient feedback and respond to reviews.")).toBeInTheDocument()
-    await expect(canvas.queryByText("Review response saved.")).not.toBeInTheDocument()
+    await expect(canvas.queryByText("Review response submitted for moderation.")).not.toBeInTheDocument()
     await expect(canvas.queryByText(response)).not.toBeInTheDocument()
     await expect(within(getOpenReview(canvasElement)).getByText("Open")).toBeInTheDocument()
     await expect(page.queryByRole("dialog", { name: "Respond to review" })).not.toBeInTheDocument()

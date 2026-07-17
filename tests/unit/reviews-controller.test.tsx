@@ -19,7 +19,7 @@ type Deferred<Value> = Readonly<{
   resolve: (value: Value) => void
 }>
 
-type ReviewMutationCommand = "saveReviewNote" | "saveReviewResponse" | "submitReviewAppeal"
+type ReviewMutationCommand = "saveReviewNote" | "submitReviewAppeal" | "submitReviewResponseForModeration"
 
 type ReviewMutationCase = Readonly<{
   command: ReviewMutationCommand
@@ -53,8 +53,10 @@ function createDeferredCommands(
   return {
     ...commands,
     saveReviewNote: command === "saveReviewNote" ? () => deferred.promise : commands.saveReviewNote,
-    saveReviewResponse:
-      command === "saveReviewResponse" ? () => deferred.promise : commands.saveReviewResponse,
+    submitReviewResponseForModeration:
+      command === "submitReviewResponseForModeration"
+        ? () => deferred.promise
+        : commands.submitReviewResponseForModeration,
     submitReviewAppeal:
       command === "submitReviewAppeal" ? () => deferred.promise : commands.submitReviewAppeal,
   }
@@ -62,13 +64,16 @@ function createDeferredCommands(
 
 const mutationCases: readonly ReviewMutationCase[] = [
   {
-    command: "saveReviewResponse",
+    command: "submitReviewResponseForModeration",
     label: "response",
     mutate: (review) => ({
       ...review,
-      response: "A response that resolved after withdrawal.",
+      pendingResponse: {
+        response: "A response that resolved after withdrawal.",
+        status: "pending-moderation",
+        submittedAt: reviewsFixture.referenceTime,
+      },
       revision: review.revision + 1,
-      status: "Answered",
     }),
     open: (actions, reviewId) => actions.openReviewResponse(reviewId),
     submit: (actions) => actions.submitReviewResponse({ response: "A valid delayed response." }),

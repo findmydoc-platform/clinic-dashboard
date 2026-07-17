@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { serializeReviewsCsv } from "@/features/clinic-dashboard/reviews/model/review-csv"
+import { createPendingReviewResponse } from "@/features/clinic-dashboard/reviews/model/review"
 import {
   defaultReviewFilters,
   filterClinicReviews,
@@ -81,14 +82,16 @@ describe("reviews model", () => {
       reviewId: openReview.id,
       type: "review-response-opened",
     })
-    const answeredReview = {
+    const pendingReview = {
       ...openReview,
-      response: "Thank you for the helpful feedback.",
-      status: "Answered" as const,
+      pendingResponse: createPendingReviewResponse(
+        "Thank you for the helpful feedback.",
+        reviewsFixture.referenceTime,
+      ),
     }
-    const answered = reviewsReducer(withDialog, {
-      review: answeredReview,
-      statusMessage: "Review response saved.",
+    const pending = reviewsReducer(withDialog, {
+      review: pendingReview,
+      statusMessage: "Review response submitted for moderation.",
       type: "review-mutation-succeeded",
     })
 
@@ -98,8 +101,8 @@ describe("reviews model", () => {
       page: 1,
       statusMessage: "Review filters applied.",
     })
-    expect(answered.dialog).toEqual({ kind: "response", reviewId: openReview.id })
-    expect(answered.reviews.find((review) => review.id === openReview.id)).toEqual(answeredReview)
+    expect(pending.dialog).toEqual({ kind: "response", reviewId: openReview.id })
+    expect(pending.reviews.find((review) => review.id === openReview.id)).toEqual(pendingReview)
   })
 
   it("handles dialog dismissal, mobile filters, pagination, refresh, and status transitions", () => {
@@ -229,8 +232,10 @@ describe("reviews model", () => {
   it("projects the canonical snapshot when management is withdrawn", () => {
     const mutatedReview = {
       ...reviews[0],
-      response: "Hidden local response",
-      status: "Answered" as const,
+      pendingResponse: createPendingReviewResponse(
+        "Hidden local response pending moderation.",
+        reviewsFixture.referenceTime,
+      ),
     }
     const staleState = {
       ...createReviewsState(reviews),
@@ -278,18 +283,73 @@ describe("reviews model", () => {
     )
   })
 
-  it("maps command mutations onto API-shaped review records", async () => {
+  it("creates deterministic pending responses without changing publication or review status", async () => {
+    const commands = createReviewCommandsFixture()
+    const openReview = reviews.find((review) => review.status === "Open")
+    const publishedReview = reviews.find((review) => review.status === "Answered")
+    expect(openReview).toBeDefined()
+    expect(publishedReview).toBeDefined()
+    if (!openReview || !publishedReview) return
+
+    const pending = await commands.submitReviewResponseForModeration(
+      openReview,
+      "  Thank you for the helpful feedback.  ",
+    )
+    expect(pending).toMatchObject({
+      pendingResponse: {
+        response: "Thank you for the helpful feedback.",
+        status: "pending-moderation",
+        submittedAt: reviewsFixture.referenceTime,
+      },
+      status: "Open",
+    })
+    expect(pending.publishedResponse).toBeUndefined()
+    expect(pending.revision).toBe(openReview.revision + 1)
+
+    const pendingEdit = await commands.submitReviewResponseForModeration(
+      publishedReview,
+      "Thank you. We have reviewed your feedback again.",
+    )
+    expect(pendingEdit).toMatchObject({
+      pendingResponse: {
+        response: "Thank you. We have reviewed your feedback again.",
+        status: "pending-moderation",
+        submittedAt: reviewsFixture.referenceTime,
+      },
+      publishedResponse: publishedReview.publishedResponse,
+      status: "Answered",
+    })
+  })
+
+  it("rejects an empty response before creating a moderation record", () => {
+    expect(() => createPendingReviewResponse("   ", reviewsFixture.referenceTime)).toThrow(
+      "at least 10 characters",
+    )
+  })
+
+  it("preserves appeal state when a response command receives an appealed review", async () => {
+    const commands = createReviewCommandsFixture()
+    const appealedReview = reviews.find((review) => review.status === "Under review")
+    expect(appealedReview).toBeDefined()
+    if (!appealedReview) return
+
+    const pending = await commands.submitReviewResponseForModeration(
+      appealedReview,
+      "This response remains subject to moderation.",
+    )
+
+    expect(pending).toMatchObject({
+      notice: appealedReview.notice,
+      pendingResponse: { status: "pending-moderation" },
+      status: "Under review",
+    })
+  })
+
+  it("maps appeal mutations onto review records", async () => {
     const commands = createReviewCommandsFixture()
     const openReview = reviews.find((review) => review.status === "Open")
     expect(openReview).toBeDefined()
     if (!openReview) return
-
-    const answered = await commands.saveReviewResponse(openReview, "Thank you for the helpful feedback.")
-    expect(answered).toMatchObject({
-      response: "Thank you for the helpful feedback.",
-      status: "Answered",
-    })
-    expect(answered.revision).toBe(openReview.revision + 1)
 
     const appealed = await commands.submitReviewAppeal(
       openReview,

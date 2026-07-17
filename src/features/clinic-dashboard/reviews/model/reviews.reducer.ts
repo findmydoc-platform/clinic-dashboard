@@ -37,7 +37,11 @@ export function createReviewsState(reviews: readonly ClinicReview[]): ReviewsSta
     isMobileFiltersOpen: false,
     isRefreshing: false,
     page: 1,
-    reviews: reviews.map((review) => ({ ...review, internalNotes: [...review.internalNotes] })),
+    reviews: reviews.map((review) => ({
+      ...review,
+      internalNotes: [...review.internalNotes],
+      pendingResponse: review.pendingResponse ? { ...review.pendingResponse } : undefined,
+    })),
     statusMessage: "",
   }
 }

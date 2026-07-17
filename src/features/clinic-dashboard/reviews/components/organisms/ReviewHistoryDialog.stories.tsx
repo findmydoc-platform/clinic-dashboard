@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, within } from "storybook/test"
-import { openReviewFixture, underReviewFixture } from "../../testing/reviews.fixtures"
+import { openReviewFixture, publishedReviewFixture, underReviewFixture } from "../../testing/reviews.fixtures"
 import { ReviewHistoryDialog } from "./ReviewHistoryDialog"
 
 const meta = {
@@ -41,7 +41,26 @@ export const EmptyHistory: Story = {
       name: "Review history",
     })
 
-    await expect(within(dialog).getByText("No public response yet.")).toBeInTheDocument()
+    await expect(within(dialog).getByText("No published response yet.")).toBeInTheDocument()
+    await expect(within(dialog).getByText("No response pending moderation.")).toBeInTheDocument()
     await expect(within(dialog).getByText("No internal notes yet.")).toBeInTheDocument()
+  },
+}
+
+export const PendingModerationHistory: Story = {
+  args: {
+    onClose: fn(),
+    review: publishedReviewFixture,
+  },
+  play: async ({ canvasElement }) => {
+    const dialog = within(canvasElement.ownerDocument.body).getByRole("dialog", {
+      name: "Review history",
+    })
+
+    await expect(within(dialog).getByText("Published clinic response")).toBeInTheDocument()
+    await expect(within(dialog).getByText("Pending moderation")).toBeInTheDocument()
+    await expect(
+      within(dialog).getByText("Thank you. We have shared your feedback with the consultation team."),
+    ).toBeInTheDocument()
   },
 }

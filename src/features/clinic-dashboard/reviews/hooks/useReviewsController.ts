@@ -129,11 +129,15 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     if (!selectedReview) return "discarded"
 
     const mutationGeneration = mutationGenerationRef.current
-    const review = await commands.saveReviewResponse(selectedReview, response)
+    const review = await commands.submitReviewResponseForModeration(selectedReview, response)
     if (!managementEnabledRef.current || mutationGeneration !== mutationGenerationRef.current) {
       return "discarded"
     }
-    dispatch({ review, statusMessage: "Review response saved.", type: "review-mutation-succeeded" })
+    dispatch({
+      review,
+      statusMessage: "Review response submitted for moderation.",
+      type: "review-mutation-succeeded",
+    })
     return "applied"
   }
 
