@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
-import { hasProfileDestination } from "@/lib/clinic-dashboard/profile-tasks"
+import { hasProfileDestination } from "@/features/clinic-dashboard/dashboard/model/profile-tasks"
+import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
 
 describe("dashboard profile task fixtures", () => {
-  const tasks = clinicDashboardFixture.dashboard.profileTasks
+  const tasks = dashboardFixture.profileTasks
 
   it("keeps stable task identifiers and truthful visibility", () => {
     expect(new Set(tasks.map(({ id }) => id)).size).toBe(tasks.length)

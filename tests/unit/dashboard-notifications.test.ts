@@ -1,30 +1,31 @@
 import { describe, expect, it } from "vitest"
-import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
-import { getUnreadNotifications, markAllNotificationsAsRead } from "@/lib/clinic-dashboard/notifications"
+import {
+  getUnreadNotifications,
+  markAllNotificationsAsRead,
+} from "@/features/clinic-dashboard/workspace/model/notifications"
+import { notificationsFixture } from "@/features/clinic-dashboard/workspace/testing/workspace.fixtures"
 
 describe("dashboard notification fixtures", () => {
   it("sorts unread notifications from newest to oldest", () => {
-    const reversedNotifications = [...clinicDashboardFixture.notifications].reverse()
+    const reversedNotifications = [...notificationsFixture].reverse()
 
     expect(getUnreadNotifications(reversedNotifications, []).map(({ id }) => id)).toEqual([
       "message-lukas-weber",
       "review-response",
     ])
-    expect(clinicDashboardFixture.notifications.map(({ type }) => type)).toEqual(["message", "review"])
+    expect(notificationsFixture.map(({ type }) => type)).toEqual(["message", "review"])
   })
 
   it("excludes only the notification that was individually read", () => {
-    expect(
-      getUnreadNotifications(clinicDashboardFixture.notifications, ["message-lukas-weber"]).map(
-        ({ id }) => id,
-      ),
-    ).toEqual(["review-response"])
+    expect(getUnreadNotifications(notificationsFixture, ["message-lukas-weber"]).map(({ id }) => id)).toEqual(
+      ["review-response"],
+    )
   })
 
   it("keeps existing read state and marks every fixture notification as read", () => {
-    const readIds = markAllNotificationsAsRead(clinicDashboardFixture.notifications, ["existing-id"])
+    const readIds = markAllNotificationsAsRead(notificationsFixture, ["existing-id"])
 
     expect(readIds).toEqual(["existing-id", "message-lukas-weber", "review-response"])
-    expect(getUnreadNotifications(clinicDashboardFixture.notifications, readIds)).toHaveLength(0)
+    expect(getUnreadNotifications(notificationsFixture, readIds)).toHaveLength(0)
   })
 })

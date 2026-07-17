@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { clinicDashboardFixture } from "@/fixtures/clinic-dashboard"
-import { createDashboardReportingSnapshot, dashboardReportingPeriods } from "@/lib/clinic-dashboard/reporting"
+import {
+  createDashboardReportingSnapshot,
+  dashboardReportingPeriods,
+} from "@/features/clinic-dashboard/dashboard/model/reporting"
+import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
+import { reviewsFixture } from "@/features/clinic-dashboard/reviews/testing/reviews.fixtures"
 
 describe("dashboard reporting fixtures", () => {
   const expectedConversions = {
@@ -28,9 +32,7 @@ describe("dashboard reporting fixtures", () => {
   } as const
 
   it("keeps cumulative reporting values plausible across 7, 30, and 90 days", () => {
-    const snapshots = dashboardReportingPeriods.map(
-      (period) => clinicDashboardFixture.dashboard.reporting[period],
-    )
+    const snapshots = dashboardReportingPeriods.map((period) => dashboardFixture.reporting[period])
 
     for (const key of ["impressions", "profileViews", "uniqueVisitors", "contacts", "inquiries"] as const) {
       expect(snapshots[0].totals[key]).toBeLessThan(snapshots[1].totals[key])
@@ -55,21 +57,21 @@ describe("dashboard reporting fixtures", () => {
       })
     }
 
-    expect(clinicDashboardFixture.dashboard.profileTasks).toHaveLength(4)
+    expect(dashboardFixture.profileTasks).toHaveLength(4)
   })
 
   it("keeps lifetime reputation stable while period review activity changes", () => {
-    expect(clinicDashboardFixture.dashboard.rating).toMatchObject({
+    expect(dashboardFixture.rating).toMatchObject({
       count: 1_248,
       pendingResponses: 1,
       value: 4.8,
     })
-    expect(clinicDashboardFixture.dashboard.rating.pendingResponses).toBe(
-      clinicDashboardFixture.reviews.items.filter(({ status }) => status === "Open").length,
+    expect(dashboardFixture.rating.pendingResponses).toBe(
+      reviewsFixture.items.filter(({ status }) => status === "Open").length,
     )
-    expect(clinicDashboardFixture.dashboard.reporting["7 days"].reviewActivity).toContain("1 new review")
-    expect(clinicDashboardFixture.dashboard.reporting["30 days"].reviewActivity).toContain("5 new reviews")
-    expect(clinicDashboardFixture.dashboard.reporting["90 days"].reviewActivity).toContain("17 new reviews")
+    expect(dashboardFixture.reporting["7 days"].reviewActivity).toContain("1 new review")
+    expect(dashboardFixture.reporting["30 days"].reviewActivity).toContain("5 new reviews")
+    expect(dashboardFixture.reporting["90 days"].reviewActivity).toContain("17 new reviews")
   })
 
   it("rejects a chart whose points do not add up to the selected profile views", () => {

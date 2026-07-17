@@ -1,0 +1,28 @@
+import { describe, expect, it } from "vitest"
+import { createProfileViewsChartGeometry } from "@/features/clinic-dashboard/dashboard/model/chart-geometry"
+
+describe("createProfileViewsChartGeometry", () => {
+  it("maps values across the complete chart bounds", () => {
+    const geometry = createProfileViewsChartGeometry([
+      { dateLabel: "First", value: 10 },
+      { dateLabel: "Middle", value: 15 },
+      { dateLabel: "Last", value: 20 },
+    ])
+
+    expect(geometry.coordinates.map((point) => point.x)).toEqual([30, 300, 570])
+    expect(geometry.coordinates[0]?.y).toBeCloseTo(139.55, 2)
+    expect(geometry.coordinates[2]?.y).toBeCloseTo(44.09, 2)
+    expect(geometry.line.split(" ")).toHaveLength(3)
+    expect(geometry.area).toMatch(/^30,235 .* 570,235$/u)
+  })
+
+  it("returns empty SVG point strings when there are no chart points", () => {
+    expect(createProfileViewsChartGeometry([])).toEqual({ area: "", coordinates: [], line: "" })
+  })
+
+  it("keeps zero values on the chart baseline", () => {
+    const geometry = createProfileViewsChartGeometry([{ dateLabel: "No views", value: 0 }])
+
+    expect(geometry.coordinates[0]).toMatchObject({ x: 30, y: 235 })
+  })
+})
