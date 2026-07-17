@@ -1,15 +1,54 @@
 # Supabase Session and Payload API Profile
 
-This profile is planned, not implemented.
+> **Temporary runtime notice:** The application does not use this profile at runtime yet. Remove this notice
+> when Supabase session handling and the Payload BFF are active.
 
 ## Boundary
 
-- Supabase will establish the clinic user's session.
-- Server-side clinic dashboard code will exchange or validate that identity for authorized Payload API requests.
+- The Clinic Dashboard is a stateless Next.js Backend for Frontend without a database.
+- Supabase establishes the clinic user's access and refresh session through Dashboard-owned login, PKCE callback,
+  refresh, and logout routes.
+- The Dashboard stores session material in secure, host-bound, `HttpOnly` cookies. Browser application code receives
+  no token and creates no Supabase browser client.
+- React Server Components read through a server-only Payload client. Browser-initiated reads and mutations
+  use capability-specific, same-origin Route Handlers.
+- The Dashboard server sends the current access token to Payload as a Bearer token.
 - Payload remains the source of truth and the authorization boundary for clinic data.
+- Payload resolves current `clinicStaff` approval, clinic assignment, and capabilities for every request.
 - Platform staff continue to use Payload Admin.
-- The clinic dashboard receives no direct Postgres connection and no Supabase service-role secret.
+- The Clinic Dashboard receives no direct Postgres connection, Supabase service-role secret, or durable business cache.
+- Payload CORS remains unchanged because the Dashboard browser never calls Payload.
 
-## Implementation Gate
+## Request and Cache Rules
 
-Authentication, tenant authorization, Payload API contracts, session refresh, error handling, and security tests require a dedicated approved plan and issue. Do not infer those details from the foundation.
+- Create Supabase clients and user-specific state per request; never share them across requests.
+- Use the Supabase publishable key only.
+- Preserve every session cookie and cache-control header returned by authentication and refresh handling.
+- Validate callback origins from environment configuration or trusted Vercel metadata, never from an unchecked `Host`
+  header.
+- Accept only validated relative post-authentication destinations.
+- Apply one shared mutation guard to every authenticated state-changing Route Handler. It validates session, input,
+  exact origin, and a stateless HMAC-signed CSRF token bound to the current Supabase session. Staging and Production use
+  a host-only `__Host-` CSRF cookie; Payload requires no change.
+- Keep session, principal, clinic, capability, and Dashboard data private and `no-store`. Request-local deduplication is
+  permitted; ISR, shared caches, and durable Dashboard caches are not.
+- Preserve the website's existing public revalidation when an authorized Payload mutation changes a public surface.
+
+## Environments
+
+| Environment          | Supabase   | Payload API                          | Callback                                                        |
+| -------------------- | ---------- | ------------------------------------ | --------------------------------------------------------------- |
+| Local                | Staging    | Exact `https://preview.findmydoc.eu` | Exact local callback                                            |
+| Pull-request preview | Staging    | Exact `https://preview.findmydoc.eu` | Project-specific Vercel wildcard restricted to `/auth/callback` |
+| Production           | Production | Exact `https://findmydoc.eu`         | Exact `https://clinics.findmydoc.eu/auth/callback`              |
+
+Cross-environment combinations fail configuration validation. The Payload client requires HTTPS, rejects redirects,
+and never forwards the Bearer token to another origin.
+
+## Architecture Source
+
+The architecture is approved by
+[ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md).
+The detailed repository contract is
+[the local authentication and BFF architecture](../authentication-and-bff.md). Runtime activation remains separate
+from this documentation change. Do not infer new shared contracts from this profile or from prototype controls.
