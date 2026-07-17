@@ -40,6 +40,149 @@ afterEach(() => {
 })
 
 describe("architecture policy checker process fixtures", () => {
+  it("rejects a shared UI domain import hidden behind an inherited secondary path alias", () => {
+    const fixtureRoot = createFixture({
+      "config/tsconfig.base.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: "..",
+          paths: {
+            "#profile/*": ["src/generated/*", "src/features/clinic-dashboard/clinic-profile/*"],
+          },
+        },
+      }),
+      "src/components/ui/ProfileControl.ts": `
+        import type { ClinicProfile } from "#profile/model/clinic-profile"
+        export type ProfileControlProps = Readonly<{ profile: ClinicProfile }>
+      `,
+      "src/features/clinic-dashboard/clinic-profile/model/clinic-profile.ts": `
+        export type ClinicProfile = Readonly<{ id: string }>
+      `,
+      "tsconfig.json": JSON.stringify({ extends: "./config/tsconfig.base.json" }),
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR shared-ui-domain-import src/components/ui/ProfileControl.ts")
+    expect(output.match(/ERROR shared-ui-domain-import/gu)).toHaveLength(1)
+  })
+
+  it.each([
+    ["array", "let load\n;[load] = [require]"],
+    ["object", "let load\n;({ load } = { load: require })"],
+  ])("rejects a shared UI domain require hidden by %s assignment destructuring", (_kind, aliasSource) => {
+    const fixtureRoot = createFixture({
+      "src/components/ui/ProfileControl.ts": `
+        ${aliasSource}
+        load("@/features/clinic-dashboard/clinic-profile/model/clinic-profile")
+        export const profileControl = true
+      `,
+      "src/features/clinic-dashboard/clinic-profile/model/clinic-profile.ts": `
+        export type ClinicProfile = Readonly<{ id: string }>
+      `,
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          module: "esnext",
+          moduleResolution: "bundler",
+          paths: { "@/*": ["src/*"] },
+        },
+      }),
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR shared-ui-domain-import src/components/ui/ProfileControl.ts")
+    expect(output.match(/ERROR shared-ui-domain-import/gu)).toHaveLength(1)
+  })
+
+  it("rejects a shared UI domain import re-exported transitively through a local aliased package", () => {
+    const fixtureRoot = createFixture({
+      "packages/profile-contract/index.ts": `
+        export type { ClinicProfile } from "#profile-contract/public"
+      `,
+      "packages/profile-contract/public.ts": `
+        export type { ClinicProfile } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile"
+      `,
+      "src/components/ui/ProfileControl.ts": `
+        import type { ClinicProfile } from "#profile"
+        export type ProfileControlProps = Readonly<{ profile: ClinicProfile }>
+      `,
+      "src/features/clinic-dashboard/clinic-profile/model/clinic-profile.ts": `
+        export type ClinicProfile = Readonly<{ id: string }>
+      `,
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          module: "esnext",
+          moduleResolution: "bundler",
+          paths: {
+            "#profile": ["packages/profile-contract/index.ts"],
+            "#profile-contract/*": ["packages/profile-contract/*"],
+            "@/*": ["src/*"],
+          },
+        },
+      }),
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR shared-ui-domain-import src/components/ui/ProfileControl.ts")
+    expect(output).toContain(
+      "#profile reaches domain source src/features/clinic-dashboard/clinic-profile/model/clinic-profile.ts",
+    )
+    expect(output.match(/ERROR shared-ui-domain-import/gu)).toHaveLength(1)
+  })
+
+  it("accepts neutral local package barrels and excludes external packages from traversal", () => {
+    const fixtureRoot = createFixture({
+      "node_modules/@vendor/app/index.d.ts": `
+        export type VendorAppProfile = Readonly<{ id: string }>
+      `,
+      "node_modules/@vendor/app/package.json": JSON.stringify({
+        name: "@vendor/app",
+        types: "index.d.ts",
+      }),
+      "packages/format-contract/format.ts": `
+        export type LabelFormatter = (value: string) => string
+      `,
+      "packages/format-contract/index.ts": `
+        export type { LabelFormatter } from "./format"
+      `,
+      "src/components/ui/ProfileLabel.ts": `
+        import type { VendorAppProfile } from "@vendor/app"
+        import type { LabelFormatter } from "#format"
+        export type ProfileLabelProps = Readonly<{
+          format: LabelFormatter
+          profile: VendorAppProfile
+        }>
+      `,
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          module: "esnext",
+          moduleResolution: "bundler",
+          paths: {
+            "#format": ["packages/format-contract/index.ts"],
+          },
+        },
+        exclude: ["node_modules"],
+        include: ["src/**/*.ts", "packages/**/*.ts"],
+      }),
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
   it("accepts independent test fixtures and the explicit runtime composition boundaries", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/dashboard/dashboard.prototype-data.mapper.ts": `

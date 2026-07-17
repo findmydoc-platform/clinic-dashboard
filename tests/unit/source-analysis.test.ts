@@ -1,13 +1,22 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import path from "node:path"
 import ts from "typescript"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 
 // @ts-expect-error -- Governance scripts expose tested JavaScript helpers without declaration files.
 import * as sourceAnalysis from "../../scripts/governance/source-analysis.mjs"
 
 const fixtureRoot = path.join(path.sep, "tmp", "source-analysis-fixture")
-const { containsReferencedIdentifier, getCsfStoryExportNames, getImportBindings, getModuleReferences } =
-  sourceAnalysis
+const moduleFixtureDirectories: string[] = []
+const {
+  collectProjectSourceFiles,
+  containsReferencedIdentifier,
+  createBindingMutationDetector,
+  getCsfStoryExportNames,
+  getImportBindings,
+  getModuleReferences,
+} = sourceAnalysis
 
 type ModuleReference = Readonly<{
   kind: string
@@ -15,11 +24,87 @@ type ModuleReference = Readonly<{
   resolvedPath: string | null
 }>
 
-function parseSource(source: string, relativePath = "src/example.ts") {
-  const filePath = path.join(fixtureRoot, relativePath)
+function parseSource(source: string, relativePath = "src/example.ts", rootDir = fixtureRoot) {
+  const filePath = path.join(rootDir, relativePath)
   const scriptKind = relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
   return ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true, scriptKind)
 }
+
+function createModuleFixture(files: Readonly<Record<string, string>>) {
+  const rootDir = mkdtempSync(path.join(tmpdir(), "source-analysis-modules-"))
+  moduleFixtureDirectories.push(rootDir)
+
+  for (const [relativePath, content] of Object.entries(files)) {
+    const filePath = path.join(rootDir, relativePath)
+    mkdirSync(path.dirname(filePath), { recursive: true })
+    writeFileSync(filePath, content.trimStart())
+  }
+
+  return rootDir
+}
+
+afterEach(() => {
+  for (const directory of moduleFixtureDirectories.splice(0)) {
+    rmSync(directory, { force: true, recursive: true })
+  }
+})
+
+describe("createBindingMutationDetector", () => {
+  it.each([
+    ["direct property", 'config.parameters.a11y.test = "off"'],
+    ["binding reassignment", "config = { parameters: {} }"],
+    ["direct alias", "const alias = config\nalias.parameters = {}"],
+    ["object container", "const holder = { config }\nholder.config.parameters = {}"],
+    ["array container", "const holder = [config]\nholder[0].parameters = {}"],
+    ["nested destructuring", "const { parameters: { a11y } } = config\na11y.test = 'off'"],
+    ["array destructuring", "const [a11y] = [config.parameters.a11y]\na11y.test = 'off'"],
+    [
+      "array assignment destructuring",
+      "let escaped\n;[escaped] = [config]\nescaped.parameters.a11y.test = 'off'",
+    ],
+    [
+      "object assignment destructuring",
+      "let escaped\n;({ escaped } = { escaped: config })\nescaped.parameters.a11y.test = 'off'",
+    ],
+    [
+      "property container assignment",
+      "const holder = { current: null }\nholder.current = config\nholder.current.parameters.a11y.test = 'off'",
+    ],
+  ])("detects a mutation through a %s", (_kind, mutation) => {
+    const sourceFile = parseSource(`
+      let config = { parameters: { a11y: { test: "error" } } }
+      ${mutation}
+    `)
+
+    expect(createBindingMutationDetector(sourceFile)("config")).toBe(true)
+  })
+
+  it("keeps unrelated and shadowed mutations separate", () => {
+    const sourceFile = parseSource(`
+      const config = { parameters: { a11y: { test: "error" } } }
+      const unrelated = { parameters: {} }
+      unrelated.parameters = {}
+      function mutate(config: { parameters: object }) {
+        config.parameters = {}
+      }
+      void [config, mutate]
+    `)
+
+    expect(createBindingMutationDetector(sourceFile)("config")).toBe(false)
+  })
+
+  it("allows a property container alias when only an unrelated property changes", () => {
+    const sourceFile = parseSource(`
+      const config = { parameters: { a11y: { test: "error" } } }
+      const holder = { current: null, unrelated: { status: "idle" } }
+      holder.current = config
+      holder.unrelated.status = "ready"
+      void holder
+    `)
+
+    expect(createBindingMutationDetector(sourceFile)("config")).toBe(false)
+  })
+})
 
 describe("getCsfStoryExportNames", () => {
   it("returns statically declared CSF story exports", () => {
@@ -128,6 +213,33 @@ describe("getCsfStoryExportNames", () => {
   })
 })
 
+describe("collectProjectSourceFiles", () => {
+  it("uses the effective TypeScript project file set, including local packages", () => {
+    const rootDir = createModuleFixture({
+      ".next/types/generated.ts": "export const generated = true",
+      "ignored/outside-project.ts": "export const ignored = true",
+      "node_modules/external-profile/index.d.ts": "export type ExternalProfile = unknown",
+      "packages/profile-contract/index.ts": "export type Profile = Readonly<{ id: string }>",
+      "src/components/ui/ProfileControl.ts": "export const ProfileControl = true",
+      "tests/unit/profile.test.ts": "export const profileTest = true",
+      "tsconfig.json": JSON.stringify({
+        exclude: ["ignored", "node_modules"],
+        include: ["src/**/*.ts", "packages/**/*.ts", "tests/**/*.ts", ".next/types/**/*.ts"],
+      }),
+    })
+
+    const projectFiles = (collectProjectSourceFiles(rootDir) as string[]).map((filePath) =>
+      path.relative(rootDir, filePath).replaceAll(path.sep, "/"),
+    )
+
+    expect(projectFiles).toEqual([
+      "packages/profile-contract/index.ts",
+      "src/components/ui/ProfileControl.ts",
+      "tests/unit/profile.test.ts",
+    ])
+  })
+})
+
 describe("getModuleReferences", () => {
   it("collects static ESM, CommonJS, import-type, and dynamic-import references", () => {
     const sourceFile = parseSource(`
@@ -181,6 +293,38 @@ describe("getModuleReferences", () => {
         }),
       ]),
     )
+  })
+
+  it("collects require aliases created through array and object assignment destructuring", () => {
+    const sourceFile = parseSource(`
+      let arrayLoad
+      let objectLoad
+      ;[arrayLoad] = [require]
+      ;({ load: objectLoad } = { load: require })
+      const arrayLoaded = arrayLoad("./array-assigned")
+      const objectLoaded = objectLoad("./object-assigned")
+      void [arrayLoaded, objectLoaded]
+    `)
+
+    expect(getModuleReferences(fixtureRoot, sourceFile) as ModuleReference[]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "require", moduleSpecifier: "./array-assigned" }),
+        expect.objectContaining({ kind: "require", moduleSpecifier: "./object-assigned" }),
+      ]),
+    )
+  })
+
+  it("keeps non-require assignment-destructuring slots untainted", () => {
+    const sourceFile = parseSource(`
+      const localLoad = (modulePath: string) => modulePath
+      let requireLoad
+      let unrelatedLoad
+      ;[requireLoad, unrelatedLoad] = [require, localLoad]
+      unrelatedLoad("./local")
+      void requireLoad
+    `)
+
+    expect(getModuleReferences(fixtureRoot, sourceFile)).toEqual([])
   })
 
   it("ignores locally bound require callables", () => {
@@ -244,6 +388,79 @@ describe("getModuleReferences", () => {
       "<import type at line 6>",
     ])
     expect(unresolved.every((reference) => reference.resolvedPath === null)).toBe(true)
+  })
+
+  it("resolves inherited wildcard aliases through the first existing target and index module", () => {
+    const source = `
+      import type { ClinicProfile } from "#profile/model"
+      export type ProfileControlProps = ClinicProfile
+    `
+    const rootDir = createModuleFixture({
+      "config/tsconfig.base.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: "..",
+          paths: {
+            "#profile/*": ["src/generated/*", "src/features/clinic-dashboard/clinic-profile/*"],
+          },
+        },
+      }),
+      "src/components/ui/ProfileControl.ts": source,
+      "src/features/clinic-dashboard/clinic-profile/model/index.ts":
+        "export type ClinicProfile = Readonly<{ id: string }>",
+      "tsconfig.json": JSON.stringify({ extends: "./config/tsconfig.base.json" }),
+    })
+    const sourceFile = parseSource(source, "src/components/ui/ProfileControl.ts", rootDir)
+
+    expect(getModuleReferences(rootDir, sourceFile) as ModuleReference[]).toContainEqual({
+      kind: "import",
+      moduleSpecifier: "#profile/model",
+      resolvedPath: "src/features/clinic-dashboard/clinic-profile/model/index.ts",
+    })
+  })
+
+  it("keeps packages external while preserving baseUrl, @ alias, and relative resolution", () => {
+    const source = `
+      import type { BaseUrlProfile } from "features/clinic-dashboard/clinic-profile/model/profile"
+      import type { AliasProfile } from "@/features/clinic-dashboard/clinic-profile/model/profile"
+      import { localValue } from "./local"
+      import type { ComponentType } from "react"
+      export type Profiles = BaseUrlProfile | AliasProfile | ComponentType
+      void localValue
+    `
+    const rootDir = createModuleFixture({
+      "src/components/ui/Consumer.ts": source,
+      "src/components/ui/local.ts": "export const localValue = true",
+      "src/features/clinic-dashboard/clinic-profile/model/profile.ts":
+        "export type Profile = Readonly<{ id: string }>",
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: "./src",
+          paths: {
+            "@/*": ["*"],
+          },
+        },
+      }),
+    })
+    const sourceFile = parseSource(source, "src/components/ui/Consumer.ts", rootDir)
+    const references = getModuleReferences(rootDir, sourceFile) as ModuleReference[]
+    const resolvedPathBySpecifier = new Map(
+      references.map((reference) => [reference.moduleSpecifier, reference.resolvedPath]),
+    )
+
+    expect(resolvedPathBySpecifier).toEqual(
+      new Map([
+        [
+          "features/clinic-dashboard/clinic-profile/model/profile",
+          "src/features/clinic-dashboard/clinic-profile/model/profile.ts",
+        ],
+        [
+          "@/features/clinic-dashboard/clinic-profile/model/profile",
+          "src/features/clinic-dashboard/clinic-profile/model/profile.ts",
+        ],
+        ["./local", "src/components/ui/local.ts"],
+        ["react", null],
+      ]),
+    )
   })
 })
 

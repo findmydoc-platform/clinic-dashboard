@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
+import fs from "node:fs"
 import path from "node:path"
 import ts from "typescript"
 import {
   collectSourceFiles,
+  createBindingMutationDetector,
   createFinding,
   getCsfStoryExportNames,
   getDefaultMetaObject,
@@ -46,9 +48,23 @@ const sharedComponentLayers = new Map([
   ["src/components/ui/textarea.tsx", "atom"],
   ["src/components/ui/theme-toggle.tsx", "atom"],
 ])
+const featureRootComponentLayers = new Map([
+  ["src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx", "organism"],
+  ["src/features/clinic-dashboard/reviews/Reviews.tsx", "organism"],
+  ["src/features/clinic-dashboard/workspace/ClinicDashboardShell.tsx", "template"],
+  ["src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx", "page"],
+])
+const nonAtomicFeatureRootComponents = new Set([
+  "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspaceComposition.tsx",
+])
+const requiredStoryGlob = "../src/**/*.stories.@(ts|tsx)"
 
 function isStoryFile(file) {
   return /\.stories\.[cm]?[jt]sx?$/u.test(file)
+}
+
+function isApprovedJourneyStory(file) {
+  return /^src\/features\/clinic-dashboard\/journeys\/[^/]+\.stories\.tsx$/u.test(file)
 }
 
 function extractSingleTag(tags, prefix, allowedValues) {
@@ -78,7 +94,7 @@ function parseTitleTaxonomy(title) {
   }
 
   match = title.match(
-    /^Clinic Dashboard\/(Workspace|Dashboard|Messages|Reviews|Clinic Profile|Support)\/(Atoms|Molecules|Organisms|Templates)\/[^/]+$/u,
+    /^Clinic Dashboard\/(Workspace|Dashboard|Messages|Reviews|Clinic Profile|Support)\/(Atoms|Molecules|Organisms|Pages|Templates)\/[^/]+$/u,
   )
   if (match) {
     const domain = {
@@ -126,7 +142,29 @@ function expectedPathLayer(componentPath) {
   const match = componentPath.match(/\/components\/(atoms|molecules|organisms)\//u)
   if (match) return match[1].slice(0, -1)
 
-  return sharedComponentLayers.get(componentPath) ?? null
+  return sharedComponentLayers.get(componentPath) ?? featureRootComponentLayers.get(componentPath) ?? null
+}
+
+function isFeatureComponentSource(file) {
+  return /^src\/features\/clinic-dashboard\/.+\.tsx$/u.test(file)
+}
+
+function isTestOnlyFeatureSource(file) {
+  return (
+    /\/(?:__tests__|fixtures|test|tests|testing)\//u.test(file) ||
+    /\.(?:fixture|fixtures|spec|test)\.tsx$/u.test(file)
+  )
+}
+
+function isNonVisualFeatureTsx(file) {
+  return /\/(?:hooks|model)\/.+\.tsx$/u.test(file)
+}
+
+function hasApprovedFeatureComponentPlacement(file) {
+  if (featureRootComponentLayers.has(file) || nonAtomicFeatureRootComponents.has(file)) return true
+
+  const placement = featureAtomicPlacement(file)
+  return placement !== null && placement.layer !== null && atomicPathLayers.has(placement.layer)
 }
 
 function featureAtomicPlacement(componentPath) {
@@ -181,6 +219,274 @@ function staticPropertyName(name) {
   }
 
   return null
+}
+
+function getDefaultExportBindingName(sourceFile) {
+  const exportAssignment = sourceFile.statements.find(
+    (statement) => ts.isExportAssignment(statement) && !statement.isExportEquals,
+  )
+  if (!exportAssignment || !ts.isExportAssignment(exportAssignment)) return null
+
+  const expression = unwrapStaticExpression(exportAssignment.expression)
+  return ts.isIdentifier(expression) ? expression.text : null
+}
+
+function hasAmbiguousConfigShape(objectLiteral) {
+  const propertyNames = new Set()
+
+  for (const property of objectLiteral.properties) {
+    if (!ts.isPropertyAssignment(property)) return true
+
+    const propertyName = staticPropertyName(property.name)
+    if (propertyName === null || propertyNames.has(propertyName)) return true
+    propertyNames.add(propertyName)
+
+    const initializer = unwrapStaticExpression(property.initializer)
+    if (ts.isObjectLiteralExpression(initializer) && hasAmbiguousConfigShape(initializer)) return true
+    if (ts.isArrayLiteralExpression(initializer) && hasAmbiguousConfigArray(initializer)) return true
+  }
+
+  return false
+}
+
+function hasAmbiguousConfigArray(arrayLiteral) {
+  for (const element of arrayLiteral.elements) {
+    if (ts.isSpreadElement(element)) return true
+
+    const value = unwrapStaticExpression(element)
+    if (ts.isObjectLiteralExpression(value) && hasAmbiguousConfigShape(value)) return true
+    if (ts.isArrayLiteralExpression(value) && hasAmbiguousConfigArray(value)) return true
+  }
+
+  return false
+}
+
+function collectLocalObjectBindings(sourceFile) {
+  const bindings = new Map()
+
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue
+
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue
+      const initializer = unwrapStaticExpression(declaration.initializer)
+      if (ts.isObjectLiteralExpression(initializer)) {
+        bindings.set(declaration.name.text, initializer)
+      }
+    }
+  }
+
+  return bindings
+}
+
+function resolveEffectiveObjectProperties(expression, objectBindings, usedBindings, visited = new Set()) {
+  const current = unwrapStaticExpression(expression)
+  let objectLiteral = null
+  let bindingName = null
+
+  if (ts.isObjectLiteralExpression(current)) {
+    objectLiteral = current
+  } else if (ts.isIdentifier(current)) {
+    bindingName = current.text
+    objectLiteral = objectBindings.get(bindingName) ?? null
+    if (!objectLiteral || visited.has(bindingName)) return null
+    usedBindings.add(bindingName)
+  }
+
+  if (!objectLiteral) return null
+
+  const nextVisited = new Set(visited)
+  if (bindingName) nextVisited.add(bindingName)
+  const properties = new Map()
+
+  for (const property of objectLiteral.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      const spreadProperties = resolveEffectiveObjectProperties(
+        property.expression,
+        objectBindings,
+        usedBindings,
+        nextVisited,
+      )
+      if (!spreadProperties) return null
+      for (const [name, value] of spreadProperties) properties.set(name, value)
+      continue
+    }
+
+    const propertyName = property.name ? staticPropertyName(property.name) : null
+    if (propertyName === null) return null
+
+    if (ts.isPropertyAssignment(property)) {
+      properties.set(propertyName, unwrapStaticExpression(property.initializer))
+      continue
+    }
+
+    if (ts.isShorthandPropertyAssignment(property)) {
+      const shorthandValue = objectBindings.get(property.name.text)
+      if (!shorthandValue) return null
+      usedBindings.add(property.name.text)
+      properties.set(propertyName, shorthandValue)
+      continue
+    }
+
+    properties.set(propertyName, property)
+  }
+
+  return properties
+}
+
+function collectExportedStoryBindings(sourceFile, storyExportNames) {
+  const localByExportedName = new Map()
+
+  for (const statement of sourceFile.statements) {
+    if (
+      ts.isVariableStatement(statement) &&
+      statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+    ) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name)) {
+          localByExportedName.set(declaration.name.text, declaration.name.text)
+        }
+      }
+      continue
+    }
+
+    if (
+      !ts.isExportDeclaration(statement) ||
+      statement.isTypeOnly ||
+      statement.moduleSpecifier ||
+      !statement.exportClause ||
+      !ts.isNamedExports(statement.exportClause)
+    ) {
+      continue
+    }
+
+    for (const element of statement.exportClause.elements) {
+      if (element.isTypeOnly) continue
+      localByExportedName.set(element.name.text, element.propertyName?.text ?? element.name.text)
+    }
+  }
+
+  return storyExportNames.flatMap((exportedName) => {
+    const localName = localByExportedName.get(exportedName)
+    return localName ? [{ exportedName, localName }] : []
+  })
+}
+
+function collectStoryPolicyFindings(file, sourceFile, meta, storyExportNames, isJourney) {
+  const findings = []
+  const objectBindings = collectLocalObjectBindings(sourceFile)
+  const hasBindingMutation = createBindingMutationDetector(sourceFile)
+
+  const inspectObject = (subject, expression, rootBindingName = null) => {
+    const usedBindings = new Set(rootBindingName ? [rootBindingName] : [])
+    const properties = resolveEffectiveObjectProperties(expression, objectBindings, usedBindings)
+    if (!properties || [...usedBindings].some((bindingName) => hasBindingMutation(bindingName))) {
+      findings.push(
+        createFinding(
+          "story-policy-static",
+          file,
+          subject,
+          `${subject} must remain statically analyzable and immutable so accessibility and Autodocs cannot be overridden indirectly.`,
+        ),
+      )
+      return
+    }
+
+    const tagsExpression = properties.get("tags")
+    if (tagsExpression) {
+      const tags = getStringArrayValue(tagsExpression)
+      if (!tags) {
+        findings.push(
+          createFinding(
+            "story-policy-static",
+            file,
+            `${subject}:tags`,
+            `${subject} tags must be a literal string array so Autodocs policy stays verifiable.`,
+          ),
+        )
+      } else if (tags.includes("!autodocs") && !isJourney) {
+        findings.push(
+          createFinding(
+            "story-autodocs-policy",
+            file,
+            subject,
+            "Only explicitly located journey stories may opt out of global Autodocs.",
+          ),
+        )
+      }
+    }
+
+    const parametersExpression = properties.get("parameters")
+    if (!parametersExpression) return
+
+    const parameterBindings = new Set()
+    const parameters = resolveEffectiveObjectProperties(
+      parametersExpression,
+      objectBindings,
+      parameterBindings,
+    )
+    if (!parameters || [...parameterBindings].some((bindingName) => hasBindingMutation(bindingName))) {
+      findings.push(
+        createFinding(
+          "story-policy-static",
+          file,
+          `${subject}:parameters`,
+          `${subject} parameters must be statically analyzable and immutable.`,
+        ),
+      )
+      return
+    }
+
+    const a11yExpression = parameters.get("a11y")
+    if (!a11yExpression) return
+
+    const a11yBindings = new Set()
+    const a11y = resolveEffectiveObjectProperties(a11yExpression, objectBindings, a11yBindings)
+    if (!a11y || [...a11yBindings].some((bindingName) => hasBindingMutation(bindingName))) {
+      findings.push(
+        createFinding(
+          "story-policy-static",
+          file,
+          `${subject}:a11y`,
+          `${subject} accessibility parameters must be statically analyzable and immutable.`,
+        ),
+      )
+      return
+    }
+
+    const disabled = a11y.get("disable")
+    if (disabled && disabled.kind !== ts.SyntaxKind.FalseKeyword) {
+      findings.push(
+        createFinding(
+          "story-a11y-policy",
+          file,
+          `${subject}:disable`,
+          "Stories must not disable the globally enforced accessibility test.",
+        ),
+      )
+    }
+
+    const test = a11y.get("test")
+    if (test && getStringLiteralValue(test) !== "error") {
+      findings.push(
+        createFinding(
+          "story-a11y-policy",
+          file,
+          `${subject}:test`,
+          'Story accessibility overrides must keep test: "error".',
+        ),
+      )
+    }
+  }
+
+  inspectObject("Story meta", meta, getDefaultExportBindingName(sourceFile))
+
+  for (const { exportedName, localName } of collectExportedStoryBindings(sourceFile, storyExportNames)) {
+    const storyObject = objectBindings.get(localName)
+    if (storyObject) inspectObject(`Story export ${exportedName}`, storyObject, localName)
+  }
+
+  return findings
 }
 
 function collectBindingIdentifierNames(name) {
@@ -367,8 +673,143 @@ function addDirectStoryRequirement(requirements, file, importedName, subject = i
   requirements.set(`${file}|${importedName}`, { file, importedName, subject })
 }
 
-function collectFindings() {
+function collectStorybookConfigFindings() {
   const findings = []
+  const mainFile = ".storybook/main.ts"
+  const previewFile = ".storybook/preview.ts"
+  const mainPath = path.join(rootDir, mainFile)
+  const previewPath = path.join(rootDir, previewFile)
+
+  if (!fs.existsSync(mainPath)) {
+    findings.push(
+      createFinding(
+        "storybook-main-config",
+        mainFile,
+        "missing",
+        "Storybook requires a statically analyzable .storybook/main.ts contract.",
+      ),
+    )
+  } else {
+    const mainSourceFile = parseSourceFile(mainPath)
+    const mainConfig = getDefaultMetaObject(mainSourceFile)
+    if (!mainConfig) {
+      findings.push(
+        createFinding(
+          "storybook-main-config",
+          mainFile,
+          "default-export",
+          "Export the Storybook main configuration as a statically analyzable object.",
+        ),
+      )
+    } else {
+      const bindingName = getDefaultExportBindingName(mainSourceFile)
+      const hasMutation = bindingName ? createBindingMutationDetector(mainSourceFile)(bindingName) : false
+      if (hasAmbiguousConfigShape(mainConfig) || hasMutation) {
+        findings.push(
+          createFinding(
+            "storybook-main-config-static",
+            mainFile,
+            "immutable-object",
+            "Keep the exported Storybook main configuration spread-free, statically analyzable, and immutable through every alias.",
+          ),
+        )
+      }
+
+      const addons = getStringArrayValue(getObjectProperty(mainConfig, "addons"))
+      if (!addons?.includes("@storybook/addon-a11y")) {
+        findings.push(
+          createFinding(
+            "storybook-a11y-addon",
+            mainFile,
+            "@storybook/addon-a11y",
+            "Keep @storybook/addon-a11y enabled in the global Storybook configuration.",
+          ),
+        )
+      }
+
+      const stories = getStringArrayValue(getObjectProperty(mainConfig, "stories"))
+      if (!stories?.includes(requiredStoryGlob)) {
+        findings.push(
+          createFinding(
+            "storybook-story-glob",
+            mainFile,
+            requiredStoryGlob,
+            `Keep ${requiredStoryGlob} in the global Storybook story discovery contract.`,
+          ),
+        )
+      }
+    }
+  }
+
+  if (!fs.existsSync(previewPath)) {
+    findings.push(
+      createFinding(
+        "storybook-preview-config",
+        previewFile,
+        "missing",
+        "Storybook requires a statically analyzable .storybook/preview.ts contract.",
+      ),
+    )
+  } else {
+    const previewSourceFile = parseSourceFile(previewPath)
+    const previewConfig = getDefaultMetaObject(previewSourceFile)
+    if (!previewConfig) {
+      findings.push(
+        createFinding(
+          "storybook-preview-config",
+          previewFile,
+          "default-export",
+          "Export the Storybook preview configuration as a statically analyzable object.",
+        ),
+      )
+    } else {
+      const bindingName = getDefaultExportBindingName(previewSourceFile)
+      const hasMutation = bindingName ? createBindingMutationDetector(previewSourceFile)(bindingName) : false
+      if (hasAmbiguousConfigShape(previewConfig) || hasMutation) {
+        findings.push(
+          createFinding(
+            "storybook-preview-config-static",
+            previewFile,
+            "immutable-object",
+            "Keep the exported Storybook preview configuration spread-free, statically analyzable, and immutable through every alias.",
+          ),
+        )
+      }
+
+      const parameters = getObjectProperty(previewConfig, "parameters")
+      const a11y =
+        parameters && ts.isObjectLiteralExpression(parameters) ? getObjectProperty(parameters, "a11y") : null
+      const a11yTest = a11y && ts.isObjectLiteralExpression(a11y) ? getObjectProperty(a11y, "test") : null
+      if (getStringLiteralValue(a11yTest) !== "error") {
+        findings.push(
+          createFinding(
+            "storybook-a11y-test",
+            previewFile,
+            "parameters.a11y.test",
+            'Keep global Storybook accessibility enforcement set to test: "error".',
+          ),
+        )
+      }
+
+      const tags = getStringArrayValue(getObjectProperty(previewConfig, "tags"))
+      if (!tags?.includes("autodocs")) {
+        findings.push(
+          createFinding(
+            "storybook-autodocs",
+            previewFile,
+            "autodocs",
+            "Keep Autodocs enabled in the global Storybook preview contract.",
+          ),
+        )
+      }
+    }
+  }
+
+  return findings
+}
+
+function collectFindings() {
+  const findings = collectStorybookConfigFindings()
   const sourcePaths = collectSourceFiles(rootDir)
   const storyPaths = sourcePaths.filter((filePath) => isStoryFile(toRelative(rootDir, filePath)))
   const coveredComponents = new Set()
@@ -378,7 +819,7 @@ function collectFindings() {
   for (const storyPath of storyPaths) {
     const file = toRelative(rootDir, storyPath)
     const sourceFile = parseSourceFile(storyPath)
-    const isJourney = file.startsWith("src/features/clinic-dashboard/journeys/")
+    const isJourney = isApprovedJourneyStory(file)
 
     if (file.startsWith("src/stories/")) {
       findings.push(
@@ -416,6 +857,8 @@ function collectFindings() {
         ),
       )
     }
+
+    findings.push(...collectStoryPolicyFindings(file, sourceFile, meta, storyExportNames, isJourney))
 
     const componentExpression = getObjectProperty(meta, "component")
     let componentBinding = null
@@ -606,9 +1049,30 @@ function collectFindings() {
     if (isStoryFile(file)) continue
 
     const sourceFile = parseSourceFile(componentPath)
+    const exportedComponentNames = getExportedComponentNames(sourceFile)
+
+    const isProductionFeatureTsx = isFeatureComponentSource(file) && !isTestOnlyFeatureSource(file)
+    const hasForbiddenNonVisualTsxPlacement = isProductionFeatureTsx && isNonVisualFeatureTsx(file)
+    const hasMisplacedExportedComponent =
+      isProductionFeatureTsx &&
+      exportedComponentNames.length > 0 &&
+      !hasApprovedFeatureComponentPlacement(file)
+
+    if (hasForbiddenNonVisualTsxPlacement || hasMisplacedExportedComponent) {
+      findings.push(
+        createFinding(
+          "feature-component-placement",
+          file,
+          exportedComponentNames.join(",") || "production-tsx",
+          hasForbiddenNonVisualTsxPlacement
+            ? "Keep production model and hook sources JSX-free with a .ts extension; place visual React components in an approved Atomic component directory."
+            : "Place visual feature components under components/atoms, components/molecules, or components/organisms, or explicitly classify an approved Controller, Composition, Page, or Template role.",
+        ),
+      )
+    }
 
     if (requiresDirectStory(file)) {
-      for (const componentName of getExportedComponentNames(sourceFile)) {
+      for (const componentName of exportedComponentNames) {
         addDirectStoryRequirement(directStoryRequirements, file, componentName)
       }
     }

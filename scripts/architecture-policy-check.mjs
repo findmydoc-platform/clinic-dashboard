@@ -4,7 +4,7 @@ import path from "node:path"
 import ts from "typescript"
 import {
   collectExecutableJavaScriptFiles,
-  collectSourceFiles,
+  collectProjectSourceFiles,
   containsReferencedIdentifier,
   createFinding,
   getImportBindings,
@@ -41,6 +41,15 @@ function isPrototypeDataImport(reference) {
 function isRuntimePrototypeCommandImport(reference) {
   const target = importTarget(reference)
   return /(?:^|\/)(?:[^/]+\.)?prototype-commands(?:\.[cm]?[jt]sx?)?$/u.test(target)
+}
+
+function isSharedUiDomainTarget(target) {
+  return (
+    /(?:^|\/)(?:features|app)(?:\/|$)/u.test(target) ||
+    /(?:^|\/)(?:fixtures|testing)(?:\/|$)|\.fixtures(?:\.[cm]?[jt]sx?)?$/u.test(target) ||
+    isPrototypeDataTarget(target) ||
+    /(?:^|\/)(?:[^/]+\.)?prototype-commands(?:\.[cm]?[jt]sx?)?$/u.test(target)
+  )
 }
 
 function isTestOnlyImport(reference) {
@@ -96,6 +105,8 @@ function isClinicDashboardRootPublic(reference) {
 function isStoryOrTestingSource(file) {
   return (
     /^tests\//u.test(file) ||
+    /^(?:playwright|vitest)\.config\.[cm]?[jt]s$/u.test(file) ||
+    /^\.storybook\//u.test(file) ||
     /\.(?:stories|test|spec)\.[cm]?[jt]sx?$/u.test(file) ||
     /(?:^|\/)(?:testing|fixtures)(?:\/|$)/u.test(file)
   )
@@ -421,7 +432,9 @@ function resolveImportedBinding(localName, importBindings, localInitializers, vi
 function collectReExportTargetsByFile(rootDir, sourceEntries) {
   return new Map(
     sourceEntries.map(({ file, references, sourceFile }) => {
-      const targets = references.filter((reference) => reference.kind === "export").map(importTarget)
+      const targets = references
+        .filter((reference) => reference.kind === "export" && reference.resolvedPath)
+        .map((reference) => reference.resolvedPath)
       const importBindings = getImportBindings(rootDir, sourceFile)
       const localInitializers = collectLocalBindingInitializers(sourceFile)
 
@@ -503,9 +516,18 @@ function findCompositionOnlyPublicReExportTarget(file, reExportTargetsByFile) {
   )
 }
 
+function findSharedUiDomainTarget(reference, reExportTargetsByFile) {
+  const target = reference.resolvedPath
+  if (!target) return null
+
+  return [target, ...collectTransitiveReExportTargets(target, reExportTargetsByFile)]
+    .filter(isSharedUiDomainTarget)
+    .sort()[0]
+}
+
 function collectFindings() {
   const findings = []
-  const sourceEntries = collectSourceFiles(rootDir, ["src", "tests"]).map((filePath) => {
+  const sourceEntries = collectProjectSourceFiles(rootDir).map((filePath) => {
     const sourceFile = parseSourceFile(filePath)
     return {
       file: toRelative(rootDir, filePath),
@@ -787,19 +809,16 @@ function collectFindings() {
         )
       }
 
-      if (
-        /^src\/components\/ui\//u.test(file) &&
-        (/(?:^|\/)(?:features|app)(?:\/|$)/u.test(target) ||
-          isFixtureImport(reference) ||
-          prototypeDataImport ||
-          runtimePrototypeCommandImport)
-      ) {
+      const sharedUiDomainTarget = /^src\/components\/ui\//u.test(file)
+        ? findSharedUiDomainTarget(reference, reExportTargetsByFile)
+        : null
+      if (sharedUiDomainTarget) {
         findings.push(
           createFinding(
             "shared-ui-domain-import",
             file,
             reference.moduleSpecifier,
-            "Shared UI must remain domain-neutral.",
+            `Shared UI must remain domain-neutral; ${reference.moduleSpecifier} reaches domain source ${sharedUiDomainTarget}.`,
           ),
         )
       }
