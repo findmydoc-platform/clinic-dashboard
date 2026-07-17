@@ -86,6 +86,43 @@ function unwrapExpression(expression) {
   return current
 }
 
+function createSourceFileTypeChecker(sourceFile) {
+  const compilerOptions = {
+    noLib: true,
+    noResolve: true,
+    target: ts.ScriptTarget.Latest,
+  }
+  const compilerHost = ts.createCompilerHost(compilerOptions, true)
+  const sourceFileName = path.resolve(sourceFile.fileName)
+  compilerHost.fileExists = (fileName) => path.resolve(fileName) === sourceFileName
+  compilerHost.readFile = (fileName) =>
+    path.resolve(fileName) === sourceFileName ? sourceFile.text : undefined
+  compilerHost.getSourceFile = (fileName) =>
+    path.resolve(fileName) === sourceFileName ? sourceFile : undefined
+
+  return ts.createProgram([sourceFile.fileName], compilerOptions, compilerHost).getTypeChecker()
+}
+
+function getStaticPropertyAccess(expression) {
+  const current = unwrapExpression(expression)
+
+  if (ts.isPropertyAccessExpression(current)) {
+    return {
+      owner: unwrapExpression(current.expression),
+      propertyName: current.name.text,
+    }
+  }
+
+  if (ts.isElementAccessExpression(current) && current.argumentExpression) {
+    return {
+      owner: unwrapExpression(current.expression),
+      propertyName: getStringLiteralValue(unwrapExpression(current.argumentExpression)),
+    }
+  }
+
+  return null
+}
+
 export function getObjectProperty(objectLiteral, propertyName) {
   for (const property of objectLiteral.properties) {
     if (!ts.isPropertyAssignment(property)) continue
@@ -154,7 +191,67 @@ function getDefaultMetaBindingName(sourceFile) {
 }
 
 function hasCsfMetaMutation(sourceFile, metaBindingName) {
+  const typeChecker = createSourceFileTypeChecker(sourceFile)
+  const exportAssignment = sourceFile.statements.find(
+    (statement) => ts.isExportAssignment(statement) && !statement.isExportEquals,
+  )
+  const exportedExpression =
+    exportAssignment && ts.isExportAssignment(exportAssignment)
+      ? unwrapExpression(exportAssignment.expression)
+      : null
+  const metaBindingSymbol =
+    exportedExpression && ts.isIdentifier(exportedExpression)
+      ? typeChecker.getSymbolAtLocation(exportedExpression)
+      : undefined
+  if (!metaBindingSymbol || exportedExpression.text !== metaBindingName) return true
+
   let hasMutation = false
+  const metaAliasSymbols = new Set([metaBindingSymbol])
+  const aliasCandidates = []
+  const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
+
+  const isMetaAlias = (expression) => {
+    const current = unwrapExpression(expression)
+    if (!ts.isIdentifier(current)) return false
+
+    const symbol = getSymbol(current)
+    return symbol !== undefined && metaAliasSymbols.has(symbol)
+  }
+
+  const collectAliasCandidates = (node) => {
+    if (
+      (ts.isVariableDeclaration(node) || ts.isParameter(node)) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer
+    ) {
+      const symbol = getSymbol(node.name)
+      if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(unwrapExpression(node.left))
+    ) {
+      const symbol = getSymbol(unwrapExpression(node.left))
+      if (symbol) aliasCandidates.push({ expression: node.right, symbol })
+    }
+
+    ts.forEachChild(node, collectAliasCandidates)
+  }
+
+  collectAliasCandidates(sourceFile)
+
+  let discoveredAlias = true
+  while (discoveredAlias) {
+    discoveredAlias = false
+
+    for (const candidate of aliasCandidates) {
+      if (metaAliasSymbols.has(candidate.symbol) || !isMetaAlias(candidate.expression)) continue
+      metaAliasSymbols.add(candidate.symbol)
+      discoveredAlias = true
+    }
+  }
 
   const isMetaTarget = (expression) => {
     let current = unwrapExpression(expression)
@@ -163,29 +260,41 @@ function hasCsfMetaMutation(sourceFile, metaBindingName) {
       current = unwrapExpression(current.expression)
     }
 
-    return ts.isIdentifier(current) && current.text === metaBindingName
+    return isMetaAlias(current)
+  }
+
+  const isMetaPropertyTarget = (expression) => {
+    const current = unwrapExpression(expression)
+    return (
+      (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) &&
+      isMetaTarget(current)
+    )
+  }
+
+  const isMetaBindingReassignment = (expression) => {
+    const current = unwrapExpression(expression)
+    return ts.isIdentifier(current) && getSymbol(current) === metaBindingSymbol
   }
 
   const visit = (node) => {
     if (hasMutation) return
 
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      ts.isIdentifier(unwrapExpression(node.expression.expression)) &&
-      unwrapExpression(node.expression.expression).text === "Object" &&
-      node.expression.name.text === "assign" &&
-      node.arguments[0] &&
-      isMetaTarget(node.arguments[0])
-    ) {
-      hasMutation = true
-      return
+    if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+      const argumentsContainMeta = (node.arguments ?? []).some((argument) =>
+        ts.isSpreadElement(argument) ? isMetaTarget(argument.expression) : isMetaTarget(argument),
+      )
+      const callsMetaMethod = isMetaTarget(node.expression)
+
+      if (argumentsContainMeta || callsMetaMethod) {
+        hasMutation = true
+        return
+      }
     }
 
     if (
       ts.isBinaryExpression(node) &&
       ts.isAssignmentOperator(node.operatorToken.kind) &&
-      isMetaTarget(node.left)
+      (isMetaPropertyTarget(node.left) || isMetaBindingReassignment(node.left))
     ) {
       hasMutation = true
       return
@@ -194,13 +303,13 @@ function hasCsfMetaMutation(sourceFile, metaBindingName) {
     if (
       (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
       (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken) &&
-      isMetaTarget(node.operand)
+      (isMetaPropertyTarget(node.operand) || isMetaBindingReassignment(node.operand))
     ) {
       hasMutation = true
       return
     }
 
-    if (ts.isDeleteExpression(node) && isMetaTarget(node.expression)) {
+    if (ts.isDeleteExpression(node) && isMetaPropertyTarget(node.expression)) {
       hasMutation = true
       return
     }
@@ -237,6 +346,12 @@ function resolveModulePath(rootDir, sourceFilePath, moduleSpecifier) {
 
 export function getModuleReferences(rootDir, sourceFile) {
   const references = []
+  const typeChecker = createSourceFileTypeChecker(sourceFile)
+  const requireAliasSymbols = new Set()
+  const requireResolveAliasSymbols = new Set()
+  const aliasCandidates = []
+  const destructuringCandidates = []
+  const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
 
   const addReference = (moduleSpecifier, kind) => {
     references.push({
@@ -265,6 +380,101 @@ export function getModuleReferences(rootDir, sourceFile) {
     }
   }
 
+  const getRequireBindingKind = (expression) => {
+    const current = unwrapExpression(expression)
+
+    if (ts.isIdentifier(current)) {
+      const symbol = getSymbol(current)
+      if (current.text === "require" && !symbol?.declarations?.length) return "require"
+      if (symbol && requireAliasSymbols.has(symbol)) return "require"
+      if (symbol && requireResolveAliasSymbols.has(symbol)) return "require-resolve"
+      return null
+    }
+
+    const access = getStaticPropertyAccess(current)
+    if (!access || access.propertyName !== "resolve") return null
+    return getRequireBindingKind(access.owner) === "require" ? "require-resolve" : null
+  }
+
+  const collectRequireAliasCandidates = (node) => {
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && node.initializer) {
+      if (ts.isIdentifier(node.name)) {
+        const symbol = getSymbol(node.name)
+        if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+      } else if (ts.isObjectBindingPattern(node.name)) {
+        destructuringCandidates.push({ expression: node.initializer, pattern: node.name })
+      }
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(unwrapExpression(node.left))
+    ) {
+      const symbol = getSymbol(unwrapExpression(node.left))
+      if (symbol) aliasCandidates.push({ expression: node.right, symbol })
+    }
+
+    ts.forEachChild(node, collectRequireAliasCandidates)
+  }
+
+  collectRequireAliasCandidates(sourceFile)
+
+  const addRequireAlias = (symbol, kind) => {
+    const aliases = kind === "require" ? requireAliasSymbols : requireResolveAliasSymbols
+    if (aliases.has(symbol)) return false
+    aliases.add(symbol)
+    return true
+  }
+
+  const bindRequirePattern = (pattern, sourceKind) => {
+    let changed = false
+
+    for (const element of pattern.elements) {
+      const propertyName = element.propertyName
+        ? propertyNameText(element.propertyName)
+        : ts.isIdentifier(element.name)
+          ? element.name.text
+          : null
+      const childKind = element.dotDotDotToken
+        ? sourceKind
+        : sourceKind === "require" && propertyName === "resolve"
+          ? "require-resolve"
+          : sourceKind === "require-resolve"
+            ? "require-resolve"
+            : null
+      if (!childKind) continue
+
+      if (ts.isIdentifier(element.name)) {
+        const symbol = getSymbol(element.name)
+        if (symbol && addRequireAlias(symbol, childKind)) changed = true
+      } else if (ts.isObjectBindingPattern(element.name)) {
+        if (bindRequirePattern(element.name, childKind)) changed = true
+      }
+    }
+
+    return changed
+  }
+
+  let discoveredAlias = true
+  while (discoveredAlias) {
+    discoveredAlias = false
+
+    for (const candidate of aliasCandidates) {
+      if (requireAliasSymbols.has(candidate.symbol) || requireResolveAliasSymbols.has(candidate.symbol)) {
+        continue
+      }
+
+      const kind = getRequireBindingKind(candidate.expression)
+      if (kind && addRequireAlias(candidate.symbol, kind)) discoveredAlias = true
+    }
+
+    for (const candidate of destructuringCandidates) {
+      const kind = getRequireBindingKind(candidate.expression)
+      if (kind && bindRequirePattern(candidate.pattern, kind)) discoveredAlias = true
+    }
+  }
+
   for (const statement of sourceFile.statements) {
     if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
       addReference(statement.moduleSpecifier.text, "import")
@@ -282,20 +492,21 @@ export function getModuleReferences(rootDir, sourceFile) {
   const visit = (node) => {
     if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
       addExpressionReference(node, node.arguments[0], "dynamic-import", "dynamic import")
-    } else if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(unwrapExpression(node.expression)) &&
-      unwrapExpression(node.expression).text === "require"
-    ) {
-      addExpressionReference(node, node.arguments[0], "require", "require call")
-    } else if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      ts.isIdentifier(unwrapExpression(node.expression.expression)) &&
-      unwrapExpression(node.expression.expression).text === "require" &&
-      node.expression.name.text === "resolve"
-    ) {
-      addExpressionReference(node, node.arguments[0], "require-resolve", "require.resolve call")
+    } else if (ts.isCallExpression(node)) {
+      const requireKind = getRequireBindingKind(node.expression)
+      if (requireKind) {
+        const label = requireKind === "require-resolve" ? "require.resolve call" : "require call"
+        addExpressionReference(node, node.arguments[0], requireKind, label)
+      }
+    }
+
+    if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+      addExpressionReference(
+        node,
+        node.moduleReference.expression,
+        "import-equals",
+        "import equals declaration",
+      )
     }
 
     if (ts.isImportTypeNode(node)) {
@@ -342,6 +553,12 @@ export function getImportBindings(rootDir, sourceFile) {
           resolvedPath,
         })
       }
+    } else if (importClause.namedBindings && ts.isNamespaceImport(importClause.namedBindings)) {
+      bindings.set(importClause.namedBindings.name.text, {
+        importedName: "*",
+        moduleSpecifier,
+        resolvedPath,
+      })
     }
   }
 
@@ -506,23 +723,11 @@ function getStoryExportMatcher(sourceFile, meta, propertyName) {
 
 export function containsReferencedIdentifier(sourceFile, identifierNames) {
   const found = new Set()
-
-  const compilerOptions = {
-    noLib: true,
-    noResolve: true,
-    target: ts.ScriptTarget.Latest,
-  }
-  const compilerHost = ts.createCompilerHost(compilerOptions, true)
-  const sourceFileName = path.resolve(sourceFile.fileName)
-  compilerHost.fileExists = (fileName) => path.resolve(fileName) === sourceFileName
-  compilerHost.readFile = (fileName) =>
-    path.resolve(fileName) === sourceFileName ? sourceFile.text : undefined
-  compilerHost.getSourceFile = (fileName) =>
-    path.resolve(fileName) === sourceFileName ? sourceFile : undefined
-
-  const typeChecker = ts.createProgram([sourceFile.fileName], compilerOptions, compilerHost).getTypeChecker()
+  const typeChecker = createSourceFileTypeChecker(sourceFile)
   const globalThisAliasSymbols = new Set()
+  const browserGlobalAliasNames = new Map()
   const aliasCandidates = []
+  const destructuringCandidates = []
 
   const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
 
@@ -538,13 +743,13 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
   }
 
   const collectAliasCandidates = (node) => {
-    if (
-      (ts.isVariableDeclaration(node) || ts.isParameter(node)) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer
-    ) {
-      const symbol = getSymbol(node.name)
-      if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && node.initializer) {
+      if (ts.isIdentifier(node.name)) {
+        const symbol = getSymbol(node.name)
+        if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+      } else if (ts.isObjectBindingPattern(node.name)) {
+        destructuringCandidates.push({ expression: node.initializer, pattern: node.name })
+      }
     }
 
     if (
@@ -561,6 +766,57 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
 
   collectAliasCandidates(sourceFile)
 
+  const addBrowserGlobalAlias = (symbol, globalNames) => {
+    const currentNames = browserGlobalAliasNames.get(symbol) ?? new Set()
+    const previousSize = currentNames.size
+    for (const globalName of globalNames) currentNames.add(globalName)
+    browserGlobalAliasNames.set(symbol, currentNames)
+    return currentNames.size !== previousSize
+  }
+
+  const addGlobalThisAlias = (symbol) => {
+    if (globalThisAliasSymbols.has(symbol)) return false
+    globalThisAliasSymbols.add(symbol)
+    return true
+  }
+
+  const bindGlobalThisPattern = (pattern, inheritedGlobalName = null, isRoot = true) => {
+    let changed = false
+
+    for (const element of pattern.elements) {
+      if (element.dotDotDotToken) {
+        if (!ts.isIdentifier(element.name)) continue
+        const symbol = getSymbol(element.name)
+        if (!symbol) continue
+
+        if (inheritedGlobalName) {
+          if (addBrowserGlobalAlias(symbol, [inheritedGlobalName])) changed = true
+        } else if (isRoot && addGlobalThisAlias(symbol)) {
+          changed = true
+        }
+        continue
+      }
+
+      const propertyName = element.propertyName
+        ? propertyNameText(element.propertyName)
+        : ts.isIdentifier(element.name)
+          ? element.name.text
+          : null
+      const globalName =
+        inheritedGlobalName ??
+        (isRoot && propertyName !== null && identifierNames.has(propertyName) ? propertyName : null)
+
+      if (ts.isIdentifier(element.name)) {
+        const symbol = getSymbol(element.name)
+        if (symbol && globalName && addBrowserGlobalAlias(symbol, [globalName])) changed = true
+      } else if (ts.isObjectBindingPattern(element.name)) {
+        if (bindGlobalThisPattern(element.name, globalName, false)) changed = true
+      }
+    }
+
+    return changed
+  }
+
   let discoveredAlias = true
   while (discoveredAlias) {
     discoveredAlias = false
@@ -568,9 +824,50 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
     for (const candidate of aliasCandidates) {
       if (globalThisAliasSymbols.has(candidate.symbol)) continue
       if (!isGlobalThisReference(candidate.expression)) continue
+      if (addGlobalThisAlias(candidate.symbol)) discoveredAlias = true
+    }
 
-      globalThisAliasSymbols.add(candidate.symbol)
-      discoveredAlias = true
+    for (const candidate of destructuringCandidates) {
+      if (!isGlobalThisReference(candidate.expression)) continue
+      if (bindGlobalThisPattern(candidate.pattern)) discoveredAlias = true
+    }
+  }
+
+  const getBrowserGlobalNames = (expression) => {
+    const current = unwrapExpression(expression)
+
+    if (ts.isIdentifier(current)) {
+      const symbol = getSymbol(current)
+      if (symbol && browserGlobalAliasNames.has(symbol)) {
+        return browserGlobalAliasNames.get(symbol)
+      }
+      if (identifierNames.has(current.text) && !symbol?.declarations?.length) {
+        return new Set([current.text])
+      }
+      return null
+    }
+
+    const access = getStaticPropertyAccess(current)
+    if (
+      access &&
+      access.propertyName !== null &&
+      identifierNames.has(access.propertyName) &&
+      isGlobalThisReference(access.owner)
+    ) {
+      return new Set([access.propertyName])
+    }
+
+    return null
+  }
+
+  let discoveredBrowserGlobalAlias = true
+  while (discoveredBrowserGlobalAlias) {
+    discoveredBrowserGlobalAlias = false
+
+    for (const candidate of aliasCandidates) {
+      const globalNames = getBrowserGlobalNames(candidate.expression)
+      if (!globalNames) continue
+      if (addBrowserGlobalAlias(candidate.symbol, globalNames)) discoveredBrowserGlobalAlias = true
     }
   }
 
@@ -619,13 +916,14 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
       }
     }
 
-    if (
-      ts.isIdentifier(node) &&
-      identifierNames.has(node.text) &&
-      !isNonReferenceIdentifier(node) &&
-      getSymbol(node) === undefined
-    ) {
-      found.add(node.text)
+    if (ts.isIdentifier(node) && !isNonReferenceIdentifier(node)) {
+      const symbol = getSymbol(node)
+      const aliasNames = symbol ? browserGlobalAliasNames.get(symbol) : null
+      if (aliasNames) {
+        for (const globalName of aliasNames) found.add(globalName)
+      } else if (identifierNames.has(node.text) && symbol === undefined) {
+        found.add(node.text)
+      }
     }
 
     ts.forEachChild(node, visit)
