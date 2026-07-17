@@ -45,13 +45,14 @@ type Story = StoryObj<typeof meta>
 export const MarkAsUnread: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
     const trigger = canvas.getByRole("button", { name: "Conversation menu" })
-    const action = canvas.getByRole("menuitem", { name: "Mark as unread" })
+    const action = page.getByRole("menuitem", { name: "Mark as unread" })
     await waitFor(() => expect(action).toHaveFocus())
     await userEvent.click(action)
     await expect(args.onToggleUnread).toHaveBeenCalledOnce()
     await expect(args.onOpenChange).toHaveBeenCalledWith(false)
-    await expect(canvas.queryByRole("menu")).not.toBeInTheDocument()
+    await expect(page.queryByRole("menu")).not.toBeInTheDocument()
     await waitFor(() => expect(trigger).toHaveFocus())
   },
 }
@@ -59,21 +60,22 @@ export const MarkAsUnread: Story = {
 export const MarkAsRead: Story = {
   args: { unreadCount: 1 },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole("menuitem", { name: "Mark as read" })).toBeInTheDocument()
+    const page = within(canvasElement.ownerDocument.body)
+    await expect(page.getByRole("menuitem", { name: "Mark as read" })).toBeInTheDocument()
   },
 }
 
 export const KeyboardClose: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
     const trigger = canvas.getByRole("button", { name: "Conversation menu" })
-    const action = canvas.getByRole("menuitem", { name: "Mark as unread" })
+    const action = page.getByRole("menuitem", { name: "Mark as unread" })
     await waitFor(() => expect(action).toHaveFocus())
     await userEvent.keyboard("{ArrowDown}{ArrowUp}{Home}{End}")
     await expect(action).toHaveFocus()
     await userEvent.keyboard("{Escape}")
-    await expect(canvas.queryByRole("menu")).not.toBeInTheDocument()
+    await expect(page.queryByRole("menu")).not.toBeInTheDocument()
     await waitFor(() => expect(trigger).toHaveFocus())
   },
 }
@@ -81,9 +83,10 @@ export const KeyboardClose: Story = {
 export const OutsideClose: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
     const outsideAction = canvas.getByRole("button", { name: "Outside action" })
     await userEvent.click(outsideAction)
-    await expect(canvas.queryByRole("menu")).not.toBeInTheDocument()
+    await expect(page.queryByRole("menu")).not.toBeInTheDocument()
     await expect(outsideAction).toHaveFocus()
   },
 }
@@ -91,10 +94,11 @@ export const OutsideClose: Story = {
 export const TabClose: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
     const outsideAction = canvas.getByRole("button", { name: "Outside action" })
-    await waitFor(() => expect(canvas.getByRole("menuitem")).toHaveFocus())
+    await waitFor(() => expect(page.getByRole("menuitem")).toHaveFocus())
     await userEvent.tab()
-    await expect(canvas.queryByRole("menu")).not.toBeInTheDocument()
+    await expect(page.queryByRole("menu")).not.toBeInTheDocument()
     await waitFor(() => expect(outsideAction).toHaveFocus())
   },
 }

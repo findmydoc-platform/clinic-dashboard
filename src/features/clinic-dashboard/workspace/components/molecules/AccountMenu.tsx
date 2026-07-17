@@ -1,11 +1,13 @@
 "use client"
 
 import type { StaticImageData } from "next/image"
-import { useEffect, useId, useRef, useState } from "react"
-import { ChevronDown, LogOut } from "lucide-react"
+import { useState } from "react"
+import { ChevronDown, LogOut, Moon } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { DropdownMenu } from "@/components/ui/dropdown-menu"
+import { useThemeMode } from "@/components/ui/use-theme-mode"
+import { cn } from "@/lib/utils"
 
 type AccountMenuProps = Readonly<{
   avatar?: StaticImageData | string
@@ -17,96 +19,73 @@ type AccountMenuProps = Readonly<{
 
 export function AccountMenu({ avatar, initials, initialOpen = false, name, role }: AccountMenuProps) {
   const [open, setOpen] = useState(initialOpen)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const panelId = useId()
-  const wasOpen = useRef(false)
-
-  useEffect(() => {
-    let focusFrame: number | undefined
-
-    if (!open) {
-      if (wasOpen.current) {
-        focusFrame = requestAnimationFrame(() => buttonRef.current?.focus())
-      }
-      wasOpen.current = false
-      return () => {
-        if (focusFrame !== undefined) cancelAnimationFrame(focusFrame)
-      }
-    }
-
-    wasOpen.current = true
-    focusFrame = requestAnimationFrame(() => panelRef.current?.focus())
-
-    const closeMenu = () => setOpen(false)
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      event.preventDefault()
-      closeMenu()
-    }
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (panelRef.current?.contains(target) || buttonRef.current?.contains(target)) return
-      closeMenu()
-    }
-
-    document.addEventListener("keydown", handleKeyDown)
-    document.addEventListener("pointerdown", handlePointerDown)
-
-    return () => {
-      if (focusFrame !== undefined) cancelAnimationFrame(focusFrame)
-      document.removeEventListener("keydown", handleKeyDown)
-      document.removeEventListener("pointerdown", handlePointerDown)
-    }
-  }, [open])
+  const { isDark, setDarkMode } = useThemeMode()
 
   return (
     <div className="relative">
-      <Button
-        aria-controls={open ? panelId : undefined}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label={`Open account menu for ${name}`}
-        className="gap-1 rounded-full px-1.5"
-        onClick={() => setOpen((current) => !current)}
-        ref={buttonRef}
-        variant="ghost"
-      >
-        <Avatar initials={initials} loading="eager" src={avatar} />
-        <ChevronDown
-          aria-hidden="true"
-          className={`size-4 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </Button>
-      {open ? (
-        <div
+      <DropdownMenu onOpenChange={setOpen} open={open}>
+        <DropdownMenu.Trigger asChild>
+          <Button
+            aria-label={`Open account menu for ${name}`}
+            className="gap-1 rounded-full px-1.5"
+            variant="ghost"
+          >
+            <Avatar initials={initials} loading="eager" src={avatar} />
+            <ChevronDown
+              aria-hidden="true"
+              className={cn("size-4 transition-transform", open && "rotate-180")}
+            />
+          </Button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content
+          align="end"
           aria-label="Account menu"
-          className="fixed top-[4.5rem] right-4 z-50 w-[calc(100vw-2rem)] max-w-60 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)] shadow-xl focus:outline-2 focus:outline-offset-2 focus:outline-[var(--primary)] sm:absolute sm:top-[calc(100%+0.5rem)] sm:right-0 sm:w-60"
-          id={panelId}
-          ref={panelRef}
-          role="dialog"
-          tabIndex={-1}
+          className="w-[calc(100vw-2rem)] max-w-60 p-0 sm:w-60"
         >
           <div className="px-4 py-3">
             <p className="text-sm font-bold">{name}</p>
             <p className="mt-0.5 text-xs text-[var(--foreground)]">{role}</p>
           </div>
-          <div className="border-t border-[var(--border)]">
-            <ThemeToggle variant="switch" />
-          </div>
-          <form action="/api/auth/logout" className="border-t border-[var(--border)]" method="post">
-            <Button
-              className="w-full justify-start rounded-none px-4 text-[var(--destructive)] enabled:hover:bg-[color-mix(in_srgb,var(--destructive)_8%,var(--background))]"
-              type="submit"
-              variant="ghost"
+          <DropdownMenu.Separator className="mx-0 my-0" />
+          <DropdownMenu.CheckboxItem
+            aria-label="Dark mode"
+            checked={isDark}
+            className="min-h-12 justify-between rounded-none px-4"
+            onCheckedChange={(checked) => setDarkMode(checked === true)}
+            onSelect={(event) => event.preventDefault()}
+          >
+            <span className="flex items-center gap-3">
+              <Moon aria-hidden="true" className="size-5" />
+              <span>Dark mode</span>
+            </span>
+            <span
+              aria-hidden="true"
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors",
+                isDark
+                  ? "border-[var(--primary)] bg-[var(--primary)]"
+                  : "border-[var(--muted-foreground)] bg-[var(--background)]",
+              )}
             >
-              <LogOut aria-hidden="true" className="size-5" />
-              <span>Sign out</span>
-            </Button>
+              <span
+                className={cn(
+                  "absolute top-0.5 size-[1.125rem] rounded-full bg-white shadow-sm transition-transform",
+                  isDark ? "translate-x-5" : "translate-x-0.5",
+                )}
+              />
+            </span>
+          </DropdownMenu.CheckboxItem>
+          <DropdownMenu.Separator className="mx-0 my-0" />
+          <form action="/api/auth/logout" method="post">
+            <DropdownMenu.Item asChild variant="destructive">
+              <Button className="w-full justify-start rounded-none px-4" type="submit" variant="ghost">
+                <LogOut aria-hidden="true" className="size-5" />
+                <span>Sign out</span>
+              </Button>
+            </DropdownMenu.Item>
           </form>
-        </div>
-      ) : null}
+        </DropdownMenu.Content>
+      </DropdownMenu>
     </div>
   )
 }
