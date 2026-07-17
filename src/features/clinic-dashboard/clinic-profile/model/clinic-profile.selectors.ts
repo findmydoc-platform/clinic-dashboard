@@ -32,6 +32,11 @@ export function selectClinicProfileEditorProjection(
   const canManageProjectedProfile = canManageProfile || canManageTeam
   const canUndo =
     editor.undo?.kind === "team" ? canManageTeam : editor.undo?.kind === "treatment" && canManageProfile
+  const undoTreatmentId = editor.undo?.kind === "treatment" ? editor.undo.item.masterTreatmentId : undefined
+  const undoName =
+    editor.undo?.kind === "team"
+      ? editor.undo.item.name
+      : editor.treatmentCatalogue.find((treatment) => treatment.id === undoTreatmentId)?.name
 
   return {
     isDirty: canManageProjectedProfile && isClinicProfileDirty(editor.saved, profile),
@@ -39,7 +44,6 @@ export function selectClinicProfileEditorProjection(
     saveState: canManageProjectedProfile ? editor.saveState : "idle",
     statusMessage: canManageProjectedProfile ? editor.statusMessage : "",
     undoKind: canUndo ? editor.undo?.kind : undefined,
-    undoMessage:
-      canUndo && editor.undo ? `${editor.undo.item.name} removed. Undo restores this item.` : undefined,
+    undoMessage: canUndo && undoName ? `${undoName} removed. Undo restores this item.` : undefined,
   }
 }

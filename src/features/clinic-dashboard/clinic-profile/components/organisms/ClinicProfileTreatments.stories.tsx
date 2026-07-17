@@ -1,20 +1,25 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, within } from "storybook/test"
-import { clinicProfileFixture } from "../../testing/clinic-profile.fixtures"
+import { selectClinicTreatmentViews } from "../../model/clinic-treatments"
+import { clinicProfileFixture, clinicTreatmentCatalogueFixture } from "../../testing/clinic-profile.fixtures"
 import { ClinicProfileTreatments } from "./ClinicProfileTreatments"
+
+const treatmentViews = selectClinicTreatmentViews(
+  clinicTreatmentCatalogueFixture,
+  clinicProfileFixture.treatments,
+)
 
 const meta = {
   args: {
     isBusy: false,
     onCreate: fn(),
-    onMove: fn(),
     onRemove: fn(),
     onTreatmentOpen: fn(),
     onUndo: fn(),
     showCreateAction: true,
     showTreatmentActions: true,
     showTreatmentViewAction: false,
-    treatments: clinicProfileFixture.treatments,
+    treatments: treatmentViews,
   },
   component: ClinicProfileTreatments,
   tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
@@ -24,15 +29,15 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Reordering: Story = {
+export const Editing: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const firstTreatment = clinicProfileFixture.treatments[0]
+    const firstTreatment = treatmentViews[0]
     if (!firstTreatment) throw new Error("Treatment fixture requires one treatment.")
 
-    await expect(canvas.getByRole("button", { name: `Move ${firstTreatment.name} up` })).toBeDisabled()
-    await userEvent.click(canvas.getByRole("button", { name: `Move ${firstTreatment.name} down` }))
-    await expect(args.onMove).toHaveBeenCalledWith(firstTreatment.id, 1)
+    await expect(canvas.queryByRole("button", { name: /Move .* (up|down)/ })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: `Edit ${firstTreatment.name}` }))
+    await expect(args.onTreatmentOpen).toHaveBeenCalledWith(firstTreatment)
   },
 }
 
@@ -54,7 +59,7 @@ export const MobileReadOnly: Story = {
   globals: { viewport: { value: "mobile390Tall" } },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const treatment = clinicProfileFixture.treatments[0]
+    const treatment = treatmentViews[0]
     if (!treatment) throw new Error("Treatment fixture requires one treatment.")
 
     await expect(canvas.getByText("Laser teeth whitening")).toBeInTheDocument()

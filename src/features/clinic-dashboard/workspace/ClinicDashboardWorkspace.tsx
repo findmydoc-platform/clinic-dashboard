@@ -1,6 +1,9 @@
 "use client"
 
-import { clinicProfilePrototypeData } from "@/features/clinic-dashboard/clinic-profile/clinic-profile.prototype-data"
+import {
+  clinicProfilePrototypeData,
+  clinicTreatmentCataloguePrototypeData,
+} from "@/features/clinic-dashboard/clinic-profile/clinic-profile.prototype-data"
 import { dashboardPrototypeData } from "@/features/clinic-dashboard/dashboard/dashboard.prototype-data"
 import {
   messagesPrototypeData,
@@ -33,6 +36,7 @@ const clinicDashboardWorkspaceSnapshot = {
   notifications: clinicDashboardWorkspacePrototypeData.notifications,
   patientInquiry: patientInquiryPrototypeData,
   reviews: reviewsPrototypeData,
+  treatmentCatalogue: clinicTreatmentCataloguePrototypeData,
 } satisfies ClinicDashboardWorkspaceSnapshot
 
 export function ClinicDashboardWorkspace({

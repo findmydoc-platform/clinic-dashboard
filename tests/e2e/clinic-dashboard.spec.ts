@@ -91,6 +91,31 @@ test("resets prototype location selection after a reload", async ({ page }) => {
   ).toBeVisible()
 })
 
+test("opens the honest local support prototype from a missing treatment", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+
+  await page.getByRole("switch", { name: "Full interface" }).click()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await page.getByRole("button", { name: "New treatment" }).click()
+
+  const treatmentDialog = page.getByRole("dialog", { name: "Add treatment" })
+  await treatmentDialog.getByRole("button", { name: "Treatment missing?" }).click()
+
+  const supportDialog = page.getByRole("dialog", { name: "Contact support" })
+  await expect(
+    supportDialog.getByText("Complete this local prototype form. Nothing will be sent."),
+  ).toBeVisible()
+  await supportDialog.getByRole("combobox", { name: "Category" }).selectOption("Other")
+  await supportDialog.getByRole("textbox", { name: "Subject" }).fill("Treatment missing")
+  await supportDialog
+    .getByRole("textbox", { name: "Message" })
+    .fill("Please add this treatment to the platform catalogue.")
+  await supportDialog.getByRole("button", { name: "Submit prototype request" }).click()
+
+  await expect(supportDialog.getByRole("status")).toHaveText("Prototype only — no request was sent.")
+})
+
 test("opens the account menu and signs out", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)

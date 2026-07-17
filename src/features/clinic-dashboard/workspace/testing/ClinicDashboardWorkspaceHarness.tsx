@@ -3,6 +3,7 @@
 import { useState } from "react"
 import {
   clinicProfileFixture,
+  clinicTreatmentCatalogueFixture,
   createClinicProfileCommandsFixture,
 } from "@/features/clinic-dashboard/clinic-profile/testing/public"
 import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
@@ -44,6 +45,7 @@ const clinicDashboardWorkspaceFixture = {
   notifications: notificationsFixture,
   patientInquiry: patientInquiryFixture,
   reviews: reviewsFixture,
+  treatmentCatalogue: clinicTreatmentCatalogueFixture,
 } satisfies ClinicDashboardWorkspaceSnapshot
 
 export function ClinicDashboardWorkspaceHarness({

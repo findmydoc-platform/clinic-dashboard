@@ -4,7 +4,11 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { Button } from "@/components/ui/button"
 import { ClinicProfile } from "./ClinicProfile"
 import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
-import { clinicProfileFixture, createClinicProfileCommandsFixture } from "./testing/clinic-profile.fixtures"
+import {
+  clinicProfileFixture,
+  clinicTreatmentCatalogueFixture,
+  createClinicProfileCommandsFixture,
+} from "./testing/clinic-profile.fixtures"
 
 function createTrackedClinicProfileCommands() {
   const fixtureCommands = createClinicProfileCommandsFixture()
@@ -32,8 +36,10 @@ const meta = {
     commands: renderOwnedClinicProfileCommands,
     initialProfile: clinicProfileFixture,
     onFocusHandled: fn(),
+    onTreatmentMissing: fn(),
     profileManagement: "interactive",
     teamManagement: "interactive",
+    treatmentCatalogue: clinicTreatmentCatalogueFixture,
   },
   component: ClinicProfile,
   parameters: { layout: "fullscreen" },
@@ -150,10 +156,11 @@ export const CapabilityWithdrawalProjectsSavedProfile: Story = {
 
     await userEvent.click(page.getByRole("button", { name: "View Laser teeth whitening" }))
     const treatmentDialog = page.getByRole("dialog", { name: "Treatment details" })
-    await expect(within(treatmentDialog).getByRole("textbox", { name: "Treatment name" })).toBeDisabled()
-    await expect(
-      within(treatmentDialog).queryByRole("button", { name: /Save treatment/ }),
-    ).not.toBeInTheDocument()
+    await expect(within(treatmentDialog).getByRole("textbox", { name: "Treatment" })).toHaveValue(
+      "Laser teeth whitening",
+    )
+    await expect(within(treatmentDialog).getByRole("textbox", { name: "Price" })).toHaveAttribute("readonly")
+    await expect(within(treatmentDialog).queryByRole("button", { name: /Save/ })).not.toBeInTheDocument()
     await userEvent.click(within(treatmentDialog).getByRole("button", { name: "Done" }))
 
     const member = clinicProfileFixture.team[0]
@@ -266,59 +273,54 @@ export const TeamMemberLifecycle: Story = {
   },
 }
 
-export const TreatmentCreationUsesCommandId: Story = {
-  play: async ({ args, canvasElement, mount }) => {
-    const { commands, createClinicProfileEntityId } = createTrackedClinicProfileCommands()
-    await mount(<ClinicProfile {...args} commands={commands} />)
+export const TreatmentRelationshipLifecycle: Story = {
+  play: async ({ canvasElement }) => {
     const page = within(canvasElement)
-    await userEvent.click(page.getByRole("button", { name: "New treatment" }))
+    const createTreatment = page.getByRole("button", { name: "New treatment" })
+    await userEvent.click(createTreatment)
 
-    const dialog = page.getByRole("dialog", { name: "Create new treatment" })
-    await userEvent.type(
-      within(dialog).getByRole("textbox", { name: "Treatment name" }),
-      "Dental consultation",
+    const dialog = page.getByRole("dialog", { name: "Add treatment" })
+    await userEvent.selectOptions(
+      within(dialog).getByRole("combobox", { name: "Treatment" }),
+      "master-hair-transplant",
     )
-    await userEvent.selectOptions(within(dialog).getByRole("combobox", { name: "Category" }), "Dentistry")
-    await userEvent.type(within(dialog).getByRole("textbox", { name: "Duration (minutes)" }), "30")
-    await userEvent.type(within(dialog).getByRole("textbox", { name: "Price (€)" }), "95")
-    await userEvent.type(
-      within(dialog).getByRole("textbox", { name: "Description" }),
-      "A structured first consultation and treatment recommendation.",
-    )
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save treatment" }))
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Price" }), "€3,900")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add treatment" }))
 
-    await expect(page.getByText("Dental consultation")).toBeInTheDocument()
-    await expect(createClinicProfileEntityId).toHaveBeenCalledTimes(1)
-    await expect(createClinicProfileEntityId).toHaveBeenCalledWith("treatment")
+    await waitFor(() => expect(createTreatment).toHaveFocus())
+    await expect(page.getByText("Hair transplant")).toBeInTheDocument()
+    await expect(page.getByText("Treatment assignment staged.")).toBeInTheDocument()
 
-    await userEvent.click(page.getByRole("button", { name: "Edit Dental consultation" }))
-    const editDialog = page.getByRole("dialog", { name: "Edit treatment" })
-    await userEvent.click(within(editDialog).getByRole("button", { name: "Save treatment changes" }))
-    await expect(createClinicProfileEntityId).toHaveBeenCalledTimes(1)
+    const editTreatment = page.getByRole("button", { name: "Edit Hair transplant" })
+    await userEvent.click(editTreatment)
+    const editDialog = page.getByRole("dialog", { name: "Edit clinic price" })
+    await expect(within(editDialog).getByRole("textbox", { name: "Treatment" })).toHaveAttribute("readonly")
+    await expect(within(editDialog).queryByRole("combobox")).not.toBeInTheDocument()
+    const price = within(editDialog).getByRole("textbox", { name: "Price" })
+    await userEvent.clear(price)
+    await userEvent.type(price, "€4,100")
+    await userEvent.click(within(editDialog).getByRole("button", { name: "Save price" }))
+    await waitFor(() => expect(editTreatment).toHaveFocus())
+    await expect(page.getByText("€4,100")).toBeInTheDocument()
+    await expect(page.getByText("Clinic price changes staged.")).toBeInTheDocument()
+
+    await userEvent.click(page.getByRole("button", { name: "Remove Hair transplant" }))
+    await expect(page.queryByText("Hair transplant")).not.toBeInTheDocument()
+    await userEvent.click(page.getByRole("button", { name: "Undo removal" }))
+    await expect(page.getByText("Hair transplant")).toBeInTheDocument()
+    await expect(page.getByText("Hair transplant restored.")).toBeInTheDocument()
   },
 }
 
-export const TreatmentEditingAndReordering: Story = {
-  play: async ({ canvasElement }) => {
+export const MissingTreatmentRequestsSupport: Story = {
+  play: async ({ args, canvasElement }) => {
     const page = within(canvasElement)
-    await userEvent.click(page.getByRole("button", { name: "Edit Laser teeth whitening" }))
+    await userEvent.click(page.getByRole("button", { name: "New treatment" }))
+    const dialog = page.getByRole("dialog", { name: "Add treatment" })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Treatment missing?" }))
 
-    const dialog = page.getByRole("dialog", { name: "Edit treatment" })
-    const name = within(dialog).getByRole("textbox", { name: "Treatment name" })
-    await userEvent.clear(name)
-    await userEvent.type(name, "Advanced laser whitening")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save treatment changes" }))
-    await expect(page.getByText("Advanced laser whitening")).toBeInTheDocument()
-
-    await userEvent.click(page.getByRole("button", { name: "Move Ceramic veneers (per tooth) up" }))
-    const treatmentCard = page.getByRole("heading", { name: "Treatments and prices" }).closest("section")
-    await expect(treatmentCard).not.toBeNull()
-    if (!treatmentCard) return
-
-    const editActions = within(treatmentCard).getAllByRole("button", { name: /^Edit / })
-    await expect(editActions[0]).toHaveAccessibleName("Edit Ceramic veneers (per tooth)")
-    await expect(editActions[1]).toHaveAccessibleName("Edit Advanced laser whitening")
-    await expect(page.getByText("Treatment order staged.")).toBeInTheDocument()
+    await expect(args.onTreatmentMissing).toHaveBeenCalledOnce()
+    await waitFor(() => expect(page.queryByRole("dialog", { name: "Add treatment" })).not.toBeInTheDocument())
   },
 }
 

@@ -108,6 +108,12 @@ Later reporting reads approved behavioural aggregates from PostHog server-side a
 
 Review fixtures keep published and pending-moderation responses as separate values. Saving the local response preview creates only a deterministic pending-moderation value and explicitly states that nothing was submitted or sent; it does not replace published text, change review or appeal status, or imply that the clinic can publish directly. Pending values remain management-only, while presentation mode projects only published review activity. The matching Website Capability Matrix row remains unchanged: website#1529 owns the future schema and authorized moderation contract, and only approved responses may affect public cached output.
 
+The treatment prototype keeps four platform-owned master-treatment fixtures separate from the clinic profile's three
+`masterTreatmentId` and price relationships. The visual-reference create flow can select only an unassigned master
+treatment and enter its clinic price; editing changes only that price. It does not model clinic-owned names, categories,
+duration, currency, description, active state, or ordering. `Treatment missing?` closes the create dialog and opens the
+local-only support prototype, while presentation mode keeps the relationship list and details read-only.
+
 ## Test and Acceptance Plan
 
 - Verify the narrow mobile viewport first, then tablet and desktop.

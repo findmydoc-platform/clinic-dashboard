@@ -1,1 +1,5 @@
-export { clinicProfileFixture, createClinicProfileCommandsFixture } from "./clinic-profile.fixtures"
+export {
+  clinicProfileFixture,
+  clinicTreatmentCatalogueFixture,
+  createClinicProfileCommandsFixture,
+} from "./clinic-profile.fixtures"

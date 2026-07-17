@@ -88,7 +88,7 @@ export const PresentationProfileManagementPreview: Story = {
     await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toBeDisabled()
     await expect(canvas.queryByRole("button", { name: "Add team member" })).not.toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: "New treatment" })).not.toBeInTheDocument()
-    await expect(canvas.queryByRole("dialog", { name: "Create new treatment" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("dialog", { name: "Add treatment" })).not.toBeInTheDocument()
 
     await userEvent.click(canvas.getByRole("button", { name: /more images/ }))
     const galleryDialog = canvas.getByRole("dialog", { name: "Clinic image gallery" })
@@ -112,14 +112,34 @@ export const PresentationProfileManagementPreview: Story = {
 
     await userEvent.click(canvas.getByRole("button", { name: "View Laser teeth whitening" }))
     const treatmentDialog = canvas.getByRole("dialog", { name: "Treatment details" })
-    await expect(within(treatmentDialog).getByRole("textbox", { name: "Treatment name" })).toBeDisabled()
-    await expect(
-      within(treatmentDialog).queryByRole("button", { name: /Save treatment/ }),
-    ).not.toBeInTheDocument()
+    await expect(within(treatmentDialog).getByRole("textbox", { name: "Treatment" })).toHaveAttribute(
+      "readonly",
+    )
+    await expect(within(treatmentDialog).getByRole("textbox", { name: "Price" })).toHaveAttribute("readonly")
+    await expect(within(treatmentDialog).queryByRole("button", { name: /Save/ })).not.toBeInTheDocument()
     await userEvent.click(within(treatmentDialog).getByRole("button", { name: "Done" }))
     await waitFor(() =>
       expect(canvas.queryByRole("dialog", { name: "Treatment details" })).not.toBeInTheDocument(),
     )
+  },
+}
+
+export const MissingTreatmentOpensLocalSupport: Story = {
+  args: { prototypeMode: "visual-reference", start: { section: "profile" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "New treatment" }))
+    const treatmentDialog = canvas.getByRole("dialog", { name: "Add treatment" })
+    await userEvent.click(within(treatmentDialog).getByRole("button", { name: "Treatment missing?" }))
+
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog", { name: "Add treatment" })).not.toBeInTheDocument(),
+    )
+    const supportDialog = await canvas.findByRole("dialog", { name: "Contact support" })
+    await expect(
+      within(supportDialog).getByText("Complete this local prototype form. Nothing will be sent."),
+    ).toBeInTheDocument()
+    await expect(within(supportDialog).getByRole("heading", { name: "Support request" })).toBeInTheDocument()
   },
 }
 

@@ -35,7 +35,6 @@ describe("clinic profile prototype contract", () => {
 
     expect(firstCommands.createClinicProfileEntityId("team")).toBe("team-fixture-1")
     expect(firstCommands.createClinicProfileEntityId("team")).toBe("team-fixture-2")
-    expect(firstCommands.createClinicProfileEntityId("treatment")).toBe("treatment-fixture-1")
     expect(secondCommands.createClinicProfileEntityId("team")).toBe("team-fixture-1")
   })
 })

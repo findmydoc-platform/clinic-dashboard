@@ -3,20 +3,21 @@ import { expect, fn, userEvent, within } from "storybook/test"
 import { TreatmentDialog } from "./TreatmentDialog"
 
 const treatment = {
-  category: "Dentistry",
-  description: "A focused whitening treatment for a brighter smile.",
-  duration: "45 min",
-  id: "whitening",
-  name: "Express whitening",
-  price: "€180.00",
+  masterTreatmentId: "master-laser-teeth-whitening",
+  name: "Laser teeth whitening",
+  price: "€250",
 } as const
+
+const availableTreatments = [{ id: "master-hair-transplant", name: "Hair transplant" }] as const
 
 const meta = {
   args: {
+    availableTreatments,
     initialTreatment: treatment,
     isReadOnly: false,
     onOpenChange: fn(),
-    onSave: fn(),
+    onSave: fn(() => true),
+    onTreatmentMissing: fn(),
     open: true,
   },
   component: TreatmentDialog,
@@ -27,57 +28,61 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Editable: Story = {
+export const EditablePrice: Story = {
   play: async ({ args, canvasElement }) => {
-    const dialog = within(canvasElement).getByRole("dialog", { name: "Edit treatment" })
-    const name = within(dialog).getByRole("textbox", { name: "Treatment name" })
+    const dialog = within(canvasElement).getByRole("dialog", { name: "Edit clinic price" })
+    await expect(within(dialog).getByRole("textbox", { name: "Treatment" })).toHaveAttribute("readonly")
+    await expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument()
 
-    await userEvent.clear(name)
-    await userEvent.type(name, "Advanced whitening")
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save treatment changes" }))
+    const price = within(dialog).getByRole("textbox", { name: "Price" })
+    const save = within(dialog).getByRole("button", { name: "Save price" })
+    await expect(save).toBeDisabled()
+    await userEvent.clear(price)
+    await userEvent.type(price, "  €250  ")
+    await expect(save).toBeDisabled()
+    await userEvent.clear(price)
+    await userEvent.type(price, "€275")
+    await userEvent.click(save)
 
     await expect(args.onSave).toHaveBeenCalledWith({
-      category: treatment.category,
-      description: treatment.description,
-      duration: treatment.duration,
-      name: "Advanced whitening",
-      price: "€180.00",
+      masterTreatmentId: treatment.masterTreatmentId,
+      price: "€275",
     })
     await expect(args.onOpenChange).toHaveBeenCalledWith(false)
   },
 }
 
-export const CreateTreatment: Story = {
+export const AddTreatment: Story = {
   args: { initialTreatment: undefined },
   play: async ({ args, canvasElement }) => {
-    const dialog = within(canvasElement).getByRole("dialog", { name: "Create new treatment" })
-    const submit = within(dialog).getByRole("button", { name: "Save treatment" })
+    const dialog = within(canvasElement).getByRole("dialog", { name: "Add treatment" })
+    const submit = within(dialog).getByRole("button", { name: "Add treatment" })
 
     await expect(submit).toBeDisabled()
-    await userEvent.type(
-      within(dialog).getByRole("textbox", { name: "Treatment name" }),
-      "Dental consultation",
+    await userEvent.selectOptions(
+      within(dialog).getByRole("combobox", { name: "Treatment" }),
+      "master-hair-transplant",
     )
-    await userEvent.selectOptions(within(dialog).getByRole("combobox", { name: "Category" }), "Dentistry")
-    await userEvent.type(within(dialog).getByRole("textbox", { name: "Duration (minutes)" }), "30")
-    await userEvent.type(within(dialog).getByRole("textbox", { name: "Price (€)" }), "95,00")
-    await userEvent.type(
-      within(dialog).getByRole("textbox", { name: "Description" }),
-      "A structured first consultation and treatment recommendation.",
-    )
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Price" }), "€3,900")
     await userEvent.click(submit)
 
-    await expect(args.onSave).toHaveBeenCalledOnce()
-    const savedTreatment = args.onSave.mock.calls[0]?.[0]
-    await expect(savedTreatment).toMatchObject({
-      category: "Dentistry",
-      description: "A structured first consultation and treatment recommendation.",
-      duration: "30 min",
-      name: "Dental consultation",
-      price: "€95.00",
+    await expect(args.onSave).toHaveBeenCalledWith({
+      masterTreatmentId: "master-hair-transplant",
+      price: "€3,900",
     })
-    await expect(savedTreatment).not.toHaveProperty("id")
     await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+  },
+}
+
+export const MissingTreatmentHandoff: Story = {
+  args: { initialTreatment: undefined },
+  play: async ({ args, canvasElement }) => {
+    const dialog = within(canvasElement).getByRole("dialog", { name: "Add treatment" })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Treatment missing?" }))
+
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+    await expect(args.onTreatmentMissing).toHaveBeenCalledOnce()
+    await expect(args.onSave).not.toHaveBeenCalled()
   },
 }
 
@@ -85,10 +90,19 @@ export const ReadOnly: Story = {
   args: { isReadOnly: true },
   play: async ({ canvasElement }) => {
     const dialog = within(canvasElement).getByRole("dialog", { name: "Treatment details" })
-    await expect(within(dialog).getByRole("textbox", { name: "Treatment name" })).toBeDisabled()
-    await expect(
-      within(dialog).queryByRole("button", { name: "Save treatment changes" }),
-    ).not.toBeInTheDocument()
+    await expect(within(dialog).getByRole("textbox", { name: "Treatment" })).toHaveAttribute("readonly")
+    await expect(within(dialog).getByRole("textbox", { name: "Price" })).toHaveAttribute("readonly")
+    await expect(within(dialog).queryByRole("button", { name: "Save price" })).not.toBeInTheDocument()
     await expect(within(dialog).getByRole("button", { name: "Done" })).toBeEnabled()
   },
+}
+
+export const MobileAddTreatment: Story = {
+  args: { initialTreatment: undefined },
+  globals: { viewport: { value: "mobile320Short" } },
+}
+
+export const DarkAddTreatment: Story = {
+  args: { initialTreatment: undefined },
+  globals: { theme: "dark" },
 }

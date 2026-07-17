@@ -9,12 +9,22 @@ import {
   isClinicProfileDialogAvailabilityEqual,
   selectAvailableClinicProfileDialog,
 } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-dialogs"
+import {
+  selectAvailableMasterTreatments,
+  selectClinicTreatmentViews,
+} from "@/features/clinic-dashboard/clinic-profile/model/clinic-treatments"
 import { selectClinicProfileEditorProjection } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile.selectors"
-import { clinicProfileFixture } from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile.fixtures"
+import {
+  clinicProfileFixture,
+  clinicTreatmentCatalogueFixture,
+} from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile.fixtures"
+
+const createInitialState = () =>
+  createClinicProfileEditorState(clinicProfileFixture, clinicTreatmentCatalogueFixture)
 
 describe("clinic profile editor reducer", () => {
   it("owns semantic profile basics transitions without mutating the saved profile", () => {
-    const initial = createClinicProfileEditorState(clinicProfileFixture)
+    const initial = createInitialState()
     const specialty = initial.draft.specialties[0]
     expect(specialty).toBeDefined()
 
@@ -72,7 +82,7 @@ describe("clinic profile editor reducer", () => {
   })
 
   it("projects only saved profile and team state after management is withdrawn", () => {
-    const initial = createClinicProfileEditorState(clinicProfileFixture)
+    const initial = createInitialState()
     const changedName = clinicProfileEditorReducer(initial, {
       name: "Hidden draft clinic",
       type: "nameChanged",
@@ -84,7 +94,7 @@ describe("clinic profile editor reducer", () => {
     if (!treatment || !member) return
 
     const withoutTreatment = clinicProfileEditorReducer(changedName, {
-      id: treatment.id,
+      id: treatment.masterTreatmentId,
       type: "treatmentRemoved",
     })
     const withoutMember = clinicProfileEditorReducer(withoutTreatment, {
@@ -107,7 +117,7 @@ describe("clinic profile editor reducer", () => {
   })
 
   it("projects independently gated profile and team drafts", () => {
-    const initial = createClinicProfileEditorState(clinicProfileFixture)
+    const initial = createInitialState()
     const renamed = clinicProfileEditorReducer(initial, {
       name: "Allowed profile draft",
       type: "nameChanged",
@@ -138,12 +148,12 @@ describe("clinic profile editor reducer", () => {
   })
 
   it("stages, removes, and restores a treatment without mutating the saved profile", () => {
-    const initial = createClinicProfileEditorState(clinicProfileFixture)
+    const initial = createInitialState()
     const treatment = initial.draft.treatments[0]
     expect(treatment).toBeDefined()
 
     const removed = clinicProfileEditorReducer(initial, {
-      id: treatment!.id,
+      id: treatment!.masterTreatmentId,
       type: "treatmentRemoved",
     })
 
@@ -157,22 +167,8 @@ describe("clinic profile editor reducer", () => {
     expect(restored.undo).toBeUndefined()
   })
 
-  it("does not move a treatment beyond the available range", () => {
-    const initial = createClinicProfileEditorState(clinicProfileFixture)
-    const first = initial.draft.treatments[0]
-    expect(first).toBeDefined()
-
-    expect(
-      clinicProfileEditorReducer(initial, {
-        direction: -1,
-        id: first!.id,
-        type: "treatmentMoved",
-      }),
-    ).toBe(initial)
-  })
-
   it("adds, edits, removes, and restores team members", () => {
-    const initial = createClinicProfileEditorState(clinicProfileFixture)
+    const initial = createInitialState()
     const newMember = {
       biography: "Coordinates international patient journeys.",
       id: "team-story-coordinator",
@@ -208,44 +204,138 @@ describe("clinic profile editor reducer", () => {
     expect(restored.statusMessage).toBe("Anna Keller-Smith restored.")
   })
 
-  it("adds, edits, and reorders treatments", () => {
-    const initial = createClinicProfileEditorState(clinicProfileFixture)
+  it("adds and edits clinic relationships without changing the platform treatment", () => {
+    const initial = createInitialState()
     const newTreatment = {
-      category: "Dentistry",
-      description: "A focused follow-up treatment.",
-      duration: "30 min",
-      id: "treatment-story-follow-up",
-      name: "Dental follow-up",
-      price: "€90",
+      masterTreatmentId: "master-hair-transplant",
+      price: "€3,900",
     }
     const added = clinicProfileEditorReducer(initial, {
       treatment: newTreatment,
       type: "treatmentSaved",
     })
-    const editedTreatment = { ...newTreatment, price: "€95" }
+    const editedTreatment = { ...newTreatment, price: "€4,100" }
     const edited = clinicProfileEditorReducer(added, {
-      editingId: newTreatment.id,
+      editingMasterTreatmentId: newTreatment.masterTreatmentId,
       treatment: editedTreatment,
       type: "treatmentSaved",
     })
-    const moved = clinicProfileEditorReducer(edited, {
-      direction: -1,
-      id: newTreatment.id,
-      type: "treatmentMoved",
-    })
 
     expect(added.draft.treatments.at(-1)).toEqual(newTreatment)
-    expect(added.statusMessage).toBe("New treatment staged.")
+    expect(added.statusMessage).toBe("Treatment assignment staged.")
     expect(edited.draft.treatments.at(-1)).toEqual(editedTreatment)
-    expect(edited.draft.treatments.at(-1)?.id).toBe(newTreatment.id)
-    expect(edited.statusMessage).toBe("Treatment changes staged.")
-    expect(moved.draft.treatments.at(-2)).toEqual(editedTreatment)
-    expect(moved.statusMessage).toBe("Treatment order staged.")
-    expect(selectClinicProfileDirty(moved)).toBe(true)
+    expect(edited.draft.treatments.at(-1)?.masterTreatmentId).toBe(newTreatment.masterTreatmentId)
+    expect(edited.statusMessage).toBe("Clinic price changes staged.")
+    expect(selectClinicProfileDirty(edited)).toBe(true)
+  })
+
+  it("maps assigned catalogue treatments and leaves only the unassigned entry available", () => {
+    expect(
+      selectAvailableMasterTreatments(clinicTreatmentCatalogueFixture, clinicProfileFixture.treatments),
+    ).toEqual([{ id: "master-hair-transplant", name: "Hair transplant" }])
+    expect(
+      selectClinicTreatmentViews(clinicTreatmentCatalogueFixture, clinicProfileFixture.treatments),
+    ).toEqual([
+      {
+        masterTreatmentId: "master-laser-teeth-whitening",
+        name: "Laser teeth whitening",
+        price: "€250",
+      },
+      {
+        masterTreatmentId: "master-ceramic-veneers",
+        name: "Ceramic veneers (per tooth)",
+        price: "€850",
+      },
+      {
+        masterTreatmentId: "master-skin-analysis",
+        name: "Skin analysis and treatment",
+        price: "€120",
+      },
+    ])
+  })
+
+  it("ignores a normalized no-op price edit", () => {
+    const initial = createInitialState()
+    const existing = initial.draft.treatments[0]
+    expect(existing).toBeDefined()
+    if (!existing) return
+
+    const unchanged = clinicProfileEditorReducer(initial, {
+      editingMasterTreatmentId: existing.masterTreatmentId,
+      treatment: { ...existing, price: `  ${existing.price}  ` },
+      type: "treatmentSaved",
+    })
+
+    expect(unchanged).toBe(initial)
+    expect(selectClinicProfileDirty(unchanged)).toBe(false)
+    expect(unchanged.statusMessage).toBe("")
+  })
+
+  it("rejects unknown, duplicate, and changed master-treatment relationships", () => {
+    const initial = createInitialState()
+    const existing = initial.draft.treatments[0]
+    expect(existing).toBeDefined()
+    if (!existing) return
+
+    const unknown = clinicProfileEditorReducer(initial, {
+      treatment: { masterTreatmentId: "master-unknown", price: "€100" },
+      type: "treatmentSaved",
+    })
+    const duplicate = clinicProfileEditorReducer(initial, {
+      treatment: { ...existing, price: "€275" },
+      type: "treatmentSaved",
+    })
+    const changedMaster = clinicProfileEditorReducer(initial, {
+      editingMasterTreatmentId: existing.masterTreatmentId,
+      treatment: { masterTreatmentId: "master-hair-transplant", price: "€275" },
+      type: "treatmentSaved",
+    })
+
+    expect(unknown.draft).toEqual(initial.draft)
+    expect(unknown.statusMessage).toContain("not in the platform catalogue")
+    expect(duplicate.draft).toEqual(initial.draft)
+    expect(duplicate.statusMessage).toContain("already assigned")
+    expect(changedMaster.draft).toEqual(initial.draft)
+    expect(changedMaster.statusMessage).toContain("cannot be changed")
+  })
+
+  it("rejects invalid initial relationship fixtures", () => {
+    expect(() =>
+      createClinicProfileEditorState(
+        {
+          ...clinicProfileFixture,
+          treatments: [{ masterTreatmentId: "master-unknown", price: "€100" }],
+        },
+        clinicTreatmentCatalogueFixture,
+      ),
+    ).toThrow("not in the platform catalogue")
+
+    expect(() =>
+      createClinicProfileEditorState(
+        {
+          ...clinicProfileFixture,
+          treatments: [
+            clinicProfileFixture.treatments[0]!,
+            { ...clinicProfileFixture.treatments[0]!, price: "€275" },
+          ],
+        },
+        clinicTreatmentCatalogueFixture,
+      ),
+    ).toThrow("already assigned")
+
+    expect(() =>
+      createClinicProfileEditorState(
+        {
+          ...clinicProfileFixture,
+          treatments: [{ ...clinicProfileFixture.treatments[0]!, price: "   " }],
+        },
+        clinicTreatmentCatalogueFixture,
+      ),
+    ).toThrow("Enter a clinic price")
   })
 
   it("tracks saving, failure, success, and cancellation as explicit transitions", () => {
-    const initial = createClinicProfileEditorState(clinicProfileFixture)
+    const initial = createInitialState()
     const changed = clinicProfileEditorReducer(initial, {
       message: "Address changes staged.",
       profile: {

@@ -22,16 +22,19 @@ export type ClinicTeamMember = Readonly<{
 
 export type ClinicTeamMemberInput = Readonly<Omit<ClinicTeamMember, "id">>
 
-export type ClinicTreatment = Readonly<{
-  category: string
-  description: string
-  duration: string
+export type MasterTreatment = Readonly<{
   id: string
   name: string
+}>
+
+export type ClinicTreatment = Readonly<{
+  masterTreatmentId: string
   price: string
 }>
 
-export type ClinicTreatmentInput = Readonly<Omit<ClinicTreatment, "id">>
+export type ClinicTreatmentInput = ClinicTreatment
+
+export type ClinicTreatmentView = Readonly<ClinicTreatment & { name: string }>
 
 export type ClinicOpeningHours = Readonly<{
   days: string
