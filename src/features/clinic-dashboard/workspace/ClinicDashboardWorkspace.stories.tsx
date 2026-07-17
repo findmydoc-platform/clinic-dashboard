@@ -30,12 +30,14 @@ export const VisualReferenceLocationSwitching: Story = {
     const locationSelector = canvas.getByRole("combobox", { name: "Clinic location" })
 
     await expect(locationSelector).toHaveValue("berlin-mitte")
+    await expect(locationSelector).toHaveDisplayValue("Mitte")
     await expect(
       header.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
     ).toBeInTheDocument()
     await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
 
     await userEvent.selectOptions(locationSelector, "berlin-charlottenburg")
+    await expect(locationSelector).toHaveDisplayValue("Charlottenburg")
 
     await expect(
       header.getByRole("group", {
@@ -75,6 +77,7 @@ export const LocationSwitchingAt320: Story = {
 
     await userEvent.selectOptions(locationSelector, "berlin-charlottenburg")
     await expect(locationSelector).toHaveValue("berlin-charlottenburg")
+    await expect(locationSelector).toHaveDisplayValue("Charlottenburg")
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }

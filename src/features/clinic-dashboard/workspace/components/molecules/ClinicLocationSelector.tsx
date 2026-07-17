@@ -19,6 +19,18 @@ export function ClinicLocationSelector({ locations, onValueChange, value }: Clin
       <span className="shrink-0 text-xs font-bold text-[var(--foreground)]">Clinic location</span>
       <Select
         className="min-w-0 flex-1"
+        onKeyDown={(event) => {
+          if (event.altKey || event.ctrlKey || event.metaKey) return
+
+          const offset = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0
+          const currentIndex = locations.findIndex((location) => location.id === value)
+          const nextLocation = offset === 0 || currentIndex < 0 ? undefined : locations[currentIndex + offset]
+
+          if (!nextLocation) return
+
+          event.preventDefault()
+          onValueChange(nextLocation.id)
+        }}
         onValueChange={(nextValue) => {
           if (isClinicDashboardLocationId(nextValue)) onValueChange(nextValue)
         }}
@@ -26,7 +38,7 @@ export function ClinicLocationSelector({ locations, onValueChange, value }: Clin
       >
         {locations.map((location) => (
           <option key={location.id} value={location.id}>
-            {location.name}
+            {location.selectorLabel}
           </option>
         ))}
       </Select>

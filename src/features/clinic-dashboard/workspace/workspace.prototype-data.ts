@@ -14,11 +14,13 @@ export const clinicDashboardWorkspacePrototypeData = {
       id: "berlin-mitte",
       location: "Mitte, Berlin",
       name: "Berlin Health Clinic — Mitte",
+      selectorLabel: "Mitte",
     },
     {
       id: "berlin-charlottenburg",
       location: "Charlottenburg, Berlin",
       name: "Berlin Health Clinic — Charlottenburg",
+      selectorLabel: "Charlottenburg",
     },
   ] satisfies readonly ClinicDashboardPrototypeLocation[],
   notifications: [

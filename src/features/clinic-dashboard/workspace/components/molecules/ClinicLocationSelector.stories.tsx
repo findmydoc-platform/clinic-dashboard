@@ -42,9 +42,12 @@ export const KeyboardFocusAndSelection: Story = {
 
     await userEvent.tab()
     await expect(selector).toHaveFocus()
-    await userEvent.selectOptions(selector, "berlin-charlottenburg")
+    await expect(selector).toHaveDisplayValue("Mitte")
+    await userEvent.keyboard("{ArrowDown}")
     await expect(selector).toHaveValue("berlin-charlottenburg")
+    await expect(selector).toHaveDisplayValue("Charlottenburg")
     await expect(args.onValueChange).toHaveBeenCalledWith("berlin-charlottenburg")
+    await expect(selector).toHaveFocus()
   },
 }
 
@@ -52,8 +55,12 @@ export const NarrowViewport: Story = {
   globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const selector = canvas.getByRole("combobox", { name: "Clinic location" })
 
-    await expect(canvas.getByRole("combobox", { name: "Clinic location" })).toHaveValue("berlin-mitte")
+    await expect(selector).toHaveValue("berlin-mitte")
+    await expect(selector).toHaveDisplayValue("Mitte")
+    await userEvent.selectOptions(selector, "berlin-charlottenburg")
+    await expect(selector).toHaveDisplayValue("Charlottenburg")
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }

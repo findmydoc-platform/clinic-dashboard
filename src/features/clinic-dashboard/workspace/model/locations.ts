@@ -8,6 +8,7 @@ export type ClinicDashboardPrototypeLocation = Readonly<{
   id: ClinicDashboardLocationId
   location: string
   name: string
+  selectorLabel: string
 }>
 
 export type ClinicDashboardLocationSelectionAction = Readonly<{

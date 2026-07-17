@@ -30,11 +30,13 @@ describe("clinic dashboard prototype location selection", () => {
       id: "berlin-mitte",
       location: "Mitte, Berlin",
       name: "Berlin Health Clinic — Mitte",
+      selectorLabel: "Mitte",
     })
     expect(getClinicDashboardPrototypeLocation(workspaceLocationFixtures, "berlin-charlottenburg")).toEqual({
       id: "berlin-charlottenburg",
       location: "Charlottenburg, Berlin",
       name: "Berlin Health Clinic — Charlottenburg",
+      selectorLabel: "Charlottenburg",
     })
   })
 })
