@@ -149,7 +149,7 @@ function requiresDirectStory(file) {
 }
 
 function isFeaturePublicContract(file) {
-  return /^src\/features\/.+\/public\.ts$/u.test(file)
+  return /^src\/features\/.+\/public\.ts$/u.test(file) && !/\/testing\/public\.ts$/u.test(file)
 }
 
 function collectNamedReExports(rootDir, sourcePaths) {

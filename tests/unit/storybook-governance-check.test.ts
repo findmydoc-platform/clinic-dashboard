@@ -28,6 +28,16 @@ export { ClinicProfile, type ClinicProfileProps } from "./ClinicProfile"
 export { createClinicProfileLabel } from "./clinic-profile-label"
 `
 
+const workspaceHarnessSource = `
+export function ClinicDashboardWorkspaceHarness() {
+  return <main>Clinic dashboard fixture</main>
+}
+`
+
+const testingPublicContractSource = `
+export { ClinicDashboardWorkspaceHarness } from "./ClinicDashboardWorkspaceHarness"
+`
+
 const directStorySource = `
 import type { Meta } from "@storybook/react"
 import { ClinicProfile } from "./public"
@@ -315,6 +325,26 @@ describe("storybook governance public component coverage", () => {
     expect(output).toContain(
       "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: ClinicProfile requires a direct component story.",
     )
+    expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
+  })
+
+  it("ignores test-only public contracts while still enforcing production public contracts", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx": componentSource,
+      "src/features/clinic-dashboard/clinic-profile/public.ts": publicContractSource,
+      "src/features/clinic-dashboard/workspace/testing/ClinicDashboardWorkspaceHarness.tsx":
+        workspaceHarnessSource,
+      "src/features/clinic-dashboard/workspace/testing/public.ts": testingPublicContractSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR missing-direct-story src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx :: ClinicProfile requires a direct component story.",
+    )
+    expect(output).not.toContain("ClinicDashboardWorkspaceHarness requires a direct component story.")
     expect(output.match(/ERROR missing-direct-story/gu)).toHaveLength(1)
   })
 

@@ -2,50 +2,51 @@ import type { ClinicProfileCommands } from "@/features/clinic-dashboard/clinic-p
 import type { ReviewCommands } from "@/features/clinic-dashboard/reviews/public"
 import type { SupportCommands } from "@/features/clinic-dashboard/support/public"
 
-export type ClinicDashboardPrototypeCommands = ClinicProfileCommands & ReviewCommands & SupportCommands
-
 const prototypeTimestamp = "2023-10-16T12:00:00.000Z"
+const prototypeLatencyMs = 240
 
-function createClinicDashboardPrototypeCommands(latencyMs = 240): ClinicDashboardPrototypeCommands {
-  const resolve = async <Value>(value: Value) => {
-    if (latencyMs > 0) await new Promise((done) => setTimeout(done, latencyMs))
-    return value
-  }
-
-  return {
-    createClinicProfileEntityId: (kind) => `${kind}-${globalThis.crypto.randomUUID()}`,
-    saveClinicProfile: async (profile) =>
-      resolve({
-        ...profile,
-        revision: profile.revision + 1,
-        updatedAt: prototypeTimestamp,
-      }),
-    saveReviewNote: async (review, note) =>
-      resolve({
-        ...review,
-        internalNotes: [...review.internalNotes, note.trim()],
-        revision: review.revision + 1,
-      }),
-    saveReviewResponse: async (review, response) =>
-      resolve({
-        ...review,
-        response: response.trim(),
-        revision: review.revision + 1,
-        status: "Answered" as const,
-      }),
-    submitReviewAppeal: async (review, reason, detail) =>
-      resolve({
-        ...review,
-        notice: `Appeal submitted. ${reason}: ${detail.trim()} A moderation response is expected within three to five working days.`,
-        revision: review.revision + 1,
-        status: "Under review" as const,
-      }),
-    submitSupportRequest: async () =>
-      resolve({
-        expectedResponse: "within one business day",
-        ticketId: "FMD-1042",
-      }),
-  }
+const resolvePrototypeValue = async <Value>(value: Value) => {
+  await new Promise((done) => setTimeout(done, prototypeLatencyMs))
+  return value
 }
 
-export const clinicDashboardPrototypeCommands = createClinicDashboardPrototypeCommands()
+export const clinicProfilePrototypeCommands: ClinicProfileCommands = {
+  createClinicProfileEntityId: (kind) => `${kind}-${globalThis.crypto.randomUUID()}`,
+  saveClinicProfile: async (profile) =>
+    resolvePrototypeValue({
+      ...profile,
+      revision: profile.revision + 1,
+      updatedAt: prototypeTimestamp,
+    }),
+}
+
+export const reviewPrototypeCommands: ReviewCommands = {
+  saveReviewNote: async (review, note) =>
+    resolvePrototypeValue({
+      ...review,
+      internalNotes: [...review.internalNotes, note.trim()],
+      revision: review.revision + 1,
+    }),
+  saveReviewResponse: async (review, response) =>
+    resolvePrototypeValue({
+      ...review,
+      response: response.trim(),
+      revision: review.revision + 1,
+      status: "Answered" as const,
+    }),
+  submitReviewAppeal: async (review, reason, detail) =>
+    resolvePrototypeValue({
+      ...review,
+      notice: `Appeal submitted. ${reason}: ${detail.trim()} A moderation response is expected within three to five working days.`,
+      revision: review.revision + 1,
+      status: "Under review" as const,
+    }),
+}
+
+export const supportPrototypeCommands: SupportCommands = {
+  submitSupportRequest: async () =>
+    resolvePrototypeValue({
+      expectedResponse: "within one business day",
+      ticketId: "FMD-1042",
+    }),
+}
