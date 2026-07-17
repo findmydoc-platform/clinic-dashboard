@@ -7,7 +7,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 const config: StorybookConfig = {
   addons: ["@storybook/addon-a11y", "@storybook/addon-docs", "@storybook/addon-vitest"],
   framework: "@storybook/nextjs-vite",
-  stories: ["../src/stories/**/*.stories.@(ts|tsx)"],
+  stories: ["../src/**/*.stories.@(ts|tsx)"],
   viteFinal: async (viteConfig) => {
     viteConfig.resolve ??= {}
     viteConfig.resolve.tsconfigPaths = true
