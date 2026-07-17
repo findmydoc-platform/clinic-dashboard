@@ -208,24 +208,31 @@ function hasCsfMetaMutation(sourceFile, metaBindingName) {
   let hasMutation = false
   const metaAliasSymbols = new Set([metaBindingSymbol])
   const aliasCandidates = []
+  const destructuringCandidates = []
   const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
 
-  const isMetaAlias = (expression) => {
+  const isMetaTainted = (expression) => {
     const current = unwrapExpression(expression)
-    if (!ts.isIdentifier(current)) return false
+    if (ts.isIdentifier(current)) {
+      const symbol = getSymbol(current)
+      return symbol !== undefined && metaAliasSymbols.has(symbol)
+    }
 
-    const symbol = getSymbol(current)
-    return symbol !== undefined && metaAliasSymbols.has(symbol)
+    if (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
+      return isMetaTainted(current.expression)
+    }
+
+    return false
   }
 
   const collectAliasCandidates = (node) => {
-    if (
-      (ts.isVariableDeclaration(node) || ts.isParameter(node)) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer
-    ) {
-      const symbol = getSymbol(node.name)
-      if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && node.initializer) {
+      if (ts.isIdentifier(node.name)) {
+        const symbol = getSymbol(node.name)
+        if (symbol) aliasCandidates.push({ expression: node.initializer, symbol })
+      } else if (ts.isObjectBindingPattern(node.name)) {
+        destructuringCandidates.push({ expression: node.initializer, pattern: node.name })
+      }
     }
 
     if (
@@ -242,26 +249,42 @@ function hasCsfMetaMutation(sourceFile, metaBindingName) {
 
   collectAliasCandidates(sourceFile)
 
+  const bindMetaPattern = (pattern) => {
+    let changed = false
+
+    for (const element of pattern.elements) {
+      if (ts.isIdentifier(element.name)) {
+        const symbol = getSymbol(element.name)
+        if (symbol && !metaAliasSymbols.has(symbol)) {
+          metaAliasSymbols.add(symbol)
+          changed = true
+        }
+      } else if (ts.isObjectBindingPattern(element.name) && bindMetaPattern(element.name)) {
+        changed = true
+      }
+    }
+
+    return changed
+  }
+
   let discoveredAlias = true
   while (discoveredAlias) {
     discoveredAlias = false
 
     for (const candidate of aliasCandidates) {
-      if (metaAliasSymbols.has(candidate.symbol) || !isMetaAlias(candidate.expression)) continue
+      if (metaAliasSymbols.has(candidate.symbol) || !isMetaTainted(candidate.expression)) continue
       metaAliasSymbols.add(candidate.symbol)
       discoveredAlias = true
     }
-  }
 
-  const isMetaTarget = (expression) => {
-    let current = unwrapExpression(expression)
-
-    while (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
-      current = unwrapExpression(current.expression)
+    for (const candidate of destructuringCandidates) {
+      if (isMetaTainted(candidate.expression) && bindMetaPattern(candidate.pattern)) {
+        discoveredAlias = true
+      }
     }
-
-    return isMetaAlias(current)
   }
+
+  const isMetaTarget = (expression) => isMetaTainted(expression)
 
   const isMetaPropertyTarget = (expression) => {
     const current = unwrapExpression(expression)
@@ -731,6 +754,44 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
 
   const getSymbol = (identifier) => typeChecker.getSymbolAtLocation(identifier)
 
+  const getStaticComputedPropertyName = (expression, visited = new Set()) => {
+    const current = unwrapExpression(expression)
+    const literalValue = getStringLiteralValue(current)
+    if (literalValue !== null) return literalValue
+    if (ts.isNumericLiteral(current)) return current.text
+    if (!ts.isIdentifier(current)) return null
+
+    const symbol = getSymbol(current)
+    if (!symbol || visited.has(symbol)) return null
+    visited.add(symbol)
+
+    const declaration = symbol.declarations?.find(
+      (candidate) =>
+        ts.isVariableDeclaration(candidate) &&
+        candidate.initializer &&
+        ts.isVariableDeclarationList(candidate.parent) &&
+        (candidate.parent.flags & ts.NodeFlags.Const) !== 0,
+    )
+    if (!declaration || !ts.isVariableDeclaration(declaration) || !declaration.initializer) return null
+
+    return getStaticComputedPropertyName(declaration.initializer, visited)
+  }
+
+  const getResolvedPropertyAccess = (expression) => {
+    const current = unwrapExpression(expression)
+    if (ts.isPropertyAccessExpression(current)) {
+      return { owner: unwrapExpression(current.expression), propertyName: current.name.text }
+    }
+    if (ts.isElementAccessExpression(current) && current.argumentExpression) {
+      return {
+        owner: unwrapExpression(current.expression),
+        propertyName: getStaticComputedPropertyName(current.argumentExpression),
+      }
+    }
+
+    return null
+  }
+
   const isGlobalThisReference = (expression) => {
     const current = unwrapExpression(expression)
     if (!ts.isIdentifier(current)) return false
@@ -847,14 +908,10 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
       return null
     }
 
-    const access = getStaticPropertyAccess(current)
-    if (
-      access &&
-      access.propertyName !== null &&
-      identifierNames.has(access.propertyName) &&
-      isGlobalThisReference(access.owner)
-    ) {
-      return new Set([access.propertyName])
+    const access = getResolvedPropertyAccess(current)
+    if (access && isGlobalThisReference(access.owner)) {
+      if (access.propertyName === null) return new Set(identifierNames)
+      if (identifierNames.has(access.propertyName)) return new Set([access.propertyName])
     }
 
     return null
@@ -910,9 +967,13 @@ export function containsReferencedIdentifier(sourceFile, identifierNames) {
 
     if (ts.isElementAccessExpression(node) && node.argumentExpression) {
       const owner = unwrapExpression(node.expression)
-      const propertyName = getStringLiteralValue(unwrapExpression(node.argumentExpression))
-      if (isGlobalThisReference(owner) && propertyName !== null && identifierNames.has(propertyName)) {
-        found.add(propertyName)
+      if (isGlobalThisReference(owner)) {
+        const propertyName = getStaticComputedPropertyName(node.argumentExpression)
+        if (propertyName === null) {
+          for (const globalName of identifierNames) found.add(globalName)
+        } else if (identifierNames.has(propertyName)) {
+          found.add(propertyName)
+        }
       }
     }
 

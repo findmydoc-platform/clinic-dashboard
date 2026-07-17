@@ -81,14 +81,42 @@ describe("getCsfStoryExportNames", () => {
     expect(getCsfStoryExportNames(sourceFile)).toEqual([])
   })
 
+  it.each([
+    ["property alias", 'const hidden = meta.excludeStories; hidden.push("Default")'],
+    ["element alias", 'const hidden = meta["excludeStories"]; hidden.push("Default")'],
+    ["renamed binding", 'const { excludeStories: hidden } = meta; hidden.push("Default")'],
+    ["nested binding", 'const { nested: { filters: hidden } } = meta; hidden.push("Default")'],
+    ["nested rest binding", "const { nested: { ...hidden } } = meta; mutate(hidden)"],
+    ["root rest binding", "const { ...hidden } = meta; new MetaMutator(hidden)"],
+  ])("fails closed for a meta-derived %s", (_kind, mutation) => {
+    const sourceFile = parseSource(`
+      const meta = {
+        excludeStories: [],
+        nested: { filters: [] },
+        title: "Shared/Atoms/Button",
+      }
+      ${mutation}
+      export default meta
+      export const Default = {}
+    `)
+
+    expect(getCsfStoryExportNames(sourceFile)).toEqual([])
+  })
+
   it("ignores mutations of unrelated aliases and shadowed meta bindings", () => {
     const sourceFile = parseSource(`
       const meta = { title: "Shared/Atoms/Button" }
-      const unrelated = {}
+      const unrelated = { excludeStories: [] }
       const unrelatedAlias = unrelated
+      const unrelatedProperty = unrelated.excludeStories
+      const { excludeStories: unrelatedBinding } = unrelated
       Object.assign(unrelatedAlias, { excludeStories: ["Default"] })
+      unrelatedProperty.push("Default")
+      unrelatedBinding.push("Default")
       unrelatedAlias.hideStories?.()
       function mutate(meta: Record<string, unknown>) {
+        const property = meta.excludeStories as string[]
+        property.push("Default")
         Reflect.set(meta, "excludeStories", ["Default"])
       }
       export default meta
@@ -273,6 +301,56 @@ describe("containsReferencedIdentifier", () => {
       "sessionStorage",
       "window",
     ])
+  })
+
+  it("resolves computed browser-global keys through const alias chains", () => {
+    const sourceFile = parseSource(`
+      const storageKey = "localStorage" as const
+      const storageAlias = storageKey
+      const windowKey = "window"
+      const windowAlias = windowKey
+      const browser = globalThis
+      export const stored = browser[storageAlias].getItem("key")
+      export const width = globalThis[windowAlias].innerWidth
+    `)
+
+    expect([...containsReferencedIdentifier(sourceFile, browserGlobals)].sort()).toEqual([
+      "localStorage",
+      "window",
+    ])
+  })
+
+  it("fails closed for an unknown computed key on globalThis", () => {
+    const sourceFile = parseSource(`
+      export function readBrowserGlobal(key: string) {
+        return globalThis[key]
+      }
+    `)
+
+    expect([...containsReferencedIdentifier(sourceFile, browserGlobals)].sort()).toEqual([
+      "crypto",
+      "document",
+      "localStorage",
+      "sessionStorage",
+      "window",
+    ])
+  })
+
+  it("allows statically non-browser keys and computed access on shadowed globalThis", () => {
+    const sourceFile = parseSource(`
+      const localStorage = "navigator" as const
+      const navigatorAlias = localStorage
+      export const navigatorValue = globalThis[navigatorAlias]
+      function readLocal(
+        globalThis: Record<string, unknown>,
+        key: "localStorage",
+      ) {
+        return globalThis[key]
+      }
+      void readLocal
+    `)
+
+    expect([...containsReferencedIdentifier(sourceFile, browserGlobals)]).toEqual([])
   })
 
   it("reports original browser-global names through destructuring and transitive local aliases", () => {
