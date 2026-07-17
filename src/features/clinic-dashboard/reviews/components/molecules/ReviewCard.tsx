@@ -1,4 +1,4 @@
-import { Clock3, FileClock, Flag, Info, MessageSquareReply, Pencil, StickyNote } from "lucide-react"
+import { Clock3, FileClock, Flag, MessageSquareReply, Pencil, StickyNote } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -85,12 +85,6 @@ export function ReviewCard({
           <p className="mt-2 text-sm italic">{review.pendingResponse.response}</p>
         </div>
       ) : null}
-      {review.notice ? (
-        <div className="mt-5 flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--destructive)_35%,var(--background))] bg-[var(--error)] p-4 text-sm">
-          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <span>{review.notice}</span>
-        </div>
-      ) : null}
       {showManagement ? (
         <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--border)] pt-4">
           {review.status === "Under review" ? (
@@ -116,7 +110,7 @@ export function ReviewCard({
               <StickyNote aria-hidden="true" className="size-4" /> Internal note
             </Button>
           ) : null}
-          {review.status === "Open" ? (
+          {review.status === "Open" && !review.appealCase ? (
             <Button onClick={() => onAppealOpen(review.id)} size="small" variant="ghost">
               <Flag aria-hidden="true" className="size-4" /> Appeal
             </Button>

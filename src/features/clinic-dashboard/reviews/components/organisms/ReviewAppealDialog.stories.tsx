@@ -21,7 +21,7 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const ModerationRequest: Story = {
+export const LocalAppealPreview: Story = {
   args: {
     onClose: fn(),
     onSubmit: fn(),
@@ -29,8 +29,11 @@ export const ModerationRequest: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const dialog = within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Appeal review" })
-    const submit = within(dialog).getByRole("button", { name: "Submit appeal" })
+    const submit = within(dialog).getByRole("button", { name: "Save appeal preview" })
 
+    await expect(
+      within(dialog).getByText("Save a local appeal-case preview. Nothing is submitted or sent."),
+    ).toBeInTheDocument()
     await expect(submit).toBeDisabled()
     await userEvent.selectOptions(
       within(dialog).getByRole("combobox", { name: "Reason" }),
@@ -52,6 +55,6 @@ export const ModerationRequest: Story = {
 }
 
 export const NarrowViewport: Story = {
-  ...ModerationRequest,
+  ...LocalAppealPreview,
   globals: { viewport: { value: "mobile320Short" } },
 }

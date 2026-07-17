@@ -1,7 +1,13 @@
 import type { ClinicProfileCommands } from "@/features/clinic-dashboard/clinic-profile/public"
-import { createPendingReviewResponse, type ReviewCommands } from "@/features/clinic-dashboard/reviews/public"
+import {
+  createPendingReviewResponse,
+  createReviewAppealCase,
+  markReviewAppealUnderReview,
+  type ReviewCommands,
+} from "@/features/clinic-dashboard/reviews/public"
 
 const prototypeTimestamp = "2023-10-16T12:00:00.000Z"
+const prototypeAppealReviewTimestamp = "2023-10-16T12:05:00.000Z"
 const prototypeLatencyMs = 240
 
 const resolvePrototypeValue = async <Value>(value: Value) => {
@@ -20,6 +26,16 @@ export const clinicProfilePrototypeCommands: ClinicProfileCommands = {
 }
 
 export const reviewPrototypeCommands: ReviewCommands = {
+  markReviewAppealUnderReview: async (review) => {
+    if (!review.appealCase) throw new Error("An appeal case is required.")
+
+    return resolvePrototypeValue({
+      ...review,
+      appealCase: markReviewAppealUnderReview(review.appealCase, prototypeAppealReviewTimestamp),
+      revision: review.revision + 1,
+      status: "Under review" as const,
+    })
+  },
   saveReviewNote: async (review, note) =>
     resolvePrototypeValue({
       ...review,
@@ -32,11 +48,18 @@ export const reviewPrototypeCommands: ReviewCommands = {
       pendingResponse: createPendingReviewResponse(response, prototypeTimestamp),
       revision: review.revision + 1,
     }),
-  submitReviewAppeal: async (review, reason, detail) =>
-    resolvePrototypeValue({
+  submitReviewAppeal: async (review, reason, detail) => {
+    if (review.appealCase) throw new Error("This review already has an appeal case.")
+
+    return resolvePrototypeValue({
       ...review,
-      notice: `Appeal submitted. ${reason}: ${detail.trim()} A moderation response is expected within three to five working days.`,
+      appealCase: createReviewAppealCase({
+        detail,
+        reason,
+        reviewId: review.id,
+        submittedAt: prototypeTimestamp,
+      }),
       revision: review.revision + 1,
-      status: "Under review" as const,
-    }),
+    })
+  },
 }

@@ -190,7 +190,7 @@ export const PendingModerationMobile320: Story = {
   },
 }
 
-export const AppealSubmission: Story = {
+export const AppealCaseLifecycle: Story = {
   args: createReviewsArgs(),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)
@@ -206,11 +206,77 @@ export const AppealSubmission: Story = {
       within(dialog).getByLabelText("Appeal details"),
       "This review belongs to another clinic.",
     )
-    await userEvent.click(within(dialog).getByRole("button", { name: "Submit appeal" }))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save appeal preview" }))
 
-    await waitFor(() => expect(page.getByText("Appeal submitted for moderation.")).toBeInTheDocument())
+    await waitFor(() =>
+      expect(
+        page.getByText("Prototype only — appeal case saved locally; nothing was submitted or sent."),
+      ).toBeInTheDocument(),
+    )
+    await expect(within(openReview).getByText("Open")).toBeInTheDocument()
+    await expect(within(openReview).queryByRole("button", { name: "Appeal" })).toBeNull()
+    await expect(within(openReview).queryByText("APPEAL-REVIEW-ANONYMOUS-DENTISTRY")).toBeNull()
+
+    await userEvent.click(within(openReview).getByRole("button", { name: "History" }))
+    const historyDialog = page.getByRole("dialog", { name: "Review history" })
+    await expect(within(historyDialog).getByText("APPEAL-REVIEW-ANONYMOUS-DENTISTRY")).toBeInTheDocument()
+    await expect(within(within(historyDialog).getByRole("list")).getAllByRole("listitem")).toHaveLength(1)
+    await userEvent.click(within(historyDialog).getByRole("button", { name: "Mark as under review" }))
+
+    await waitFor(() =>
+      expect(
+        page.getByText("Prototype only — appeal case updated locally; nothing was submitted or sent."),
+      ).toBeInTheDocument(),
+    )
     await expect(within(openReview).getByText("Under review")).toBeInTheDocument()
     await expect(within(openReview).getByRole("button", { name: "Responses locked" })).toBeDisabled()
+    await expect(within(within(historyDialog).getByRole("list")).getAllByRole("listitem")).toHaveLength(2)
+    await expect(within(historyDialog).queryByRole("button", { name: "Mark as under review" })).toBeNull()
+    await expect(
+      within(historyDialog).queryByRole("button", { name: /approve|reject|final decision|retry|withdraw/i }),
+    ).toBeNull()
+  },
+}
+
+export const AppealDialogFocusReturn: Story = {
+  args: createReviewsArgs(),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const openReview = getOpenReview(canvasElement)
+    const appeal = within(openReview).getByRole("button", { name: "Appeal" })
+
+    await userEvent.click(appeal)
+    let dialog = page.getByRole("dialog", { name: "Appeal review" })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(page.queryByRole("dialog", { name: "Appeal review" })).toBeNull())
+    await expect(appeal).toHaveFocus()
+
+    await userEvent.click(appeal)
+    dialog = page.getByRole("dialog", { name: "Appeal review" })
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(page.queryByRole("dialog", { name: "Appeal review" })).toBeNull())
+    await expect(appeal).toHaveFocus()
+  },
+}
+
+export const ReviewHistoryFocusReturn: Story = {
+  args: createReviewsArgs(),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const openReview = getOpenReview(canvasElement)
+    const history = within(openReview).getByRole("button", { name: "History" })
+
+    await userEvent.click(history)
+    let dialog = page.getByRole("dialog", { name: "Review history" })
+    await userEvent.click(within(dialog).getAllByRole("button", { name: "Close" }).at(-1)!)
+    await waitFor(() => expect(page.queryByRole("dialog", { name: "Review history" })).toBeNull())
+    await expect(history).toHaveFocus()
+
+    await userEvent.click(history)
+    dialog = page.getByRole("dialog", { name: "Review history" })
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(page.queryByRole("dialog", { name: "Review history" })).toBeNull())
+    await expect(history).toHaveFocus()
   },
 }
 
@@ -398,6 +464,10 @@ export const Presentation: Story = {
     await expect(threeStarRating.querySelectorAll('[data-star-state="full"]')).toHaveLength(3)
     await expect(threeStarRating.querySelectorAll('[data-star-state="empty"]')).toHaveLength(2)
     await expect(canvas.queryByText("Pending moderation")).not.toBeInTheDocument()
+    await expect(canvas.queryByText(/APPEAL-REVIEW-/)).not.toBeInTheDocument()
+    await expect(canvas.queryByText("Incorrect clinic")).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "History" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "Appeal" })).not.toBeInTheDocument()
   },
 }
 

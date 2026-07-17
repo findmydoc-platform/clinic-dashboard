@@ -1,8 +1,7 @@
 import type { ClinicReview } from "./review"
+import { reviewAppealReasons, type ReviewAppealReason } from "./appeal-case"
 
-export const reviewAppealReasons = ["Incorrect clinic", "Inappropriate content", "Privacy concern"] as const
-
-export type ReviewAppealReason = (typeof reviewAppealReasons)[number]
+export { reviewAppealReasons, type ReviewAppealReason } from "./appeal-case"
 
 export type ReviewAppealSubmission = Readonly<{
   detail: string

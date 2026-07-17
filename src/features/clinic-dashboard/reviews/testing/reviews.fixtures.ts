@@ -1,4 +1,5 @@
 import type { ReviewCommands } from "../model/review-commands"
+import { createReviewAppealCase, markReviewAppealUnderReview } from "../model/appeal-case"
 import { createPendingReviewResponse, type ClinicReview } from "../model/review"
 import type { ReviewsSnapshot } from "../model/reviews-snapshot"
 
@@ -52,9 +53,30 @@ export const reviewsFixture = {
       createdAt: "2023-10-09T11:00:00.000Z",
       id: "review-janine-doe",
       initials: "JD",
-      internalNotes: ["Appeal submitted by the clinic administrator."],
-      notice:
-        "Appeal submitted on October 14. A moderation response is expected within three to five working days.",
+      internalNotes: [],
+      appealCase: {
+        detail: "The visit described in this review took place at a different clinic.",
+        events: [
+          {
+            id: "APPEAL-REVIEW-JANINE-DOE-EVENT-1",
+            occurredAt: "2023-10-14T09:00:00.000Z",
+            status: "submitted",
+            type: "appeal-submitted",
+          },
+          {
+            fromStatus: "submitted",
+            id: "APPEAL-REVIEW-JANINE-DOE-EVENT-2",
+            occurredAt: "2023-10-15T10:30:00.000Z",
+            toStatus: "under-review",
+            type: "appeal-status-changed",
+          },
+        ],
+        reason: "Incorrect clinic",
+        reference: "APPEAL-REVIEW-JANINE-DOE",
+        status: "under-review",
+        submittedAt: "2023-10-14T09:00:00.000Z",
+        updatedAt: "2023-10-15T10:30:00.000Z",
+      },
       rating: 1,
       status: "Under review",
       treatment: "Unknown",
@@ -96,12 +118,26 @@ export const reviewsFixture = {
       id: "review-anonymous-coordination",
       initials: "AP",
       internalNotes: [],
-      notice:
-        "Appeal submitted on September 1. A moderation response is expected within three to five working days.",
+      appealCase: {
+        detail: "The review includes private appointment information that should be assessed.",
+        events: [
+          {
+            id: "APPEAL-REVIEW-ANONYMOUS-COORDINATION-EVENT-1",
+            occurredAt: "2023-09-01T08:15:00.000Z",
+            status: "submitted",
+            type: "appeal-submitted",
+          },
+        ],
+        reason: "Privacy concern",
+        reference: "APPEAL-REVIEW-ANONYMOUS-COORDINATION",
+        status: "submitted",
+        submittedAt: "2023-09-01T08:15:00.000Z",
+        updatedAt: "2023-09-01T08:15:00.000Z",
+      },
       rating: 3,
-      status: "Under review",
+      status: "Open",
       treatment: "Hair transplant",
-      revision: 1,
+      revision: 2,
     },
   ],
   rating: 4.8,
@@ -114,6 +150,9 @@ export const openReviewFixture = reviewsFixture.items.find(
 export const publishedReviewFixture = reviewsFixture.items.find(
   (review) => review.status === "Answered" && review.pendingResponse,
 ) as ClinicReview
+export const submittedAppealReviewFixture = reviewsFixture.items.find(
+  (review) => review.appealCase?.status === "submitted",
+) as ClinicReview
 export const underReviewFixture = reviewsFixture.items.find(
   (review) => review.status === "Under review",
 ) as ClinicReview
@@ -125,6 +164,16 @@ export function createReviewCommandsFixture(latencyMs = 0): ReviewCommands {
   }
 
   return {
+    markReviewAppealUnderReview: async (review) => {
+      if (!review.appealCase) throw new Error("An appeal case is required.")
+
+      return resolve({
+        ...review,
+        appealCase: markReviewAppealUnderReview(review.appealCase, "2023-10-16T12:05:00.000Z"),
+        revision: review.revision + 1,
+        status: "Under review" as const,
+      })
+    },
     saveReviewNote: async (review, note) =>
       resolve({
         ...review,
@@ -137,13 +186,20 @@ export function createReviewCommandsFixture(latencyMs = 0): ReviewCommands {
         pendingResponse: createPendingReviewResponse(response, reviewsFixture.referenceTime),
         revision: review.revision + 1,
       }),
-    submitReviewAppeal: async (review, reason, detail) =>
-      resolve({
+    submitReviewAppeal: async (review, reason, detail) => {
+      if (review.appealCase) throw new Error("This review already has an appeal case.")
+
+      return resolve({
         ...review,
-        notice: `Appeal submitted. ${reason}: ${detail.trim()} A moderation response is expected within three to five working days.`,
+        appealCase: createReviewAppealCase({
+          detail,
+          reason,
+          reviewId: review.id,
+          submittedAt: reviewsFixture.referenceTime,
+        }),
         revision: review.revision + 1,
-        status: "Under review" as const,
-      }),
+      })
+    },
   }
 }
 

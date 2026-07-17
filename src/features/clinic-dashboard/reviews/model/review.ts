@@ -1,3 +1,5 @@
+import { cloneReviewAppealCase, type ReviewAppealCase } from "./appeal-case"
+
 export const reviewStatuses = ["Answered", "Open", "Under review"] as const
 
 const pendingReviewResponseStatus = "pending-moderation" as const
@@ -12,13 +14,13 @@ export type PendingReviewResponse = Readonly<{
 
 type ClinicReviewFields = {
   age: string
+  appealCase?: ReviewAppealCase
   author: string
   body: string
   createdAt: string
   id: string
   initials: string
   internalNotes: readonly string[]
-  notice?: string
   pendingResponse?: PendingReviewResponse
   rating: 1 | 2 | 3 | 4 | 5
   revision: number
@@ -44,5 +46,23 @@ export function createPendingReviewResponse(response: string, submittedAt: strin
     response: trimmedResponse,
     status: pendingReviewResponseStatus,
     submittedAt,
+  }
+}
+
+export function cloneClinicReview(review: ClinicReview): ClinicReview {
+  return {
+    ...review,
+    appealCase: review.appealCase ? cloneReviewAppealCase(review.appealCase) : undefined,
+    internalNotes: [...review.internalNotes],
+    pendingResponse: review.pendingResponse ? { ...review.pendingResponse } : undefined,
+  }
+}
+
+export function projectClinicReviewForPresentation(review: ClinicReview): ClinicReview {
+  return {
+    ...review,
+    appealCase: undefined,
+    internalNotes: [],
+    pendingResponse: undefined,
   }
 }

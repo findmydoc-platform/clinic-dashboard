@@ -1,5 +1,5 @@
 import { defaultReviewFilters, type ReviewFilters } from "./review-filters"
-import type { ClinicReview } from "./review"
+import { cloneClinicReview, type ClinicReview } from "./review"
 import type { ReviewDialogSelection } from "./review-dialog"
 
 export type ReviewsState = Readonly<{
@@ -37,11 +37,7 @@ export function createReviewsState(reviews: readonly ClinicReview[]): ReviewsSta
     isMobileFiltersOpen: false,
     isRefreshing: false,
     page: 1,
-    reviews: reviews.map((review) => ({
-      ...review,
-      internalNotes: [...review.internalNotes],
-      pendingResponse: review.pendingResponse ? { ...review.pendingResponse } : undefined,
-    })),
+    reviews: reviews.map(cloneClinicReview),
     statusMessage: "",
   }
 }
@@ -84,6 +80,15 @@ export function reviewsReducer(state: ReviewsState, action: ReviewsAction): Revi
     case "refresh-started":
       return { ...state, isRefreshing: true, statusMessage: "" }
     case "review-appeal-opened":
+      if (
+        !state.reviews.some(
+          (review) =>
+            review.id === action.reviewId && review.status === "Open" && review.appealCase === undefined,
+        )
+      ) {
+        return state
+      }
+
       return {
         ...state,
         dialog: { kind: "appeal", reviewId: action.reviewId },
