@@ -1,0 +1,170 @@
+"use client"
+
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { Headphones, Menu } from "lucide-react"
+import { BrandMark } from "@/components/brand/BrandMark"
+import { Button } from "@/components/ui/button"
+import { Modal } from "@/components/ui/modal"
+import type { ClinicDashboardSection } from "./model/workspace"
+import { cn } from "@/lib/utils"
+import { ClinicDashboardNavigation } from "./ClinicDashboardNavigation"
+import type { ClinicDashboardNavigationItem } from "./navigation"
+
+type ClinicDashboardShellProps = Readonly<{
+  accountMenu: ReactNode
+  activeSection: ClinicDashboardSection
+  children: ReactNode
+  clinicName: string
+  headerActions?: ReactNode
+  interfaceModeControls?: Readonly<{
+    desktop: ReactNode
+    mobile: ReactNode
+  }>
+  items: readonly ClinicDashboardNavigationItem[]
+  notificationCenter?: ReactNode
+  onSectionSelect: (section: ClinicDashboardSection) => void
+  onSupportRequest?: () => void
+}>
+
+function PrototypeBrandMark({ className }: { className?: string }) {
+  return (
+    <span className={cn("relative inline-flex pb-4", className)}>
+      <BrandMark priority />
+      <span className="absolute top-6 left-[76px] z-10 inline-flex rounded-full bg-[var(--destructive)] px-1.5 py-1 text-[8px] leading-none font-bold tracking-wide text-[var(--destructive-foreground)] uppercase">
+        Prototype
+      </span>
+    </span>
+  )
+}
+
+export function ClinicDashboardShell({
+  accountMenu,
+  activeSection,
+  children,
+  clinicName,
+  headerActions,
+  interfaceModeControls,
+  items,
+  notificationCenter,
+  onSectionSelect,
+  onSupportRequest,
+}: ClinicDashboardShellProps) {
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
+  const navigationTriggerRef = useRef<HTMLButtonElement>(null)
+  const supportRequestFrameRef = useRef<number | null>(null)
+
+  useEffect(
+    () => () => {
+      if (supportRequestFrameRef.current !== null) cancelAnimationFrame(supportRequestFrameRef.current)
+    },
+    [],
+  )
+
+  const selectSection = (section: ClinicDashboardSection) => {
+    onSectionSelect(section)
+    setMobileNavigationOpen(false)
+  }
+  const openMobileSupport = () => {
+    if (!onSupportRequest) return
+
+    setMobileNavigationOpen(false)
+    supportRequestFrameRef.current = requestAnimationFrame(() => {
+      supportRequestFrameRef.current = null
+      onSupportRequest()
+    })
+  }
+
+  return (
+    <div className="min-h-dvh bg-[var(--canvas)] text-[var(--foreground)]" data-clinic-dashboard-root>
+      <aside
+        aria-label="Desktop clinic navigation"
+        className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-[var(--border)] bg-[var(--background)] p-4 md:flex"
+      >
+        <div className="relative mb-8 min-h-20">
+          <div className="absolute top-11 left-0 flex items-start">
+            <PrototypeBrandMark />
+            <span className="ml-4 text-xs font-bold text-[var(--foreground)]">Clinic workspace</span>
+          </div>
+        </div>
+        <ClinicDashboardNavigation
+          activeSection={activeSection}
+          items={items}
+          onSectionSelect={onSectionSelect}
+        />
+        <div className="mt-auto space-y-3">
+          {onSupportRequest ? (
+            <div className="space-y-2 border-t border-[var(--border)] pt-4">
+              <Button
+                className="w-full justify-start gap-3"
+                onClick={() => onSupportRequest()}
+                variant="ghost"
+              >
+                <Headphones aria-hidden="true" className="size-5" /> <span>Contact support</span>
+              </Button>
+            </div>
+          ) : null}
+          {interfaceModeControls?.desktop}
+        </div>
+      </aside>
+
+      <Modal
+        onOpenChange={setMobileNavigationOpen}
+        open={mobileNavigationOpen}
+        side="left"
+        title="Clinic navigation"
+        triggerRef={navigationTriggerRef}
+      >
+        <PrototypeBrandMark className="mb-7" />
+        <ClinicDashboardNavigation
+          activeSection={activeSection}
+          items={items}
+          onSectionSelect={selectSection}
+        />
+        {onSupportRequest ? (
+          <Button
+            className="mt-6 w-full justify-start gap-3 border-t border-[var(--border)] pt-6"
+            onClick={openMobileSupport}
+            variant="ghost"
+          >
+            <Headphones aria-hidden="true" className="size-5" /> <span>Contact support</span>
+          </Button>
+        ) : null}
+        {interfaceModeControls?.mobile}
+      </Modal>
+
+      <div className="md:pl-64">
+        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_94%,transparent)] px-4 py-2 backdrop-blur sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button
+              aria-expanded={mobileNavigationOpen}
+              aria-haspopup="dialog"
+              aria-label="Open navigation"
+              className="min-h-11 min-w-11 md:hidden"
+              onClick={() => setMobileNavigationOpen(true)}
+              ref={navigationTriggerRef}
+              size="icon"
+              variant="ghost"
+            >
+              <Menu aria-hidden="true" className="size-5" />
+            </Button>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold sm:text-base">{clinicName}</div>
+              <div className="truncate text-xs text-[var(--foreground)] lg:hidden">Clinic workspace</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {headerActions ? <div className="hidden items-center gap-2 sm:flex">{headerActions}</div> : null}
+            {notificationCenter}
+            {accountMenu}
+          </div>
+        </header>
+        {headerActions ? (
+          <div className="border-b border-[var(--border)] bg-[var(--background)] px-4 py-3 sm:hidden">
+            {headerActions}
+          </div>
+        ) : null}
+        <main className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:px-8 lg:py-7">{children}</main>
+      </div>
+    </div>
+  )
+}

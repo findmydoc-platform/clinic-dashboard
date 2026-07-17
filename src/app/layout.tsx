@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import type { ReactNode } from "react"
-import { ThemeProvider } from "@/components/organisms/AppShell/ThemeProvider"
+import { ThemeProvider } from "@/providers/ThemeProvider"
 import "./globals.css"
 
 export const metadata: Metadata = {
