@@ -64,9 +64,13 @@ export const SubmittedAppealMobile320: Story = {
     const dialog = within(canvasElement.ownerDocument.body).getByRole("dialog", {
       name: "Review history",
     })
+    const reference = within(dialog).getByText("APPEAL-REVIEW-ANONYMOUS-COORDINATION")
+    const eventId = within(dialog).getByText("APPEAL-REVIEW-ANONYMOUS-COORDINATION-EVENT-1")
 
     await expect(dialog.scrollWidth).toBeLessThanOrEqual(dialog.clientWidth)
-    await expect(within(dialog).getByText("APPEAL-REVIEW-ANONYMOUS-COORDINATION")).toBeVisible()
+    await expect(reference).toBeVisible()
+    await expect(reference.scrollWidth).toBeLessThanOrEqual(reference.clientWidth)
+    await expect(eventId.scrollWidth).toBeLessThanOrEqual(eventId.clientWidth)
     await expect(within(dialog).getByRole("button", { name: "Mark as under review" })).toBeVisible()
   },
 }

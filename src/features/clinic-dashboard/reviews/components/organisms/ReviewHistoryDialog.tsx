@@ -103,9 +103,9 @@ export function ReviewHistoryDialog({ onClose, onMarkAppealUnderReview, review }
             {appealCase ? (
               <div className="space-y-5 rounded-lg border border-[var(--border)] p-4">
                 <dl className="grid gap-4 sm:grid-cols-2">
-                  <div>
+                  <div className="sm:col-span-2">
                     <dt className="text-xs font-bold text-[var(--foreground)]">Reference</dt>
-                    <dd className="mt-1 font-mono text-xs break-all">{appealCase.reference}</dd>
+                    <dd className="mt-1 font-mono text-xs break-words">{appealCase.reference}</dd>
                   </div>
                   <div>
                     <dt className="text-xs font-bold text-[var(--foreground)]">Case status</dt>
@@ -140,7 +140,7 @@ export function ReviewHistoryDialog({ onClose, onMarkAppealUnderReview, review }
                         >
                           {formatPrototypeTimestamp(event.occurredAt)}
                         </time>
-                        <p className="mt-1 font-mono text-xs break-all text-[var(--foreground)]">
+                        <p className="mt-1 font-mono text-xs break-words text-[var(--foreground)]">
                           {event.id}
                         </p>
                       </li>
