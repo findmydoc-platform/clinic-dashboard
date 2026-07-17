@@ -506,25 +506,84 @@ describe("architecture policy checker process fixtures", () => {
     expect(output.match(/ERROR atomic-upward-import/gu)).toHaveLength(1)
   })
 
+  it.each([
+    [
+      "an exported variable alias",
+      `
+        import { DashboardScreen as Screen } from "./components/organisms/DashboardScreen"
+        export const Alias = Screen
+      `,
+    ],
+    [
+      "a namespace property",
+      `
+        import * as Screens from "./components/organisms/DashboardScreen"
+        export const Alias = Screens.DashboardScreen
+      `,
+    ],
+    [
+      "a namespace element and local alias chain",
+      `
+        import * as Screens from "./components/organisms/DashboardScreen"
+        const NamespaceAlias = Screens
+        const ElementAlias = NamespaceAlias["DashboardScreen"]
+        const Alias = ElementAlias
+        export { Alias }
+      `,
+    ],
+    [
+      "namespace destructuring",
+      `
+        import * as Screens from "./components/organisms/DashboardScreen"
+        const NamespaceAlias = Screens
+        const { DashboardScreen: Alias } = NamespaceAlias
+        export { Alias }
+      `,
+    ],
+  ])("rejects an Atomic upward import hidden by %s", (_kind, barrelSource) => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx": `
+        import { Alias } from "../../ui"
+        export const StatusDot = Alias
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        export function DashboardScreen() { return null }
+      `,
+      "src/features/clinic-dashboard/dashboard/ui.ts": barrelSource,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR atomic-upward-import src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx",
+    )
+    expect(output).toContain("atoms must not import a barrel that re-exports the higher organisms layer")
+    expect(output.match(/ERROR atomic-upward-import/gu)).toHaveLength(1)
+  })
+
   it("accepts pure local alias exports and same-layer alias re-exports through a barrel", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/dashboard/components/atoms/StatusDot.tsx": `
-        import { localCycleA, localThreshold, TrendIcon } from "../../ui"
-        export const StatusDot = localThreshold > 0 ? TrendIcon : localCycleA
+        import { localCycleA, localThreshold, SameLayerAlias } from "../../ui"
+        export const StatusDot = localThreshold > 0 ? SameLayerAlias : localCycleA
       `,
       "src/features/clinic-dashboard/dashboard/components/atoms/TrendIcon.tsx": `
         export function TrendIcon() { return null }
       `,
       "src/features/clinic-dashboard/dashboard/ui.ts": `
-        import { TrendIcon } from "./components/atoms/TrendIcon"
-        const localThreshold = 1
-        const LocalAlias = localThreshold
+        import * as TrendIcons from "./components/atoms/TrendIcon"
+        const threshold = 1
+        const LocalAlias = threshold
         const LocalAlias2 = LocalAlias
-        const TrendAlias = TrendIcon
-        const TrendAlias2 = TrendAlias
+        const TrendNamespace = TrendIcons
+        const { TrendIcon: TrendAlias } = TrendNamespace
         const localCycleA = localCycleB
         const localCycleB = localCycleA
-        export { LocalAlias2 as localThreshold, localCycleA, TrendAlias2 as TrendIcon }
+        export const localThreshold = LocalAlias2
+        export const SameLayerAlias = TrendAlias
+        export { localCycleA }
       `,
     })
 
@@ -646,6 +705,83 @@ describe("architecture policy checker process fixtures", () => {
       "ERROR public-prototype-data-export src/features/clinic-dashboard/messages/public.ts",
     )
     expect(output.match(/ERROR public-prototype-data-export/gu)).toHaveLength(1)
+  })
+
+  it("rejects runtime prototype data transitively re-exported through mapper aliases", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/messages.prototype-data.ts": `
+        export const messagesPrototypeData = [{ id: "message-1" }]
+      `,
+      "src/features/clinic-dashboard/messages/messages.prototype-data.mapper.ts": `
+        import * as Runtime from "./messages.prototype-data"
+        const RuntimeAlias = Runtime
+        const { messagesPrototypeData: DataAlias } = RuntimeAlias
+        export const PublicDataAlias = DataAlias
+      `,
+      "src/features/clinic-dashboard/messages/public.ts": `
+        import { PublicDataAlias } from "./messages.prototype-data.mapper"
+        const Alias = PublicDataAlias
+        export { Alias }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR public-prototype-data-export src/features/clinic-dashboard/messages/public.ts",
+    )
+    expect(output).toContain("src/features/clinic-dashboard/messages/messages.prototype-data.ts")
+    expect(output.match(/ERROR public-prototype-data-export/gu)).toHaveLength(1)
+  })
+
+  it("fails closed when a feature public contract re-exports a prototype-data mapper target", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/messages.prototype-data.mapper.ts": `
+        export function mapMessagesPrototypeData() { return [] }
+      `,
+      "src/features/clinic-dashboard/messages/public.ts": `
+        export { mapMessagesPrototypeData } from "./messages.prototype-data.mapper"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR public-prototype-data-export src/features/clinic-dashboard/messages/public.ts",
+    )
+    expect(output).toContain("src/features/clinic-dashboard/messages/messages.prototype-data.mapper.ts")
+    expect(output.match(/ERROR public-prototype-data-export/gu)).toHaveLength(1)
+  })
+
+  it("accepts private workspace use of a same-area prototype-data mapper", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/messages.prototype-data.ts": `
+        export const messagesPrototypeData = [{ id: "message-1" }]
+      `,
+      "src/features/clinic-dashboard/messages/messages.prototype-data.mapper.ts": `
+        import { messagesPrototypeData } from "./messages.prototype-data"
+        export function mapMessagesPrototypeData() {
+          return messagesPrototypeData.map(({ id }) => ({ id }))
+        }
+      `,
+      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx": `
+        import { mapMessagesPrototypeData } from "../messages/messages.prototype-data.mapper"
+        export function ClinicDashboardWorkspace() {
+          void mapMessagesPrototypeData()
+          return null
+        }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
   })
 
   it("rejects unknown Atomic layers and catch-all feature directories", () => {
@@ -941,6 +1077,70 @@ describe("architecture policy checker process fixtures", () => {
     expect(output).toContain("ERROR commonjs-public-export src/features/clinic-dashboard/messages/public.ts")
     expect(output).toContain("ERROR commonjs-public-export src/features/clinic-dashboard/reviews/public.ts")
     expect(output.match(/ERROR commonjs-public-export/gu)).toHaveLength(3)
+  })
+
+  it("rejects symbol-resolved CommonJS export aliases from feature public contracts", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/public.cts": `
+        const dashboard = { views: 1 }
+        const cjs = module
+        cjs.exports = dashboard
+      `,
+      "src/features/clinic-dashboard/messages/public.cts": `
+        const Messages = () => null
+        const contract = module.exports
+        const contractAlias = contract
+        contractAlias.default = Messages
+      `,
+      "src/features/clinic-dashboard/reviews/public.cts": `
+        const Reviews = () => null
+        const contract = exports
+        const contractAlias = contract
+        contractAlias.Reviews = Reviews
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR commonjs-public-export src/features/clinic-dashboard/dashboard/public.cts",
+    )
+    expect(output).toContain("ERROR commonjs-public-export src/features/clinic-dashboard/messages/public.cts")
+    expect(output).toContain("ERROR commonjs-public-export src/features/clinic-dashboard/reviews/public.cts")
+    expect(output.match(/ERROR commonjs-public-export/gu)).toHaveLength(3)
+  })
+
+  it("accepts CommonJS-shaped mutations of locally scoped module and exports bindings", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/support/public.ts": `
+        const module = { exports: { enabled: false } }
+        const exports = { default: false }
+        const cjs = module
+        cjs.exports = { enabled: true }
+        const contract = exports
+        contract.default = true
+
+        function configureLocalContracts(
+          module: { exports: { enabled: boolean } },
+          exports: { default: boolean },
+        ) {
+          const localModuleAlias = module
+          localModuleAlias.exports = { enabled: true }
+          const localExportsAlias = exports
+          localExportsAlias.default = true
+        }
+
+        export { cjs, configureLocalContracts, contract }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
   })
 
   it("accepts ES named exports and ordinary nested exports properties", () => {
