@@ -2,7 +2,6 @@
 
 import { PageHeading } from "@/components/ui/page-heading"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
-import type { DashboardReportingPeriod } from "../../model/reporting"
 import { MetricCard } from "../molecules/MetricCard"
 import { ClinicPreview } from "./ClinicPreview"
 import { ConversionFunnel } from "./ConversionFunnel"
@@ -14,7 +13,6 @@ type DashboardScreenProps = Readonly<{
   actions: DashboardActions
   canDownloadProfileViews: boolean
   model: DashboardViewModel
-  period: DashboardReportingPeriod
   showCertificateTasks: boolean
 }>
 
@@ -22,7 +20,6 @@ export function DashboardScreen({
   actions,
   canDownloadProfileViews,
   model,
-  period,
   showCertificateTasks,
 }: DashboardScreenProps) {
   return (
@@ -37,7 +34,7 @@ export function DashboardScreen({
         ))}
       </section>
 
-      <ConversionFunnel period={period} steps={model.reporting.funnel} />
+      <ConversionFunnel period={model.reporting.period} steps={model.reporting.funnel} />
 
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.7fr_0.8fr]">
         <ProfileProgress
@@ -50,7 +47,7 @@ export function DashboardScreen({
           canDownload={canDownloadProfileViews}
           chart={model.reporting.chart}
           onDownload={actions.onProfileViewsDownload}
-          period={period}
+          period={model.reporting.period}
         />
         <div className="space-y-6">
           <ReviewSummary
