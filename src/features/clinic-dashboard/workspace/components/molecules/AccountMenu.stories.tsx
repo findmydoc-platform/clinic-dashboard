@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, userEvent, waitFor, within } from "storybook/test"
+import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { workspaceAccountFixture } from "../../testing/workspace.fixtures"
 import { AccountMenu } from "./AccountMenu"
 
@@ -85,6 +85,30 @@ export const Open: Story = {
     await waitFor(() =>
       expect(canvas.getByRole("button", { name: `Open account menu for ${account.name}` })).toHaveFocus(),
     )
+  },
+}
+
+export const SignOutSubmits: Story = {
+  args: { ...defaultArgs, initialOpen: true },
+  play: async ({ canvasElement }) => {
+    const menu = within(canvasElement.ownerDocument.body).getByRole("menu")
+    const signOut = within(menu).getByRole("menuitem", { name: "Sign out" })
+    const form = signOut.closest("form")
+    const onSubmit = fn()
+
+    if (!form) throw new Error("The sign-out menu item must belong to a form.")
+
+    form.addEventListener(
+      "submit",
+      (event) => {
+        event.preventDefault()
+        onSubmit()
+      },
+      { once: true },
+    )
+
+    await userEvent.click(signOut)
+    await expect(onSubmit).toHaveBeenCalledOnce()
   },
 }
 

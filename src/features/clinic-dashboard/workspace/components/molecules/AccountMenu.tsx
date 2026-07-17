@@ -77,7 +77,7 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
           </DropdownMenu.CheckboxItem>
           <DropdownMenu.Separator className="mx-0 my-0" />
           <form action="/api/auth/logout" method="post">
-            <DropdownMenu.Item asChild variant="destructive">
+            <DropdownMenu.Item asChild onSelect={(event) => event.preventDefault()} variant="destructive">
               <Button className="w-full justify-start rounded-none px-4" type="submit" variant="ghost">
                 <LogOut aria-hidden="true" className="size-5" />
                 <span>Sign out</span>

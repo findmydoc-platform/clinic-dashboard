@@ -68,10 +68,10 @@ test("opens the account menu and signs out", async ({ page }) => {
   await signIn(page)
 
   await page.getByRole("button", { name: "Open account menu for Sarah Schmidt" }).click()
-  const menu = page.getByRole("dialog", { name: "Account menu" })
+  const menu = page.getByRole("menu", { name: "Account menu" })
   await expect(menu.getByText("Sarah Schmidt")).toBeVisible()
   await expect(menu.getByText("Clinic administrator")).toBeVisible()
-  await menu.getByRole("button", { name: "Sign out" }).click()
+  await menu.getByRole("menuitem", { name: "Sign out" }).click()
 
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible()
@@ -90,8 +90,8 @@ test("switches the workspace theme without hydration regressions", async ({ page
 
   await page.getByRole("button", { name: "Open account menu for Sarah Schmidt" }).click()
   const darkModeSwitch = page
-    .getByRole("dialog", { name: "Account menu" })
-    .getByRole("switch", { name: "Dark mode" })
+    .getByRole("menu", { name: "Account menu" })
+    .getByRole("menuitemcheckbox", { name: "Dark mode" })
   await expect(darkModeSwitch).toBeChecked()
   await darkModeSwitch.click()
   await expect(page.locator("html")).not.toHaveClass(/dark/)
