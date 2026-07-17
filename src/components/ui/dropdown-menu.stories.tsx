@@ -79,6 +79,10 @@ export const KeyboardNavigation: Story = {
 
     await userEvent.keyboard("{Enter}")
     await waitFor(() => expect(page.getByRole("menuitem", { name: "View details" })).toHaveFocus())
+    const reopenedCheckboxItem = page.getByRole("menuitemcheckbox", { name: "Notifications" })
+    await userEvent.keyboard("{ArrowDown}")
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    await expect(reopenedCheckboxItem).toHaveFocus()
     await userEvent.tab()
     await expect(page.queryByRole("menu")).not.toBeInTheDocument()
     await waitFor(() => expect(outsideAction).toHaveFocus())
