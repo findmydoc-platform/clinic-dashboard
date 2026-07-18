@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { dashboardViewModel } from "../../testing/dashboard.fixtures"
 import { ConversionFunnel } from "./ConversionFunnel"
 
@@ -24,33 +24,55 @@ async function expectSevenDayJourney(canvasElement: HTMLElement) {
   await expect(canvas.getByText("Inquiries")).toBeInTheDocument()
   await expect(canvas.getByRole("list", { name: "Conversion stages" })).toBeInTheDocument()
   await expect(canvas.getAllByRole("listitem")).toHaveLength(5)
+  await expect(canvas.getAllByRole("button")).toHaveLength(5)
 }
 
 function getFunnelLayout(canvasElement: HTMLElement) {
-  const stages = Array.from(canvasElement.querySelectorAll<HTMLElement>("[data-funnel-stage]"))
+  const stages = Array.from(canvasElement.querySelectorAll<HTMLButtonElement>("[data-funnel-stage]"))
+  const connectors = Array.from(canvasElement.querySelectorAll<HTMLElement>("[data-funnel-connector]"))
   const arrows = Array.from(canvasElement.querySelectorAll<SVGElement>("[data-funnel-arrow]"))
 
-  if (stages.length !== 5 || arrows.length !== 4) {
-    throw new Error("Expected five funnel stages and four connector arrows")
+  if (stages.length !== 5 || connectors.length !== 4 || arrows.length !== 4) {
+    throw new Error("Expected five funnel stages and four conversion connectors")
   }
 
-  return { arrows, stages }
+  return { arrows, connectors, stages }
 }
 
 async function expectStackedFunnel(canvasElement: HTMLElement) {
-  const { arrows, stages } = getFunnelLayout(canvasElement)
+  const { arrows, connectors, stages } = getFunnelLayout(canvasElement)
   const stageBounds = stages.map((stage) => stage.getBoundingClientRect())
 
   for (const [index, bounds] of stageBounds.entries()) {
     await expect(bounds.width).toBeLessThanOrEqual(canvasElement.clientWidth)
     if (index > 0) {
-      await expect(bounds.top - stageBounds[index - 1].bottom).toBeGreaterThanOrEqual(7.5)
+      await expect(bounds.top - stageBounds[index - 1].bottom).toBeGreaterThanOrEqual(79.5)
     }
   }
 
-  for (const arrow of arrows) {
-    await expect(arrow.getBoundingClientRect().width).toBe(0)
+  for (const [index, arrow] of arrows.entries()) {
+    await expect(arrow.getBoundingClientRect().width).toBeGreaterThanOrEqual(23.5)
+    await expect(connectors[index].getBoundingClientRect().width).toBeLessThanOrEqual(
+      canvasElement.clientWidth,
+    )
   }
+}
+
+async function expectInteractiveStages(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  const impressions = canvas.getByRole("button", { name: "Impressions 4,680" })
+  const inquiries = canvas.getByRole("button", { name: "Inquiries 5" })
+
+  await expect(impressions).toHaveAttribute("aria-pressed", "false")
+  await userEvent.click(impressions)
+  await expect(impressions).toHaveAttribute("aria-pressed", "true")
+  await expect(canvas.getByText("Impressions funnel stage selected.")).toBeInTheDocument()
+
+  inquiries.focus()
+  await expect(inquiries).toHaveFocus()
+  await userEvent.keyboard("{Enter}")
+  await expect(inquiries).toHaveAttribute("aria-pressed", "true")
+  await expect(impressions).toHaveAttribute("aria-pressed", "false")
 }
 
 export const SevenDayJourney: Story = {
@@ -60,6 +82,7 @@ export const SevenDayJourney: Story = {
   },
   play: async ({ canvasElement }) => {
     await expectSevenDayJourney(canvasElement)
+    await expectInteractiveStages(canvasElement)
   },
 }
 
@@ -69,11 +92,12 @@ export const Desktop1440Layout: Story = {
   play: async ({ canvasElement }) => {
     await expectSevenDayJourney(canvasElement)
 
-    const { arrows, stages } = getFunnelLayout(canvasElement)
+    const { arrows, connectors, stages } = getFunnelLayout(canvasElement)
     const stageBounds = stages.map((stage) => stage.getBoundingClientRect())
 
     for (const bounds of stageBounds) {
-      await expect(bounds.width).toBeLessThanOrEqual(160.5)
+      await expect(bounds.width).toBeLessThanOrEqual(144.5)
+      await expect(Math.abs(bounds.width - stageBounds[0].width)).toBeLessThanOrEqual(0.5)
       await expect(Math.abs(bounds.top - stageBounds[0].top)).toBeLessThanOrEqual(0.5)
     }
 
@@ -81,12 +105,15 @@ export const Desktop1440Layout: Story = {
       const currentStage = stageBounds[index]
       const nextStage = stageBounds[index + 1]
       const arrowBounds = arrow.getBoundingClientRect()
+      const connectorBounds = connectors[index].getBoundingClientRect()
 
-      await expect(nextStage.left - currentStage.right).toBeGreaterThanOrEqual(47.5)
-      await expect(arrowBounds.width).toBeGreaterThanOrEqual(31.5)
-      await expect(arrowBounds.width).toBeLessThanOrEqual(32.5)
+      await expect(nextStage.left - currentStage.right).toBeGreaterThanOrEqual(71.5)
+      await expect(arrowBounds.width).toBeGreaterThanOrEqual(23.5)
+      await expect(arrowBounds.width).toBeLessThanOrEqual(24.5)
       await expect(arrowBounds.left).toBeGreaterThanOrEqual(currentStage.right - 0.5)
       await expect(arrowBounds.right).toBeLessThanOrEqual(nextStage.left + 0.5)
+      await expect(connectorBounds.left).toBeGreaterThanOrEqual(currentStage.right - 0.5)
+      await expect(connectorBounds.right).toBeLessThanOrEqual(nextStage.left + 0.5)
     }
   },
 }
