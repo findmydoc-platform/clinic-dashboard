@@ -18,8 +18,9 @@
 ## Runtime Status and Scope
 
 > **Temporary runtime notice:** The application remains fixture-backed and protected by its temporary password
-> guard. Supabase session handling and the Payload BFF described here are not active yet. This notice must be removed
-> when the architecture is implemented.
+> guard. The website now exposes the Payload bootstrap contract described below, but Supabase session handling and the
+> Dashboard BFF are not active in this application yet. This notice must be removed when the Dashboard architecture is
+> implemented.
 
 This document records the durable authentication and Backend for Frontend architecture of the stateless Next.js
 application. It is not an execution plan. The Dashboard owns no database, durable business cache, Supabase service-role
@@ -119,17 +120,46 @@ For each environment, the client accepts one exact HTTPS Payload origin and conf
 redirects. An origin mismatch, non-HTTPS target, or cross-environment URL fails before the first token-bearing request.
 A redirect response fails without sending the Bearer token to the redirect target.
 
-The Dashboard consumes a generated or otherwise synchronized `ClinicDashboardBootstrapDTO` containing only:
+The Dashboard consumes this synchronized initial contract:
 
-- safe current-principal display fields;
-- safe clinic identity fields;
-- the approved status; and
-- a closed union of allowed Dashboard capabilities.
+```ts
+type ClinicDashboardCapability = "clinic-profile:view" | "clinic-profile:edit"
+
+type ClinicDashboardBootstrapDTO = {
+  principal: {
+    id: string
+    displayName: string
+    email: string
+  }
+  clinic: {
+    id: string
+    name: string
+  }
+  status: "approved"
+  capabilities: ClinicDashboardCapability[]
+}
+```
+
+The capability list contains each value exactly once in the order shown. It is a UI projection for profile display and
+editing controls, not a replacement for Payload authorization. Each later read or mutation must still authorize the
+current principal, clinic, document, and fields.
 
 The client rejects a response that does not match the expected DTO. It never forwards raw Payload documents, Supabase
 identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
 
 ## Error and UI State Mapping
+
+The website bootstrap exposes three stable upstream errors that the Dashboard must preserve without displaying raw
+upstream details:
+
+| Payload bootstrap response                            | Meaning                                                                             | Dashboard behavior                                                                                            |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `401` with `CLINIC_DASHBOARD_UNAUTHORIZED`            | Missing or invalid Bearer token, wrong principal type, or no matching clinic staff. | Attempt one controlled session refresh; persistent failure clears invalid cookies and enters the login state. |
+| `403` with `CLINIC_DASHBOARD_ACCESS_DENIED`           | Clinic staff is not approved or has no current clinic assignment.                   | Preserve the session and render the appropriate access state without clinic data.                             |
+| `503` with `CLINIC_DASHBOARD_TEMPORARILY_UNAVAILABLE` | Supabase or Payload is temporarily unavailable.                                     | Preserve the session and render a retryable service state rather than logging the user out.                   |
+
+Every upstream bootstrap response is private and carries `Cache-Control: private, no-store`, `Pragma: no-cache`,
+`Expires: 0`, and `Vary: Authorization`. The Dashboard response must retain equivalent private no-store behavior.
 
 | Condition                                                          | BFF behavior                                                               | Required UI state                                               |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
