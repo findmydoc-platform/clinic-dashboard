@@ -3,33 +3,45 @@
 import {
   ArrowRight,
   ChevronRight,
-  CircleDot,
   Eye,
   FileCheck2,
+  type LucideIcon,
   MessageSquare,
   MousePointerClick,
   UserRound,
 } from "lucide-react"
-import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import type { DashboardFunnelStep, DashboardReportingPeriod } from "../../model/reporting"
+import type {
+  DashboardFunnelStep,
+  DashboardReportingPeriod,
+  DashboardSelectableMetricId,
+} from "../../model/reporting"
 
 const funnelIcons = {
-  Contacts: { component: MessageSquare, name: "message-square" },
-  Impressions: { component: Eye, name: "eye" },
-  Inquiries: { component: FileCheck2, name: "file-check" },
-  "Profile views": { component: MousePointerClick, name: "mouse-pointer-click" },
-  "Unique visitors": { component: UserRound, name: "user-round" },
-} as const
+  contacts: { component: MessageSquare, name: "message-square" },
+  impressions: { component: Eye, name: "eye" },
+  inquiries: { component: FileCheck2, name: "file-check" },
+  uniqueVisitors: { component: UserRound, name: "user-round" },
+  views: { component: MousePointerClick, name: "mouse-pointer-click" },
+} as const satisfies Record<DashboardSelectableMetricId, Readonly<{ component: LucideIcon; name: string }>>
 
 type ConversionFunnelProps = Readonly<{
+  controlsId: string
+  onMetricSelect: (metricId: DashboardSelectableMetricId) => void
   period: DashboardReportingPeriod
+  selectedMetricId: DashboardSelectableMetricId
   steps: readonly DashboardFunnelStep[]
 }>
 
-export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
-  const [selectedStage, setSelectedStage] = useState<string | null>(null)
+export function ConversionFunnel({
+  controlsId,
+  onMetricSelect,
+  period,
+  selectedMetricId,
+  steps,
+}: ConversionFunnelProps) {
+  const selectedStage = steps.find(({ metricId }) => metricId === selectedMetricId)
 
   return (
     <Card>
@@ -47,13 +59,10 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
         role="list"
       >
         {steps.map((step, index) => {
-          const iconConfig = funnelIcons[step.label as keyof typeof funnelIcons] ?? {
-            component: CircleDot,
-            name: "circle-dot",
-          }
+          const iconConfig = funnelIcons[step.metricId]
           const FunnelIcon = iconConfig.component
           const isFinalStep = index === steps.length - 1
-          const isSelected = selectedStage === step.label
+          const isSelected = selectedMetricId === step.metricId
           const nextStep = steps[index + 1]
 
           return (
@@ -65,6 +74,7 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
               key={step.label}
             >
               <button
+                aria-controls={controlsId}
                 aria-pressed={isSelected}
                 className={cn(
                   "relative min-h-36 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 text-center shadow-xs transition-colors",
@@ -74,8 +84,8 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
                   isFinalStep &&
                     "border-[var(--accent)] bg-[var(--accent-soft)] hover:border-[var(--primary)]",
                 )}
-                data-funnel-stage
-                onClick={() => setSelectedStage(step.label)}
+                data-funnel-stage={step.metricId}
+                onClick={() => onMetricSelect(step.metricId)}
                 type="button"
               >
                 <FunnelIcon
@@ -119,7 +129,7 @@ export function ConversionFunnel({ period, steps }: ConversionFunnelProps) {
         })}
       </ol>
       <p aria-live="polite" className="sr-only">
-        {selectedStage ? `${selectedStage} funnel stage selected.` : null}
+        {selectedStage ? `${selectedStage.label} funnel stage selected.` : null}
       </p>
     </Card>
   )

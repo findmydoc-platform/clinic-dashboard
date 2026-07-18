@@ -9,7 +9,7 @@ import {
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import type { DashboardMetric, DashboardSelectableMetricId } from "../../model/reporting"
+import type { DashboardMetric } from "../../model/reporting"
 
 const metricIcons = {
   completion: BadgeCheck,
@@ -21,15 +21,9 @@ const metricIcons = {
 
 type MetricCardProps = Readonly<{
   metric: DashboardMetric
-  selection?: Readonly<{
-    controlsId: string
-    isSelected: boolean
-    metricId: DashboardSelectableMetricId
-    onSelect: (metricId: DashboardSelectableMetricId) => void
-  }>
 }>
 
-export function MetricCard({ metric, selection }: MetricCardProps) {
+export function MetricCard({ metric }: MetricCardProps) {
   const Icon = metricIcons[metric.id as keyof typeof metricIcons] ?? BadgeCheck
   const negative = metric.delta?.startsWith("-")
   const Trend = negative ? ArrowDown : ArrowUp
@@ -74,26 +68,8 @@ export function MetricCard({ metric, selection }: MetricCardProps) {
   )
 
   return (
-    <Card
-      className={cn(
-        "min-w-0 shadow-none transition-colors",
-        selection?.isSelected &&
-          "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--background))]",
-      )}
-    >
-      {selection ? (
-        <button
-          aria-controls={selection.controlsId}
-          aria-pressed={selection.isSelected}
-          className="h-full min-h-11 w-full rounded-xl p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-          onClick={() => selection.onSelect(selection.metricId)}
-          type="button"
-        >
-          {content}
-        </button>
-      ) : (
-        <div className="p-4">{content}</div>
-      )}
+    <Card className="min-w-0 shadow-none">
+      <div className="p-4">{content}</div>
     </Card>
   )
 }

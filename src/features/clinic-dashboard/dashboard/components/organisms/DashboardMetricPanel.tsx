@@ -51,12 +51,12 @@ export function DashboardMetricPanel({
           points={metric.points}
           valueLabels={metric.valueLabels}
         />
-        <dl className="mt-auto grid grid-cols-2 border-t border-[var(--border)] pt-4 sm:grid-cols-4">
+        <dl className="mt-auto grid grid-cols-2 border-t border-[var(--border)] pt-4 sm:grid-cols-5">
           {metric.summary.map((item) => (
             <div
               aria-label={`${item.label}${item.isSelected ? ", selected metric" : ""}`}
               className={cn(
-                "flex min-h-20 flex-col items-center justify-center border-t-2 px-2 text-center",
+                "flex min-h-20 flex-col items-center justify-center border-t-2 px-2 text-center last:col-span-2 sm:last:col-span-1",
                 item.isSelected ? "border-[var(--accent)]" : "border-transparent",
               )}
               data-dashboard-summary-item

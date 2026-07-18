@@ -50,3 +50,45 @@ export const SingularContactValue: Story = {
     await expect(canvas.getByRole("tooltip", { name: "Today: 1 contact" })).toBeInTheDocument()
   },
 }
+
+const thirtyDayAxisLabels = new Map([
+  [0, "Sep 13"],
+  [9, "Sep 22"],
+  [19, "Oct 2"],
+  [29, "Oct 12"],
+])
+const thirtyDayProfileViewPoints = Array.from({ length: 30 }, (_, index) => {
+  const axisLabel = thirtyDayAxisLabels.get(index)
+
+  return {
+    ...(axisLabel ? { axisLabel } : {}),
+    dateLabel: `Reporting day ${index + 1}`,
+    value: 94 + index + ((index * 7) % 11),
+  }
+})
+
+export const ThirtyDaysAtAGlance: Story = {
+  args: {
+    description: "Daily profile views across a selected 30-day prototype reporting period.",
+    points: thirtyDayProfileViewPoints,
+    valueLabels: { plural: "profile views", singular: "profile view" },
+  },
+  play: async ({ canvasElement }) => {
+    const chartViewport = canvasElement.querySelector<HTMLElement>("[data-chart-viewport]")
+    const axisLabels = Array.from(canvasElement.querySelectorAll<SVGTextElement>("[data-chart-axis-label]"))
+
+    if (!chartViewport) throw new Error("Expected the responsive dashboard chart viewport")
+
+    const viewportBounds = chartViewport.getBoundingClientRect()
+
+    await expect(axisLabels).toHaveLength(4)
+    await expect(chartViewport.scrollWidth).toBeLessThanOrEqual(chartViewport.clientWidth)
+
+    for (const axisLabel of axisLabels) {
+      const labelBounds = axisLabel.getBoundingClientRect()
+
+      await expect(labelBounds.left).toBeGreaterThanOrEqual(viewportBounds.left - 0.5)
+      await expect(labelBounds.right).toBeLessThanOrEqual(viewportBounds.right + 0.5)
+    }
+  },
+}

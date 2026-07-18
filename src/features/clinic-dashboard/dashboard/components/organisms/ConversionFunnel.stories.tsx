@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { useState, type ComponentProps } from "react"
+import { expect, fn, userEvent, within } from "storybook/test"
 import { dashboardViewModel } from "../../testing/dashboard.fixtures"
 import { ConversionFunnel } from "./ConversionFunnel"
 
@@ -12,6 +13,24 @@ const meta = {
 
 export default meta
 type Story = StoryObj<typeof meta>
+
+function ConversionFunnelHarness(props: ComponentProps<typeof ConversionFunnel>) {
+  const [selectedMetricId, setSelectedMetricId] = useState(props.selectedMetricId)
+
+  return (
+    <>
+      <ConversionFunnel
+        {...props}
+        onMetricSelect={(metricId) => {
+          props.onMetricSelect(metricId)
+          setSelectedMetricId(metricId)
+        }}
+        selectedMetricId={selectedMetricId}
+      />
+      <div id={props.controlsId} />
+    </>
+  )
+}
 
 async function expectSevenDayJourney(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
@@ -77,9 +96,13 @@ async function expectInteractiveStages(canvasElement: HTMLElement) {
 
 export const SevenDayJourney: Story = {
   args: {
+    controlsId: "dashboard-metric-panel",
+    onMetricSelect: fn(),
     period: "7 days",
+    selectedMetricId: "views",
     steps: dashboardViewModel.reporting.funnel,
   },
+  render: (args) => <ConversionFunnelHarness {...args} />,
   play: async ({ canvasElement }) => {
     await expectSevenDayJourney(canvasElement)
     await expectInteractiveStages(canvasElement)

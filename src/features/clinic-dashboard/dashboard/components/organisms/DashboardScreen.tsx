@@ -3,7 +3,6 @@
 import { useId } from "react"
 import { PageHeading } from "@/components/ui/page-heading"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
-import { isDashboardSelectableMetricId } from "../../model/reporting"
 import { MetricCard } from "../molecules/MetricCard"
 import { ClinicPreview } from "./ClinicPreview"
 import { ConversionFunnel } from "./ConversionFunnel"
@@ -33,29 +32,18 @@ export function DashboardScreen({
       </PageHeading>
 
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {model.reporting.metrics.map((metric) => {
-          const isSelectable = isDashboardSelectableMetricId(metric.id)
-
-          return (
-            <MetricCard
-              key={metric.id}
-              metric={metric}
-              selection={
-                isSelectable
-                  ? {
-                      controlsId: metricPanelId,
-                      isSelected: model.selectedMetric.id === metric.id,
-                      metricId: metric.id,
-                      onSelect: actions.onMetricSelect,
-                    }
-                  : undefined
-              }
-            />
-          )
-        })}
+        {model.reporting.metrics.map((metric) => (
+          <MetricCard key={metric.id} metric={metric} />
+        ))}
       </section>
 
-      <ConversionFunnel period={model.reporting.period} steps={model.reporting.funnel} />
+      <ConversionFunnel
+        controlsId={metricPanelId}
+        onMetricSelect={actions.onMetricSelect}
+        period={model.reporting.period}
+        selectedMetricId={model.selectedMetric.id}
+        steps={model.reporting.funnel}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.7fr_0.8fr] xl:items-stretch" data-dashboard-lower-grid>
         <ProfileProgress
