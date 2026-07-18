@@ -24,8 +24,10 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
   const pointRefs = useRef<Array<SVGGElement | null>>([])
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const [tabIndex, setTabIndex] = useState(0)
+  const chartHeight = 416
   const chartWidth = Math.max(600, (points.length - 1) * 52 + 60)
-  const { area, coordinates, line } = createDashboardChartGeometry(points, chartWidth)
+  const chartGridLines = [0.15, 0.4, 0.65, 0.9].map((position) => position * chartHeight)
+  const { area, coordinates, line } = createDashboardChartGeometry(points, chartWidth, chartHeight)
   const activePoint = activeIndex === null ? undefined : coordinates[activeIndex]
 
   const focusPoint = (index: number) => {
@@ -69,10 +71,10 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
         <svg
           aria-describedby={scrollHintId}
           aria-label={description}
-          className="h-64 w-full"
+          className="h-[26rem] w-full"
           role="group"
           style={{ minWidth: `${chartWidth}px` }}
-          viewBox={`0 0 ${chartWidth} 280`}
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
         >
           <title>{description}</title>
           <defs>
@@ -81,7 +83,7 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
               <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
             </linearGradient>
           </defs>
-          {[55, 125, 195, 265].map((y) => (
+          {chartGridLines.map((y) => (
             <line key={y} stroke="var(--border)" x1="30" x2={chartWidth - 30} y1={y} y2={y} />
           ))}
           <polygon fill={`url(#${gradientId})`} points={area} />
@@ -132,7 +134,13 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
                   strokeWidth={activeIndex === index ? 4 : 3}
                 />
                 {point.axisLabel ? (
-                  <text fill="var(--foreground)" fontSize="11" textAnchor="middle" x={point.x} y="270">
+                  <text
+                    fill="var(--foreground)"
+                    fontSize="11"
+                    textAnchor="middle"
+                    x={point.x}
+                    y={chartHeight - 10}
+                  >
                     {point.axisLabel}
                   </text>
                 ) : null}

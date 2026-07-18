@@ -57,7 +57,7 @@ export function DashboardScreen({
 
       <ConversionFunnel period={model.reporting.period} steps={model.reporting.funnel} />
 
-      <div className="grid gap-6 xl:grid-cols-[0.8fr_1.7fr_0.8fr] xl:items-start" data-dashboard-lower-grid>
+      <div className="grid gap-6 xl:grid-cols-[0.8fr_1.7fr_0.8fr] xl:items-stretch" data-dashboard-lower-grid>
         <ProfileProgress
           completion={model.profileCompletion}
           onTaskOpen={actions.onProfileTaskOpen}
@@ -71,7 +71,7 @@ export function DashboardScreen({
           onDownloadProfileViews={actions.onProfileViewsDownload}
           period={model.reporting.period}
         />
-        <div className="space-y-6">
+        <div className="grid gap-6 xl:h-full xl:grid-rows-[auto_1fr]">
           <ReviewSummary
             onOpen={actions.onReviewsOpen}
             rating={model.rating}

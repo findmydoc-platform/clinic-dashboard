@@ -79,6 +79,19 @@ function getLowerDashboardColumns(canvasElement: HTMLElement) {
   }
 }
 
+function getMetricPanelLayout(canvasElement: HTMLElement) {
+  const chart = canvasElement.querySelector<SVGElement>("svg[role='group']")
+  const summaryItems = Array.from(
+    canvasElement.querySelectorAll<HTMLElement>("[data-dashboard-summary-item]"),
+  )
+
+  if (!chart || summaryItems.length !== 4) {
+    throw new Error("Expected the dashboard metric chart and four summary items")
+  }
+
+  return { chart, summaryItems }
+}
+
 export const FullCapabilities: Story = {
   args: {
     actions: {
@@ -130,11 +143,24 @@ export const Desktop1440Layout: Story = {
     const { columns, grid } = getLowerDashboardColumns(canvasElement)
     const [leftColumn, chartColumn, rightColumn] = columns
 
-    await expect(getComputedStyle(grid).alignItems).toBe("flex-start")
+    const columnBottoms = columns.map((column) => column.bottom)
+    const { chart, summaryItems } = getMetricPanelLayout(canvasElement)
+
+    await expect(getComputedStyle(grid).alignItems).toBe("stretch")
     await expect(Math.abs(chartColumn.top - leftColumn.top)).toBeLessThanOrEqual(0.5)
     await expect(Math.abs(rightColumn.top - leftColumn.top)).toBeLessThanOrEqual(0.5)
+    await expect(Math.max(...columnBottoms) - Math.min(...columnBottoms)).toBeLessThanOrEqual(0.5)
     await expect(chartColumn.width / leftColumn.width).toBeGreaterThanOrEqual(2)
     await expect(chartColumn.width / rightColumn.width).toBeGreaterThanOrEqual(2)
+    await expect(chart.getBoundingClientRect().height).toBeGreaterThanOrEqual(415.5)
+
+    for (const summaryItem of summaryItems) {
+      const styles = getComputedStyle(summaryItem)
+
+      await expect(styles.alignItems).toBe("center")
+      await expect(styles.justifyContent).toBe("center")
+      await expect(styles.textAlign).toBe("center")
+    }
   },
 }
 
@@ -168,20 +194,21 @@ export const SelectableMetrics: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
     const completionText = canvas.getByText("Profile completion")
-    const profileViewsButton = canvas.getByRole("button", { name: /^Profile views\b/i })
+    const metricCards = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
+    const profileViewsButton = metricCards.getByRole("button", { name: /^Profile views\b/i })
 
     await expect(completionText.closest("button")).toBeNull()
     await expect(profileViewsButton).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByRole("heading", { level: 2, name: "Profile views over time" })).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Download profile views" })).toBeVisible()
 
-    await userEvent.click(canvas.getByRole("button", { name: /^Impressions\b/i }))
+    await userEvent.click(metricCards.getByRole("button", { name: /^Impressions\b/i }))
     await expect(args.actions.onMetricSelect).toHaveBeenLastCalledWith("impressions")
     await expect(canvas.getByRole("heading", { level: 2, name: "Impressions over time" })).toBeVisible()
     await expect(canvas.getByLabelText("Impressions, selected metric")).toBeVisible()
     await expect(canvas.queryByRole("button", { name: "Download profile views" })).not.toBeInTheDocument()
 
-    const contactsButton = canvas.getByRole("button", { name: /^Contacts\b/i })
+    const contactsButton = metricCards.getByRole("button", { name: /^Contacts\b/i })
     contactsButton.focus()
     await expect(contactsButton).toHaveFocus()
     await userEvent.keyboard("{Enter}")
