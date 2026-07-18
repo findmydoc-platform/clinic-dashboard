@@ -168,7 +168,7 @@ export const VisualReferenceCertificatesAndAccreditations: Story = {
   render: () => <ClinicDashboardWorkspaceHarness prototypeMode="visual-reference" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const destination = canvas.getByRole("button", { name: "Certificates and accreditations" })
+    const destination = canvas.getByRole("button", { name: "Credentials" })
 
     await userEvent.click(destination)
 
@@ -195,9 +195,7 @@ export const PresentationHidesCertificatesAndAccreditations: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(
-      canvas.queryByRole("button", { name: "Certificates and accreditations" }),
-    ).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "Credentials" })).not.toBeInTheDocument()
     await expect(
       canvas.queryByRole("heading", { level: 1, name: "Certificates and accreditations" }),
     ).not.toBeInTheDocument()
@@ -223,14 +221,14 @@ export const CertificatesAndAccreditationsAt320: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
 
     const navigation = within(canvas.getByRole("dialog", { name: "Clinic navigation" }))
-    const destination = navigation.getByRole("button", { name: "Certificates and accreditations" })
-    const label = within(destination).getByText("Certificates and accreditations")
+    const destination = navigation.getByRole("button", { name: "Credentials" })
+    const label = within(destination).getByText("Credentials")
 
     await expect(destination).toHaveAttribute("aria-current", "page")
     await expect(destination.scrollWidth).toBeLessThanOrEqual(destination.clientWidth)
     await expect(destination.scrollHeight).toBeLessThanOrEqual(destination.clientHeight)
     await expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
-    await expect(label.getBoundingClientRect().height).toBeGreaterThan(20)
+    await expect(label).toBeVisible()
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }

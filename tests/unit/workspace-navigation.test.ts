@@ -43,7 +43,7 @@ describe("clinic dashboard workspace navigation", () => {
     expect(presentationItems).not.toContainEqual({ id: "subscriptions", label: "Subscriptions" })
     expect(presentationItems).not.toContainEqual({
       id: "certificates-accreditations",
-      label: "Certificates and accreditations",
+      label: "Credentials",
     })
     expect(presentationItems.map(({ id }) => id)).toEqual(["dashboard", "messages", "reviews", "profile"])
   })
