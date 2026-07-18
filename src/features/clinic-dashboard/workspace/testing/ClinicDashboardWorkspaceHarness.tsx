@@ -22,7 +22,7 @@ import {
 import {
   notificationsFixture,
   workspaceAccountFixture,
-  workspaceLocationFixtures,
+  workspaceClinicIdentityFixture,
 } from "./workspace.fixtures"
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
@@ -38,9 +38,9 @@ type ClinicDashboardWorkspaceHarnessProps = Readonly<
 
 const clinicDashboardWorkspaceFixture = {
   account: workspaceAccountFixture,
+  clinicIdentity: workspaceClinicIdentityFixture,
   clinicProfile: clinicProfileFixture,
   dashboard: dashboardFixture,
-  locations: workspaceLocationFixtures,
   messages: messagesFixture,
   notifications: notificationsFixture,
   patientInquiry: patientInquiryFixture,

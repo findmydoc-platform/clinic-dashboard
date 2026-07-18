@@ -63,34 +63,6 @@ test("routes dashboard tasks into their owning workspace sections", async ({ pag
   await expect(page.locator("#clinic-profile-team")).toBeFocused()
 })
 
-test("resets prototype location selection after a reload", async ({ page }) => {
-  await page.setViewportSize({ height: 900, width: 1280 })
-  await signIn(page)
-
-  await page.getByRole("switch", { name: "Full interface" }).click()
-  const locationSelector = page.getByRole("combobox", { name: "Clinic location" })
-  const dashboardLocation = page.getByRole("region", { name: "Dashboard clinic location summary" })
-
-  await expect(locationSelector).toHaveValue("berlin-mitte")
-  await locationSelector.selectOption("berlin-charlottenburg")
-  await expect(
-    page.getByRole("group", {
-      name: "Current clinic identity: Berlin Health Clinic — Charlottenburg",
-    }),
-  ).toBeVisible()
-  await expect(dashboardLocation.getByText("Charlottenburg, Berlin")).toBeVisible()
-
-  await page.reload()
-
-  await expect(page.getByRole("combobox", { name: "Clinic location" })).toHaveValue("berlin-mitte")
-  await expect(
-    page.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
-  ).toBeVisible()
-  await expect(
-    page.getByRole("region", { name: "Dashboard clinic location summary" }).getByText("Mitte, Berlin"),
-  ).toBeVisible()
-})
-
 test("opens the honest local support prototype from a missing treatment", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)

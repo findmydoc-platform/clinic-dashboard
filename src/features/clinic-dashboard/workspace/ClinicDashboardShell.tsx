@@ -21,7 +21,6 @@ type ClinicDashboardShellProps = Readonly<{
     mobile: ReactNode
   }>
   items: readonly ClinicDashboardNavigationItem[]
-  locationSelector?: ReactNode
   notificationCenter?: ReactNode
   onSectionSelect: (section: ClinicDashboardSection) => void
   onSupportRequest?: () => void
@@ -46,7 +45,6 @@ export function ClinicDashboardShell({
   headerActions,
   interfaceModeControls,
   items,
-  locationSelector,
   notificationCenter,
   onSectionSelect,
   onSupportRequest,
@@ -135,8 +133,8 @@ export function ClinicDashboardShell({
       </Modal>
 
       <div className="md:pl-64">
-        <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_94%,transparent)] px-4 py-2 backdrop-blur sm:px-6 lg:flex-nowrap lg:px-8">
-          <div className="order-1 flex min-w-0 flex-1 items-center gap-3">
+        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_94%,transparent)] px-4 py-2 backdrop-blur sm:px-6 lg:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Button
               aria-expanded={mobileNavigationOpen}
               aria-haspopup="dialog"
@@ -162,16 +160,11 @@ export function ClinicDashboardShell({
               </div>
             </div>
           </div>
-          <div className="order-2 flex items-center gap-2 lg:order-3">
+          <div className="flex items-center gap-2">
             {headerActions ? <div className="hidden items-center gap-2 sm:flex">{headerActions}</div> : null}
             {notificationCenter}
             {accountMenu}
           </div>
-          {locationSelector ? (
-            <div className="order-3 w-full border-t border-[var(--border)] pt-2 lg:order-2 lg:max-w-sm lg:min-w-64 lg:flex-1 lg:border-0 lg:pt-0">
-              {locationSelector}
-            </div>
-          ) : null}
         </header>
         {headerActions ? (
           <div className="border-b border-[var(--border)] bg-[var(--background)] px-4 py-3 sm:hidden">
