@@ -20,7 +20,7 @@ export function PrototypeModeSwitch({
   return (
     <button
       aria-checked={checked}
-      aria-label="Full interface"
+      aria-label="Demo scope"
       className={cn(
         "flex min-h-14 w-full items-center rounded-xl border p-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
         checked
@@ -34,9 +34,9 @@ export function PrototypeModeSwitch({
       type="button"
     >
       <span className={cn("min-w-0", isCompact && "sr-only lg:not-sr-only")}>
-        <span className="block text-sm font-bold">Full interface</span>
+        <span className="block text-sm font-bold">Demo scope</span>
         <span className="mt-0.5 block text-[11px] leading-4 text-[var(--foreground)]">
-          {checked ? "All prototype UI" : "Implemented only"}
+          {checked ? "All demo screens" : "Core flows"}
         </span>
       </span>
       <span
@@ -45,14 +45,16 @@ export function PrototypeModeSwitch({
           "relative inline-flex h-7 w-12 shrink-0 rounded-full border transition-colors",
           checked
             ? "border-[var(--primary)] bg-[var(--primary)]"
-            : "border-[var(--muted-foreground)] bg-[var(--background)]",
+            : "border-[var(--foreground)] bg-[color-mix(in_srgb,var(--foreground)_16%,var(--background))]",
           isCompact && "lg:ml-3",
         )}
       >
         <span
           className={cn(
-            "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform",
-            checked ? "translate-x-[1.35rem]" : "translate-x-0.5",
+            "absolute top-0.5 size-5 rounded-full shadow-sm transition-[transform,background-color]",
+            checked
+              ? "translate-x-[1.35rem] bg-[var(--on-primary)]"
+              : "translate-x-0.5 bg-[var(--foreground)]",
           )}
         />
       </span>

@@ -70,6 +70,7 @@ type DashboardReportingSnapshotInput = Readonly<{
     series: Readonly<Record<DashboardSelectableMetricId, readonly number[]>>
   }>
   period: DashboardReportingPeriod
+  profileCompletion: number
   reviewActivity: string
   totals: DashboardReportingSnapshot["totals"]
 }>
@@ -113,6 +114,7 @@ export function createDashboardReportingSnapshot({
   changes,
   chart,
   period,
+  profileCompletion,
   reviewActivity,
   totals,
 }: DashboardReportingSnapshotInput): DashboardReportingSnapshot {
@@ -173,7 +175,12 @@ export function createDashboardReportingSnapshot({
       },
     ],
     metrics: [
-      { id: "completion", label: "Profile completion", progress: 82, value: "82%" },
+      {
+        id: "completion",
+        label: "Profile completion",
+        progress: profileCompletion,
+        value: `${profileCompletion}%`,
+      },
       {
         delta: changes.impressions,
         id: "impressions",

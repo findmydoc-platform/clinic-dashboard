@@ -94,7 +94,7 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     }
     dispatch({
       review,
-      statusMessage: "Prototype only — appeal case updated locally; nothing was submitted or sent.",
+      statusMessage: "Demo only — appeal case updated locally; nothing was submitted or sent.",
       type: "review-mutation-succeeded",
     })
     return "applied"
@@ -115,7 +115,7 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     }
     dispatch({
       review,
-      statusMessage: "Prototype only — appeal case saved locally; nothing was submitted or sent.",
+      statusMessage: "Demo only — appeal case saved locally; nothing was submitted or sent.",
       type: "review-mutation-succeeded",
     })
     return "applied"
@@ -153,7 +153,7 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     }
     dispatch({
       review,
-      statusMessage: "Prototype only — response saved locally; nothing was submitted.",
+      statusMessage: "Demo only — response saved locally; nothing was submitted.",
       type: "review-mutation-succeeded",
     })
     return "applied"

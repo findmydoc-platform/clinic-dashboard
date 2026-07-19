@@ -32,7 +32,7 @@ export function SupportRequestDialog({ onOpenChange, open }: SupportRequestDialo
 
   return (
     <Modal
-      description="Complete this local prototype form. Nothing will be sent."
+      description="Complete this local demo form. Nothing will be sent."
       footer={
         result ? (
           <div className="flex justify-end">
@@ -45,7 +45,7 @@ export function SupportRequestDialog({ onOpenChange, open }: SupportRequestDialo
             <Button onClick={() => onOpenChange(false)} variant="outline">
               Cancel
             </Button>
-            <Button onClick={actions.submit}>Submit prototype request</Button>
+            <Button onClick={actions.submit}>Submit demo request</Button>
           </div>
         )
       }

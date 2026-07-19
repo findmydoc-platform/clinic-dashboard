@@ -84,13 +84,13 @@ export const PresentationProfileManagementPreview: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getByText("Clinics / View profile")).toBeInTheDocument()
+    await expect(canvas.getByText("Clinic workspace · Profile overview")).toBeInTheDocument()
     await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toBeDisabled()
     await expect(canvas.queryByRole("button", { name: "Add team member" })).not.toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: "New treatment" })).not.toBeInTheDocument()
     await expect(canvas.queryByRole("dialog", { name: "Add treatment" })).not.toBeInTheDocument()
 
-    await userEvent.click(canvas.getByRole("button", { name: /more images/ }))
+    await userEvent.click(canvas.getByRole("button", { name: "View all images" }))
     const galleryDialog = canvas.getByRole("dialog", { name: "Clinic image gallery" })
     await expect(within(galleryDialog).getByText("Cover image")).toBeInTheDocument()
     await expect(within(galleryDialog).queryByRole("button", { name: "Set cover" })).not.toBeInTheDocument()
@@ -137,7 +137,7 @@ export const MissingTreatmentOpensLocalSupport: Story = {
     )
     const supportDialog = await canvas.findByRole("dialog", { name: "Contact support" })
     await expect(
-      within(supportDialog).getByText("Complete this local prototype form. Nothing will be sent."),
+      within(supportDialog).getByText("Complete this local demo form. Nothing will be sent."),
     ).toBeInTheDocument()
     await expect(within(supportDialog).getByRole("heading", { name: "Support request" })).toBeInTheDocument()
   },
@@ -147,7 +147,7 @@ export const InterfaceModeUnlocksManagement: Story = {
   args: { prototypeMode: "presentation", showPrototypeModeToggle: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const modeSwitch = canvas.getByRole("switch", { name: "Full interface" })
+    const modeSwitch = canvas.getByRole("switch", { name: "Demo scope" })
 
     await expect(modeSwitch).not.toBeChecked()
     await userEvent.click(modeSwitch)

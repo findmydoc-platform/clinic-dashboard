@@ -47,7 +47,7 @@ export const NonDownloadableMetric: Story = {
 
     await expect(canvas.queryByRole("button", { name: "Download profile views" })).not.toBeInTheDocument()
     await expect(canvas.getByRole("heading", { level: 2, name: "Impressions over time" })).toBeVisible()
-    await expect(canvas.getByText("Prototype data — not live analytics.")).toBeVisible()
+    await expect(canvas.getByText("Demo data — not live analytics.")).toBeVisible()
   },
 }
 

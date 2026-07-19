@@ -54,8 +54,8 @@ export const ClinicProfileGallery = forwardRef<HTMLElement, ClinicProfileGallery
                 size="small"
                 variant="secondary"
               >
-                <ImageIcon aria-hidden="true" className="size-4" /> +{Math.max(0, galleryTotal - 4)} more
-                images
+                <ImageIcon aria-hidden="true" className="size-4" />
+                {galleryTotal > 4 ? `+${galleryTotal - 4} more images` : "View all images"}
               </Button>
             ) : null}
           </div>

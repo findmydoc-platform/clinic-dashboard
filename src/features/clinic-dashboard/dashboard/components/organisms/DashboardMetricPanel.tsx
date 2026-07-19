@@ -29,7 +29,7 @@ export function DashboardMetricPanel({
         <div className="min-w-0">
           <h2 className="text-xl font-bold text-[var(--secondary)]">{metric.title}</h2>
           <p className="mt-1 text-xs font-bold text-[var(--primary)]">{metric.comparison}</p>
-          <p className="mt-1 text-xs text-[var(--foreground)]">Prototype data — not live analytics.</p>
+          <p className="mt-1 text-xs text-[var(--foreground)]">Demo data — not live analytics.</p>
         </div>
         {showDownload ? (
           <Button

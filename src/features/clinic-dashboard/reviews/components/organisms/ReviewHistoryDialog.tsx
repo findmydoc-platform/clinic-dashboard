@@ -41,7 +41,7 @@ export function ReviewHistoryDialog({ onClose, onMarkAppealUnderReview, review }
 
   return (
     <Modal
-      description="Review the local prototype history for this review."
+      description="Review the local demo history for this review."
       footer={
         <div className="flex flex-wrap justify-end gap-2">
           <Button disabled={isUpdatingAppeal} onClick={onClose} variant="outline">

@@ -5,14 +5,14 @@ import { Check, ChevronDown } from "lucide-react"
 import { DropdownMenu } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import {
-  getClinicDashboardPrototypeLocation,
+  getClinicDashboardLocation,
   type ClinicDashboardLocationId,
-  type ClinicDashboardPrototypeLocation,
+  type ClinicDashboardLocation,
 } from "../../model/locations"
 
 type ClinicLocationSelectorProps = Readonly<{
   canSwitchLocations: boolean
-  locations: readonly ClinicDashboardPrototypeLocation[]
+  locations: readonly ClinicDashboardLocation[]
   onValueChange: (locationId: ClinicDashboardLocationId) => void
   organizationName: string
   value: ClinicDashboardLocationId
@@ -40,7 +40,7 @@ export function ClinicLocationSelector({
   value,
 }: ClinicLocationSelectorProps) {
   const [open, setOpen] = useState(false)
-  const selectedLocation = getClinicDashboardPrototypeLocation(locations, value)
+  const selectedLocation = getClinicDashboardLocation(locations, value)
 
   if (!canSwitchLocations || locations.length < 2) {
     return (

@@ -102,6 +102,7 @@ describe("dashboard reporting fixtures", () => {
           },
         },
         period: "7 days",
+        profileCompletion: 82,
         reviewActivity: "No new reviews in the last 7 days",
         totals: {
           contacts: 2,
@@ -130,6 +131,7 @@ describe("dashboard reporting fixtures", () => {
           },
         },
         period: "7 days",
+        profileCompletion: 82,
         reviewActivity: "No new reviews in the last 7 days",
         totals: {
           contacts: 2,

@@ -1301,4 +1301,163 @@ describe("architecture policy checker process fixtures", () => {
     expect(result.stderr).toBe("")
     expect(result.stdout).toContain("architecture governance: 0 findings")
   })
+
+  it("allows only the server loader and client command entry to consume the central demo source", () => {
+    const fixtureRoot = createFixture({
+      "src/app/page.tsx": `
+        import { ClinicDashboardWorkspace } from "../features/clinic-dashboard/public"
+        import { loadClinicDashboardWorkspaceInput } from "../features/clinic-dashboard/server"
+        export default async function Page() {
+          return ClinicDashboardWorkspace(await loadClinicDashboardWorkspaceInput())
+        }
+      `,
+      "src/features/clinic-dashboard/demo/commands.ts": `
+        export const demoCommands = { save: async () => undefined }
+      `,
+      "src/features/clinic-dashboard/demo/dataset.ts": `
+        import type { ClinicDashboardWorkspaceInput } from "../workspace/model/workspace-input"
+        export const dataset = {} as ClinicDashboardWorkspaceInput
+      `,
+      "src/features/clinic-dashboard/demo/loader.ts": `
+        import { dataset } from "./dataset"
+        export function loadClinicDashboardDemoWorkspaceInput() { return dataset }
+      `,
+      "src/features/clinic-dashboard/public.ts": `
+        export { ClinicDashboardWorkspace } from "./workspace/ClinicDashboardWorkspace"
+      `,
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        import { loadClinicDashboardDemoWorkspaceInput } from "./demo/loader"
+        import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-input"
+        export function loadClinicDashboardWorkspaceInput(): ClinicDashboardWorkspaceInput {
+          return loadClinicDashboardDemoWorkspaceInput()
+        }
+      `,
+      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx": `
+        import { demoCommands } from "../demo/commands"
+        export function ClinicDashboardWorkspace(input: unknown) { return { demoCommands, input } }
+      `,
+      "src/features/clinic-dashboard/workspace/model/workspace-input.ts": `
+        export type ClinicDashboardWorkspaceInput = Readonly<{ dataSource: "demo" }>
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
+  it("rejects client, story, and unrelated test imports of the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/app/page.tsx": `
+        import { loadClinicDashboardWorkspaceInput } from "../features/clinic-dashboard/server"
+        export default async function Page() { return loadClinicDashboardWorkspaceInput() }
+      `,
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        "use client"
+        import { loadClinicDashboardWorkspaceInput } from "../../../server"
+        export function DashboardScreen() { return loadClinicDashboardWorkspaceInput() }
+      `,
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function loadClinicDashboardWorkspaceInput() { return { dataSource: "demo" } }
+      `,
+      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.stories.tsx": `
+        import { loadClinicDashboardWorkspaceInput } from "../server"
+        export const Default = { loaders: [loadClinicDashboardWorkspaceInput] }
+      `,
+      "tests/unit/unrelated-server-import.test.ts": `
+        import { loadClinicDashboardWorkspaceInput } from "../../src/features/clinic-dashboard/server"
+        export const source = loadClinicDashboardWorkspaceInput
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR clinic-dashboard-server-boundary src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx",
+    )
+    expect(output).toContain(
+      "ERROR clinic-dashboard-server-boundary src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.stories.tsx",
+    )
+    expect(output).toContain(
+      "ERROR clinic-dashboard-server-boundary tests/unit/unrelated-server-import.test.ts",
+    )
+    expect(output.match(/ERROR clinic-dashboard-server-boundary/gu)).toHaveLength(3)
+  })
+
+  it("requires the private server entry to declare its server-only boundary", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/server.ts": `
+        export function loadClinicDashboardWorkspaceInput() { return { dataSource: "demo" } }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR clinic-dashboard-server-marker src/features/clinic-dashboard/server.ts")
+  })
+
+  it("rejects runtime demo imports from feature UI, controllers, stories, and tests", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx": `
+        import { dataset } from "../../../demo/dataset"
+        export function DashboardScreen() { return dataset }
+      `,
+      "src/features/clinic-dashboard/dashboard/hooks/useDashboardController.ts": `
+        import { dataset } from "../../demo/dataset"
+        export function useDashboardController() { return dataset }
+      `,
+      "src/features/clinic-dashboard/demo/dataset.ts": `
+        export const dataset = { dataSource: "demo" }
+      `,
+      "src/features/clinic-dashboard/messages/Messages.stories.tsx": `
+        import { dataset } from "../demo/dataset"
+        export const Default = { args: { dataset } }
+      `,
+      "tests/unit/demo-data.test.ts": `
+        import { dataset } from "../../src/features/clinic-dashboard/demo/dataset"
+        export const source = dataset
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR runtime-demo-source-boundary src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.tsx",
+    )
+    expect(output).toContain(
+      "ERROR runtime-demo-source-boundary src/features/clinic-dashboard/dashboard/hooks/useDashboardController.ts",
+    )
+    expect(output).toContain(
+      "ERROR story-testing-runtime-demo-import src/features/clinic-dashboard/messages/Messages.stories.tsx",
+    )
+    expect(output).toContain("ERROR story-testing-runtime-demo-import tests/unit/demo-data.test.ts")
+  })
+
+  it("rejects direct demo exports from a feature public contract", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/demo/dataset.ts": `
+        export const dataset = { dataSource: "demo" }
+      `,
+      "src/features/clinic-dashboard/public.ts": `
+        export { dataset } from "./demo/dataset"
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain("ERROR public-prototype-data-export src/features/clinic-dashboard/public.ts")
+    expect(output).toContain("ERROR runtime-demo-source-boundary src/features/clinic-dashboard/public.ts")
+  })
 })

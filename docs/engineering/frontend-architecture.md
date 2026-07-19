@@ -9,9 +9,9 @@ This document is the implementation authority for Clinic Dashboard frontend stru
 3. Shared UI is domain-neutral and intentionally narrow.
 4. Routes compose public feature entries; they do not reach into feature internals.
 5. The workspace owns cross-feature orchestration only. Stateful business areas own their own controllers.
-6. Shells and screens do not read prototype data, fixtures, capability policy, or browser storage.
+6. Shells and screens do not read runtime demo sources, fixtures, capability policy, or browser storage.
 7. Models are pure TypeScript. Hooks own React lifecycle behavior. Adapters own external side effects.
-8. Runtime prototype data and Storybook/test fixtures are different source categories.
+8. Runtime demo data and Storybook/test fixtures are different source categories.
 9. Storybook hierarchy is business-area first and Atomic layer second.
 10. A destination feature owns its semantic focus and entry-target contracts; callers depend on that public type, never the reverse.
 11. Every source file must satisfy architecture and story governance. There are no baselines or exemptions.
@@ -37,17 +37,35 @@ src/
   features/
     clinic-dashboard/
       public.ts
+      server.ts
+
+      demo/
+        commands.ts
+        dataset.ts
+        loader.ts
+        notifications.ts
+        organization.ts
+        reporting.ts
+        assets/
+          locations/
+          people/
+        locations/
+          <location-id>/
+            dashboard.ts
+            messages.ts
+            profile.ts
+            reviews.ts
 
       workspace/
         ClinicDashboardWorkspace.tsx
         ClinicDashboardShell.tsx
         useClinicDashboardController.ts
         browser-session.ts
-        workspace.prototype-data.ts
         components/
           molecules/
             ClinicDashboardNavigation.tsx
         model/
+          workspace-input.ts
 
       prototype/
         components/
@@ -55,12 +73,10 @@ src/
             PrototypeModeSwitch.tsx
         prototype-mode.ts
         prototype-capabilities.ts
-        prototype-commands.ts
 
       dashboard/
         public.ts
-        dashboard.prototype-data.ts
-        dashboard.prototype-data.mapper.ts
+        dashboard-view-model.mapper.ts
         components/
           molecules/
           organisms/
@@ -71,7 +87,7 @@ src/
 
       messages/
         public.ts
-        messages.prototype-data.ts
+        Messages.tsx
         components/
           molecules/
             ConversationActionsMenu.tsx
@@ -92,7 +108,6 @@ src/
       reviews/
         public.ts
         Reviews.tsx
-        reviews.prototype-data.ts
         components/
           molecules/
           organisms/
@@ -109,7 +124,6 @@ src/
       clinic-profile/
         public.ts
         ClinicProfile.tsx
-        clinic-profile.prototype-data.ts
         components/
           molecules/
           organisms/
@@ -138,19 +152,21 @@ Do not create generic `shared`, `common`, `misc`, `helpers`, `services`, or `rep
 
 ## Import Matrix
 
-| Source                 | May import                                                                                        | Must not import                                                                            |
-| ---------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `app/**`               | providers and `features/clinic-dashboard/public.ts`                                               | feature internals, prototype-data details, fixtures                                        |
-| Workspace              | feature `public.ts` contracts, explicit prototype composition modules, workspace model, shared UI | other private feature leaf components, test fixtures, future data clients                  |
-| Feature components     | same-feature public model types, same-feature lower visual layers, shared UI                      | prototype data or commands, fixtures, browser adapters, sibling internals, app routes      |
-| Feature hooks          | React, same-feature model, named command contracts/adapters                                       | runtime prototype data or commands, unrelated feature internals, test fixtures, route code |
-| Feature model          | TypeScript-only types and pure functions                                                          | React, Next.js, components, hooks, providers, DOM, storage                                 |
-| Command implementation | platform or current prototype capability and serializable model types                             | React components and Storybook code                                                        |
-| `components/ui/**`     | React, Radix/shadcn dependencies, design tokens, domain-neutral utilities                         | app, features, domain models, prototype data, fixtures                                     |
-| Providers              | provider libraries and domain-neutral configuration                                               | Clinic Dashboard feature behavior                                                          |
-| Stories/testing        | public components, public contracts, independent fixtures and command fakes, Storybook/test APIs  | runtime prototype data or commands, reverse imports from production code                   |
+| Source                 | May import                                                                                       | Must not import                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `app/**`               | providers, `features/clinic-dashboard/public.ts`, and `features/clinic-dashboard/server.ts`      | other feature internals, demo-source details, fixtures                                   |
+| Server entry           | the private workspace input type and `demo/loader.ts`                                            | components, browser adapters, demo commands, fixtures                                    |
+| Demo source            | other `demo/**` modules, sibling `public.ts` contracts, private workspace input type             | app routes, components, Storybook, tests, browser storage                                |
+| Workspace              | feature `public.ts` contracts, demo commands at the client entry, workspace model, shared UI     | raw demo data, other private feature leaf components, test fixtures, future data clients |
+| Feature components     | same-feature public model types, same-feature lower visual layers, shared UI                     | runtime demo data or commands, fixtures, browser adapters, sibling internals, app routes |
+| Feature hooks          | React, same-feature model, named command contracts/adapters                                      | runtime demo data or commands, unrelated feature internals, test fixtures, route code    |
+| Feature model          | TypeScript-only types and pure functions                                                         | React, Next.js, components, hooks, providers, DOM, storage                               |
+| Command implementation | platform or current demo capability and serializable model types                                 | React components and Storybook code                                                      |
+| `components/ui/**`     | React, Radix/shadcn dependencies, design tokens, domain-neutral utilities                        | app, features, domain models, runtime demo sources, fixtures                             |
+| Providers              | provider libraries and domain-neutral configuration                                              | Clinic Dashboard feature behavior                                                        |
+| Stories/testing        | public components, public contracts, independent fixtures and command fakes, Storybook/test APIs | runtime demo data or commands, reverse imports from production code                      |
 
-Each feature area exposes a small `public.ts` with explicit named exports. General `public.ts` contracts never export runtime prototype data or command implementations, and `export *` is forbidden. Sibling features use these contracts rather than importing another feature's internals. Private composition imports by `ClinicDashboardWorkspace` are the narrow exception described below; they are not public API.
+Each feature area exposes a small `public.ts` with explicit named exports. General `public.ts` contracts never export runtime demo data or command implementations, and `export *` is forbidden. Sibling features use these contracts rather than importing another feature's internals. The server loader and client demo-command entry are the narrow private exceptions described below; they are not public API.
 
 ## Composition Roles
 
@@ -162,11 +178,11 @@ Each feature area exposes a small `public.ts` with explicit named exports. Gener
 - prototype mode;
 - global notification read state;
 - global overlay routing and cross-feature focus requests;
-- mapping the current prototype source into feature inputs.
+- selecting one serializable location snapshot from the server-provided workspace input.
 
 It must not own review filters/mutations, the clinic-profile draft, message search/draft state, or support-form state. Those belong to feature controllers.
 
-Section navigation must preserve user-authored state that has not been persisted. Stateful feature facades may therefore remain mounted inside a native `hidden` container while another section is active; the attribute removes their content from layout and the accessibility tree without moving ownership into the workspace. Stateless screens should mount only while active. Revisit this choice when a server-backed cache or route-level state becomes the approved owner.
+Section navigation must preserve user-authored state that has not been persisted. Stateful feature facades may therefore remain mounted inside a native `hidden` container while another section is active; the attribute removes their content from layout and the accessibility tree without moving ownership into the workspace. A location change is the explicit exception: location-scoped facades remount from the selected deterministic snapshot, while navigation, reporting period, selected funnel metric, and interface mode remain stable. Revisit this choice when a server-backed cache or route-level state becomes the approved owner.
 
 ### Controller
 
@@ -184,7 +200,7 @@ A domain-dumb shell may own transient drawer visibility and its local focus rest
 
 A Screen is the complete business-area content rendered inside the workspace shell. In this application a Screen is an Atomic organism because it is one distinct interface section within a larger workspace template.
 
-Screens receive immutable view models and semantic actions. They do not import a data source, command implementation, prototype data, or fixture.
+Screens receive immutable view models and semantic actions. They do not import a data source, command implementation, runtime demo data, or fixture.
 
 ### View
 
@@ -200,7 +216,7 @@ Use `View` only for a true props-only rendering partner to a controller when `Sc
 | Template | Workspace/page layout and content slots without concrete business data | ClinicDashboardShell                                  |
 | Page     | Concrete template instance with realistic content                      | ClinicDashboardWorkspace, Next.js page, journey story |
 
-Interaction, local state, file length, and import count do not determine the layer. Hooks, models, reducers, selectors, adapters, providers, prototype data, and fixtures have no Atomic layer.
+Interaction, local state, file length, and import count do not determine the layer. Hooks, models, reducers, selectors, adapters, providers, runtime demo data, and fixtures have no Atomic layer.
 
 Feature components use physical Atomic folders when more than one layer exists. Shared shadcn UI stays flat under `components/ui` so registry generation and imports remain canonical; its stories still declare `layer:atom` or `layer:molecule`.
 
@@ -278,17 +294,19 @@ Filtering, counting, capability evaluation, report selection, prop synchronizati
 
 Extract a named pure module when logic expresses a business rule, performs a transition, maps a shape, has meaningful edge cases, is reused, or calculates deterministic geometry/serialization. Keep one-use presentation helpers local. Never create a generic helper file only to shorten a component.
 
-## Prototype Data and Commands
+## Demo Data and Commands
 
-`*.prototype-data.ts` is deterministic runtime data for the current foundation preview. It stays private and feature-local beside the area it supplies. Only `ClinicDashboardWorkspace` or an explicitly named `*.prototype-data.mapper.ts` imports it. A general `public.ts` must never re-export runtime prototype data.
+`demo/**` is the single private runtime demo source. `dataset.ts` assembles organization-wide data and location snapshots; `loader.ts` is its server-only entry; location files own dashboard, profile, messages, inquiry, and review values; generated images stay under `demo/assets`. No `public.ts` exports the raw source.
 
-`*.fixtures.ts` is Storybook/test-only. Stories and tests own independent fixture values and command fakes; they never reuse runtime `*.prototype-data.ts` or prototype command implementations. Production code never imports fixtures.
+`ClinicDashboardWorkspaceInput` is a private, provisional, serializable contract. `src/features/clinic-dashboard/server.ts` currently returns that contract from `demo/loader.ts`, and the App Router page passes the result to the interactive workspace. The boundary carries data only. A future Payload source must fail visibly when selected and must never silently fall back to demo data.
 
-Runtime prototype command implementations are imported only by `ClinicDashboardWorkspace`. Feature UI, screens, shells, and controllers receive narrow command contracts.
+`*.fixtures.ts` is Storybook/test-only. Stories and tests own independent feature-local fixture values and command fakes; they never import `demo/**`. Dataset contract tests exercise the server loader rather than reaching into the raw source. Production code never imports fixtures.
 
-The Workspace's private cross-area composition exceptions are limited to runtime prototype data, an explicitly named prototype-data mapper, the runtime prototype command implementation, and `PrototypeModeSwitch`. All other cross-area imports use the owning area's `public.ts`.
+Runtime demo command implementations remain client-side under `demo/commands.ts` because functions cannot cross the Server Component boundary. Only `ClinicDashboardWorkspace` imports them. Feature UI, screens, shells, and controllers receive narrow command contracts.
 
-Screens receive view models. Controllers receive the smallest command contract they need. A later approved Payload adapter can implement the same commands and mapping boundaries; it is not preimplemented.
+The only private cross-area exceptions are: `server.ts` importing the demo loader and workspace input type, demo builders importing the private workspace input type, `ClinicDashboardWorkspace` importing demo commands, and the existing `PrototypeModeSwitch` composition. All other cross-area imports use the owning area's `public.ts`.
+
+Screens receive view models. Controllers receive the smallest command contract they need. Payload integration, source-selection configuration, and durable persistence remain out of scope until separately planned.
 
 Browser effects use narrow named adapters. Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
 

@@ -73,7 +73,7 @@ export const NewResponsePendingModeration: Story = {
     await userEvent.click(within(responseDialog).getByRole("button", { name: "Save moderation preview" }))
     await waitFor(() =>
       expect(
-        page.getByText("Prototype only — response saved locally; nothing was submitted."),
+        page.getByText("Demo only — response saved locally; nothing was submitted."),
       ).toBeInTheDocument(),
     )
     await expect(within(openReview).getByText("Open")).toBeInTheDocument()
@@ -211,7 +211,7 @@ export const AppealCaseLifecycle: Story = {
 
     await waitFor(() =>
       expect(
-        page.getByText("Prototype only — appeal case saved locally; nothing was submitted or sent."),
+        page.getByText("Demo only — appeal case saved locally; nothing was submitted or sent."),
       ).toBeInTheDocument(),
     )
     await expect(within(openReview).getByText("Open")).toBeInTheDocument()
@@ -226,7 +226,7 @@ export const AppealCaseLifecycle: Story = {
 
     await waitFor(() =>
       expect(
-        page.getByText("Prototype only — appeal case updated locally; nothing was submitted or sent."),
+        page.getByText("Demo only — appeal case updated locally; nothing was submitted or sent."),
       ).toBeInTheDocument(),
     )
     await expect(within(openReview).getByText("Under review")).toBeInTheDocument()
@@ -538,7 +538,7 @@ export const CapabilityWithdrawalDiscardsPendingMutation: Story = {
 
     await expect(canvas.getByText("Manage patient feedback and respond to reviews.")).toBeInTheDocument()
     await expect(
-      canvas.queryByText("Prototype only — response saved locally; nothing was submitted."),
+      canvas.queryByText("Demo only — response saved locally; nothing was submitted."),
     ).not.toBeInTheDocument()
     await expect(canvas.queryByText(response)).not.toBeInTheDocument()
     await expect(within(getOpenReview(canvasElement)).getByText("Open")).toBeInTheDocument()

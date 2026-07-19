@@ -1,7 +1,7 @@
 import { useState, type ComponentProps } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, waitFor, within } from "storybook/test"
-import { workspaceLocationFixtures, workspaceOrganizationNameFixture } from "../../testing/workspace.fixtures"
+import { workspaceLocationFixtures, workspaceOrganizationFixture } from "../../testing/workspace.fixtures"
 import { ClinicLocationSelector } from "./ClinicLocationSelector"
 
 const meta = {
@@ -9,7 +9,7 @@ const meta = {
     canSwitchLocations: true,
     locations: workspaceLocationFixtures,
     onValueChange: fn(),
-    organizationName: workspaceOrganizationNameFixture,
+    organizationName: workspaceOrganizationFixture.name,
     value: "berlin-mitte",
   },
   component: ClinicLocationSelector,
@@ -92,6 +92,6 @@ export const StaticIdentity: Story = {
     await expect(
       canvas.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
     ).toBeInTheDocument()
-    await expect(canvas.getByText(workspaceOrganizationNameFixture)).toBeInTheDocument()
+    await expect(canvas.getByText(workspaceOrganizationFixture.name)).toBeInTheDocument()
   },
 }

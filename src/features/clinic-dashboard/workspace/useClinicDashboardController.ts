@@ -47,6 +47,8 @@ export function useClinicDashboardController({
     clinicDashboardLocationSelectionReducer,
     initialLocationId,
   )
+  const [locationAnnouncement, setLocationAnnouncement] = useState("")
+  const [locationChangeCount, setLocationChangeCount] = useState(0)
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen)
   const [notificationReadIdsOverride, setNotificationReadIdsOverride] = useState<readonly string[]>()
   const [prototypeModeOverride, setPrototypeModeOverride] = useState<ClinicDashboardPrototypeMode>()
@@ -101,9 +103,20 @@ export function useClinicDashboardController({
 
   const openSupport = useCallback(() => setSupportOpen(true), [])
 
-  const selectLocation = useCallback((locationId: ClinicDashboardLocationId) => {
-    dispatchLocationSelection({ locationId, type: "location-selected" })
-  }, [])
+  const selectLocation = useCallback(
+    (locationId: ClinicDashboardLocationId, locationName: string, profileTask: DashboardProfileTask) => {
+      dispatchLocationSelection({ locationId, type: "location-selected" })
+      setLocationAnnouncement(`Location changed to ${locationName}.`)
+      setLocationChangeCount((count) => count + 1)
+      setPatientInquiryOpen(false)
+      setProfileTaskOpen(false)
+      setSelectedProfileTask(profileTask)
+      setProfileFocusTarget(undefined)
+      setReviewsFocusRequested(false)
+      setSupportOpen(false)
+    },
+    [],
+  )
 
   const clearProfileFocusRequest = useCallback(() => {
     setProfileFocusTarget(undefined)
@@ -163,6 +176,8 @@ export function useClinicDashboardController({
     model: {
       activeSection,
       activePrototypeMode,
+      locationAnnouncement,
+      locationChangeCount,
       notificationReadIds,
       notificationsOpen,
       patientInquiryOpen,

@@ -191,7 +191,7 @@ describe("reviews controller", () => {
           status: "Under review",
         },
       },
-      statusMessage: "Prototype only — appeal case updated locally; nothing was submitted or sent.",
+      statusMessage: "Demo only — appeal case updated locally; nothing was submitted or sent.",
     })
 
     hook.unmount()

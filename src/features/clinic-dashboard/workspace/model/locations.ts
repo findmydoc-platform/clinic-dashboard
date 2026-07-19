@@ -1,10 +1,6 @@
-export const clinicDashboardLocationIds = ["berlin-mitte", "berlin-charlottenburg", "potsdam"] as const
+export type ClinicDashboardLocationId = string
 
-export type ClinicDashboardLocationId = (typeof clinicDashboardLocationIds)[number]
-
-export const defaultClinicDashboardLocationId = "berlin-mitte" satisfies ClinicDashboardLocationId
-
-export type ClinicDashboardPrototypeLocation = Readonly<{
+export type ClinicDashboardLocation = Readonly<{
   id: ClinicDashboardLocationId
   location: string
   name: string
@@ -16,10 +12,6 @@ export type ClinicDashboardLocationSelectionAction = Readonly<{
   type: "location-selected"
 }>
 
-export function isClinicDashboardLocationId(value: string): value is ClinicDashboardLocationId {
-  return clinicDashboardLocationIds.includes(value as ClinicDashboardLocationId)
-}
-
 export function clinicDashboardLocationSelectionReducer(
   _currentLocationId: ClinicDashboardLocationId,
   action: ClinicDashboardLocationSelectionAction,
@@ -27,14 +19,14 @@ export function clinicDashboardLocationSelectionReducer(
   return action.locationId
 }
 
-export function getClinicDashboardPrototypeLocation(
-  locations: readonly ClinicDashboardPrototypeLocation[],
+export function getClinicDashboardLocation(
+  locations: readonly ClinicDashboardLocation[],
   locationId: ClinicDashboardLocationId,
 ) {
   const location = locations.find(({ id }) => id === locationId)
 
   if (!location) {
-    throw new Error(`Missing clinic dashboard prototype location: ${locationId}`)
+    throw new Error(`Missing clinic dashboard location: ${locationId}`)
   }
 
   return location

@@ -1,8 +1,11 @@
+import type { ClinicProfileImageSource } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardProfileTask } from "./profile-tasks"
 import type { DashboardMetricSelection } from "./dashboard-metric-selection"
 import type { DashboardReportingSnapshot, DashboardSelectableMetricId } from "./reporting"
 
 export type DashboardLocationSummary = Readonly<{
+  coverAlt: string
+  coverImage: ClinicProfileImageSource
   location: string
   name: string
 }>

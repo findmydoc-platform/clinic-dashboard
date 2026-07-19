@@ -5,7 +5,7 @@ import { FutureAreaPlaceholderScreen } from "./FutureAreaPlaceholderScreen"
 const meta = {
   args: {
     description:
-      "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
+      "This area is a visual placeholder only. Subscription details and actions are not available in this demo.",
     heading: "Subscriptions",
   },
   component: FutureAreaPlaceholderScreen,
@@ -42,7 +42,7 @@ export const Default: Story = {
     await assertPlaceholderContract(
       canvasElement,
       "Subscriptions",
-      "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
+      "This area is a visual placeholder only. Subscription details and actions are not available in this demo.",
     )
   },
 }
@@ -50,14 +50,14 @@ export const Default: Story = {
 export const CertificatesAndAccreditations: Story = {
   args: {
     description:
-      "This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this prototype.",
+      "This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this demo.",
     heading: "Certificates and accreditations",
   },
   play: async ({ canvasElement }) => {
     await assertPlaceholderContract(
       canvasElement,
       "Certificates and accreditations",
-      "This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this prototype.",
+      "This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this demo.",
     )
   },
 }
@@ -68,7 +68,7 @@ export const At320: Story = {
     await assertPlaceholderContract(
       canvasElement,
       "Subscriptions",
-      "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
+      "This area is a visual placeholder only. Subscription details and actions are not available in this demo.",
     )
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
@@ -80,7 +80,7 @@ export const Dark: Story = {
     await assertPlaceholderContract(
       canvasElement,
       "Subscriptions",
-      "This area is a visual placeholder only. Subscription details and actions are not available in this prototype.",
+      "This area is a visual placeholder only. Subscription details and actions are not available in this demo.",
     )
   },
 }

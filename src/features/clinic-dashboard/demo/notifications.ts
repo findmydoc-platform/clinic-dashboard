@@ -1,0 +1,48 @@
+import type { ClinicDashboardNotification } from "../workspace/public"
+
+export const clinicDashboardDemoNotifications = [
+  {
+    createdAt: "2026-07-19T09:42:00.000Z",
+    detail: "Hair transplant inquiry",
+    id: "notification-berlin-mitte-emil-wagner",
+    locationId: "berlin-mitte",
+    locationLabel: "Mitte",
+    timestamp: "Today, 09:42",
+    title: "New message from Emil Wagner",
+    type: "message",
+    unread: true,
+  },
+  {
+    createdAt: "2026-07-19T09:18:00.000Z",
+    detail: "Ceramic veneers inquiry",
+    id: "notification-charlottenburg-lina-koenig",
+    locationId: "berlin-charlottenburg",
+    locationLabel: "Charlottenburg",
+    timestamp: "Today, 09:18",
+    title: "New message from Lina König",
+    type: "message",
+    unread: true,
+  },
+  {
+    createdAt: "2026-07-19T08:54:00.000Z",
+    detail: "Dermatology consultation inquiry",
+    id: "notification-potsdam-mila-neumann",
+    locationId: "potsdam",
+    locationLabel: "Potsdam",
+    timestamp: "Today, 08:54",
+    title: "New message from Mila Neumann",
+    type: "message",
+    unread: true,
+  },
+  {
+    createdAt: "2026-07-18T14:30:00.000Z",
+    detail: "Waiting-time feedback needs a response",
+    id: "notification-berlin-mitte-review-response",
+    locationId: "berlin-mitte",
+    locationLabel: "Mitte",
+    timestamp: "Yesterday",
+    title: "New 3-star review needs a response",
+    type: "review",
+    unread: true,
+  },
+] satisfies readonly ClinicDashboardNotification[]

@@ -9,13 +9,15 @@ import {
   storeNotificationReadIds,
   storePrototypeMode,
 } from "@/features/clinic-dashboard/workspace/browser-session"
-import { defaultClinicDashboardLocationId } from "@/features/clinic-dashboard/workspace/model/locations"
 import { notificationsFixture } from "@/features/clinic-dashboard/workspace/testing/workspace.fixtures"
 import { useClinicDashboardController } from "@/features/clinic-dashboard/workspace/useClinicDashboardController"
 
 const initialProfileTask = dashboardProfileTasks[0]
+const alternateProfileTask = dashboardProfileTasks[1]
 
-if (!initialProfileTask) throw new Error("The session persistence tests require a profile task fixture.")
+if (!initialProfileTask || !alternateProfileTask) {
+  throw new Error("The session persistence tests require two profile task fixtures.")
+}
 
 function renderController(persistWorkspaceStateInSession: boolean) {
   return renderHook(() =>
@@ -23,7 +25,7 @@ function renderController(persistWorkspaceStateInSession: boolean) {
       initialNotificationReadIds: [],
       initialNotificationsOpen: false,
       initialPatientInquiryOpen: false,
-      initialLocationId: defaultClinicDashboardLocationId,
+      initialLocationId: "berlin-mitte",
       initialProfileTask,
       initialSection: "dashboard",
       notifications: notificationsFixture,
@@ -67,6 +69,7 @@ describe("workspace session persistence", () => {
 
     expect(() => storePrototypeMode("visual-reference")).not.toThrow()
     expect(() => storeNotificationReadIds(["notification-id"])).not.toThrow()
+    window.sessionStorage.clear()
 
     act(() => result.current.actions.setShowFullInterface(true))
     act(() => result.current.actions.markAllNotificationsRead())
@@ -98,5 +101,28 @@ describe("workspace session persistence", () => {
     expect(dispatchEvent.mock.calls.some(({ 0: event }) => event.type.startsWith("clinic-dashboard-"))).toBe(
       false,
     )
+  })
+
+  it("retains navigation but clears location-scoped dialogs and focus state", () => {
+    const { result } = renderController(false)
+
+    act(() => result.current.actions.navigateToProfileTarget("gallery"))
+    act(() => result.current.actions.navigateToReviews())
+    act(() => result.current.actions.navigate("messages"))
+    act(() => result.current.actions.openPatientInquiry())
+    act(() => result.current.actions.openProfileTask(initialProfileTask))
+    act(() => result.current.actions.openSupport())
+    act(() =>
+      result.current.actions.selectLocation("future-location-123", "Future Clinic", alternateProfileTask),
+    )
+
+    expect(result.current.model.activeSection).toBe("messages")
+    expect(result.current.model.patientInquiryOpen).toBe(false)
+    expect(result.current.model.profileTaskOpen).toBe(false)
+    expect(result.current.model.profileFocusTarget).toBeUndefined()
+    expect(result.current.model.reviewsFocusRequested).toBe(false)
+    expect(result.current.model.supportOpen).toBe(false)
+    expect(result.current.model.selectedProfileTask).toBe(alternateProfileTask)
+    expect(result.current.model.locationAnnouncement).toBe("Location changed to Future Clinic.")
   })
 })

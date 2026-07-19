@@ -2,6 +2,8 @@ export type ClinicDashboardNotification = Readonly<{
   createdAt: string
   detail: string
   id: string
+  locationId: string
+  locationLabel: string
   timestamp: string
   title: string
   type: "message" | "review"

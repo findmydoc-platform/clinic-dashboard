@@ -1,6 +1,5 @@
 import Image from "next/image"
 import { MapPin } from "lucide-react"
-import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
 import { Card } from "@/components/ui/card"
 import type { DashboardViewModel } from "../../model/dashboard-view-model"
 
@@ -13,12 +12,12 @@ export function ClinicPreview({ clinic }: ClinicPreviewProps) {
     <Card aria-label="Dashboard clinic location summary" className="h-full overflow-hidden">
       <div className="relative h-28">
         <Image
-          alt="Exterior of Berlin Health Clinic"
+          alt={clinic.coverAlt}
           className="object-cover"
           fill
           loading="eager"
           sizes="(min-width: 1280px) 280px, 100vw"
-          src={exteriorImage}
+          src={clinic.coverImage}
         />
       </div>
       <div className="p-5">

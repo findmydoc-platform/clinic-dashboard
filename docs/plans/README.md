@@ -16,6 +16,7 @@ Read .codex/project-profile.toml before creating the document. Do not repeat com
 
 ## Current Plans
 
+- [Clinic Dashboard Demo Mode and Multi-Location Data](./clinic-dashboard-demo-mode-and-multi-location-data.md)
 - [Clinic Dashboard Meeting Improvements Plan](./clinic-dashboard-meeting-improvements.md)
 - [Frontend Architecture, Storybook, and AI Drift Reduction Plan](./frontend-architecture-storybook-and-ai-drift.md)
 - [Clinic Dashboard Prototype and Capability Visibility Plan](./clinic-dashboard-prototype-and-capability-visibility.md)

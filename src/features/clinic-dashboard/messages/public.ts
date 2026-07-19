@@ -1,6 +1,5 @@
-export { MessagesScreen } from "./components/organisms/MessagesScreen"
+export { Messages, type MessagesProps } from "./Messages"
 export { PatientInquiryProfileDialog } from "./components/organisms/PatientInquiryProfileDialog"
-export { useMessagesController } from "./hooks/useMessagesController"
 export type {
   ClinicConversation,
   ClinicMessage,

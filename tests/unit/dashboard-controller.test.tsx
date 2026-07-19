@@ -27,6 +27,8 @@ function renderDashboardController(canExportProfileViews: boolean) {
       canExportProfileViews,
       initialReportingPeriod: "7 days",
       locationSummary: {
+        coverAlt: "Fixture clinic exterior",
+        coverImage: "/fixture-clinic-exterior.jpg",
         location: "Mitte, Berlin",
         name: "Berlin Health Clinic — Mitte",
       },

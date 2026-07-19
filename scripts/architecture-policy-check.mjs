@@ -43,12 +43,41 @@ function isRuntimePrototypeCommandImport(reference) {
   return /(?:^|\/)(?:[^/]+\.)?prototype-commands(?:\.[cm]?[jt]sx?)?$/u.test(target)
 }
 
+function isClinicDashboardDemoTarget(target) {
+  return /^src\/features\/clinic-dashboard\/demo(?:\/|$)/u.test(target)
+}
+
+function isClinicDashboardDemoImport(reference) {
+  return isClinicDashboardDemoTarget(importTarget(reference))
+}
+
+function isClinicDashboardDemoCommandTarget(target) {
+  return /^src\/features\/clinic-dashboard\/demo\/commands(?:\.[cm]?[jt]sx?)?$/u.test(target)
+}
+
+function isClinicDashboardServerSource(file) {
+  return /^src\/features\/clinic-dashboard\/server\.[cm]?[jt]s$/u.test(file)
+}
+
+function isClinicDashboardServerTarget(target) {
+  return /^src\/features\/clinic-dashboard\/server(?:\.[cm]?[jt]s)?$/u.test(target)
+}
+
+function isAllowedClinicDashboardServerImport(file) {
+  return file === "src/app/page.tsx" || file === "tests/unit/clinic-dashboard-demo-data.test.ts"
+}
+
+function isDemoWorkspaceInputTarget(target) {
+  return /^src\/features\/clinic-dashboard\/workspace\/model\/workspace-input(?:\.[cm]?[jt]s)?$/u.test(target)
+}
+
 function isSharedUiDomainTarget(target) {
   return (
     /(?:^|\/)(?:features|app)(?:\/|$)/u.test(target) ||
     /(?:^|\/)(?:fixtures|testing)(?:\/|$)|\.fixtures(?:\.[cm]?[jt]sx?)?$/u.test(target) ||
     isPrototypeDataTarget(target) ||
-    /(?:^|\/)(?:[^/]+\.)?prototype-commands(?:\.[cm]?[jt]sx?)?$/u.test(target)
+    /(?:^|\/)(?:[^/]+\.)?prototype-commands(?:\.[cm]?[jt]sx?)?$/u.test(target) ||
+    isClinicDashboardDemoTarget(target)
   )
 }
 
@@ -337,6 +366,24 @@ function isWorkspaceCompositionSource(file) {
   return /^src\/features\/clinic-dashboard\/workspace\/ClinicDashboardWorkspace\.[cm]?[jt]sx?$/u.test(file)
 }
 
+function isDemoCommandCompositionSource(file) {
+  return /^src\/features\/clinic-dashboard\/workspace\/ClinicDashboardWorkspace\.[cm]?[jt]sx?$/u.test(file)
+}
+
+function isAllowedClinicDashboardDemoImport(file, reference) {
+  const target = importTarget(reference)
+
+  if (/^src\/features\/clinic-dashboard\/demo\//u.test(file)) {
+    return isClinicDashboardDemoTarget(target) || isDemoWorkspaceInputTarget(target)
+  }
+
+  if (isClinicDashboardServerSource(file)) {
+    return /^src\/features\/clinic-dashboard\/demo\/loader\.ts$/u.test(target)
+  }
+
+  return isDemoCommandCompositionSource(file) && isClinicDashboardDemoCommandTarget(target)
+}
+
 function isPrototypeDataMapperSource(file) {
   return /\.prototype-data\.mapper\.[cm]?[jt]s$/u.test(file)
 }
@@ -512,7 +559,9 @@ function findHigherAtomicReExportTarget(sourceLayer, target, reExportTargetsByFi
 function findCompositionOnlyPublicReExportTarget(file, reExportTargetsByFile) {
   const targets = collectTransitiveReExportTargets(file, reExportTargetsByFile)
   return (
-    targets.filter(isPrototypeDataTarget).sort()[0] ?? targets.filter(isPrototypeDataMapperTarget).sort()[0]
+    targets.filter(isClinicDashboardDemoTarget).sort()[0] ??
+    targets.filter(isPrototypeDataTarget).sort()[0] ??
+    targets.filter(isPrototypeDataMapperTarget).sort()[0]
   )
 }
 
@@ -649,10 +698,24 @@ function collectFindings() {
             "public-prototype-data-export",
             file,
             compositionOnlyTarget,
-            `Feature public contracts must not expose composition-only runtime prototype data or prototype-data mappers (${compositionOnlyTarget}).`,
+            `Feature public contracts must not expose composition-only runtime demo or prototype sources (${compositionOnlyTarget}).`,
           ),
         )
       }
+    }
+
+    if (
+      isClinicDashboardServerSource(file) &&
+      !references.some((reference) => reference.moduleSpecifier === "server-only")
+    ) {
+      findings.push(
+        createFinding(
+          "clinic-dashboard-server-marker",
+          file,
+          "server-only",
+          "The Clinic Dashboard server entry must import server-only to prevent client-bundle use.",
+        ),
+      )
     }
 
     if (/^src\/features\/.+\/model\//u.test(file)) {
@@ -684,6 +747,9 @@ function collectFindings() {
       const target = importTarget(reference)
       const prototypeDataImport = isPrototypeDataImport(reference)
       const runtimePrototypeCommandImport = isRuntimePrototypeCommandImport(reference)
+      const demoImport = isClinicDashboardDemoImport(reference)
+      const allowedDemoImport = demoImport && isAllowedClinicDashboardDemoImport(file, reference)
+      const serverImport = isClinicDashboardServerTarget(target)
       const sourceArea = getFeatureArea(file)
       const targetArea = getFeatureArea(target)
       const sourceLayer = atomicLayer(file)
@@ -770,6 +836,37 @@ function collectFindings() {
         )
       }
 
+      if (isStoryOrTestingSource(file) && demoImport) {
+        findings.push(
+          createFinding(
+            "story-testing-runtime-demo-import",
+            file,
+            reference.moduleSpecifier,
+            "Stories and tests must use independent feature-local fixtures, not the runtime demo source.",
+          ),
+        )
+      } else if (demoImport && !allowedDemoImport) {
+        findings.push(
+          createFinding(
+            "runtime-demo-source-boundary",
+            file,
+            reference.moduleSpecifier,
+            "Runtime demo sources may be imported only within demo, by the server loader entry, or as demo commands at the client composition entry.",
+          ),
+        )
+      }
+
+      if (serverImport && !isAllowedClinicDashboardServerImport(file)) {
+        findings.push(
+          createFinding(
+            "clinic-dashboard-server-boundary",
+            file,
+            reference.moduleSpecifier,
+            "The Clinic Dashboard server entry may be imported only by the root server page and its exact data-contract test.",
+          ),
+        )
+      }
+
       if (
         !isStoryOrTestingSource(file) &&
         runtimePrototypeCommandImport &&
@@ -848,7 +945,8 @@ function collectFindings() {
       if (
         /^src\/app\//u.test(file) &&
         /(?:^|\/)features(?:\/|$)/u.test(target) &&
-        target !== "src/features/clinic-dashboard/public.ts"
+        target !== "src/features/clinic-dashboard/public.ts" &&
+        !isClinicDashboardServerTarget(target)
       ) {
         findings.push(
           createFinding(
@@ -866,8 +964,10 @@ function collectFindings() {
         sourceArea !== targetArea &&
         !isPublicContract(reference) &&
         !isAllowedPrivateCompositionImport(file, reference) &&
+        !isAllowedClinicDashboardDemoImport(file, reference) &&
         !prototypeDataImport &&
-        !runtimePrototypeCommandImport
+        !runtimePrototypeCommandImport &&
+        !demoImport
       ) {
         findings.push(
           createFinding(
@@ -881,6 +981,7 @@ function collectFindings() {
 
       const hasDedicatedFeatureBoundary =
         Boolean(sourceArea) ||
+        isClinicDashboardServerSource(file) ||
         /^src\/app\//u.test(file) ||
         /^src\/components\/ui\//u.test(file) ||
         /^src\/providers\//u.test(file)

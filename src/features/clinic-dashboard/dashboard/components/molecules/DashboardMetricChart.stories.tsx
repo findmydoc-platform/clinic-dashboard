@@ -38,7 +38,7 @@ export const KeyboardAndPointerNavigation: Story = {
 
 export const SingularContactValue: Story = {
   args: {
-    description: "Daily contacts total 1. Deterministic prototype data; not live analytics.",
+    description: "Daily contacts total 1. Deterministic demo data; not live analytics.",
     points: [{ axisLabel: "Today", dateLabel: "Today", value: 1 }],
     valueLabels: { plural: "contacts", singular: "contact" },
   },

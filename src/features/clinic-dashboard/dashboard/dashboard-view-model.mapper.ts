@@ -3,7 +3,7 @@ import { createDashboardMetricSelection } from "./model/dashboard-metric-selecti
 import type { DashboardSnapshot } from "./model/dashboard-snapshot"
 import type { DashboardReportingPeriod, DashboardSelectableMetricId } from "./model/reporting"
 
-export function createDashboardPrototypeViewModel(
+export function createDashboardViewModel(
   snapshot: DashboardSnapshot,
   period: DashboardReportingPeriod,
   locationSummary: DashboardLocationSummary,
@@ -13,11 +13,13 @@ export function createDashboardPrototypeViewModel(
 
   return {
     clinicPreview: {
+      coverAlt: locationSummary.coverAlt,
+      coverImage: locationSummary.coverImage,
       location: locationSummary.location,
       name: locationSummary.name,
-      ratingLabel: "4.8 ★",
+      ratingLabel: `${snapshot.rating.value.toFixed(1)} ★`,
     },
-    profileCompletion: "82%",
+    profileCompletion: `${snapshot.profileCompletion}%`,
     profileTasks: snapshot.profileTasks,
     rating: snapshot.rating,
     reporting,

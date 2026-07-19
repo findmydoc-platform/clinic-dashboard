@@ -28,7 +28,7 @@ async function submitValidRequest(canvasElement: HTMLElement) {
     canvas.getByRole("textbox", { name: "Message" }),
     "The clinic profile does not update after I save the changes.",
   )
-  await userEvent.click(canvas.getByRole("button", { name: "Submit prototype request" }))
+  await userEvent.click(canvas.getByRole("button", { name: "Submit demo request" }))
 }
 
 async function expectDialogWithinViewport(canvasElement: HTMLElement) {
@@ -64,7 +64,7 @@ export const Empty: Story = {}
 export const ValidationErrors: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: "Submit prototype request" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Submit demo request" }))
     await expect(canvas.getByText("Choose a support category.")).toBeInTheDocument()
     await expect(canvas.getByRole("combobox", { name: "Category" })).toHaveFocus()
   },
@@ -82,7 +82,7 @@ export const HonestLocalResult: Story = {
     await submitValidRequest(canvasElement)
 
     const result = await canvas.findByRole("status")
-    await expect(result).toHaveTextContent(/^Prototype only — no request was sent\.$/)
+    await expect(result).toHaveTextContent(/^Demo only — no request was sent\.$/)
     await waitFor(() => expect(canvas.getByRole("button", { name: "Done" })).toHaveFocus())
     await expect(canvas.queryByRole("heading", { name: "Support request" })).not.toBeInTheDocument()
     await expect(canvas.queryByText(prohibitedSupportClaims)).not.toBeInTheDocument()
@@ -105,7 +105,7 @@ export const Mobile320ShortValidationError: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await userEvent.click(canvas.getByRole("button", { name: "Submit prototype request" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Submit demo request" }))
     await expect(canvas.getByText("Choose a support category.")).toBeInTheDocument()
     await expect(canvas.getByRole("combobox", { name: "Category" })).toHaveFocus()
     await expectDialogWithinViewport(canvasElement)
@@ -118,7 +118,7 @@ export const Mobile320ShortResult: Story = {
     const canvas = within(canvasElement)
 
     await submitValidRequest(canvasElement)
-    await expect(canvas.getByRole("status")).toHaveTextContent("Prototype only — no request was sent.")
+    await expect(canvas.getByRole("status")).toHaveTextContent("Demo only — no request was sent.")
     await waitFor(() => expect(canvas.getByRole("button", { name: "Done" })).toHaveFocus())
     await expectDialogWithinViewport(canvasElement)
   },
@@ -159,7 +159,7 @@ export const DarkHonestResult: Story = {
   play: async ({ canvasElement }) => {
     await submitValidRequest(canvasElement)
     await expect(within(canvasElement).getByRole("status")).toHaveTextContent(
-      "Prototype only — no request was sent.",
+      "Demo only — no request was sent.",
     )
   },
 }

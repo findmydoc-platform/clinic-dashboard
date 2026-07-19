@@ -15,6 +15,7 @@ type ClinicDashboardShellProps = Readonly<{
   activeSection: ClinicDashboardSection
   children: ReactNode
   clinicIdentity: ReactNode
+  environmentBadge?: string
   headerActions?: ReactNode
   interfaceModeControls?: Readonly<{
     desktop: ReactNode
@@ -26,14 +27,29 @@ type ClinicDashboardShellProps = Readonly<{
   onSupportRequest?: () => void
 }>
 
-function PrototypeBrandMark({ className }: Readonly<{ className?: string }>) {
+function EnvironmentBadge({ className, label }: Readonly<{ className?: string; label: string }>) {
   return (
-    <span className={cn("relative inline-flex pb-4", className)}>
-      <BrandMark priority />
-      <span className="absolute top-6 left-[76px] z-10 inline-flex rounded-full bg-[var(--destructive)] px-1.5 py-1 text-[8px] leading-none font-bold tracking-wide text-[var(--destructive-foreground)] uppercase">
-        Prototype
-      </span>
+    <span
+      aria-label={`${label} workspace`}
+      className={cn(
+        "inline-flex shrink-0 rounded-md bg-[var(--destructive)] px-2 py-1 text-[11px] leading-none font-bold tracking-wide text-[var(--destructive-foreground)] uppercase",
+        className,
+      )}
+    >
+      {label}
     </span>
+  )
+}
+
+function WorkspaceBrand({ badge, className }: Readonly<{ badge?: string; className?: string }>) {
+  return (
+    <div className={cn("flex flex-col items-start gap-2", className)}>
+      <BrandMark priority />
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold text-[var(--foreground)]">Clinic workspace</span>
+        {badge ? <EnvironmentBadge label={badge} /> : null}
+      </div>
+    </div>
   )
 }
 
@@ -42,6 +58,7 @@ export function ClinicDashboardShell({
   activeSection,
   children,
   clinicIdentity,
+  environmentBadge,
   headerActions,
   interfaceModeControls,
   items,
@@ -81,10 +98,7 @@ export function ClinicDashboardShell({
         className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-[var(--border)] bg-[var(--background)] p-4 md:flex"
       >
         <div className="relative mb-8 min-h-20">
-          <div className="absolute top-11 left-0 flex items-start">
-            <PrototypeBrandMark />
-            <span className="ml-4 text-xs font-bold text-[var(--foreground)]">Clinic workspace</span>
-          </div>
+          <WorkspaceBrand badge={environmentBadge} className="absolute top-6 left-0" />
         </div>
         <ClinicDashboardNavigation
           activeSection={activeSection}
@@ -114,7 +128,7 @@ export function ClinicDashboardShell({
         title="Clinic navigation"
         triggerRef={navigationTriggerRef}
       >
-        <PrototypeBrandMark className="mb-7" />
+        <WorkspaceBrand badge={environmentBadge} className="mb-7" />
         <ClinicDashboardNavigation
           activeSection={activeSection}
           items={items}
@@ -150,6 +164,7 @@ export function ClinicDashboardShell({
             {clinicIdentity}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {environmentBadge ? <EnvironmentBadge className="md:hidden" label={environmentBadge} /> : null}
             {headerActions ? <div className="hidden items-center gap-2 sm:flex">{headerActions}</div> : null}
             {notificationCenter}
             {accountMenu}

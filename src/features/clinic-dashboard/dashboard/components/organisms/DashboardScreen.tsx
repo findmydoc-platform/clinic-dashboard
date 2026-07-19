@@ -27,7 +27,9 @@ export function DashboardScreen({
 
   return (
     <div className="space-y-6">
-      <PageHeading description="A clear view of your clinic's visibility, enquiries, and profile health.">
+      <PageHeading
+        description={`Performance for ${model.clinicPreview.name}: visibility, enquiries, and profile health.`}
+      >
         Dashboard
       </PageHeading>
 

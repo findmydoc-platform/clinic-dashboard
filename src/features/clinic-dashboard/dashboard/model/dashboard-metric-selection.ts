@@ -87,7 +87,7 @@ export function createDashboardMetricSelection(
 
   return {
     comparison: getMetricComparison(reporting, metricId),
-    description: `${cadenceLabel} ${definition.valueLabels.plural} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic prototype data; not live analytics.`,
+    description: `${cadenceLabel} ${definition.valueLabels.plural} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic demo data; not live analytics.`,
     id: metricId,
     points: reporting.chart.series[metricId],
     summary: dashboardSelectableMetricIds.map((id) => {

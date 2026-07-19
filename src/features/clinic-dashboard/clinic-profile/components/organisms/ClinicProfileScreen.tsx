@@ -104,7 +104,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="mb-1 text-sm text-[var(--foreground)]">
-            {canSaveProfile ? "Clinics / Edit profile" : "Clinics / View profile"}
+            {canSaveProfile ? "Clinic workspace · Profile settings" : "Clinic workspace · Profile overview"}
           </p>
           <PageHeading>Clinic profile</PageHeading>
         </div>

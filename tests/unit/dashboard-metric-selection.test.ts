@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createDashboardPrototypeViewModel } from "@/features/clinic-dashboard/dashboard/dashboard.prototype-data.mapper"
+import { createDashboardViewModel } from "@/features/clinic-dashboard/dashboard/dashboard-view-model.mapper"
 import {
   createDashboardMetricSelection,
   dashboardMetricDefinitions,
@@ -25,7 +25,9 @@ describe("dashboard metric selection", () => {
   })
 
   it("uses profile views as the default dashboard selection", () => {
-    const model = createDashboardPrototypeViewModel(dashboardFixture, "7 days", {
+    const model = createDashboardViewModel(dashboardFixture, "7 days", {
+      coverAlt: "Fixture clinic exterior",
+      coverImage: "/fixture-clinic-exterior.jpg",
       location: "Mitte, Berlin",
       name: "Berlin Health Clinic — Mitte",
     })

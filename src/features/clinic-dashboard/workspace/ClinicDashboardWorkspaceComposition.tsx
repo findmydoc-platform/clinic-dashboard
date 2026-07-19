@@ -1,72 +1,39 @@
 "use client"
 
-import type { StaticImageData } from "next/image"
 import {
   ClinicProfile,
   type ClinicProfileCommands,
-  type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
-  type MasterTreatment,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
   DashboardPeriodControl,
   DashboardScreen,
   ProfileTaskDialog,
   type DashboardReportingPeriod,
-  type DashboardSnapshot,
   useDashboardController,
 } from "@/features/clinic-dashboard/dashboard/public"
-import {
-  MessagesScreen,
-  PatientInquiryProfileDialog,
-  type MessagesSnapshot,
-  type PatientInquiryProfile,
-  useMessagesController,
-} from "@/features/clinic-dashboard/messages/public"
+import { Messages, PatientInquiryProfileDialog } from "@/features/clinic-dashboard/messages/public"
 import {
   getClinicDashboardCapabilities,
   isClinicDashboardPrototypeMode,
   PrototypeModeSwitch,
   type ClinicDashboardPrototypeMode,
 } from "@/features/clinic-dashboard/prototype/public"
-import {
-  Reviews,
-  type ReviewCommands,
-  type ReviewsSnapshot,
-} from "@/features/clinic-dashboard/reviews/public"
+import { Reviews, type ReviewCommands } from "@/features/clinic-dashboard/reviews/public"
 import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
 import { ClinicLocationSelector } from "./components/molecules/ClinicLocationSelector"
 import { FutureAreaPlaceholderScreen } from "./components/organisms/FutureAreaPlaceholderScreen"
 import { NotificationCenter } from "./components/organisms/NotificationCenter"
-import {
-  defaultClinicDashboardLocationId,
-  getClinicDashboardPrototypeLocation,
-  type ClinicDashboardPrototypeLocation,
-} from "./model/locations"
-import type { ClinicDashboardNotification } from "./model/notifications"
+import { getClinicDashboardLocation, type ClinicDashboardLocationId } from "./model/locations"
 import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/workspace"
+import {
+  getClinicDashboardLocationSnapshot,
+  type ClinicDashboardWorkspaceInput,
+} from "./model/workspace-input"
 import { selectClinicDashboardNavigationItems, selectSafeClinicDashboardSection } from "./navigation"
 import { useClinicDashboardController } from "./useClinicDashboardController"
-
-export type ClinicDashboardWorkspaceSnapshot = Readonly<{
-  account: Readonly<{
-    avatar?: StaticImageData | string
-    initials: string
-    name: string
-    role: string
-  }>
-  clinicProfile: ClinicProfileDraft
-  dashboard: DashboardSnapshot
-  locations: readonly ClinicDashboardPrototypeLocation[]
-  messages: MessagesSnapshot
-  notifications: readonly ClinicDashboardNotification[]
-  organizationName: string
-  patientInquiry: PatientInquiryProfile
-  reviews: ReviewsSnapshot
-  treatmentCatalogue: readonly MasterTreatment[]
-}>
 
 export type ClinicDashboardWorkspaceStartState =
   | Readonly<{
@@ -91,8 +58,8 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   prototypeMode: ClinicDashboardPrototypeMode
   reviewCommands: ReviewCommands
   showPrototypeModeToggle: boolean
-  snapshot: ClinicDashboardWorkspaceSnapshot
   start?: ClinicDashboardWorkspaceStartState
+  workspaceInput: ClinicDashboardWorkspaceInput
 }>
 
 export function ClinicDashboardWorkspaceComposition({
@@ -104,24 +71,26 @@ export function ClinicDashboardWorkspaceComposition({
   prototypeMode,
   reviewCommands,
   showPrototypeModeToggle,
-  snapshot,
   start = {},
+  workspaceInput,
 }: ClinicDashboardWorkspaceCompositionProps) {
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
 
-  const initialProfileTask = snapshot.dashboard.profileTasks[0]
+  getClinicDashboardLocation(workspaceInput.locations, workspaceInput.defaultLocationId)
+  const defaultSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, workspaceInput.defaultLocationId)
+  const initialProfileTask = defaultSnapshot.dashboard.profileTasks[0]
   if (!initialProfileTask) throw new Error("The clinic dashboard requires at least one profile task.")
 
   const controller = useClinicDashboardController({
+    initialLocationId: workspaceInput.defaultLocationId,
     initialNotificationReadIds,
     initialNotificationsOpen,
     initialPatientInquiryOpen: start.dialog === "patient-inquiry",
-    initialLocationId: defaultClinicDashboardLocationId,
     initialProfileTask,
     initialSection: start.section ?? "dashboard",
-    notifications: snapshot.notifications,
+    notifications: workspaceInput.notifications,
     persistWorkspaceStateInSession,
     prototypeMode,
   })
@@ -132,23 +101,36 @@ export function ClinicDashboardWorkspaceComposition({
     showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
   })
   const activeSection = selectSafeClinicDashboardSection(model.activeSection, navigationItems)
-  const selectedLocation = getClinicDashboardPrototypeLocation(
-    snapshot.locations,
-    capabilities.canSwitchLocations ? model.selectedLocationId : defaultClinicDashboardLocationId,
-  )
+  const effectiveLocationId = capabilities.canSwitchLocations
+    ? model.selectedLocationId
+    : workspaceInput.defaultLocationId
+  const selectedLocation = getClinicDashboardLocation(workspaceInput.locations, effectiveLocationId)
+  const selectedSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, selectedLocation.id)
+  const coverImage =
+    selectedSnapshot.clinicProfile.gallery.find((image) => image.isCover) ??
+    selectedSnapshot.clinicProfile.gallery[0]
+  if (!coverImage) throw new Error(`Clinic location ${selectedLocation.id} requires a cover image.`)
+
   const dashboardController = useDashboardController({
     canExportProfileViews: capabilities.canUseDashboardReporting,
     initialReportingPeriod,
     locationSummary: {
+      coverAlt: coverImage.alt,
+      coverImage: coverImage.src,
       location: selectedLocation.location,
       name: selectedLocation.name,
     },
-    snapshot: snapshot.dashboard,
+    snapshot: selectedSnapshot.dashboard,
   })
-  const messagesController = useMessagesController({
-    isInteractive: capabilities.canUseMessaging,
-    snapshot: snapshot.messages,
-  })
+
+  const selectLocation = (locationId: ClinicDashboardLocationId) => {
+    const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
+    const nextSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, locationId)
+    const nextProfileTask = nextSnapshot.dashboard.profileTasks[0]
+    if (!nextProfileTask) throw new Error(`Clinic location ${locationId} requires a profile task.`)
+
+    actions.selectLocation(locationId, nextLocation.name, nextProfileTask)
+  }
 
   const openProfileDestination = (destination: ClinicProfileFocusTarget) => {
     actions.navigateToProfileTarget(destination)
@@ -158,22 +140,23 @@ export function ClinicDashboardWorkspaceComposition({
     <ClinicDashboardShell
       accountMenu={
         <AccountMenu
-          avatar={snapshot.account.avatar}
-          initials={snapshot.account.initials}
-          name={snapshot.account.name}
-          role={snapshot.account.role}
+          avatar={workspaceInput.account.avatar}
+          initials={workspaceInput.account.initials}
+          name={workspaceInput.account.name}
+          role={workspaceInput.account.role}
         />
       }
       activeSection={activeSection}
       clinicIdentity={
         <ClinicLocationSelector
           canSwitchLocations={capabilities.canSwitchLocations}
-          locations={snapshot.locations}
-          onValueChange={actions.selectLocation}
-          organizationName={snapshot.organizationName}
+          locations={workspaceInput.locations}
+          onValueChange={selectLocation}
+          organizationName={workspaceInput.organization.name}
           value={selectedLocation.id}
         />
       }
+      environmentBadge="Demo"
       headerActions={
         activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
           <DashboardPeriodControl
@@ -205,7 +188,7 @@ export function ClinicDashboardWorkspaceComposition({
       notificationCenter={
         capabilities.showNotifications ? (
           <NotificationCenter
-            notifications={snapshot.notifications}
+            notifications={workspaceInput.notifications}
             onMarkAllAsRead={actions.markAllNotificationsRead}
             onOpenChange={actions.setNotificationsOpen}
             open={model.notificationsOpen}
@@ -216,6 +199,10 @@ export function ClinicDashboardWorkspaceComposition({
       onSectionSelect={actions.navigate}
       onSupportRequest={capabilities.showSupport ? actions.openSupport : undefined}
     >
+      <p aria-live="polite" className="sr-only" role="status">
+        {model.locationAnnouncement}
+      </p>
+
       {activeSection === "dashboard" ? (
         <DashboardScreen
           actions={{
@@ -229,22 +216,22 @@ export function ClinicDashboardWorkspaceComposition({
           showCertificateTasks={capabilities.showCertificateTasks}
         />
       ) : null}
-      {activeSection === "messages" ? (
-        <MessagesScreen
-          actions={{
-            ...messagesController.actions,
-            onPatientInquiryOpen: actions.openPatientInquiry,
-          }}
-          model={messagesController.model}
+      <div hidden={activeSection !== "messages"}>
+        <Messages
+          isInteractive={capabilities.canUseMessaging}
+          key={selectedLocation.id}
+          onPatientInquiryOpen={actions.openPatientInquiry}
+          snapshot={selectedSnapshot.messages}
         />
-      ) : null}
+      </div>
       <div hidden={activeSection !== "reviews"}>
         <Reviews
           commands={reviewCommands}
           focusHeading={model.reviewsFocusRequested}
+          key={selectedLocation.id}
           onFocusHandled={actions.clearReviewsFocusRequest}
           showManagement={capabilities.canManageReviews}
-          snapshot={snapshot.reviews}
+          snapshot={selectedSnapshot.reviews}
         />
       </div>
       <div hidden={activeSection !== "profile"}>
@@ -252,26 +239,30 @@ export function ClinicDashboardWorkspaceComposition({
           commands={clinicProfileCommands}
           focusTarget={model.profileFocusTarget}
           initialDialog={
-            start.dialog === "team-member" || start.dialog === "treatment" ? start.dialog : undefined
+            model.locationChangeCount === 0 &&
+            (start.dialog === "team-member" || start.dialog === "treatment")
+              ? start.dialog
+              : undefined
           }
-          initialProfile={snapshot.clinicProfile}
+          initialProfile={selectedSnapshot.clinicProfile}
+          key={selectedLocation.id}
           onFocusHandled={actions.clearProfileFocusRequest}
           onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
           profileManagement={capabilities.profileManagement}
           teamManagement={capabilities.teamManagement}
-          treatmentCatalogue={snapshot.treatmentCatalogue}
+          treatmentCatalogue={workspaceInput.treatmentCatalogue}
         />
       </div>
       {activeSection === "subscriptions" && capabilities.showSubscriptionsPlaceholder ? (
         <FutureAreaPlaceholderScreen
-          description="This area is a visual placeholder only. Subscription details and actions are not available in this prototype."
+          description="This area is a visual placeholder only. Subscription details and actions are not available in this demo."
           heading="Subscriptions"
         />
       ) : null}
       {activeSection === "certificates-accreditations" &&
       capabilities.showCertificatesAccreditationsPlaceholder ? (
         <FutureAreaPlaceholderScreen
-          description="This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this prototype."
+          description="This area is a visual placeholder only. Certificate and accreditation details and actions are not available in this demo."
           heading="Certificates and accreditations"
         />
       ) : null}
@@ -280,7 +271,7 @@ export function ClinicDashboardWorkspaceComposition({
         canViewDetailedInquiry={capabilities.canViewDetailedPatientInquiry}
         onOpenChange={actions.setPatientInquiryOpen}
         open={model.patientInquiryOpen}
-        patient={snapshot.patientInquiry}
+        patient={selectedSnapshot.patientInquiry}
       />
       <ProfileTaskDialog
         onOpenChange={actions.setProfileTaskOpen}

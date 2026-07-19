@@ -35,10 +35,10 @@ export const Interactive: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const modeSwitch = canvas.getByRole("switch", { name: "Full interface" })
+    const modeSwitch = canvas.getByRole("switch", { name: "Demo scope" })
     await expect(modeSwitch).not.toBeChecked()
     await userEvent.click(modeSwitch)
     await expect(modeSwitch).toBeChecked()
-    await expect(canvas.getByText("All prototype UI")).toBeInTheDocument()
+    await expect(canvas.getByText("All demo screens")).toBeInTheDocument()
   },
 }
