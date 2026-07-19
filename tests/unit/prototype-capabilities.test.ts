@@ -11,6 +11,7 @@ const hiddenCapabilityVisibility = {
   certificatesAccreditationsPlaceholder: "hidden",
   dashboardReporting: "hidden",
   inquiryProfile: "hidden",
+  locationSwitching: "hidden",
   messaging: "hidden",
   notifications: "hidden",
   profileWrites: "hidden",
@@ -25,6 +26,7 @@ const hiddenCapabilities = {
   canUseDashboardReporting: false,
   canUseMessaging: false,
   canViewDetailedPatientInquiry: false,
+  canSwitchLocations: false,
   profileManagement: "hidden",
   showCertificateTasks: false,
   showCertificatesAccreditationsPlaceholder: false,
@@ -41,6 +43,7 @@ describe("clinic dashboard prototype capabilities", () => {
       canUseDashboardReporting: false,
       canUseMessaging: false,
       canViewDetailedPatientInquiry: false,
+      canSwitchLocations: false,
       profileManagement: "read-only",
       showCertificateTasks: false,
       showCertificatesAccreditationsPlaceholder: false,
@@ -57,6 +60,7 @@ describe("clinic dashboard prototype capabilities", () => {
       canUseDashboardReporting: true,
       canUseMessaging: true,
       canViewDetailedPatientInquiry: true,
+      canSwitchLocations: true,
       profileManagement: "interactive",
       showCertificateTasks: true,
       showCertificatesAccreditationsPlaceholder: true,
@@ -76,6 +80,7 @@ describe("clinic dashboard prototype capabilities", () => {
 
   it.each([
     ["certificateTasks", "showCertificateTasks"],
+    ["locationSwitching", "canSwitchLocations"],
     ["notifications", "showNotifications"],
     ["support", "showSupport"],
   ] as const)("derives %s independently as %s", (visibilityField, capabilityField) => {
@@ -90,7 +95,7 @@ describe("clinic dashboard prototype capabilities", () => {
     })
   })
 
-  it.each(["dashboardReporting", "messaging", "reviewManagement"] as const)(
+  it.each(["dashboardReporting", "locationSwitching", "messaging", "reviewManagement"] as const)(
     "keeps read-only %s visible without enabling an interactive capability",
     (visibilityField) => {
       const capabilities = deriveClinicDashboardCapabilities({

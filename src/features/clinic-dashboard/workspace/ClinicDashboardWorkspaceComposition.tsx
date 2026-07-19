@@ -37,8 +37,14 @@ import {
 import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
+import { ClinicLocationSelector } from "./components/molecules/ClinicLocationSelector"
 import { FutureAreaPlaceholderScreen } from "./components/organisms/FutureAreaPlaceholderScreen"
 import { NotificationCenter } from "./components/organisms/NotificationCenter"
+import {
+  defaultClinicDashboardLocationId,
+  getClinicDashboardPrototypeLocation,
+  type ClinicDashboardPrototypeLocation,
+} from "./model/locations"
 import type { ClinicDashboardNotification } from "./model/notifications"
 import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/workspace"
 import { selectClinicDashboardNavigationItems, selectSafeClinicDashboardSection } from "./navigation"
@@ -51,14 +57,12 @@ export type ClinicDashboardWorkspaceSnapshot = Readonly<{
     name: string
     role: string
   }>
-  clinicIdentity: Readonly<{
-    location: string
-    name: string
-  }>
   clinicProfile: ClinicProfileDraft
   dashboard: DashboardSnapshot
+  locations: readonly ClinicDashboardPrototypeLocation[]
   messages: MessagesSnapshot
   notifications: readonly ClinicDashboardNotification[]
+  organizationName: string
   patientInquiry: PatientInquiryProfile
   reviews: ReviewsSnapshot
   treatmentCatalogue: readonly MasterTreatment[]
@@ -114,6 +118,7 @@ export function ClinicDashboardWorkspaceComposition({
     initialNotificationReadIds,
     initialNotificationsOpen,
     initialPatientInquiryOpen: start.dialog === "patient-inquiry",
+    initialLocationId: defaultClinicDashboardLocationId,
     initialProfileTask,
     initialSection: start.section ?? "dashboard",
     notifications: snapshot.notifications,
@@ -127,10 +132,17 @@ export function ClinicDashboardWorkspaceComposition({
     showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
   })
   const activeSection = selectSafeClinicDashboardSection(model.activeSection, navigationItems)
+  const selectedLocation = getClinicDashboardPrototypeLocation(
+    snapshot.locations,
+    capabilities.canSwitchLocations ? model.selectedLocationId : defaultClinicDashboardLocationId,
+  )
   const dashboardController = useDashboardController({
     canExportProfileViews: capabilities.canUseDashboardReporting,
     initialReportingPeriod,
-    locationSummary: snapshot.clinicIdentity,
+    locationSummary: {
+      location: selectedLocation.location,
+      name: selectedLocation.name,
+    },
     snapshot: snapshot.dashboard,
   })
   const messagesController = useMessagesController({
@@ -153,7 +165,15 @@ export function ClinicDashboardWorkspaceComposition({
         />
       }
       activeSection={activeSection}
-      clinicName={snapshot.clinicIdentity.name}
+      clinicIdentity={
+        <ClinicLocationSelector
+          canSwitchLocations={capabilities.canSwitchLocations}
+          locations={snapshot.locations}
+          onValueChange={actions.selectLocation}
+          organizationName={snapshot.organizationName}
+          value={selectedLocation.id}
+        />
+      }
       headerActions={
         activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
           <DashboardPeriodControl

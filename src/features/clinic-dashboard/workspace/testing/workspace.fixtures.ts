@@ -1,4 +1,5 @@
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
+import type { ClinicDashboardPrototypeLocation } from "../model/locations"
 import type { ClinicDashboardNotification } from "../model/notifications"
 
 export const workspaceAccountFixture = {
@@ -8,10 +9,28 @@ export const workspaceAccountFixture = {
   role: "Clinic administrator",
 } as const
 
-export const workspaceClinicIdentityFixture = {
-  location: "Mitte, Berlin",
-  name: "Berlin Health Clinic — Mitte",
-} as const
+export const workspaceOrganizationNameFixture = "Berlin Health Group"
+
+export const workspaceLocationFixtures = [
+  {
+    id: "berlin-mitte",
+    location: "Mitte, Berlin",
+    name: "Berlin Health Clinic — Mitte",
+    selectorLabel: "Mitte",
+  },
+  {
+    id: "berlin-charlottenburg",
+    location: "Charlottenburg, Berlin",
+    name: "Berlin Health Clinic — Charlottenburg",
+    selectorLabel: "Charlottenburg",
+  },
+  {
+    id: "potsdam",
+    location: "Potsdam, Brandenburg",
+    name: "Berlin Health Clinic — Potsdam",
+    selectorLabel: "Potsdam",
+  },
+] satisfies readonly ClinicDashboardPrototypeLocation[]
 
 export const notificationsFixture = [
   {

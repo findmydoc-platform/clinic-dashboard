@@ -9,6 +9,7 @@ import {
   storeNotificationReadIds,
   storePrototypeMode,
 } from "@/features/clinic-dashboard/workspace/browser-session"
+import { defaultClinicDashboardLocationId } from "@/features/clinic-dashboard/workspace/model/locations"
 import { notificationsFixture } from "@/features/clinic-dashboard/workspace/testing/workspace.fixtures"
 import { useClinicDashboardController } from "@/features/clinic-dashboard/workspace/useClinicDashboardController"
 
@@ -22,6 +23,7 @@ function renderController(persistWorkspaceStateInSession: boolean) {
       initialNotificationReadIds: [],
       initialNotificationsOpen: false,
       initialPatientInquiryOpen: false,
+      initialLocationId: defaultClinicDashboardLocationId,
       initialProfileTask,
       initialSection: "dashboard",
       notifications: notificationsFixture,
