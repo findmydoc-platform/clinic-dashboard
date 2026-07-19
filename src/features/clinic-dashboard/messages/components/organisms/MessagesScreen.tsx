@@ -274,7 +274,7 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
                 “{model.selectedConversation.preview}”
               </p>
               <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">
-                Full conversation details are not available in this prototype.
+                Full conversation details are not available in this demo.
               </p>
               <p className="mt-4 text-xs font-bold text-[var(--foreground)]">
                 Last activity {model.selectedConversation.time}

@@ -26,6 +26,7 @@ type Story = StoryObj<typeof meta>
 export const SelectCover: Story = {
   play: async ({ args, canvasElement }) => {
     const dialog = within(canvasElement).getByRole("dialog", { name: "Edit clinic images" })
+    await expect(within(dialog).getByLabelText("Current cover image")).toBeVisible()
     await userEvent.click(within(dialog).getByRole("button", { name: "Set cover" }))
     await expect(args.onSelectCover).toHaveBeenCalledWith("reception")
 

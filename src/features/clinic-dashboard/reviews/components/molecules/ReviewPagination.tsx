@@ -26,7 +26,7 @@ export function ReviewPagination({
       className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <span className="text-sm text-[var(--foreground)]">
-        Showing {rangeStart}–{rangeEnd} of {filteredCount} prototype reviews ·{" "}
+        Showing {rangeStart}–{rangeEnd} of {filteredCount} demo reviews ·{" "}
         {totalPublicReviews.toLocaleString("en-US")} total public reviews
       </span>
       <div className="flex flex-wrap gap-2">

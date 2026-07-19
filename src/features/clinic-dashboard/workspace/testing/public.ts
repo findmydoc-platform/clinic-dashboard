@@ -1,1 +1,4 @@
-export { ClinicDashboardWorkspaceHarness } from "./ClinicDashboardWorkspaceHarness"
+export {
+  ClinicDashboardWorkspaceHarness,
+  clinicDashboardWorkspaceFixture,
+} from "./ClinicDashboardWorkspaceHarness"

@@ -17,7 +17,7 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  const interfaceModeSwitch = page.getByRole("switch", { name: "Full interface" })
+  const interfaceModeSwitch = page.getByRole("switch", { name: "Demo scope" })
   await expect(interfaceModeSwitch).not.toBeChecked()
   await interfaceModeSwitch.click()
   await expect(interfaceModeSwitch).toBeChecked()
@@ -29,7 +29,7 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   }
 
   await page.reload()
-  await expect(page.getByRole("switch", { name: "Full interface" })).toBeChecked()
+  await expect(page.getByRole("switch", { name: "Demo scope" })).toBeChecked()
 
   const health = await page.request.get("/api/health")
   expect(health.ok()).toBe(true)
@@ -40,21 +40,76 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   })
 })
 
-test("resets prototype location selection after a reload", async ({ page }) => {
+test("switches complete location snapshots and resets local demo changes", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
-  await page.getByRole("switch", { name: "Full interface" }).click()
+  await page.getByRole("switch", { name: "Demo scope" }).click()
 
   const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
   const dashboardLocation = page.getByRole("region", { name: "Dashboard clinic location summary" })
+  const dashboardMetrics = page.getByRole("region", { name: "Dashboard metrics" })
 
   await expect(locationSelector).toHaveAccessibleName(/Current location: Berlin Health Clinic — Mitte/)
+  await expect(dashboardMetrics.getByText("18,420")).toBeVisible()
+  await expect(dashboardMetrics.getByText("82%")).toBeVisible()
+  await page.getByRole("button", { name: "90 days" }).click()
+  await page.locator('[data-funnel-stage="impressions"]').click()
+  await expect(page.getByText("Impressions over time")).toBeVisible()
+
   await locationSelector.click()
   await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
   await expect(locationSelector).toHaveAccessibleName(
     /Current location: Berlin Health Clinic — Charlottenburg/,
   )
   await expect(dashboardLocation.getByText("Charlottenburg, Berlin")).toBeVisible()
+  await expect(dashboardMetrics.getByText("35,920")).toBeVisible()
+  await expect(dashboardMetrics.getByText("91%")).toBeVisible()
+  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByText("Impressions over time")).toBeVisible()
+
+  await page.getByRole("button", { name: "Messages" }).click()
+  await expect(page.getByRole("heading", { name: "Lina König" })).toBeVisible()
+  const localMessage = "Local Charlottenburg draft must not cross locations."
+  await page.getByRole("textbox", { name: "Write a message" }).fill(localMessage)
+  await page.getByRole("button", { name: "Send message" }).click()
+  await expect(page.getByText(localMessage)).toBeVisible()
+
+  await locationSelector.click()
+  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Potsdam/ }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Mila Neumann" })).toBeVisible()
+  await expect(page.getByText(localMessage)).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Reviews" }).click()
+  await expect(page.getByText("Greta Sommer")).toBeVisible()
+  await page.getByRole("button", { name: "Clinic profile" }).click()
+  await expect(page.getByLabel("Clinic name")).toHaveValue("Berlin Health Clinic — Potsdam")
+
+  await locationSelector.click()
+  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
+  const clinicName = page.getByLabel("Clinic name")
+  await expect(clinicName).toHaveValue("Berlin Health Clinic — Charlottenburg")
+  await clinicName.fill("Locally edited Charlottenburg clinic")
+  await locationSelector.click()
+  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Potsdam/ }).click()
+  await expect(clinicName).toHaveValue("Berlin Health Clinic — Potsdam")
+  await locationSelector.click()
+  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
+  await expect(clinicName).toHaveValue("Berlin Health Clinic — Charlottenburg")
+  await expect(page.getByText("Locally edited Charlottenburg clinic")).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Dashboard" }).click()
+  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByText("Impressions over time")).toBeVisible()
+
+  const reloadMessage = "Active local message must be cleared by reload."
+  await page.getByRole("button", { name: "Messages" }).click()
+  await page.getByRole("textbox", { name: "Write a message" }).fill(reloadMessage)
+  await page.getByRole("button", { name: "Send message" }).click()
+  await expect(page.getByText(reloadMessage)).toBeVisible()
+  await page.getByRole("button", { name: "Clinic profile" }).click()
+  await page.getByLabel("Clinic name").fill("Active local clinic name before reload")
+  await expect(page.getByLabel("Clinic name")).toHaveValue("Active local clinic name before reload")
 
   await page.reload()
 
@@ -64,6 +119,20 @@ test("resets prototype location selection after a reload", async ({ page }) => {
   await expect(
     page.getByRole("region", { name: "Dashboard clinic location summary" }).getByText("Mitte, Berlin"),
   ).toBeVisible()
+  await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "false")
+  await expect(page.getByText("Profile views over time")).toBeVisible()
+  await expect(page.getByText("Impressions over time")).toHaveCount(0)
+
+  const reloadedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
+  await reloadedLocationSelector.click()
+  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
+  await page.getByRole("button", { name: "Messages" }).click()
+  await expect(page.getByText(localMessage)).toHaveCount(0)
+  await expect(page.getByText(reloadMessage)).toHaveCount(0)
+  await page.getByRole("button", { name: "Clinic profile" }).click()
+  await expect(page.getByLabel("Clinic name")).toHaveValue("Berlin Health Clinic — Charlottenburg")
+  await expect(page.getByText("Active local clinic name before reload")).toHaveCount(0)
 })
 
 test("routes dashboard tasks into their owning workspace sections", async ({ page }) => {
@@ -93,7 +162,7 @@ test("opens the honest local support prototype from a missing treatment", async 
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  await page.getByRole("switch", { name: "Full interface" }).click()
+  await page.getByRole("switch", { name: "Demo scope" }).click()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await page.getByRole("button", { name: "New treatment" }).click()
 
@@ -101,17 +170,15 @@ test("opens the honest local support prototype from a missing treatment", async 
   await treatmentDialog.getByRole("button", { name: "Treatment missing?" }).click()
 
   const supportDialog = page.getByRole("dialog", { name: "Contact support" })
-  await expect(
-    supportDialog.getByText("Complete this local prototype form. Nothing will be sent."),
-  ).toBeVisible()
+  await expect(supportDialog.getByText("Complete this local demo form. Nothing will be sent.")).toBeVisible()
   await supportDialog.getByRole("combobox", { name: "Category" }).selectOption("Other")
   await supportDialog.getByRole("textbox", { name: "Subject" }).fill("Treatment missing")
   await supportDialog
     .getByRole("textbox", { name: "Message" })
     .fill("Please add this treatment to the platform catalogue.")
-  await supportDialog.getByRole("button", { name: "Submit prototype request" }).click()
+  await supportDialog.getByRole("button", { name: "Submit demo request" }).click()
 
-  await expect(supportDialog.getByRole("status")).toHaveText("Prototype only — no request was sent.")
+  await expect(supportDialog.getByRole("status")).toHaveText("Demo only — no request was sent.")
 })
 
 test("opens the account menu and signs out", async ({ page }) => {

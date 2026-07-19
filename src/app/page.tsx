@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { ClinicDashboardWorkspace } from "@/features/clinic-dashboard/public"
+import { loadClinicDashboardWorkspaceInput } from "@/features/clinic-dashboard/server"
 import { DASHBOARD_AUTH_COOKIE, isValidDashboardSessionToken } from "@/lib/security/dashboard-auth"
 
 export default async function HomePage() {
@@ -9,11 +10,14 @@ export default async function HomePage() {
     redirect("/login")
   }
 
+  const workspaceInput = await loadClinicDashboardWorkspaceInput()
+
   return (
     <ClinicDashboardWorkspace
       persistWorkspaceStateInSession
       prototypeMode="presentation"
       showPrototypeModeToggle
+      workspaceInput={workspaceInput}
     />
   )
 }

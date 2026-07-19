@@ -42,10 +42,10 @@ export function MessageComposer({ draft, onDraftChange, onSend }: MessageCompose
       <div className="flex items-end gap-2">
         <Button
           aria-describedby="attachment-prototype-note"
-          aria-label="Attach file, unavailable in this prototype"
+          aria-label="Attach file, unavailable in this demo"
           disabled
           size="icon"
-          title="Attachments are not available in this prototype"
+          title="Attachments are not available in this demo"
           variant="ghost"
         >
           <Paperclip aria-hidden="true" className="size-5" />
@@ -77,7 +77,7 @@ export function MessageComposer({ draft, onDraftChange, onSend }: MessageCompose
           <Sparkles aria-hidden="true" className="size-4" /> Use template
         </Button>
         <p className="text-xs text-[var(--foreground)]" id="attachment-prototype-note">
-          Attachments are not available in this prototype.
+          Attachments are not available in this demo.
           <span className="hidden sm:inline"> · Enter to send · Shift+Enter for a new line</span>
         </p>
       </div>

@@ -6,58 +6,58 @@ import {
   type ReviewCommands,
 } from "@/features/clinic-dashboard/reviews/public"
 
-const prototypeTimestamp = "2023-10-16T12:00:00.000Z"
-const prototypeAppealReviewTimestamp = "2023-10-16T12:05:00.000Z"
-const prototypeLatencyMs = 240
+const demoTimestamp = "2026-07-19T10:00:00.000Z"
+const demoAppealReviewTimestamp = "2026-07-19T10:05:00.000Z"
+const demoLatencyMs = 240
 
-const resolvePrototypeValue = async <Value>(value: Value) => {
-  await new Promise((done) => setTimeout(done, prototypeLatencyMs))
+const resolveDemoValue = async <Value>(value: Value) => {
+  await new Promise((done) => setTimeout(done, demoLatencyMs))
   return value
 }
 
-export const clinicProfilePrototypeCommands: ClinicProfileCommands = {
+export const clinicProfileDemoCommands: ClinicProfileCommands = {
   createClinicProfileEntityId: (kind) => `${kind}-${globalThis.crypto.randomUUID()}`,
   saveClinicProfile: async (profile) =>
-    resolvePrototypeValue({
+    resolveDemoValue({
       ...profile,
       revision: profile.revision + 1,
-      updatedAt: prototypeTimestamp,
+      updatedAt: demoTimestamp,
     }),
 }
 
-export const reviewPrototypeCommands: ReviewCommands = {
+export const reviewDemoCommands: ReviewCommands = {
   markReviewAppealUnderReview: async (review) => {
     if (!review.appealCase) throw new Error("An appeal case is required.")
 
-    return resolvePrototypeValue({
+    return resolveDemoValue({
       ...review,
-      appealCase: markReviewAppealUnderReview(review.appealCase, prototypeAppealReviewTimestamp),
+      appealCase: markReviewAppealUnderReview(review.appealCase, demoAppealReviewTimestamp),
       revision: review.revision + 1,
       status: "Under review" as const,
     })
   },
   saveReviewNote: async (review, note) =>
-    resolvePrototypeValue({
+    resolveDemoValue({
       ...review,
       internalNotes: [...review.internalNotes, note.trim()],
       revision: review.revision + 1,
     }),
   submitReviewResponseForModeration: async (review, response) =>
-    resolvePrototypeValue({
+    resolveDemoValue({
       ...review,
-      pendingResponse: createPendingReviewResponse(response, prototypeTimestamp),
+      pendingResponse: createPendingReviewResponse(response, demoTimestamp),
       revision: review.revision + 1,
     }),
   submitReviewAppeal: async (review, reason, detail) => {
     if (review.appealCase) throw new Error("This review already has an appeal case.")
 
-    return resolvePrototypeValue({
+    return resolveDemoValue({
       ...review,
       appealCase: createReviewAppealCase({
         detail,
         reason,
         reviewId: review.id,
-        submittedAt: prototypeTimestamp,
+        submittedAt: demoTimestamp,
       }),
       revision: review.revision + 1,
     })

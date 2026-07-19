@@ -93,7 +93,7 @@ describe("reviews model", () => {
     }
     const pending = reviewsReducer(withDialog, {
       review: pendingReview,
-      statusMessage: "Prototype only — response saved locally; nothing was submitted.",
+      statusMessage: "Demo only — response saved locally; nothing was submitted.",
       type: "review-mutation-succeeded",
     })
 

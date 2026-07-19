@@ -1,49 +1,29 @@
 import { describe, expect, it } from "vitest"
 import {
-  clinicDashboardLocationIds,
   clinicDashboardLocationSelectionReducer,
-  defaultClinicDashboardLocationId,
-  getClinicDashboardPrototypeLocation,
-  isClinicDashboardLocationId,
+  getClinicDashboardLocation,
 } from "@/features/clinic-dashboard/workspace/model/locations"
 import { workspaceLocationFixtures } from "@/features/clinic-dashboard/workspace/testing/workspace.fixtures"
 
-describe("clinic dashboard prototype location selection", () => {
-  it("keeps a closed set of location ids with Berlin Mitte as the default", () => {
-    expect(clinicDashboardLocationIds).toEqual(["berlin-mitte", "berlin-charlottenburg", "potsdam"])
-    expect(defaultClinicDashboardLocationId).toBe("berlin-mitte")
-    expect(isClinicDashboardLocationId("berlin-charlottenburg")).toBe(true)
-    expect(isClinicDashboardLocationId("potsdam")).toBe(true)
-    expect(isClinicDashboardLocationId("clinic-123")).toBe(false)
-  })
-
-  it("selects the alternate location through a pure reducer", () => {
+describe("clinic dashboard location selection", () => {
+  it("accepts general string ids instead of a demo-specific domain union", () => {
     expect(
       clinicDashboardLocationSelectionReducer("berlin-mitte", {
-        locationId: "berlin-charlottenburg",
+        locationId: "future-location-123",
         type: "location-selected",
       }),
-    ).toBe("berlin-charlottenburg")
+    ).toBe("future-location-123")
   })
 
-  it("resolves the invented location identities without a tenant identifier", () => {
-    expect(getClinicDashboardPrototypeLocation(workspaceLocationFixtures, "berlin-mitte")).toEqual({
-      id: "berlin-mitte",
-      location: "Mitte, Berlin",
-      name: "Berlin Health Clinic — Mitte",
-      selectorLabel: "Mitte",
-    })
-    expect(getClinicDashboardPrototypeLocation(workspaceLocationFixtures, "berlin-charlottenburg")).toEqual({
+  it("resolves only ids present in the provided workspace locations", () => {
+    expect(getClinicDashboardLocation(workspaceLocationFixtures, "berlin-charlottenburg")).toEqual({
       id: "berlin-charlottenburg",
       location: "Charlottenburg, Berlin",
       name: "Berlin Health Clinic — Charlottenburg",
       selectorLabel: "Charlottenburg",
     })
-    expect(getClinicDashboardPrototypeLocation(workspaceLocationFixtures, "potsdam")).toEqual({
-      id: "potsdam",
-      location: "Potsdam, Brandenburg",
-      name: "Berlin Health Clinic — Potsdam",
-      selectorLabel: "Potsdam",
-    })
+    expect(() => getClinicDashboardLocation(workspaceLocationFixtures, "future-location-123")).toThrow(
+      "Missing clinic dashboard location: future-location-123",
+    )
   })
 })

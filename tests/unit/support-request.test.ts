@@ -35,7 +35,7 @@ describe("support request prototype contract", () => {
     const result = createSupportRequestResult()
 
     expect(result).toEqual({
-      message: "Prototype only — no request was sent.",
+      message: "Demo only — no request was sent.",
       status: "prototype-only",
     })
     expect(result).not.toHaveProperty("ticketId")

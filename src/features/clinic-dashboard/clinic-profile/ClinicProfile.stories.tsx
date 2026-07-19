@@ -123,11 +123,11 @@ export const CapabilityChangeClosesUnavailableDialog: Story = {
 
     await userEvent.click(page.getByRole("button", { name: "Disable profile management" }))
     await waitFor(() => expect(page.queryByRole("dialog", { name: "Edit address" })).not.toBeInTheDocument())
-    await expect(page.getByText("Clinics / View profile")).toBeInTheDocument()
+    await expect(page.getByText("Clinic workspace · Profile overview")).toBeInTheDocument()
 
     await userEvent.click(page.getByRole("button", { name: "Enable profile management" }))
     await expect(page.queryByRole("dialog", { name: "Edit address" })).not.toBeInTheDocument()
-    await expect(page.getByText("Clinics / Edit profile")).toBeInTheDocument()
+    await expect(page.getByText("Clinic workspace · Profile settings")).toBeInTheDocument()
   },
 }
 
@@ -144,7 +144,7 @@ export const CapabilityWithdrawalProjectsSavedProfile: Story = {
 
     await userEvent.click(page.getByRole("button", { name: "Disable profile management" }))
 
-    await expect(page.getByText("Clinics / View profile")).toBeInTheDocument()
+    await expect(page.getByText("Clinic workspace · Profile overview")).toBeInTheDocument()
     await expect(clinicName).toHaveValue(clinicProfileFixture.name)
     await expect(clinicName).toBeDisabled()
     await expect(page.queryByText("Hidden draft clinic")).not.toBeInTheDocument()

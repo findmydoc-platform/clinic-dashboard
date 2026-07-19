@@ -1,7 +1,7 @@
 export const supportCategories = ["Technical issue", "Account access", "Profile or review", "Other"] as const
 export const supportRequestPolicy = {
   replyMethodLabel: "Email",
-  resultMessage: "Prototype only — no request was sent.",
+  resultMessage: "Demo only — no request was sent.",
 } as const
 
 export type SupportCategory = (typeof supportCategories)[number]

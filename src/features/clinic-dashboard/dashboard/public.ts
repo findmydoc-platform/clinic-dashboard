@@ -23,3 +23,4 @@ export type {
   DashboardReportingSnapshots,
   DashboardSelectableMetricId,
 } from "./model/reporting"
+export { createDashboardReportingSnapshot } from "./model/reporting"

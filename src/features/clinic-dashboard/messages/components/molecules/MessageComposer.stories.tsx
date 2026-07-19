@@ -47,11 +47,11 @@ export const Empty: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const attachment = canvas.getByRole("button", {
-      name: "Attach file, unavailable in this prototype",
+      name: "Attach file, unavailable in this demo",
     })
 
     await expect(attachment).toBeDisabled()
-    await expect(canvas.getByText("Attachments are not available in this prototype.")).toBeVisible()
+    await expect(canvas.getByText("Attachments are not available in this demo.")).toBeVisible()
   },
 }
 

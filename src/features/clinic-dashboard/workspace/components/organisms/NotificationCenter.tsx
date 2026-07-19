@@ -149,6 +149,11 @@ export function NotificationCenter({
                           New
                         </span>
                         <span>{notification.timestamp}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>
+                          <span className="sr-only">Location: </span>
+                          {notification.locationLabel}
+                        </span>
                       </div>
                     </div>
                   </li>

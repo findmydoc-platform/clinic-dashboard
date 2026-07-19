@@ -1,5 +1,6 @@
 import { createDashboardReportingSnapshot, type DashboardReportingSnapshots } from "../model/reporting"
 import type { DashboardViewModel } from "../model/dashboard-view-model"
+import type { DashboardSnapshot } from "../model/dashboard-snapshot"
 import { createDashboardMetricSelection } from "../model/dashboard-metric-selection"
 import type { DashboardProfileTask } from "../model/profile-tasks"
 
@@ -73,6 +74,7 @@ const reporting = createDashboardReportingSnapshot({
     },
   },
   period: "7 days",
+  profileCompletion: 82,
   reviewActivity: "1 new review in the last 7 days",
   totals: {
     contacts: 12,
@@ -104,6 +106,7 @@ const reportingSnapshots = {
       },
     },
     period: "30 days",
+    profileCompletion: 82,
     reviewActivity: "5 new reviews in the last 30 days",
     totals: {
       contacts: 42,
@@ -132,6 +135,7 @@ const reportingSnapshots = {
       },
     },
     period: "90 days",
+    profileCompletion: 82,
     reviewActivity: "17 new reviews in the last 90 days",
     totals: {
       contacts: 118,
@@ -144,6 +148,7 @@ const reportingSnapshots = {
 } satisfies DashboardReportingSnapshots
 
 export const dashboardFixture = {
+  profileCompletion: 82,
   profileTasks: dashboardFixtureProfileTasks,
   rating: {
     categories: ["Hair transplant", "Dental implants", "Laser eye surgery"],
@@ -152,14 +157,12 @@ export const dashboardFixture = {
     value: 4.8,
   },
   reporting: reportingSnapshots,
-} satisfies Readonly<{
-  profileTasks: readonly DashboardProfileTask[]
-  rating: DashboardViewModel["rating"]
-  reporting: DashboardReportingSnapshots
-}>
+} satisfies DashboardSnapshot
 
 export const dashboardViewModel = {
   clinicPreview: {
+    coverAlt: "Exterior of Berlin Health Clinic",
+    coverImage: exteriorImage,
     location: "Mitte, Berlin",
     name: "Berlin Health Clinic — Mitte",
     ratingLabel: "4.8 ★",
@@ -175,3 +178,4 @@ export const dashboardViewModel = {
   reporting: reportingSnapshots["7 days"],
   selectedMetric: createDashboardMetricSelection(reportingSnapshots["7 days"], "views"),
 } satisfies DashboardViewModel
+import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"

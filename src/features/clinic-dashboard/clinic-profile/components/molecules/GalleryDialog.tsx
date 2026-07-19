@@ -59,20 +59,16 @@ export function GalleryDialog({
                     <Check aria-hidden="true" className="size-4" /> Cover image
                   </span>
                 ) : null
-              ) : (
-                <Button
-                  aria-pressed={item.isCover}
-                  disabled={item.isCover}
-                  onClick={() => onSelectCover(item.id)}
-                  size="small"
-                  variant={item.isCover ? "secondary" : "outline"}
+              ) : item.isCover ? (
+                <span
+                  aria-label="Current cover image"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[color-mix(in_srgb,var(--primary)_10%,var(--background))] px-3 py-2 text-sm font-bold text-[var(--secondary)]"
                 >
-                  {item.isCover ? (
-                    <Check aria-hidden="true" className="size-4" />
-                  ) : (
-                    <ImageIcon aria-hidden="true" className="size-4" />
-                  )}
-                  {item.isCover ? "Cover" : "Set cover"}
+                  <Check aria-hidden="true" className="size-4" /> Current cover
+                </span>
+              ) : (
+                <Button onClick={() => onSelectCover(item.id)} size="small" variant="outline">
+                  <ImageIcon aria-hidden="true" className="size-4" /> Set cover
                 </Button>
               )}
             </div>
