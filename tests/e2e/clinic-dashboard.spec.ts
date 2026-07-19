@@ -40,6 +40,32 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   })
 })
 
+test("resets prototype location selection after a reload", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("switch", { name: "Full interface" }).click()
+
+  const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
+  const dashboardLocation = page.getByRole("region", { name: "Dashboard clinic location summary" })
+
+  await expect(locationSelector).toHaveAccessibleName(/Current location: Berlin Health Clinic — Mitte/)
+  await locationSelector.click()
+  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
+  await expect(locationSelector).toHaveAccessibleName(
+    /Current location: Berlin Health Clinic — Charlottenburg/,
+  )
+  await expect(dashboardLocation.getByText("Charlottenburg, Berlin")).toBeVisible()
+
+  await page.reload()
+
+  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
+    /Current location: Berlin Health Clinic — Mitte/,
+  )
+  await expect(
+    page.getByRole("region", { name: "Dashboard clinic location summary" }).getByText("Mitte, Berlin"),
+  ).toBeVisible()
+})
+
 test("routes dashboard tasks into their owning workspace sections", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)

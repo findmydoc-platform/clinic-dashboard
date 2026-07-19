@@ -20,28 +20,37 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 
-export const StaticClinicIdentityAt320: Story = {
+export const VisualReferenceLocationSwitching: Story = {
   args: { prototypeMode: "visual-reference" },
-  globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
     const header = within(canvas.getByRole("banner"))
     const dashboardLocation = within(
       canvas.getByRole("region", { name: "Dashboard clinic location summary" }),
     )
-    await expect(canvas.queryByRole("combobox", { name: "Clinic location" })).not.toBeInTheDocument()
-    await expect(
-      header.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
-    ).toBeInTheDocument()
+    const locationSelector = header.getByRole("button", { name: /Switch clinic location/ })
+
+    await expect(locationSelector).toHaveAccessibleName(/Current location: Berlin Health Clinic — Mitte/)
+    await expect(header.getByText("Berlin Health Group")).toBeInTheDocument()
     await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
+
+    await userEvent.click(locationSelector)
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
+    )
+
+    await expect(locationSelector).toHaveAccessibleName(
+      /Current location: Berlin Health Clinic — Charlottenburg/,
+    )
+    await expect(dashboardLocation.getByText("Charlottenburg, Berlin")).toBeInTheDocument()
     await expect(
       canvas.getByRole("button", { name: "Open account menu for Sarah Schmidt" }),
     ).toBeInTheDocument()
-    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }
 
-export const PresentationUsesStaticClinicIdentity: Story = {
+export const PresentationUsesDefaultLocation: Story = {
   args: { prototypeMode: "presentation" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -50,11 +59,30 @@ export const PresentationUsesStaticClinicIdentity: Story = {
       canvas.getByRole("region", { name: "Dashboard clinic location summary" }),
     )
 
-    await expect(canvas.queryByRole("combobox", { name: "Clinic location" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: /Switch clinic location/ })).not.toBeInTheDocument()
     await expect(
       header.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
     ).toBeInTheDocument()
     await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
+  },
+}
+
+export const LocationSwitchingAt320: Story = {
+  args: { prototypeMode: "visual-reference" },
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+    const locationSelector = canvas.getByRole("button", { name: /Switch clinic location/ })
+
+    await userEvent.click(locationSelector)
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
+    )
+    await expect(locationSelector).toHaveAccessibleName(
+      /Current location: Berlin Health Clinic — Charlottenburg/,
+    )
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }
 
@@ -65,10 +93,7 @@ export const Mobile: Story = {
     const canvas = within(canvasElement)
 
     await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
-    await expect(
-      canvas.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
-    ).toBeInTheDocument()
-    await expect(canvas.queryByRole("combobox", { name: "Clinic location" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toBeInTheDocument()
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
     await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
     await userEvent.click(

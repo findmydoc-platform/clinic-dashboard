@@ -1,4 +1,5 @@
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
+import type { ClinicDashboardPrototypeLocation } from "./model/locations"
 import type { ClinicDashboardNotification } from "./model/notifications"
 
 export const clinicDashboardWorkspacePrototypeData = {
@@ -8,10 +9,26 @@ export const clinicDashboardWorkspacePrototypeData = {
     name: "Sarah Schmidt",
     role: "Clinic administrator",
   },
-  clinicIdentity: {
-    location: "Mitte, Berlin",
-    name: "Berlin Health Clinic — Mitte",
-  },
+  locations: [
+    {
+      id: "berlin-mitte",
+      location: "Mitte, Berlin",
+      name: "Berlin Health Clinic — Mitte",
+      selectorLabel: "Mitte",
+    },
+    {
+      id: "berlin-charlottenburg",
+      location: "Charlottenburg, Berlin",
+      name: "Berlin Health Clinic — Charlottenburg",
+      selectorLabel: "Charlottenburg",
+    },
+    {
+      id: "potsdam",
+      location: "Potsdam, Brandenburg",
+      name: "Berlin Health Clinic — Potsdam",
+      selectorLabel: "Potsdam",
+    },
+  ] satisfies readonly ClinicDashboardPrototypeLocation[],
   notifications: [
     {
       createdAt: "2023-10-12T10:45:00.000Z",
@@ -32,4 +49,5 @@ export const clinicDashboardWorkspacePrototypeData = {
       unread: true,
     },
   ] satisfies readonly ClinicDashboardNotification[],
+  organizationName: "Berlin Health Group",
 } as const

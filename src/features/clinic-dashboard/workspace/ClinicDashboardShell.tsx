@@ -14,7 +14,7 @@ type ClinicDashboardShellProps = Readonly<{
   accountMenu: ReactNode
   activeSection: ClinicDashboardSection
   children: ReactNode
-  clinicName: string
+  clinicIdentity: ReactNode
   headerActions?: ReactNode
   interfaceModeControls?: Readonly<{
     desktop: ReactNode
@@ -41,7 +41,7 @@ export function ClinicDashboardShell({
   accountMenu,
   activeSection,
   children,
-  clinicName,
+  clinicIdentity,
   headerActions,
   interfaceModeControls,
   items,
@@ -147,20 +147,9 @@ export function ClinicDashboardShell({
             >
               <Menu aria-hidden="true" className="size-5" />
             </Button>
-            <div className="min-w-0">
-              <div
-                aria-label={`Current clinic identity: ${clinicName}`}
-                className="text-xs leading-4 font-bold break-words sm:text-sm lg:truncate lg:text-base"
-                role="group"
-              >
-                {clinicName}
-              </div>
-              <div className="hidden truncate text-xs text-[var(--foreground)] lg:block">
-                Clinic workspace
-              </div>
-            </div>
+            {clinicIdentity}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {headerActions ? <div className="hidden items-center gap-2 sm:flex">{headerActions}</div> : null}
             {notificationCenter}
             {accountMenu}

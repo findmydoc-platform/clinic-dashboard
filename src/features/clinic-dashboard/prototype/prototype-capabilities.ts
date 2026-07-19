@@ -37,6 +37,12 @@ const clinicDashboardVisibilityPolicy = {
     presentation: "read-only",
     visualReference: "interactive",
   },
+  locationSwitching: {
+    area: "Prototype clinic location switching",
+    issue: websiteIssue(1523),
+    presentation: "hidden",
+    visualReference: "interactive",
+  },
   messaging: {
     area: "Conversation selection, composer, reply templates, attachments, notes, and sending",
     issue: websiteIssue(1530),
@@ -101,6 +107,7 @@ export type ClinicDashboardCapabilities = Readonly<{
   canUseDashboardReporting: boolean
   canUseMessaging: boolean
   canViewDetailedPatientInquiry: boolean
+  canSwitchLocations: boolean
   profileManagement: VisibilityBehavior
   showCertificateTasks: boolean
   showCertificatesAccreditationsPlaceholder: boolean
@@ -124,6 +131,7 @@ export function deriveClinicDashboardCapabilities(
     canUseDashboardReporting: isInteractive(visibility.dashboardReporting),
     canUseMessaging: isInteractive(visibility.messaging),
     canViewDetailedPatientInquiry: isInteractive(visibility.inquiryProfile),
+    canSwitchLocations: isInteractive(visibility.locationSwitching),
     profileManagement: visibility.profileWrites,
     showCertificateTasks: isInteractive(visibility.certificateTasks),
     showCertificatesAccreditationsPlaceholder: visibility.certificatesAccreditationsPlaceholder !== "hidden",
@@ -145,6 +153,7 @@ export function getClinicDashboardCapabilities(
     ),
     dashboardReporting: getVisibilityBehavior(prototypeMode, "dashboardReporting"),
     inquiryProfile: getVisibilityBehavior(prototypeMode, "inquiryProfile"),
+    locationSwitching: getVisibilityBehavior(prototypeMode, "locationSwitching"),
     messaging: getVisibilityBehavior(prototypeMode, "messaging"),
     notifications: getVisibilityBehavior(prototypeMode, "notifications"),
     profileWrites: getVisibilityBehavior(prototypeMode, "profileWrites"),

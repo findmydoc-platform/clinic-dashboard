@@ -17,7 +17,12 @@ const meta = {
         Dashboard content
       </div>
     ),
-    clinicName: "Berlin Health Clinic — Mitte",
+    clinicIdentity: (
+      <div aria-label="Current clinic identity: Berlin Health Clinic — Mitte" role="group">
+        <div className="text-sm font-bold">Berlin Health Clinic — Mitte</div>
+        <div className="text-xs">Berlin Health Group</div>
+      </div>
+    ),
     items: clinicDashboardNavigationItems,
     onSectionSelect: fn(),
     onSupportRequest: fn(),
