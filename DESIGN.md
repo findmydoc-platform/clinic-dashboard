@@ -429,7 +429,7 @@ The palette is built from a clear medical blue, a deep navy anchor, a mint accen
 - **Primary hover (#004EA5):** The canonical darker primary interaction state. Runtime CSS may derive this with `color-mix`, but generated tokens should use the hex value.
 - **Secondary (#07004C):** The deep brand anchor. Use it for high-confidence headings, dense filters, and trustworthy summary states.
 - **Accent (#42E2B7):** A mint signal for positive affordances, selected operational states, and accent surfaces. Pair filled accent states with accent foreground/navy. Do not use it as ordinary text on white; default links use primary.
-- **Clinic Dashboard accent balance:** Use accent for the current navigation destination, selected segmented controls, positive funnel outcomes, selected list rows, and small guidance surfaces. Keep primary blue for calls to action, links, outgoing messages, focus rings, and chart series. An active chart point may use accent while the underlying series remains blue. Do not turn multiple large dashboard surfaces mint in the same viewport.
+- **Clinic Dashboard accent balance:** Use accent for the current navigation destination, selected segmented controls, selected funnel stages, selected list rows, and small guidance surfaces. Keep primary blue for calls to action, links, outgoing messages, focus rings, and chart series. An active chart point may use accent while the underlying series remains blue. Do not turn multiple large dashboard surfaces mint in the same viewport.
 - **Muted (#F8F9FA):** The public site canvas, chrome, and structural section background. This keeps clinical content open without pure-white page glare.
 - **Card and popover (#FFFFFF):** Use white for repeated cards, dialogs, floating panels, popovers, and form surfaces on muted backgrounds.
 - **Foreground (#333333):** Default body text. Keep long-form content on foreground or secondary, not muted foreground.
@@ -601,7 +601,7 @@ State styling is part of the design contract, not a local implementation detail.
 | Cards/lists      | Selected/current  | Use a soft accent-derived surface plus an accent edge; keep body text foreground or secondary.                                     | Pair the visual state with `aria-current`, `aria-selected`, or the owning interaction pattern.                  |
 | Cards/lists      | Empty             | Use concise empty copy plus the next available action or recovery path.                                                            | Empty states must be reachable by keyboard and screen readers like normal content.                              |
 | Charts           | Active point      | Keep the data series primary blue and use accent only for the focused or hovered mark.                                             | The point remains keyboard focusable and exposes its value without relying on color.                            |
-| Funnels          | Positive outcome  | Use accent with accent foreground for the final positive stage; preceding stages stay neutral.                                     | Keep the stage label and value visible so color is never the only outcome cue.                                  |
+| Funnels          | Selected stage    | Use accent with accent foreground and no persistent border; every inactive stage, including the final stage, stays neutral.        | Use `aria-pressed`; keep the stage label and value visible so color is never the only selection cue.            |
 
 ## Trust Surface Contract
 
