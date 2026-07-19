@@ -55,7 +55,7 @@ export function ConversionFunnel({
       </div>
       <ol
         aria-label="Conversion stages"
-        className="flex list-none flex-col p-4 xl:grid xl:grid-cols-[minmax(0,9rem)_minmax(4.5rem,1fr)_minmax(0,9rem)_minmax(4.5rem,1fr)_minmax(0,9rem)_minmax(4.5rem,1fr)_minmax(0,9rem)_minmax(4.5rem,1fr)_minmax(0,9rem)] xl:p-5"
+        className="flex list-none flex-col p-4 xl:grid xl:grid-cols-[minmax(0,10rem)_minmax(7.5rem,1fr)_minmax(0,10rem)_minmax(7.5rem,1fr)_minmax(0,10rem)_minmax(7.5rem,1fr)_minmax(0,10rem)_minmax(7.5rem,1fr)_minmax(0,10rem)] xl:p-5"
         role="list"
       >
         {steps.map((step, index) => {
@@ -77,12 +77,12 @@ export function ConversionFunnel({
                 aria-controls={controlsId}
                 aria-pressed={isSelected}
                 className={cn(
-                  "relative min-h-36 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 text-center shadow-xs transition-colors",
-                  "hover:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-                  "xl:max-w-36",
-                  isSelected && "border-[var(--primary)] ring-2 ring-[var(--primary)] ring-offset-2",
-                  isFinalStep &&
-                    "border-[var(--accent)] bg-[var(--accent-soft)] hover:border-[var(--primary)]",
+                  "relative min-h-36 w-full rounded-xl p-4 text-center shadow-xs transition-colors",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+                  "xl:max-w-40",
+                  isSelected
+                    ? "border-0 bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] hover:border-[var(--primary)]",
                 )}
                 data-funnel-stage={step.metricId}
                 onClick={() => onMetricSelect(step.metricId)}
@@ -90,10 +90,20 @@ export function ConversionFunnel({
               >
                 <FunnelIcon
                   aria-hidden="true"
-                  className="mx-auto size-6 text-[var(--primary)]"
+                  className={cn(
+                    "mx-auto size-6",
+                    isSelected ? "text-[var(--accent-foreground)]" : "text-[var(--primary)]",
+                  )}
                   data-funnel-icon={iconConfig.name}
                 />
-                <span className="mt-3 block text-xs font-medium text-[var(--foreground)]">{step.label}</span>
+                <span
+                  className={cn(
+                    "mt-3 block text-xs font-medium",
+                    isSelected ? "text-[var(--accent-foreground)]" : "text-[var(--foreground)]",
+                  )}
+                >
+                  {step.label}
+                </span>
                 <span className="relative mt-2 flex min-h-8 items-center justify-center px-5">
                   <strong className="text-2xl tracking-tight">{step.value}</strong>
                   <ChevronRight aria-hidden="true" className="absolute right-0 size-5" data-funnel-chevron />
@@ -105,7 +115,7 @@ export function ConversionFunnel({
                   data-funnel-connector
                 >
                   <span
-                    className="max-w-24 text-[11px] leading-tight font-bold text-[var(--primary)]"
+                    className="text-[11px] leading-tight font-bold whitespace-nowrap text-[var(--primary)]"
                     data-funnel-conversion
                   >
                     {nextStep?.conversion}

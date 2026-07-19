@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { useState, type ComponentProps } from "react"
-import { expect, fn, userEvent, within } from "storybook/test"
+import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { dashboardViewModel } from "../../testing/dashboard.fixtures"
 import { ConversionFunnel } from "./ConversionFunnel"
 
@@ -49,13 +49,14 @@ async function expectSevenDayJourney(canvasElement: HTMLElement) {
 function getFunnelLayout(canvasElement: HTMLElement) {
   const stages = Array.from(canvasElement.querySelectorAll<HTMLButtonElement>("[data-funnel-stage]"))
   const connectors = Array.from(canvasElement.querySelectorAll<HTMLElement>("[data-funnel-connector]"))
+  const conversions = Array.from(canvasElement.querySelectorAll<HTMLElement>("[data-funnel-conversion]"))
   const arrows = Array.from(canvasElement.querySelectorAll<SVGElement>("[data-funnel-arrow]"))
 
-  if (stages.length !== 5 || connectors.length !== 4 || arrows.length !== 4) {
+  if (stages.length !== 5 || connectors.length !== 4 || conversions.length !== 4 || arrows.length !== 4) {
     throw new Error("Expected five funnel stages and four conversion connectors")
   }
 
-  return { arrows, connectors, stages }
+  return { arrows, connectors, conversions, stages }
 }
 
 async function expectStackedFunnel(canvasElement: HTMLElement) {
@@ -80,11 +81,21 @@ async function expectStackedFunnel(canvasElement: HTMLElement) {
 async function expectInteractiveStages(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
   const impressions = canvas.getByRole("button", { name: "Impressions 4,680" })
+  const profileViews = canvas.getByRole("button", { name: "Profile views 848" })
   const inquiries = canvas.getByRole("button", { name: "Inquiries 5" })
+  const selectedBackground = getComputedStyle(profileViews).backgroundColor
+  const inactiveBackground = getComputedStyle(impressions).backgroundColor
 
+  await expect(profileViews).toHaveAttribute("aria-pressed", "true")
+  await expect(selectedBackground).not.toBe(inactiveBackground)
+  await expect(getComputedStyle(profileViews).borderTopWidth).toBe("0px")
+  await expect(getComputedStyle(inquiries).backgroundColor).toBe(inactiveBackground)
   await expect(impressions).toHaveAttribute("aria-pressed", "false")
   await userEvent.click(impressions)
   await expect(impressions).toHaveAttribute("aria-pressed", "true")
+  await waitFor(() => expect(getComputedStyle(impressions).backgroundColor).toBe(selectedBackground))
+  await expect(getComputedStyle(impressions).borderTopWidth).toBe("0px")
+  await waitFor(() => expect(getComputedStyle(profileViews).backgroundColor).toBe(inactiveBackground))
   await expect(canvas.getByText("Impressions funnel stage selected.")).toBeInTheDocument()
 
   inquiries.focus()
@@ -115,11 +126,12 @@ export const Desktop1440Layout: Story = {
   play: async ({ canvasElement }) => {
     await expectSevenDayJourney(canvasElement)
 
-    const { arrows, connectors, stages } = getFunnelLayout(canvasElement)
+    const { arrows, connectors, conversions, stages } = getFunnelLayout(canvasElement)
     const stageBounds = stages.map((stage) => stage.getBoundingClientRect())
 
     for (const bounds of stageBounds) {
-      await expect(bounds.width).toBeLessThanOrEqual(144.5)
+      await expect(bounds.width).toBeGreaterThanOrEqual(159.5)
+      await expect(bounds.width).toBeLessThanOrEqual(160.5)
       await expect(Math.abs(bounds.width - stageBounds[0].width)).toBeLessThanOrEqual(0.5)
       await expect(Math.abs(bounds.top - stageBounds[0].top)).toBeLessThanOrEqual(0.5)
     }
@@ -137,6 +149,8 @@ export const Desktop1440Layout: Story = {
       await expect(arrowBounds.right).toBeLessThanOrEqual(nextStage.left + 0.5)
       await expect(connectorBounds.left).toBeGreaterThanOrEqual(currentStage.right - 0.5)
       await expect(connectorBounds.right).toBeLessThanOrEqual(nextStage.left + 0.5)
+      await expect(getComputedStyle(conversions[index]).whiteSpace).toBe("nowrap")
+      await expect(conversions[index].scrollWidth).toBeLessThanOrEqual(conversions[index].clientWidth)
     }
   },
 }
