@@ -85,7 +85,7 @@ function FunnelConversionInfo({
       <button
         aria-describedby={isOpen ? tooltipId : undefined}
         aria-label={`Show conversion from ${fromLabel} to ${toLabel}`}
-        className="relative z-10 inline-flex size-11 items-center justify-center rounded-md text-[var(--primary)] transition-colors hover:bg-[var(--accent-soft)] focus-visible:bg-[var(--accent-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="relative z-10 inline-flex size-11 items-center justify-center rounded-md text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         data-funnel-info-trigger
         onBlur={() => onOpenChange(connectorId, false)}
         onClick={() => onOpenChange(connectorId, true)}
@@ -101,7 +101,7 @@ function FunnelConversionInfo({
       </button>
       {isOpen ? (
         <span
-          className="absolute bottom-[calc(50%+1.5rem)] left-1/2 z-20 w-max max-w-48 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--popover)] px-3 py-2 text-xs font-bold whitespace-nowrap text-[var(--popover-foreground)] shadow-xs"
+          className="absolute bottom-[calc(50%+1.5rem)] left-1/2 z-20 w-max max-w-48 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs font-bold whitespace-nowrap text-[var(--foreground)] shadow-xs"
           data-funnel-tooltip
           id={tooltipId}
           role="tooltip"

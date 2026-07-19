@@ -604,6 +604,8 @@ State styling is part of the design contract, not a local implementation detail.
 | Funnels          | Selected stage    | Use accent with accent foreground and no persistent border; every inactive stage, including the final stage, stays neutral.        | Use `aria-pressed`; keep the stage label and value visible so color is never the only selection cue.            |
 | Funnels          | Conversion info   | Use a small primary info icon above a standalone directional arrow; show the conversion in a compact popover surface.              | Open on hover, focus, or tap; support Escape and focus-loss dismissal without making the arrow interactive.     |
 
+Conversion-info triggers keep their 44px target unfilled on hover so the icon remains visible. Their popover surface must be fully opaque.
+
 ## Trust Surface Contract
 
 Trust surfaces must show what is known, where it came from, how current it is when available, and what is missing. Do not imply clinical quality, pricing certainty, availability, or verification beyond the available source.
