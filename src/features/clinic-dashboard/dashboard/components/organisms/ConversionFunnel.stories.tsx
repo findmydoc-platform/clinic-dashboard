@@ -93,13 +93,16 @@ async function expectStackedFunnel(canvasElement: HTMLElement) {
 async function expectConversionInfoInteractions(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
   const triggers = canvas.getAllByRole("button", { name: /Show conversion from/ })
+  const restingTriggerBackground = getComputedStyle(triggers[0]).backgroundColor
 
   await userEvent.hover(triggers[0])
-  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("18.1% of impressions")
-  await expect(triggers[0]).toHaveAttribute(
-    "aria-describedby",
-    canvas.getByRole("tooltip").getAttribute("id"),
-  )
+  const tooltip = await canvas.findByRole("tooltip")
+
+  await expect(tooltip).toHaveTextContent("18.1% of impressions")
+  await expect(getComputedStyle(triggers[0]).backgroundColor).toBe(restingTriggerBackground)
+  await expect(getComputedStyle(tooltip).backgroundColor).not.toBe("rgba(0, 0, 0, 0)")
+  await expect(getComputedStyle(tooltip).backgroundColor).not.toBe("transparent")
+  await expect(triggers[0]).toHaveAttribute("aria-describedby", tooltip.getAttribute("id"))
 
   await userEvent.unhover(triggers[0])
   await waitFor(() => expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument())
