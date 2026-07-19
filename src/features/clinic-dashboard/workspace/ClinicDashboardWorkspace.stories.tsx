@@ -20,39 +20,28 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 
-export const VisualReferenceLocationSwitching: Story = {
+export const StaticClinicIdentityAt320: Story = {
   args: { prototypeMode: "visual-reference" },
+  globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const header = within(canvas.getByRole("banner"))
     const dashboardLocation = within(
       canvas.getByRole("region", { name: "Dashboard clinic location summary" }),
     )
-    const locationSelector = canvas.getByRole("combobox", { name: "Clinic location" })
-
-    await expect(locationSelector).toHaveValue("berlin-mitte")
-    await expect(locationSelector).toHaveDisplayValue("Mitte")
+    await expect(canvas.queryByRole("combobox", { name: "Clinic location" })).not.toBeInTheDocument()
     await expect(
       header.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
     ).toBeInTheDocument()
     await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
-
-    await userEvent.selectOptions(locationSelector, "berlin-charlottenburg")
-    await expect(locationSelector).toHaveDisplayValue("Charlottenburg")
-
-    await expect(
-      header.getByRole("group", {
-        name: "Current clinic identity: Berlin Health Clinic — Charlottenburg",
-      }),
-    ).toBeInTheDocument()
-    await expect(dashboardLocation.getByText("Charlottenburg, Berlin")).toBeInTheDocument()
     await expect(
       canvas.getByRole("button", { name: "Open account menu for Sarah Schmidt" }),
     ).toBeInTheDocument()
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }
 
-export const PresentationUsesDefaultLocation: Story = {
+export const PresentationUsesStaticClinicIdentity: Story = {
   args: { prototypeMode: "presentation" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -69,20 +58,6 @@ export const PresentationUsesDefaultLocation: Story = {
   },
 }
 
-export const LocationSwitchingAt320: Story = {
-  args: { prototypeMode: "visual-reference" },
-  globals: { viewport: { value: "mobile320Short" } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const locationSelector = canvas.getByRole("combobox", { name: "Clinic location" })
-
-    await userEvent.selectOptions(locationSelector, "berlin-charlottenburg")
-    await expect(locationSelector).toHaveValue("berlin-charlottenburg")
-    await expect(locationSelector).toHaveDisplayValue("Charlottenburg")
-    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
-  },
-}
-
 export const Mobile: Story = {
   args: { prototypeMode: "visual-reference" },
   globals: { viewport: { value: "mobile390Tall" } },
@@ -90,6 +65,11 @@ export const Mobile: Story = {
     const canvas = within(canvasElement)
 
     await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
+    await expect(
+      canvas.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
+    ).toBeInTheDocument()
+    await expect(canvas.queryByRole("combobox", { name: "Clinic location" })).not.toBeInTheDocument()
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
     await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
     await userEvent.click(
       within(canvas.getByRole("dialog", { name: "Clinic navigation" })).getByRole("button", {
@@ -168,7 +148,7 @@ export const VisualReferenceCertificatesAndAccreditations: Story = {
   render: () => <ClinicDashboardWorkspaceHarness prototypeMode="visual-reference" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const destination = canvas.getByRole("button", { name: "Certificates and accreditations" })
+    const destination = canvas.getByRole("button", { name: "Credentials" })
 
     await userEvent.click(destination)
 
@@ -195,9 +175,7 @@ export const PresentationHidesCertificatesAndAccreditations: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(
-      canvas.queryByRole("button", { name: "Certificates and accreditations" }),
-    ).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "Credentials" })).not.toBeInTheDocument()
     await expect(
       canvas.queryByRole("heading", { level: 1, name: "Certificates and accreditations" }),
     ).not.toBeInTheDocument()
@@ -223,14 +201,14 @@ export const CertificatesAndAccreditationsAt320: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
 
     const navigation = within(canvas.getByRole("dialog", { name: "Clinic navigation" }))
-    const destination = navigation.getByRole("button", { name: "Certificates and accreditations" })
-    const label = within(destination).getByText("Certificates and accreditations")
+    const destination = navigation.getByRole("button", { name: "Credentials" })
+    const label = within(destination).getByText("Credentials")
 
     await expect(destination).toHaveAttribute("aria-current", "page")
     await expect(destination.scrollWidth).toBeLessThanOrEqual(destination.clientWidth)
     await expect(destination.scrollHeight).toBeLessThanOrEqual(destination.clientHeight)
     await expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
-    await expect(label.getBoundingClientRect().height).toBeGreaterThan(20)
+    await expect(label).toBeVisible()
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }

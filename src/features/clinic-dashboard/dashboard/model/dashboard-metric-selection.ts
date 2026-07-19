@@ -30,6 +30,11 @@ export const dashboardMetricDefinitions = {
     totalKey: "inquiries",
     valueLabels: { plural: "inquiries", singular: "inquiry" },
   },
+  uniqueVisitors: {
+    label: "Unique visitors",
+    totalKey: "uniqueVisitors",
+    valueLabels: { plural: "unique visitors", singular: "unique visitor" },
+  },
   views: {
     label: "Profile views",
     totalKey: "profileViews",
@@ -64,6 +69,14 @@ function getMetricDelta(metrics: readonly DashboardMetric[], metricId: Dashboard
   return metric.delta
 }
 
+function getMetricComparison(reporting: DashboardReportingSnapshot, metricId: DashboardSelectableMetricId) {
+  if (metricId === "uniqueVisitors") {
+    return `${((reporting.totals.uniqueVisitors / reporting.totals.profileViews) * 100).toFixed(1)}% of profile views`
+  }
+
+  return `${getMetricDelta(reporting.metrics, metricId)} vs. previous ${reporting.period}`
+}
+
 export function createDashboardMetricSelection(
   reporting: DashboardReportingSnapshot,
   metricId: DashboardSelectableMetricId,
@@ -73,7 +86,7 @@ export function createDashboardMetricSelection(
   const cadenceLabel = reporting.chart.cadence === "daily" ? "Daily" : "Weekly"
 
   return {
-    comparison: `${getMetricDelta(reporting.metrics, metricId)} vs. previous ${reporting.period}`,
+    comparison: getMetricComparison(reporting, metricId),
     description: `${cadenceLabel} ${definition.valueLabels.plural} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic prototype data; not live analytics.`,
     id: metricId,
     points: reporting.chart.series[metricId],

@@ -13,7 +13,13 @@ import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/
 
 describe("dashboard metric selection", () => {
   it("keeps the eligible metric set explicit and excludes profile completion", () => {
-    expect(dashboardSelectableMetricIds).toEqual(["impressions", "views", "contacts", "inquiries"])
+    expect(dashboardSelectableMetricIds).toEqual([
+      "impressions",
+      "views",
+      "uniqueVisitors",
+      "contacts",
+      "inquiries",
+    ])
     expect(dashboardSelectableMetricIds.every(isDashboardSelectableMetricId)).toBe(true)
     expect(isDashboardSelectableMetricId("completion")).toBe(false)
   })
@@ -47,5 +53,12 @@ describe("dashboard metric selection", () => {
         ])
       }
     }
+  })
+
+  it("uses the funnel conversion as context for unique visitors", () => {
+    const selection = createDashboardMetricSelection(dashboardFixture.reporting["30 days"], "uniqueVisitors")
+
+    expect(selection.title).toBe("Unique visitors over time")
+    expect(selection.comparison).toBe("64.1% of profile views")
   })
 })

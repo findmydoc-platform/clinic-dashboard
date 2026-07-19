@@ -1,7 +1,6 @@
 "use client"
 
-import { MoveHorizontal } from "lucide-react"
-import { useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
 import type { DashboardChartPoint } from "../../model/reporting"
 import { createDashboardChartGeometry } from "../../model/chart-geometry"
 
@@ -20,13 +19,35 @@ function formatPointValue(value: number, valueLabels: DashboardMetricChartProps[
 
 export function DashboardMetricChart({ description, points, valueLabels }: DashboardMetricChartProps) {
   const gradientId = useId().replaceAll(":", "")
-  const scrollHintId = useId()
+  const chartViewportRef = useRef<HTMLDivElement | null>(null)
   const pointRefs = useRef<Array<SVGGElement | null>>([])
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [chartWidth, setChartWidth] = useState(600)
   const [tabIndex, setTabIndex] = useState(0)
-  const chartWidth = Math.max(600, (points.length - 1) * 52 + 60)
-  const { area, coordinates, line } = createDashboardChartGeometry(points, chartWidth)
+  const chartHeight = 416
+  const chartGridLines = [0.15, 0.4, 0.65, 0.9].map((position) => position * chartHeight)
+  const { area, coordinates, line } = createDashboardChartGeometry(points, chartWidth, chartHeight)
   const activePoint = activeIndex === null ? undefined : coordinates[activeIndex]
+
+  useEffect(() => {
+    const viewport = chartViewportRef.current
+
+    if (!viewport) return
+
+    const updateChartWidth = () => {
+      const nextWidth = viewport.getBoundingClientRect().width
+
+      if (nextWidth > 0) {
+        setChartWidth((currentWidth) => (Math.abs(currentWidth - nextWidth) < 0.5 ? currentWidth : nextWidth))
+      }
+    }
+
+    updateChartWidth()
+    const resizeObserver = new ResizeObserver(updateChartWidth)
+    resizeObserver.observe(viewport)
+
+    return () => resizeObserver.disconnect()
+  }, [])
 
   const focusPoint = (index: number) => {
     setTabIndex(index)
@@ -58,21 +79,12 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
 
   return (
     <div className="max-w-full">
-      <p
-        className="mb-2 flex items-center gap-2 text-xs text-[var(--foreground)] sm:hidden"
-        id={scrollHintId}
-      >
-        <MoveHorizontal aria-hidden="true" className="size-4 shrink-0" />
-        Swipe or scroll to view every date.
-      </p>
-      <div className="max-w-full overflow-x-auto pb-2" data-chart-scroll>
+      <div className="max-w-full overflow-hidden pb-2" data-chart-viewport ref={chartViewportRef}>
         <svg
-          aria-describedby={scrollHintId}
           aria-label={description}
-          className="h-64 w-full"
+          className="h-[26rem] w-full"
           role="group"
-          style={{ minWidth: `${chartWidth}px` }}
-          viewBox={`0 0 ${chartWidth} 280`}
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
         >
           <title>{description}</title>
           <defs>
@@ -81,7 +93,7 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
               <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
             </linearGradient>
           </defs>
-          {[55, 125, 195, 265].map((y) => (
+          {chartGridLines.map((y) => (
             <line key={y} stroke="var(--border)" x1="30" x2={chartWidth - 30} y1={y} y2={y} />
           ))}
           <polygon fill={`url(#${gradientId})`} points={area} />
@@ -95,6 +107,10 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
           />
           {coordinates.map((point, index) => {
             const pointValue = formatPointValue(point.value, valueLabels)
+            const previousPoint = coordinates[index - 1]
+            const nextPoint = coordinates[index + 1]
+            const hitTargetStart = previousPoint ? (previousPoint.x + point.x) / 2 : 0
+            const hitTargetEnd = nextPoint ? (point.x + nextPoint.x) / 2 : chartWidth
 
             return (
               <g
@@ -114,13 +130,14 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
                 role="img"
                 tabIndex={tabIndex === index ? 0 : -1}
               >
-                <circle
+                <rect
                   className="cursor-pointer"
-                  cx={point.x}
-                  cy={point.y}
                   data-chart-point-hit-target
                   fill="transparent"
-                  r="25"
+                  height={chartHeight}
+                  width={Math.max(hitTargetEnd - hitTargetStart, 1)}
+                  x={hitTargetStart}
+                  y="0"
                 />
                 <circle
                   cx={point.x}
@@ -132,7 +149,14 @@ export function DashboardMetricChart({ description, points, valueLabels }: Dashb
                   strokeWidth={activeIndex === index ? 4 : 3}
                 />
                 {point.axisLabel ? (
-                  <text fill="var(--foreground)" fontSize="11" textAnchor="middle" x={point.x} y="270">
+                  <text
+                    data-chart-axis-label
+                    fill="var(--foreground)"
+                    fontSize="11"
+                    textAnchor="middle"
+                    x={point.x}
+                    y={chartHeight - 10}
+                  >
                     {point.axisLabel}
                   </text>
                 ) : null}

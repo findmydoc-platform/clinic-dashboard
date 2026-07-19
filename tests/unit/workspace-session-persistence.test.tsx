@@ -22,7 +22,6 @@ function renderController(persistWorkspaceStateInSession: boolean) {
       initialNotificationReadIds: [],
       initialNotificationsOpen: false,
       initialPatientInquiryOpen: false,
-      initialLocationId: "berlin-mitte",
       initialProfileTask,
       initialSection: "dashboard",
       notifications: notificationsFixture,
@@ -69,11 +68,9 @@ describe("workspace session persistence", () => {
 
     act(() => result.current.actions.setShowFullInterface(true))
     act(() => result.current.actions.markAllNotificationsRead())
-    act(() => result.current.actions.selectLocation("berlin-charlottenburg"))
 
     expect(result.current.model.activePrototypeMode).toBe("visual-reference")
     expect(result.current.model.notificationReadIds).toEqual(notificationsFixture.map(({ id }) => id))
-    expect(result.current.model.selectedLocationId).toBe("berlin-charlottenburg")
   })
 
   it("does not touch browser persistence or subscribe in local mode", () => {
@@ -86,7 +83,6 @@ describe("workspace session persistence", () => {
 
     act(() => result.current.actions.setShowFullInterface(true))
     act(() => result.current.actions.markAllNotificationsRead())
-    act(() => result.current.actions.selectLocation("berlin-charlottenburg"))
 
     expect(result.current.model.activePrototypeMode).toBe("visual-reference")
     expect(result.current.model.notificationReadIds).toEqual(notificationsFixture.map(({ id }) => id))
@@ -100,17 +96,5 @@ describe("workspace session persistence", () => {
     expect(dispatchEvent.mock.calls.some(({ 0: event }) => event.type.startsWith("clinic-dashboard-"))).toBe(
       false,
     )
-  })
-
-  it("restores the default location when the workspace controller is recreated", () => {
-    const firstRender = renderController(true)
-
-    act(() => firstRender.result.current.actions.selectLocation("berlin-charlottenburg"))
-    expect(firstRender.result.current.model.selectedLocationId).toBe("berlin-charlottenburg")
-    firstRender.unmount()
-
-    const reloadedRender = renderController(true)
-
-    expect(reloadedRender.result.current.model.selectedLocationId).toBe("berlin-mitte")
   })
 })

@@ -1,10 +1,8 @@
 import type { DashboardChartPoint } from "./reporting"
 
-const dashboardChartBounds = {
-  bottom: 235,
-  left: 30,
-  top: 25,
-} as const
+const dashboardChartHorizontalInset = 30
+const dashboardChartTopInset = 25
+const dashboardChartBottomInset = 45
 
 export type DashboardChartCoordinate = DashboardChartPoint &
   Readonly<{
@@ -21,8 +19,11 @@ export type DashboardChartGeometry = Readonly<{
 export function createDashboardChartGeometry(
   points: readonly DashboardChartPoint[],
   width = 600,
+  height = 280,
 ): DashboardChartGeometry {
-  const { bottom, left, top } = dashboardChartBounds
+  const bottom = height - dashboardChartBottomInset
+  const left = dashboardChartHorizontalInset
+  const top = dashboardChartTopInset
   const right = width - left
   const maximumValue = Math.max(0, ...points.map((point) => point.value))
   const chartMaximum = maximumValue * 1.1

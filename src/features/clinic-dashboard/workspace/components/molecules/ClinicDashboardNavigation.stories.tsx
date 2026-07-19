@@ -46,14 +46,14 @@ export const CertificatesAndAccreditationsAt320: Story = {
   ),
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const destination = canvas.getByRole("button", { name: "Certificates and accreditations" })
-    const label = within(destination).getByText("Certificates and accreditations")
+    const destination = canvas.getByRole("button", { name: "Credentials" })
+    const label = within(destination).getByText("Credentials")
 
     await expect(destination).toHaveAttribute("aria-current", "page")
     await expect(destination.scrollWidth).toBeLessThanOrEqual(destination.clientWidth)
     await expect(destination.scrollHeight).toBeLessThanOrEqual(destination.clientHeight)
     await expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
-    await expect(label.getBoundingClientRect().height).toBeGreaterThan(20)
+    await expect(label).toBeVisible()
 
     await userEvent.click(destination)
     await expect(args.onSectionSelect).toHaveBeenCalledWith("certificates-accreditations")

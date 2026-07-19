@@ -11,7 +11,6 @@ const gateIds = [
   "certificatesAccreditationsPlaceholder",
   "dashboardReporting",
   "inquiryProfile",
-  "locationSwitching",
   "messaging",
   "notifications",
   "profileWrites",
@@ -47,7 +46,6 @@ describe("clinic dashboard visibility contract", () => {
     )
 
     expect(getVisibilityBehavior("presentation", "messaging")).toBe("hidden")
-    expect(getVisibilityBehavior("presentation", "locationSwitching")).toBe("hidden")
     expect(getVisibilityBehavior("presentation", "certificateTasks")).toBe("hidden")
     expect(getVisibilityBehavior("presentation", "certificatesAccreditationsPlaceholder")).toBe("hidden")
     expect(getVisibilityBehavior("presentation", "notifications")).toBe("hidden")

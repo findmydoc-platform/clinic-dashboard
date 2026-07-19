@@ -1,6 +1,12 @@
 export const dashboardReportingPeriods = ["7 days", "30 days", "90 days"] as const
 
-export const dashboardSelectableMetricIds = ["impressions", "views", "contacts", "inquiries"] as const
+export const dashboardSelectableMetricIds = [
+  "impressions",
+  "views",
+  "uniqueVisitors",
+  "contacts",
+  "inquiries",
+] as const
 
 export type DashboardReportingPeriod = (typeof dashboardReportingPeriods)[number]
 
@@ -18,6 +24,7 @@ export type DashboardMetric = Readonly<{
 export type DashboardFunnelStep = Readonly<{
   conversion?: string
   label: string
+  metricId: DashboardSelectableMetricId
   value: string
 }>
 
@@ -56,7 +63,7 @@ export function isDashboardSelectableMetricId(
 }
 
 type DashboardReportingSnapshotInput = Readonly<{
-  changes: Readonly<Record<DashboardSelectableMetricId, string>>
+  changes: Readonly<Record<Exclude<DashboardSelectableMetricId, "uniqueVisitors">, string>>
   chart: Readonly<{
     cadence: "daily" | "weekly"
     dates: readonly Omit<DashboardChartPoint, "value">[]
@@ -83,6 +90,7 @@ const dashboardMetricTotalKeys = {
   contacts: "contacts",
   impressions: "impressions",
   inquiries: "inquiries",
+  uniqueVisitors: "uniqueVisitors",
   views: "profileViews",
 } as const satisfies Record<DashboardSelectableMetricId, keyof DashboardReportingSnapshot["totals"]>
 
@@ -112,6 +120,12 @@ export function createDashboardReportingSnapshot({
     contacts: createDashboardChartSeries(chart.dates, chart.series.contacts, "contacts", period),
     impressions: createDashboardChartSeries(chart.dates, chart.series.impressions, "impressions", period),
     inquiries: createDashboardChartSeries(chart.dates, chart.series.inquiries, "inquiries", period),
+    uniqueVisitors: createDashboardChartSeries(
+      chart.dates,
+      chart.series.uniqueVisitors,
+      "uniqueVisitors",
+      period,
+    ),
     views: createDashboardChartSeries(chart.dates, chart.series.views, "views", period),
   } satisfies Record<DashboardSelectableMetricId, readonly DashboardChartPoint[]>
 
@@ -132,25 +146,29 @@ export function createDashboardReportingSnapshot({
       series,
     },
     funnel: [
-      { label: "Impressions", value: formatCount(totals.impressions) },
+      { label: "Impressions", metricId: "impressions", value: formatCount(totals.impressions) },
       {
         conversion: `${toPercentage(totals.profileViews, totals.impressions)} of impressions`,
         label: "Profile views",
+        metricId: "views",
         value: formatCount(totals.profileViews),
       },
       {
         conversion: `${toPercentage(totals.uniqueVisitors, totals.profileViews)} of profile views`,
         label: "Unique visitors",
+        metricId: "uniqueVisitors",
         value: formatCount(totals.uniqueVisitors),
       },
       {
         conversion: `${toPercentage(totals.contacts, totals.uniqueVisitors)} of unique visitors`,
         label: "Contacts",
+        metricId: "contacts",
         value: formatCount(totals.contacts),
       },
       {
         conversion: `${toPercentage(totals.inquiries, totals.contacts)} of contacts`,
         label: "Inquiries",
+        metricId: "inquiries",
         value: formatCount(totals.inquiries),
       },
     ],

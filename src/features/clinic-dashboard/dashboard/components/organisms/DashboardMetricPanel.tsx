@@ -24,7 +24,7 @@ export function DashboardMetricPanel({
   const showDownload = canDownloadProfileViews && metric.id === "views"
 
   return (
-    <Card className="min-w-0" id={id}>
+    <Card className="flex h-full min-w-0 flex-col" id={id}>
       <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-5">
         <div className="min-w-0">
           <h2 className="text-xl font-bold text-[var(--secondary)]">{metric.title}</h2>
@@ -44,21 +44,22 @@ export function DashboardMetricPanel({
           </Button>
         ) : null}
       </div>
-      <div className="p-5">
+      <div className="flex flex-1 flex-col p-5">
         <DashboardMetricChart
           key={`${period}-${metric.id}`}
           description={metric.description}
           points={metric.points}
           valueLabels={metric.valueLabels}
         />
-        <dl className="grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-4 sm:grid-cols-4">
+        <dl className="mt-auto grid grid-cols-2 border-t border-[var(--border)] pt-4 sm:grid-cols-5">
           {metric.summary.map((item) => (
             <div
               aria-label={`${item.label}${item.isSelected ? ", selected metric" : ""}`}
               className={cn(
-                "border-l-2 pl-3",
+                "flex min-h-20 flex-col items-center justify-center border-t-2 px-2 text-center last:col-span-2 sm:last:col-span-1",
                 item.isSelected ? "border-[var(--accent)]" : "border-transparent",
               )}
+              data-dashboard-summary-item
               data-selected-summary={item.isSelected || undefined}
               key={item.id}
             >

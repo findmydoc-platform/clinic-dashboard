@@ -79,6 +79,19 @@ function getLowerDashboardColumns(canvasElement: HTMLElement) {
   }
 }
 
+function getMetricPanelLayout(canvasElement: HTMLElement) {
+  const chart = canvasElement.querySelector<SVGElement>("svg[role='group']")
+  const summaryItems = Array.from(
+    canvasElement.querySelectorAll<HTMLElement>("[data-dashboard-summary-item]"),
+  )
+
+  if (!chart || summaryItems.length !== 5) {
+    throw new Error("Expected the dashboard metric chart and five summary items")
+  }
+
+  return { chart, summaryItems }
+}
+
 export const FullCapabilities: Story = {
   args: {
     actions: {
@@ -130,11 +143,24 @@ export const Desktop1440Layout: Story = {
     const { columns, grid } = getLowerDashboardColumns(canvasElement)
     const [leftColumn, chartColumn, rightColumn] = columns
 
-    await expect(getComputedStyle(grid).alignItems).toBe("flex-start")
+    const columnBottoms = columns.map((column) => column.bottom)
+    const { chart, summaryItems } = getMetricPanelLayout(canvasElement)
+
+    await expect(getComputedStyle(grid).alignItems).toBe("stretch")
     await expect(Math.abs(chartColumn.top - leftColumn.top)).toBeLessThanOrEqual(0.5)
     await expect(Math.abs(rightColumn.top - leftColumn.top)).toBeLessThanOrEqual(0.5)
+    await expect(Math.max(...columnBottoms) - Math.min(...columnBottoms)).toBeLessThanOrEqual(0.5)
     await expect(chartColumn.width / leftColumn.width).toBeGreaterThanOrEqual(2)
     await expect(chartColumn.width / rightColumn.width).toBeGreaterThanOrEqual(2)
+    await expect(chart.getBoundingClientRect().height).toBeGreaterThanOrEqual(415.5)
+
+    for (const summaryItem of summaryItems) {
+      const styles = getComputedStyle(summaryItem)
+
+      await expect(styles.alignItems).toBe("center")
+      await expect(styles.justifyContent).toBe("center")
+      await expect(styles.textAlign).toBe("center")
+    }
   },
 }
 
@@ -150,38 +176,48 @@ export const NarrowViewport: Story = {
     await expect(chartColumn.top).toBeGreaterThan(profileColumn.bottom)
     await expect(summaryColumn.top).toBeGreaterThan(chartColumn.bottom)
     await expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth)
-    const chartScroll = canvasElement.querySelector<HTMLElement>("[data-chart-scroll]")
-    const pointHitTarget = canvasElement.querySelector<SVGCircleElement>("[data-chart-point-hit-target]")
+    const chartViewport = canvasElement.querySelector<HTMLElement>("[data-chart-viewport]")
+    const pointHitTarget = canvasElement.querySelector<SVGRectElement>("[data-chart-point-hit-target]")
 
-    if (!chartScroll || !pointHitTarget) throw new Error("Expected the dashboard chart scroll surface")
+    if (!chartViewport || !pointHitTarget) throw new Error("Expected the dashboard chart viewport")
 
-    await expect(within(canvasElement).getByText("Swipe or scroll to view every date.")).toBeVisible()
-    await expect(chartScroll.scrollWidth).toBeGreaterThan(chartScroll.clientWidth)
-    await expect(pointHitTarget.getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
+    await expect(
+      within(canvasElement).queryByText("Swipe or scroll to view every date."),
+    ).not.toBeInTheDocument()
+    await expect(chartViewport.scrollWidth).toBeLessThanOrEqual(chartViewport.clientWidth)
+    await expect(pointHitTarget.getBoundingClientRect().height).toBeGreaterThanOrEqual(415.5)
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }
 
-export const SelectableMetrics: Story = {
+export const FunnelControlsChart: Story = {
   args: FullCapabilities.args,
   render: (args) => <MetricSelectionHarness {...args} />,
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const completionText = canvas.getByText("Profile completion")
-    const profileViewsButton = canvas.getByRole("button", { name: /^Profile views\b/i })
+    const metricCards = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
+    const funnel = within(canvas.getByRole("list", { name: "Conversion stages" }))
+    const profileViewsButton = funnel.getByRole("button", { name: "Profile views 848" })
 
-    await expect(completionText.closest("button")).toBeNull()
+    await expect(metricCards.queryAllByRole("button")).toHaveLength(0)
+    await expect(metricCards.getByText("Profile completion").closest("button")).toBeNull()
+    await expect(metricCards.getByText("Profile views").closest("button")).toBeNull()
     await expect(profileViewsButton).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByRole("heading", { level: 2, name: "Profile views over time" })).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Download profile views" })).toBeVisible()
 
-    await userEvent.click(canvas.getByRole("button", { name: /^Impressions\b/i }))
+    await userEvent.click(funnel.getByRole("button", { name: "Impressions 4,680" }))
     await expect(args.actions.onMetricSelect).toHaveBeenLastCalledWith("impressions")
     await expect(canvas.getByRole("heading", { level: 2, name: "Impressions over time" })).toBeVisible()
     await expect(canvas.getByLabelText("Impressions, selected metric")).toBeVisible()
     await expect(canvas.queryByRole("button", { name: "Download profile views" })).not.toBeInTheDocument()
 
-    const contactsButton = canvas.getByRole("button", { name: /^Contacts\b/i })
+    await userEvent.click(funnel.getByRole("button", { name: "Unique visitors 543" }))
+    await expect(args.actions.onMetricSelect).toHaveBeenLastCalledWith("uniqueVisitors")
+    await expect(canvas.getByRole("heading", { level: 2, name: "Unique visitors over time" })).toBeVisible()
+    await expect(canvas.getAllByText("64.0% of profile views")).toHaveLength(2)
+
+    const contactsButton = funnel.getByRole("button", { name: "Contacts 12" })
     contactsButton.focus()
     await expect(contactsButton).toHaveFocus()
     await userEvent.keyboard("{Enter}")
@@ -197,7 +233,7 @@ export const SelectableMetrics: Story = {
   },
 }
 
-export const DarkMetricSelection: Story = {
-  ...SelectableMetrics,
+export const DarkFunnelSelection: Story = {
+  ...FunnelControlsChart,
   globals: { theme: "dark" },
 }

@@ -56,12 +56,13 @@ export const NarrowViewport: Story = {
   globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const scrollSurface = canvasElement.querySelector<HTMLElement>("[data-chart-scroll]")
+    const chartViewport = canvasElement.querySelector<HTMLElement>("[data-chart-viewport]")
 
-    if (!scrollSurface) throw new Error("Expected a horizontally scrollable dashboard chart")
+    if (!chartViewport) throw new Error("Expected the responsive dashboard chart viewport")
 
-    await expect(canvas.getByText("Swipe or scroll to view every date.")).toBeVisible()
-    await expect(scrollSurface.scrollWidth).toBeGreaterThan(scrollSurface.clientWidth)
+    await expect(canvas.queryByText("Swipe or scroll to view every date.")).not.toBeInTheDocument()
+    await expect(chartViewport.scrollWidth).toBeLessThanOrEqual(chartViewport.clientWidth)
+    await expect(canvasElement.querySelectorAll("[data-chart-axis-label]")).toHaveLength(7)
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }

@@ -50,6 +50,7 @@ describe("dashboard reporting fixtures", () => {
         contacts,
         impressions,
         inquiries,
+        uniqueVisitors,
         views: profileViews,
       }
 
@@ -96,6 +97,7 @@ describe("dashboard reporting fixtures", () => {
             contacts: [2],
             impressions: [100],
             inquiries: [1],
+            uniqueVisitors: [3],
             views: [4],
           },
         },
@@ -123,6 +125,7 @@ describe("dashboard reporting fixtures", () => {
             contacts: [2],
             impressions: [40, 60],
             inquiries: [0, 1],
+            uniqueVisitors: [1, 2],
             views: [2, 3],
           },
         },

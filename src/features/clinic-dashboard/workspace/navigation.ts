@@ -11,7 +11,7 @@ export const clinicDashboardNavigationItems = [
   { id: "reviews", label: "Reviews" },
   { id: "profile", label: "Clinic profile" },
   { id: "subscriptions", label: "Subscriptions" },
-  { id: "certificates-accreditations", label: "Certificates and accreditations" },
+  { id: "certificates-accreditations", label: "Credentials" },
 ] as const satisfies readonly ClinicDashboardNavigationItem[]
 
 type ClinicDashboardNavigationVisibility = Readonly<{

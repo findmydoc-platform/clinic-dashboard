@@ -17,7 +17,7 @@ const meta = {
         Dashboard content
       </div>
     ),
-    clinicName: "Berlin Health Clinic",
+    clinicName: "Berlin Health Clinic — Mitte",
     items: clinicDashboardNavigationItems,
     onSectionSelect: fn(),
     onSupportRequest: fn(),
