@@ -49,7 +49,7 @@ The preview workflow accepts only non-draft, same-repository, non-Dependabot pul
 ## Vercel
 
 - Team: `findmydoc`
-- Project: `findmydoc-clinic-dashboard`
+- Project: `clinic-dashboard`
 - Framework: Next.js
 - Node.js: 24.x
 - Automatic Git deployments: disabled

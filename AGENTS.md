@@ -36,6 +36,13 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 Recommend matching read-only reviewers before handoff and ask for confirmation before running them. Present all findings before applying reviewer-driven fixes.
 
+## Vercel Production Delivery
+
+- The canonical existing Vercel project for this repository is `clinic-dashboard` in the `findmydoc` team.
+- Before every deployment, confirm that `.vercel/project.json` resolves to `clinic-dashboard` and that `vercel project inspect clinic-dashboard --scope findmydoc` succeeds.
+- Production deployments must use a clean checkout of the latest `origin/main` and target only this existing project.
+- Never create, link, or deploy to an alternative Vercel project unless the user explicitly approves it.
+
 ## Light And Dark Mode
 
 - Treat light and dark mode as supported states for every UI change.
