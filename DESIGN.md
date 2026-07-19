@@ -602,6 +602,7 @@ State styling is part of the design contract, not a local implementation detail.
 | Cards/lists      | Empty             | Use concise empty copy plus the next available action or recovery path.                                                            | Empty states must be reachable by keyboard and screen readers like normal content.                              |
 | Charts           | Active point      | Keep the data series primary blue and use accent only for the focused or hovered mark.                                             | The point remains keyboard focusable and exposes its value without relying on color.                            |
 | Funnels          | Selected stage    | Use accent with accent foreground and no persistent border; every inactive stage, including the final stage, stays neutral.        | Use `aria-pressed`; keep the stage label and value visible so color is never the only selection cue.            |
+| Funnels          | Conversion info   | Use a small primary info icon above a standalone directional arrow; show the conversion in a compact popover surface.              | Open on hover, focus, or tap; support Escape and focus-loss dismissal without making the arrow interactive.     |
 
 ## Trust Surface Contract
 
