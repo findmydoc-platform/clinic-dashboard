@@ -27,7 +27,9 @@ Payload CORS expansion.
 1. Add environment validation and per-request Supabase server-client tests without replacing the temporary guard.
 2. Implement PKCE login, callback, refresh, logout, cookie propagation, exact origin validation, and the central
    session-bound HMAC-CSRF guard.
-3. Implement the server-only Payload client and typed error mapping against the exact website bootstrap branch.
+3. Implement the server-only Payload client against `GET /api/clinic-dashboard/bootstrap`. Validate the exact DTO with
+   `clinic-profile:view` and `clinic-profile:edit`, classify the three stable `CLINIC_DASHBOARD_*` error codes, and
+   preserve private no-store semantics.
 4. Add the server data layer and bootstrap Route Handler while keeping React Server Components on direct function
    calls.
 5. Replace the temporary guard only after local and trusted preview authentication, principal, cookie, CSRF, and
@@ -47,6 +49,10 @@ Payload CORS expansion.
 
 - Browser application data requests stay on the Dashboard origin and no browser request reaches Payload.
 - Browser JavaScript receives no Supabase access or refresh token.
+- The server-only client accepts only the exact bootstrap DTO and the two initial profile capability values.
+- `CLINIC_DASHBOARD_UNAUTHORIZED`, `CLINIC_DASHBOARD_ACCESS_DENIED`, and
+  `CLINIC_DASHBOARD_TEMPORARILY_UNAVAILABLE` produce the synchronized controlled states without exposing upstream
+  details.
 - Every authenticated mutation uses the shared session-bound HMAC-CSRF guard.
 - Server-rendered pages make no internal HTTP request to Dashboard Route Handlers.
 - Local and trusted Vercel previews complete PKCE against Staging and return to the original deployment URL.
