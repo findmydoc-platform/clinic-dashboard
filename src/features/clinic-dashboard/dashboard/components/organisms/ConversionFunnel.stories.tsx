@@ -172,13 +172,28 @@ export const Desktop1440Layout: Story = {
 
     const { arrows, connectors, infoTriggers, stages } = getFunnelLayout(canvasElement)
     const stageBounds = stages.map((stage) => stage.getBoundingClientRect())
+    const funnel = canvasElement.querySelector<HTMLOListElement>("[aria-label='Conversion stages']")
+
+    if (!funnel) throw new Error("Expected conversion stages list")
+
+    const funnelBounds = funnel.getBoundingClientRect()
+    const funnelStyles = getComputedStyle(funnel)
+    const funnelPadding = Number.parseFloat(funnelStyles.paddingLeft)
+    const connectorGap = Number.parseFloat(funnelStyles.columnGap)
+    const expectedStageWidth =
+      (funnelBounds.width - funnelPadding * 2 - connectorGap * (stages.length - 1)) / stages.length
 
     for (const bounds of stageBounds) {
-      await expect(bounds.width).toBeGreaterThanOrEqual(159.5)
-      await expect(bounds.width).toBeLessThanOrEqual(160.5)
+      await expect(bounds.width).toBeGreaterThanOrEqual(expectedStageWidth - 0.5)
+      await expect(bounds.width).toBeLessThanOrEqual(expectedStageWidth + 0.5)
       await expect(Math.abs(bounds.width - stageBounds[0].width)).toBeLessThanOrEqual(0.5)
       await expect(Math.abs(bounds.top - stageBounds[0].top)).toBeLessThanOrEqual(0.5)
     }
+
+    await expect(stageBounds[0].left - funnelBounds.left).toBeGreaterThanOrEqual(funnelPadding - 0.5)
+    await expect(stageBounds[0].left - funnelBounds.left).toBeLessThanOrEqual(funnelPadding + 0.5)
+    await expect(funnelBounds.right - stageBounds.at(-1)!.right).toBeGreaterThanOrEqual(funnelPadding - 0.5)
+    await expect(funnelBounds.right - stageBounds.at(-1)!.right).toBeLessThanOrEqual(funnelPadding + 0.5)
 
     for (const [index, arrow] of arrows.entries()) {
       const currentStage = stageBounds[index]
@@ -186,11 +201,12 @@ export const Desktop1440Layout: Story = {
       const arrowBounds = arrow.getBoundingClientRect()
       const connectorBounds = connectors[index].getBoundingClientRect()
 
-      await expect(nextStage.left - currentStage.right).toBeGreaterThanOrEqual(71.5)
+      await expect(nextStage.left - currentStage.right).toBeGreaterThanOrEqual(connectorGap - 0.5)
+      await expect(nextStage.left - currentStage.right).toBeLessThanOrEqual(connectorGap + 0.5)
       await expect(arrowBounds.width).toBeGreaterThanOrEqual(23.5)
       await expect(arrowBounds.width).toBeLessThanOrEqual(24.5)
-      await expect(connectorBounds.width).toBeGreaterThanOrEqual(79.5)
-      await expect(connectorBounds.width).toBeLessThanOrEqual(80.5)
+      await expect(connectorBounds.width).toBeGreaterThanOrEqual(connectorGap - 0.5)
+      await expect(connectorBounds.width).toBeLessThanOrEqual(connectorGap + 0.5)
       await expect(arrowBounds.left).toBeGreaterThanOrEqual(connectorBounds.left - 0.5)
       await expect(arrowBounds.right).toBeLessThanOrEqual(connectorBounds.right + 0.5)
       await expect(infoTriggers[index].getBoundingClientRect().width).toBeGreaterThanOrEqual(43.5)

@@ -78,7 +78,7 @@ function FunnelConversionInfo({
 
   return (
     <div
-      className="relative flex min-h-20 w-full flex-col items-center justify-center px-1 py-1 text-center xl:min-h-0"
+      className="relative flex min-h-20 w-full flex-col items-center justify-center px-1 py-1 text-center xl:absolute xl:top-1/2 xl:left-full xl:min-h-0 xl:w-20 xl:-translate-y-1/2 2xl:w-24"
       data-funnel-connector
       ref={containerRef}
     >
@@ -149,7 +149,7 @@ export function ConversionFunnel({
       </div>
       <ol
         aria-label="Conversion stages"
-        className="flex list-none flex-col p-4 xl:grid xl:grid-cols-[minmax(0,10rem)_5rem_minmax(0,10rem)_5rem_minmax(0,10rem)_5rem_minmax(0,10rem)_5rem_minmax(0,10rem)] xl:justify-center xl:p-5"
+        className="flex list-none flex-col p-4 xl:grid xl:grid-cols-[repeat(5,minmax(0,1fr))] xl:gap-x-20 xl:p-5 2xl:gap-x-24"
         role="list"
       >
         {steps.map((step, index) => {
@@ -160,20 +160,13 @@ export function ConversionFunnel({
           const nextStep = steps[index + 1]
 
           return (
-            <li
-              className={cn(
-                "flex min-w-0 flex-col items-center",
-                isFinalStep ? "xl:col-span-1" : "xl:col-span-2 xl:grid xl:grid-cols-subgrid",
-              )}
-              key={step.label}
-            >
+            <li className="relative flex min-w-0 flex-col items-center" key={step.label}>
               <button
                 aria-controls={controlsId}
                 aria-pressed={isSelected}
                 className={cn(
-                  "relative min-h-36 w-full rounded-xl p-4 text-center shadow-xs transition-colors",
+                  "relative min-h-36 w-full rounded-xl p-4 text-center shadow-xs transition-colors 2xl:min-h-40",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-                  "xl:max-w-40",
                   isSelected
                     ? "border-0 bg-[var(--accent)] text-[var(--accent-foreground)]"
                     : "border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] hover:border-[var(--primary)]",
