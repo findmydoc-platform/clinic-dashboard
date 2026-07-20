@@ -18,8 +18,17 @@ export type ConversationTreatment = Readonly<{
   name: string
 }>
 
+export type ConversationDoctor = Readonly<{
+  avatar?: MessageImageSource
+  id: string
+  initials: string
+  name: string
+  specialty: string
+}>
+
 export type ClinicConversation = Readonly<{
   avatar?: MessageImageSource
+  doctor: ConversationDoctor
   id: string
   initials: string
   name: string
@@ -35,7 +44,7 @@ export type ClinicMessage = Readonly<{
   body: string
   id: string
   read?: string
-  sender: "clinic" | "patient"
+  sender: "doctor" | "patient"
   time: string
 }>
 
@@ -109,6 +118,8 @@ export function filterConversations<Conversation extends ClinicConversation>(
   return conversations.filter((conversation) => {
     const searchableContent = [
       conversation.name,
+      conversation.doctor.name,
+      conversation.doctor.specialty,
       conversation.preview,
       conversation.treatment?.name,
       ...(conversation.treatment?.categoryPath ?? []),
@@ -138,12 +149,12 @@ export function getTotalUnreadCount(
   )
 }
 
-export function createLocalClinicMessage(body: string, index: number): ClinicMessage {
+export function createLocalDoctorMessage(body: string, index: number): ClinicMessage {
   return {
     body: body.trim(),
     id: `local-message-${index}`,
     read: "Read 11:08",
-    sender: "clinic",
+    sender: "doctor",
     time: "11:08",
   }
 }

@@ -39,7 +39,7 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
             <Avatar initials={initials} loading="eager" src={avatar} />
             <ChevronDown
               aria-hidden="true"
-              className={cn("size-4 transition-transform", open && "rotate-180")}
+              className={cn("hidden size-4 transition-transform sm:block", open && "rotate-180")}
             />
           </Button>
         </DropdownMenu.Trigger>

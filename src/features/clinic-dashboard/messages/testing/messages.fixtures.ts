@@ -8,6 +8,12 @@ export const messagesFixture = {
   conversations: [
     {
       avatar: lukasWeberAvatar,
+      doctor: {
+        id: "doctor-anna-keller",
+        initials: "AK",
+        name: "Dr Anna Keller",
+        specialty: "Hair restoration",
+      },
       id: "lukas-weber",
       initials: "LW",
       name: "Lukas Weber",
@@ -19,6 +25,12 @@ export const messagesFixture = {
     },
     {
       avatar: markusWeberAvatar,
+      doctor: {
+        id: "doctor-anna-keller",
+        initials: "AK",
+        name: "Dr Anna Keller",
+        specialty: "Hair restoration",
+      },
       id: "markus-schmidt",
       initials: "MS",
       name: "Markus Schmidt",
@@ -28,6 +40,12 @@ export const messagesFixture = {
     },
     {
       avatar: sarahSchmidtAvatar,
+      doctor: {
+        id: "doctor-marie-vogel",
+        initials: "MV",
+        name: "Dr Marie Vogel",
+        specialty: "Dermatology",
+      },
       id: "sarah-meyer",
       initials: "SM",
       name: "Sarah Meyer",
@@ -48,7 +66,7 @@ export const messagesFixture = {
       body: "Hello Mr Weber, thank you for your interest. For an initial assessment we normally need photos of the affected areas.",
       id: "message-2",
       read: "Read 10:52",
-      sender: "clinic",
+      sender: "doctor",
       time: "10:52",
     },
     {

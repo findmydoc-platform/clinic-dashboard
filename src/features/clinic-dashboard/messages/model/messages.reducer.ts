@@ -1,5 +1,5 @@
 import {
-  createLocalClinicMessage,
+  createLocalDoctorMessage,
   getConversationUnreadCount,
   type ClinicMessage,
   type MessagesSnapshot,
@@ -99,7 +99,7 @@ export function messagesReducer(
         draft: "",
         localMessages: [
           ...state.localMessages,
-          createLocalClinicMessage(message, state.localMessages.length + 1),
+          createLocalDoctorMessage(message, state.localMessages.length + 1),
         ],
       }
     }

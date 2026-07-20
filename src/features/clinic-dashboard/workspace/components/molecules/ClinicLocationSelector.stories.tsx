@@ -79,6 +79,8 @@ export const NarrowViewport: Story = {
     )
     await userEvent.click(potsdam)
     await expect(trigger).toHaveAccessibleName(/Current location: Berlin Health Clinic — Potsdam/)
+    await expect(canvas.getByText("Potsdam", { exact: true })).toBeVisible()
+    await expect(canvas.getByText("Berlin Health Clinic — Potsdam", { exact: true })).not.toBeVisible()
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }

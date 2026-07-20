@@ -1,41 +1,41 @@
-import sarahSchmidtAvatar from "./assets/people/sarah-schmidt.jpg"
+import personCAvatar from "./assets/people/person-c.jpg"
 import type { MasterTreatment } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { ClinicDashboardLocation } from "../workspace/public"
 
 export const clinicDashboardDemoAccount = {
-  avatar: sarahSchmidtAvatar,
-  initials: "SS",
-  name: "Sarah Schmidt",
+  avatar: personCAvatar,
+  initials: "SE",
+  name: "Selin Erdem",
   role: "Clinic administrator",
 } as const
 
 export const clinicDashboardDemoOrganization = {
-  id: "berlin-health-group",
-  name: "Berlin Health Group",
+  id: "avenora-health-group",
+  name: "Avenora Health Group",
 } as const
 
 export const clinicDashboardDemoLocations = [
   {
-    id: "berlin-mitte",
-    location: "Mitte, Berlin",
-    name: "Berlin Health Clinic — Mitte",
-    selectorLabel: "Mitte",
+    id: "istanbul-levent",
+    location: "Levent, İstanbul",
+    name: "Avenora Clinic — İstanbul",
+    selectorLabel: "İstanbul",
   },
   {
-    id: "berlin-charlottenburg",
-    location: "Charlottenburg, Berlin",
-    name: "Berlin Health Clinic — Charlottenburg",
-    selectorLabel: "Charlottenburg",
+    id: "izmir-alsancak",
+    location: "Alsancak, İzmir",
+    name: "Avenora Clinic — İzmir",
+    selectorLabel: "İzmir",
   },
   {
-    id: "potsdam",
-    location: "Potsdam, Brandenburg",
-    name: "Berlin Health Clinic — Potsdam",
-    selectorLabel: "Potsdam",
+    id: "antalya-lara",
+    location: "Lara, Antalya",
+    name: "Avenora Clinic — Antalya",
+    selectorLabel: "Antalya",
   },
 ] satisfies readonly ClinicDashboardLocation[]
 
-export const clinicDashboardDemoDefaultLocationId = "berlin-mitte"
+export const clinicDashboardDemoDefaultLocationId = "istanbul-levent"
 
 export const clinicDashboardDemoTreatmentCatalogue = [
   { id: "master-laser-teeth-whitening", name: "Laser teeth whitening" },

@@ -1,6 +1,6 @@
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 
-export const berlinCharlottenburgReviews = {
+export const izmirAlsancakReviews = {
   distribution: [
     { count: 355, percent: 73, stars: 5 },
     { count: 90, percent: 18.5, stars: 4 },
@@ -11,11 +11,11 @@ export const berlinCharlottenburgReviews = {
   items: [
     {
       age: "Today",
-      author: "Eva Lindner",
+      author: "Ceren Özkan",
       body: "The consultation was personal and the treatment options were explained with useful comparisons.",
       createdAt: "2026-07-19T07:20:00.000Z",
-      id: "berlin-charlottenburg-review-eva-lindner",
-      initials: "EL",
+      id: "izmir-alsancak-review-ceren-ozkan",
+      initials: "CÖ",
       internalNotes: [],
       pendingResponse: {
         response: "Thank you. We are pleased that the comparison of options was useful.",
@@ -29,11 +29,11 @@ export const berlinCharlottenburgReviews = {
     },
     {
       age: "3 days ago",
-      author: "Tobias Kramer",
+      author: "Ozan Şen",
       body: "A calm appointment, clear timings, and helpful follow-up information.",
       createdAt: "2026-07-16T16:10:00.000Z",
-      id: "berlin-charlottenburg-review-tobias-kramer",
-      initials: "TK",
+      id: "izmir-alsancak-review-ozan-sen",
+      initials: "OŞ",
       internalNotes: [],
       publishedResponse: "Thank you for your feedback about the appointment and follow-up.",
       rating: 5,
@@ -46,21 +46,21 @@ export const berlinCharlottenburgReviews = {
       author: "Anonymous patient",
       body: "The review is hidden while a privacy concern is assessed.",
       createdAt: "2026-07-14T12:40:00.000Z",
-      id: "berlin-charlottenburg-review-appeal-privacy",
+      id: "izmir-alsancak-review-appeal-privacy",
       initials: "AP",
       internalNotes: [],
       appealCase: {
         detail: "The review contains appointment details that may identify another person.",
         events: [
           {
-            id: "berlin-charlottenburg-appeal-event-1",
+            id: "izmir-alsancak-appeal-event-1",
             occurredAt: "2026-07-18T09:15:00.000Z",
             status: "submitted",
             type: "appeal-submitted",
           },
         ],
         reason: "Privacy concern",
-        reference: "APPEAL-BERLIN-CHARLOTTENBURG-PRIVACY",
+        reference: "APPEAL-IZMIR-ALSANCAK-PRIVACY",
         status: "submitted",
         submittedAt: "2026-07-18T09:15:00.000Z",
         updatedAt: "2026-07-18T09:15:00.000Z",
@@ -72,11 +72,11 @@ export const berlinCharlottenburgReviews = {
     },
     {
       age: "1 week ago",
-      author: "Katharina Busch",
+      author: "İpek Yalçın",
       body: "The reception team was attentive and the clinic felt well organised.",
       createdAt: "2026-07-11T10:00:00.000Z",
-      id: "berlin-charlottenburg-review-katharina-busch",
-      initials: "KB",
+      id: "izmir-alsancak-review-ipek-yalcin",
+      initials: "İY",
       internalNotes: [],
       publishedResponse: "Thank you. We have passed your feedback to the reception team.",
       rating: 5,
@@ -86,11 +86,11 @@ export const berlinCharlottenburgReviews = {
     },
     {
       age: "2 weeks ago",
-      author: "Robert Fink",
+      author: "Burak Eren",
       body: "The advice was useful, but I would have appreciated a shorter wait for the written summary.",
       createdAt: "2026-07-04T13:30:00.000Z",
-      id: "berlin-charlottenburg-review-robert-fink",
-      initials: "RF",
+      id: "izmir-alsancak-review-burak-eren",
+      initials: "BE",
       internalNotes: [],
       rating: 4,
       revision: 1,
@@ -99,11 +99,11 @@ export const berlinCharlottenburgReviews = {
     },
     {
       age: "1 month ago",
-      author: "Lea Sonntag",
+      author: "Aslı Tunç",
       body: "Professional consultation and a reassuring explanation of the alternatives.",
       createdAt: "2026-06-20T08:15:00.000Z",
-      id: "berlin-charlottenburg-review-lea-sonntag",
-      initials: "LS",
+      id: "izmir-alsancak-review-asli-tunc",
+      initials: "AT",
       internalNotes: [],
       publishedResponse: "Thank you for describing your consultation experience.",
       rating: 5,

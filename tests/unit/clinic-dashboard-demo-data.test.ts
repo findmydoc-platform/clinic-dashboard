@@ -8,27 +8,27 @@ import {
 } from "@/features/clinic-dashboard/dashboard/model/reporting"
 
 const expectedLocationReporting = {
-  "berlin-charlottenburg": {
-    "7 days": [3_140, 672, 438, 18, 7],
-    "30 days": [12_760, 2_740, 1_780, 61, 24],
-    "90 days": [35_920, 7_420, 4_860, 158, 62],
+  "antalya-lara": {
+    "7 days": [1_260, 292, 207, 10, 3],
+    "30 days": [4_960, 1_141, 804, 42, 13],
+    "90 days": [12_840, 2_928, 2_051, 105, 35],
   },
-  "berlin-mitte": {
-    "7 days": [4_680, 848, 543, 12, 5],
-    "30 days": [18_420, 3_284, 2_105, 42, 16],
-    "90 days": [53_680, 9_410, 6_006, 118, 45],
+  "istanbul-levent": {
+    "7 days": [4_680, 945, 652, 27, 9],
+    "30 days": [18_420, 3_702, 2_535, 104, 35],
+    "90 days": [53_680, 10_575, 7_194, 295, 102],
   },
-  potsdam: {
-    "7 days": [1_260, 286, 201, 10, 4],
-    "30 days": [4_960, 1_080, 758, 38, 15],
-    "90 days": [12_840, 2_760, 1_940, 91, 36],
+  "izmir-alsancak": {
+    "7 days": [3_140, 691, 470, 22, 8],
+    "30 days": [12_760, 2_780, 1_904, 91, 33],
+    "90 days": [35_920, 7_755, 5_313, 250, 92],
   },
 } as const
 
 const expectedProfiles = {
-  "berlin-charlottenburg": [91, 4.6, 486],
-  "berlin-mitte": [82, 4.8, 1_248],
-  potsdam: [64, 4.9, 92],
+  "antalya-lara": [64, 4.9, 92],
+  "istanbul-levent": [82, 4.8, 1_248],
+  "izmir-alsancak": [91, 4.6, 486],
 } as const
 
 function containsFunction(value: unknown): boolean {
@@ -67,8 +67,8 @@ describe("clinic dashboard demo workspace input", () => {
     const locationIds = input.locations.map(({ id }) => id)
 
     expect(input.dataSource).toBe("demo")
-    expect(input.defaultLocationId).toBe("berlin-mitte")
-    expect(locationIds).toEqual(["berlin-mitte", "berlin-charlottenburg", "potsdam"])
+    expect(input.defaultLocationId).toBe("istanbul-levent")
+    expect(locationIds).toEqual(["istanbul-levent", "izmir-alsancak", "antalya-lara"])
     expect(Object.keys(input.locationSnapshots).sort()).toEqual([...locationIds].sort())
     expect(input.locationSnapshots[input.defaultLocationId]).toBeDefined()
     expect(containsFunction(input)).toBe(false)
@@ -80,7 +80,7 @@ describe("clinic dashboard demo workspace input", () => {
     const locationsById = new Map(input.locations.map((location) => [location.id, location]))
 
     expect(new Set(input.notifications.map(({ locationId }) => locationId))).toEqual(
-      new Set(["berlin-mitte", "berlin-charlottenburg", "potsdam"]),
+      new Set(["istanbul-levent", "izmir-alsancak", "antalya-lara"]),
     )
     for (const notification of input.notifications) {
       const location = locationsById.get(notification.locationId)
@@ -168,6 +168,25 @@ describe("clinic dashboard demo workspace input", () => {
         expect(uniqueVisitors).toBeGreaterThan(contacts)
         expect(contacts).toBeGreaterThan(inquiries)
 
+        const [profileViewsRate, uniqueVisitorRate, contactRate, inquiryRate] = [
+          views / impressions,
+          uniqueVisitors / views,
+          contacts / uniqueVisitors,
+          inquiries / contacts,
+        ]
+        expect(profileViewsRate).toBeGreaterThanOrEqual(0.19)
+        expect(profileViewsRate).toBeLessThanOrEqual(0.24)
+        expect(uniqueVisitorRate).toBeGreaterThanOrEqual(0.67)
+        expect(uniqueVisitorRate).toBeLessThanOrEqual(0.72)
+        expect(contactRate).toBeGreaterThanOrEqual(0.04)
+        expect(contactRate).toBeLessThanOrEqual(0.055)
+        expect(inquiryRate).toBeGreaterThanOrEqual(0.3)
+        expect(inquiryRate).toBeLessThanOrEqual(0.37)
+
+        for (const metric of reporting.metrics) {
+          if (metric.delta) expect(metric.delta).toMatch(/^\+/u)
+        }
+
         const expectedSeriesTotals = { contacts, impressions, inquiries, uniqueVisitors, views }
         for (const metricId of dashboardSelectableMetricIds) {
           expect(reporting.chart.series[metricId].reduce((total, point) => total + point.value, 0)).toBe(
@@ -205,7 +224,18 @@ describe("clinic dashboard demo workspace input", () => {
       expect(activeConversation?.name).toBe(snapshot.patientInquiry.name)
       expect(activeConversation?.treatment?.name).toBe(snapshot.patientInquiry.interest)
       expect(snapshot.patientInquiry.email).toMatch(/@example\.com$/u)
-      expect(snapshot.clinicProfile.address.phone).toContain("0000")
+      expect(snapshot.clinicProfile.address.phone).toMatch(/000/u)
+      const doctorsById = new Map(snapshot.clinicProfile.team.map((doctor) => [doctor.id, doctor]))
+      for (const conversation of snapshot.messages.conversations) {
+        expect(doctorsById.get(conversation.doctor.id)).toMatchObject({
+          initials: conversation.doctor.initials,
+          name: conversation.doctor.name,
+          specialty: conversation.doctor.specialty,
+        })
+      }
+      expect(new Set(snapshot.messages.messages.map(({ sender }) => sender))).toEqual(
+        new Set(["doctor", "patient"]),
+      )
       expect(snapshot.reviews.items).toHaveLength(6)
       expect(snapshot.reviews.items.some(({ status }) => status === "Open")).toBe(true)
       expect(snapshot.reviews.items.some(({ status }) => status === "Answered")).toBe(true)

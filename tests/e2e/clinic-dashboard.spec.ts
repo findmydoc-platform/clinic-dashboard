@@ -49,7 +49,7 @@ test("switches complete location snapshots and resets local demo changes", async
   const dashboardLocation = page.getByRole("region", { name: "Dashboard clinic location summary" })
   const dashboardMetrics = page.getByRole("region", { name: "Dashboard metrics" })
 
-  await expect(locationSelector).toHaveAccessibleName(/Current location: Berlin Health Clinic — Mitte/)
+  await expect(locationSelector).toHaveAccessibleName(/Current location: Avenora Clinic — İstanbul/)
   await expect(dashboardMetrics.getByText("18,420")).toBeVisible()
   await expect(dashboardMetrics.getByText("82%")).toBeVisible()
   await page.getByRole("button", { name: "90 days" }).click()
@@ -57,46 +57,54 @@ test("switches complete location snapshots and resets local demo changes", async
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
   await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
-  await expect(locationSelector).toHaveAccessibleName(
-    /Current location: Berlin Health Clinic — Charlottenburg/,
-  )
-  await expect(dashboardLocation.getByText("Charlottenburg, Berlin")).toBeVisible()
+  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
+  await expect(locationSelector).toHaveAccessibleName(/Current location: Avenora Clinic — İzmir/)
+  await expect(dashboardLocation.getByText("Alsancak, İzmir")).toBeVisible()
   await expect(dashboardMetrics.getByText("35,920")).toBeVisible()
   await expect(dashboardMetrics.getByText("91%")).toBeVisible()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
   await page.getByRole("button", { name: "Messages" }).click()
-  await expect(page.getByRole("heading", { name: "Lina König" })).toBeVisible()
-  const localMessage = "Local Charlottenburg draft must not cross locations."
+  await expect(page.getByRole("heading", { name: "Leyla Demir" })).toBeVisible()
+  await expect(
+    page
+      .getByRole("region", { name: "Conversation between Leyla Demir and Dr Derya Aydın" })
+      .getByText("Dr Derya Aydın"),
+  ).toBeVisible()
+  const localMessage = "Local İzmir message must not cross locations."
   await page.getByRole("textbox", { name: "Write a message" }).fill(localMessage)
   await page.getByRole("button", { name: "Send message" }).click()
   await expect(page.getByText(localMessage)).toBeVisible()
 
   await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Potsdam/ }).click()
+  await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Mila Neumann" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Ece Arslan" })).toBeVisible()
+  await expect(
+    page
+      .getByRole("region", { name: "Conversation between Ece Arslan and Dr Zeynep Arslan" })
+      .getByText("Dr Zeynep Arslan"),
+  ).toBeVisible()
   await expect(page.getByText(localMessage)).toHaveCount(0)
 
   await page.getByRole("button", { name: "Reviews" }).click()
-  await expect(page.getByText("Greta Sommer")).toBeVisible()
+  await expect(page.getByText("Melis Güneş")).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByLabel("Clinic name")).toHaveValue("Berlin Health Clinic — Potsdam")
+  await expect(page.getByLabel("Clinic name")).toHaveValue("Avenora Clinic — Antalya")
 
   await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
+  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
   const clinicName = page.getByLabel("Clinic name")
-  await expect(clinicName).toHaveValue("Berlin Health Clinic — Charlottenburg")
-  await clinicName.fill("Locally edited Charlottenburg clinic")
+  await expect(clinicName).toHaveValue("Avenora Clinic — İzmir")
+  await clinicName.fill("Locally edited İzmir clinic")
   await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Potsdam/ }).click()
-  await expect(clinicName).toHaveValue("Berlin Health Clinic — Potsdam")
+  await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
+  await expect(clinicName).toHaveValue("Avenora Clinic — Antalya")
   await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
-  await expect(clinicName).toHaveValue("Berlin Health Clinic — Charlottenburg")
-  await expect(page.getByText("Locally edited Charlottenburg clinic")).toHaveCount(0)
+  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
+  await expect(clinicName).toHaveValue("Avenora Clinic — İzmir")
+  await expect(page.getByText("Locally edited İzmir clinic")).toHaveCount(0)
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
@@ -114,10 +122,10 @@ test("switches complete location snapshots and resets local demo changes", async
   await page.reload()
 
   await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-    /Current location: Berlin Health Clinic — Mitte/,
+    /Current location: Avenora Clinic — İstanbul/,
   )
   await expect(
-    page.getByRole("region", { name: "Dashboard clinic location summary" }).getByText("Mitte, Berlin"),
+    page.getByRole("region", { name: "Dashboard clinic location summary" }).getByText("Levent, İstanbul"),
   ).toBeVisible()
   await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "false")
@@ -126,12 +134,12 @@ test("switches complete location snapshots and resets local demo changes", async
 
   const reloadedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
   await reloadedLocationSelector.click()
-  await page.getByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }).click()
+  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
   await page.getByRole("button", { name: "Messages" }).click()
   await expect(page.getByText(localMessage)).toHaveCount(0)
   await expect(page.getByText(reloadMessage)).toHaveCount(0)
   await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByLabel("Clinic name")).toHaveValue("Berlin Health Clinic — Charlottenburg")
+  await expect(page.getByLabel("Clinic name")).toHaveValue("Avenora Clinic — İzmir")
   await expect(page.getByText("Active local clinic name before reload")).toHaveCount(0)
 })
 
@@ -185,9 +193,9 @@ test("opens the account menu and signs out", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  await page.getByRole("button", { name: "Open account menu for Sarah Schmidt" }).click()
+  await page.getByRole("button", { name: "Open account menu for Selin Erdem" }).click()
   const menu = page.getByRole("menu", { name: "Account menu" })
-  await expect(menu.getByText("Sarah Schmidt")).toBeVisible()
+  await expect(menu.getByText("Selin Erdem")).toBeVisible()
   await expect(menu.getByText("Clinic administrator")).toBeVisible()
   await menu.getByRole("menuitem", { name: "Sign out" }).click()
 
@@ -206,7 +214,7 @@ test("switches the workspace theme without hydration regressions", async ({ page
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  await page.getByRole("button", { name: "Open account menu for Sarah Schmidt" }).click()
+  await page.getByRole("button", { name: "Open account menu for Selin Erdem" }).click()
   const darkModeSwitch = page
     .getByRole("menu", { name: "Account menu" })
     .getByRole("menuitemcheckbox", { name: "Dark mode" })

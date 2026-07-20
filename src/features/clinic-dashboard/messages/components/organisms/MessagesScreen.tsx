@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { ArrowLeft, FileImage, FileText, MessageSquare, Search, Stethoscope } from "lucide-react"
+import { ArrowLeft, FileImage, FileText, MessageSquare, Search, Stethoscope, UserRound } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -123,7 +123,7 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
       </section>
 
       <section
-        aria-label={`Conversation with ${model.selectedConversation.name}`}
+        aria-label={`Conversation between ${model.selectedConversation.name} and ${model.selectedConversation.doctor.name}`}
         className={cn(
           "min-w-0 flex-col lg:flex",
           model.isInteractive ? "min-h-0 overflow-hidden" : "min-h-[42rem]",
@@ -159,22 +159,33 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
               <h2 className="hidden truncate text-lg font-bold text-[var(--secondary)] sm:text-xl lg:block">
                 {model.selectedConversation.name}
               </h2>
-              {model.selectedConversation.treatment ? (
-                <div className="mt-1 text-xs leading-5 sm:text-sm">
-                  <p className="flex items-center gap-1 text-[var(--foreground)]">
-                    <Stethoscope aria-hidden="true" className="size-4 shrink-0" />
-                    Treatment:{" "}
-                    <strong className="text-[var(--secondary)]">
-                      {model.selectedConversation.treatment.name}
-                    </strong>
-                  </p>
-                  {model.selectedConversation.treatment.categoryPath?.length ? (
-                    <p className="text-[var(--foreground)]">
-                      Category: {model.selectedConversation.treatment.categoryPath.join(" / ")}
+              <div className="mt-1 text-xs leading-5 sm:text-sm">
+                <p className="flex flex-wrap items-center gap-x-1 gap-y-0 text-[var(--foreground)]">
+                  <UserRound aria-hidden="true" className="size-4 shrink-0" />
+                  Doctor:{" "}
+                  <strong className="text-[var(--secondary)]">
+                    {model.selectedConversation.doctor.name}
+                  </strong>
+                  <span aria-hidden="true">·</span>
+                  <span>{model.selectedConversation.doctor.specialty}</span>
+                </p>
+                {model.selectedConversation.treatment ? (
+                  <>
+                    <p className="flex flex-wrap items-center gap-x-1 gap-y-0 text-[var(--foreground)]">
+                      <Stethoscope aria-hidden="true" className="size-4 shrink-0" />
+                      Treatment:{" "}
+                      <strong className="text-[var(--secondary)]">
+                        {model.selectedConversation.treatment.name}
+                      </strong>
                     </p>
-                  ) : null}
-                </div>
-              ) : null}
+                    {model.selectedConversation.treatment.categoryPath?.length ? (
+                      <p className="text-[var(--foreground)]">
+                        Category: {model.selectedConversation.treatment.categoryPath.join(" / ")}
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
             </div>
             {model.hasFullConversation ? (
               <div className="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -214,7 +225,7 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
         {model.hasFullConversation ? (
           <>
             <div
-              aria-label={`Messages with ${model.selectedConversation.name}`}
+              aria-label={`Messages between ${model.selectedConversation.name} and ${model.selectedConversation.doctor.name}`}
               aria-live="polite"
               aria-relevant="additions"
               className="min-h-0 flex-1 space-y-6 overflow-y-auto bg-[var(--canvas)] p-4 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:p-6"
@@ -230,14 +241,14 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
                 <span className="h-px flex-1 bg-[var(--border)]" />
               </div>
               {model.visibleMessages.map((message) => (
-                <div className={cn("flex", message.sender === "clinic" && "justify-end")} key={message.id}>
+                <div className={cn("flex", message.sender === "doctor" && "justify-end")} key={message.id}>
                   <div
-                    className={cn("max-w-[88%] sm:max-w-[70%]", message.sender === "clinic" && "text-right")}
+                    className={cn("max-w-[88%] sm:max-w-[70%]", message.sender === "doctor" && "text-right")}
                   >
                     <div
                       className={cn(
                         "rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4 text-left text-sm leading-6 shadow-sm",
-                        message.sender === "clinic" &&
+                        message.sender === "doctor" &&
                           "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]",
                       )}
                     >
