@@ -19,11 +19,11 @@ import {
   clinicDashboardDemoTreatmentCatalogue,
 } from "./organization"
 import type { ClinicDashboardWorkspaceInput } from "../workspace/model/workspace-input"
+import { assertClinicDashboardNotificationTargets } from "../workspace/model/notifications"
 
 export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspaceInput {
-  return {
+  const input: ClinicDashboardWorkspaceInput = {
     account: clinicDashboardDemoAccount,
-    dataSource: "demo",
     defaultLocationId: clinicDashboardDemoDefaultLocationId,
     locations: clinicDashboardDemoLocations,
     locationSnapshots: {
@@ -53,4 +53,19 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
     organization: clinicDashboardDemoOrganization,
     treatmentCatalogue: clinicDashboardDemoTreatmentCatalogue,
   }
+
+  assertClinicDashboardNotificationTargets(
+    input.notifications,
+    Object.fromEntries(
+      Object.entries(input.locationSnapshots).map(([locationId, snapshot]) => [
+        locationId,
+        {
+          conversationIds: snapshot.messages.conversations.map(({ id }) => id),
+          reviewIds: snapshot.reviews.items.map(({ id }) => id),
+        },
+      ]),
+    ),
+  )
+
+  return input
 }

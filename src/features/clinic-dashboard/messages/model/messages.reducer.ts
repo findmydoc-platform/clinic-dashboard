@@ -1,8 +1,10 @@
 import {
-  createLocalDoctorMessage,
   getConversationUnreadCount,
+  validateMessageAttachment,
   type ClinicMessage,
+  type MessageAttachmentMetadata,
   type MessagesSnapshot,
+  type PatientInquiryProfile,
 } from "./messages"
 
 export type MessagesSelection = Readonly<{
@@ -11,20 +13,31 @@ export type MessagesSelection = Readonly<{
 }>
 
 export type MessagesState = Readonly<{
+  attachment?: MessageAttachmentMetadata
+  attachmentError?: string
   draft: string
+  inquiry: PatientInquiryProfile
+  inquiryOpen: boolean
+  isSending: boolean
   localMessages: readonly ClinicMessage[]
   menuOpen: boolean
+  messageStatus: string
   readConversationIds: readonly string[]
   searchQuery: string
   selection: MessagesSelection
 }>
 
 export type MessagesAction =
+  | Readonly<{ attachment: MessageAttachmentMetadata; type: "attachmentSelected" }>
   | Readonly<{ conversationId: string; type: "conversationSelected" }>
   | Readonly<{ draft: string; type: "draftChanged" }>
+  | Readonly<{ type: "attachmentRemoved" }>
   | Readonly<{ type: "interaction-withdrawn" }>
+  | Readonly<{ open: boolean; type: "inquiryOpenChanged" }>
   | Readonly<{ open: boolean; type: "menuOpenChanged" }>
-  | Readonly<{ message: string; type: "messageSubmitted" }>
+  | Readonly<{ message: ClinicMessage; type: "messageSendSucceeded" }>
+  | Readonly<{ type: "messageSendFailed" }>
+  | Readonly<{ type: "messageSendStarted" }>
   | Readonly<{ type: "mobileInboxRequested" }>
   | Readonly<{ query: string; type: "searchQueryChanged" }>
   | Readonly<{ type: "unreadToggled" }>
@@ -44,13 +57,23 @@ function addReadConversationId(readConversationIds: readonly string[], conversat
     : [...readConversationIds, conversationId]
 }
 
-export function createMessagesState(snapshot: MessagesSnapshot): MessagesState {
-  const initialConversation = requireInitialConversation(snapshot)
+export function createMessagesState(
+  input: Readonly<{
+    initialInquiryOpen?: boolean
+    inquiry: PatientInquiryProfile
+    snapshot: MessagesSnapshot
+  }>,
+): MessagesState {
+  const initialConversation = requireInitialConversation(input.snapshot)
 
   return {
     draft: "",
+    inquiry: { ...input.inquiry },
+    inquiryOpen: input.initialInquiryOpen ?? false,
+    isSending: false,
     localMessages: [],
     menuOpen: false,
+    messageStatus: "",
     readConversationIds: [],
     searchQuery: "",
     selection: {
@@ -66,6 +89,14 @@ export function messagesReducer(
   snapshot: MessagesSnapshot,
 ): MessagesState {
   switch (action.type) {
+    case "attachmentRemoved":
+      return { ...state, attachment: undefined, attachmentError: undefined }
+    case "attachmentSelected": {
+      const attachmentError = validateMessageAttachment(action.attachment)
+      return attachmentError
+        ? { ...state, attachment: undefined, attachmentError }
+        : { ...state, attachment: action.attachment, attachmentError: undefined }
+    }
     case "conversationSelected": {
       const conversation = snapshot.conversations.find(({ id }) => id === action.conversationId)
       if (!conversation) return state
@@ -84,25 +115,30 @@ export function messagesReducer(
     }
     case "draftChanged":
       return action.draft === state.draft ? state : { ...state, draft: action.draft }
+    case "inquiryOpenChanged":
+      return action.open === state.inquiryOpen ? state : { ...state, inquiryOpen: action.open }
     case "interaction-withdrawn":
-      return state.menuOpen ? { ...state, menuOpen: false } : state
+      return state.menuOpen || state.inquiryOpen ? { ...state, inquiryOpen: false, menuOpen: false } : state
     case "menuOpenChanged":
       return action.open === state.menuOpen ? state : { ...state, menuOpen: action.open }
-    case "messageSubmitted": {
-      const message = action.message.trim()
-      if (state.selection.conversationId !== snapshot.activeConversationId || message.length === 0) {
-        return state
-      }
-
+    case "messageSendFailed":
       return {
         ...state,
-        draft: "",
-        localMessages: [
-          ...state.localMessages,
-          createLocalDoctorMessage(message, state.localMessages.length + 1),
-        ],
+        isSending: false,
+        messageStatus: "The demo message could not be added. Try again.",
       }
-    }
+    case "messageSendStarted":
+      return { ...state, isSending: true, messageStatus: "Adding message locally…" }
+    case "messageSendSucceeded":
+      return {
+        ...state,
+        attachment: undefined,
+        attachmentError: undefined,
+        draft: "",
+        isSending: false,
+        localMessages: [...state.localMessages, action.message],
+        messageStatus: "Demo only — message added locally; nothing was sent.",
+      }
     case "mobileInboxRequested":
       return {
         ...state,

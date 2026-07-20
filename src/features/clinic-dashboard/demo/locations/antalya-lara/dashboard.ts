@@ -4,12 +4,12 @@ export const antalyaLaraDashboard = createDemoDashboardSnapshot({
   profileCompletion: 64,
   profileTasks: [
     {
-      actionLabel: "Review images",
-      description: "The new location needs a final gallery review before its public launch.",
+      actionLabel: "Review cover",
+      description: "Review and confirm a different cover image for the new location.",
       destination: "gallery",
       destinationLabel: "Open image gallery",
       id: "antalya-lara-gallery-review",
-      label: "Complete launch gallery",
+      label: "Confirm launch cover",
       priority: "High",
       visibility: "always",
     },

@@ -121,6 +121,35 @@ async function expectConversionInfoInteractions(canvasElement: HTMLElement) {
   await waitFor(() => expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument())
 }
 
+async function expectConversionInfoAboveFollowingStages(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  const { infoTriggers, stages } = getFunnelLayout(canvasElement)
+
+  for (const [index, trigger] of infoTriggers.entries()) {
+    await userEvent.hover(trigger)
+    const tooltip = await canvas.findByRole("tooltip")
+    const tooltipBounds = tooltip.getBoundingClientRect()
+    const nextStageBounds = stages[index + 1].getBoundingClientRect()
+    const overlapLeft = Math.max(tooltipBounds.left, nextStageBounds.left)
+    const overlapRight = Math.min(tooltipBounds.right, nextStageBounds.right)
+    const overlapTop = Math.max(tooltipBounds.top, nextStageBounds.top)
+    const overlapBottom = Math.min(tooltipBounds.bottom, nextStageBounds.bottom)
+
+    await expect(overlapRight).toBeGreaterThan(overlapLeft)
+    await expect(overlapBottom).toBeGreaterThan(overlapTop)
+
+    const topElement = canvasElement.ownerDocument.elementFromPoint(
+      overlapLeft + (overlapRight - overlapLeft) / 2,
+      overlapTop + (overlapBottom - overlapTop) / 2,
+    )
+
+    await expect(tooltip.contains(topElement)).toBe(true)
+
+    await userEvent.unhover(trigger)
+    await waitFor(() => expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument())
+  }
+}
+
 async function expectInteractiveStages(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
   const impressions = canvas.getByRole("button", { name: "Impressions 4,680" })
@@ -212,6 +241,8 @@ export const Desktop1440Layout: Story = {
       await expect(infoTriggers[index].getBoundingClientRect().width).toBeGreaterThanOrEqual(43.5)
       await expect(infoTriggers[index].getBoundingClientRect().height).toBeGreaterThanOrEqual(43.5)
     }
+
+    await expectConversionInfoAboveFollowingStages(canvasElement)
   },
 }
 

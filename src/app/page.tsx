@@ -14,9 +14,8 @@ export default async function HomePage() {
 
   return (
     <ClinicDashboardWorkspace
-      persistWorkspaceStateInSession
+      persistNotificationReadStateInSession
       prototypeMode="presentation"
-      showPrototypeModeToggle
       workspaceInput={workspaceInput}
     />
   )

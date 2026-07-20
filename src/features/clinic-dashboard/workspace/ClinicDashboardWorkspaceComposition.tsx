@@ -1,8 +1,10 @@
 "use client"
 
+import { useState } from "react"
 import {
   ClinicProfile,
   type ClinicProfileCommands,
+  type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
@@ -10,11 +12,12 @@ import {
   DashboardScreen,
   ProfileTaskDialog,
   type DashboardReportingPeriod,
+  type DashboardSnapshot,
   useDashboardController,
 } from "@/features/clinic-dashboard/dashboard/public"
-import { Messages, PatientInquiryProfileDialog } from "@/features/clinic-dashboard/messages/public"
+import { Messages, type MessageCommands } from "@/features/clinic-dashboard/messages/public"
 import {
-  getClinicDashboardCapabilities,
+  getClinicDashboardDemoInteractionPolicy,
   isClinicDashboardPrototypeMode,
   PrototypeModeSwitch,
   type ClinicDashboardPrototypeMode,
@@ -54,8 +57,17 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
   initialReportingPeriod?: DashboardReportingPeriod
-  persistWorkspaceStateInSession: boolean
+  messageCommands: MessageCommands
+  persistNotificationReadStateInSession: boolean
   prototypeMode: ClinicDashboardPrototypeMode
+  projectDashboardAfterProfileSave: (
+    input: Readonly<{
+      initialProfile: ClinicProfileDraft
+      locationId: string
+      savedProfile: ClinicProfileDraft
+      snapshot: DashboardSnapshot
+    }>,
+  ) => DashboardSnapshot
   reviewCommands: ReviewCommands
   showPrototypeModeToggle: boolean
   start?: ClinicDashboardWorkspaceStartState
@@ -67,13 +79,18 @@ export function ClinicDashboardWorkspaceComposition({
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
   initialReportingPeriod = "30 days",
-  persistWorkspaceStateInSession,
+  messageCommands,
+  persistNotificationReadStateInSession,
   prototypeMode,
+  projectDashboardAfterProfileSave,
   reviewCommands,
   showPrototypeModeToggle,
   start = {},
   workspaceInput,
 }: ClinicDashboardWorkspaceCompositionProps) {
+  const [savedProfileProjection, setSavedProfileProjection] = useState<
+    Readonly<{ locationId: string; profile: ClinicProfileDraft }> | undefined
+  >()
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
@@ -87,15 +104,14 @@ export function ClinicDashboardWorkspaceComposition({
     initialLocationId: workspaceInput.defaultLocationId,
     initialNotificationReadIds,
     initialNotificationsOpen,
-    initialPatientInquiryOpen: start.dialog === "patient-inquiry",
     initialProfileTask,
     initialSection: start.section ?? "dashboard",
     notifications: workspaceInput.notifications,
-    persistWorkspaceStateInSession,
+    persistNotificationReadStateInSession,
     prototypeMode,
   })
   const { actions, model } = controller
-  const capabilities = getClinicDashboardCapabilities(model.activePrototypeMode)
+  const capabilities = getClinicDashboardDemoInteractionPolicy(model.activePrototypeMode)
   const navigationItems = selectClinicDashboardNavigationItems({
     showCertificatesAccreditationsPlaceholder: capabilities.showCertificatesAccreditationsPlaceholder,
     showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
@@ -106,9 +122,20 @@ export function ClinicDashboardWorkspaceComposition({
     : workspaceInput.defaultLocationId
   const selectedLocation = getClinicDashboardLocation(workspaceInput.locations, effectiveLocationId)
   const selectedSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, selectedLocation.id)
-  const coverImage =
-    selectedSnapshot.clinicProfile.gallery.find((image) => image.isCover) ??
-    selectedSnapshot.clinicProfile.gallery[0]
+  const selectedProfile =
+    savedProfileProjection?.locationId === selectedLocation.id
+      ? savedProfileProjection.profile
+      : selectedSnapshot.clinicProfile
+  const projectedDashboardSnapshot =
+    savedProfileProjection?.locationId === selectedLocation.id
+      ? projectDashboardAfterProfileSave({
+          initialProfile: selectedSnapshot.clinicProfile,
+          locationId: selectedLocation.id,
+          savedProfile: savedProfileProjection.profile,
+          snapshot: selectedSnapshot.dashboard,
+        })
+      : selectedSnapshot.dashboard
+  const coverImage = selectedProfile.gallery.find((image) => image.isCover) ?? selectedProfile.gallery[0]
   if (!coverImage) throw new Error(`Clinic location ${selectedLocation.id} requires a cover image.`)
 
   const dashboardController = useDashboardController({
@@ -118,9 +145,9 @@ export function ClinicDashboardWorkspaceComposition({
       coverAlt: coverImage.alt,
       coverImage: coverImage.src,
       location: selectedLocation.location,
-      name: selectedLocation.name,
+      name: selectedProfile.name,
     },
-    snapshot: selectedSnapshot.dashboard,
+    snapshot: projectedDashboardSnapshot,
   })
 
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
@@ -129,6 +156,7 @@ export function ClinicDashboardWorkspaceComposition({
     const nextProfileTask = nextSnapshot.dashboard.profileTasks[0]
     if (!nextProfileTask) throw new Error(`Clinic location ${locationId} requires a profile task.`)
 
+    setSavedProfileProjection(undefined)
     actions.selectLocation(locationId, nextLocation.name, nextProfileTask)
   }
 
@@ -190,6 +218,19 @@ export function ClinicDashboardWorkspaceComposition({
           <NotificationCenter
             notifications={workspaceInput.notifications}
             onMarkAllAsRead={actions.markAllNotificationsRead}
+            onNotificationOpen={(notification) => {
+              const nextLocation = getClinicDashboardLocation(
+                workspaceInput.locations,
+                notification.locationId,
+              )
+              const nextSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, notification.locationId)
+              const nextProfileTask = nextSnapshot.dashboard.profileTasks[0]
+              if (!nextProfileTask) {
+                throw new Error(`Clinic location ${notification.locationId} requires a profile task.`)
+              }
+              setSavedProfileProjection(undefined)
+              actions.openNotification(notification, nextLocation.name, nextProfileTask)
+            }}
             onOpenChange={actions.setNotificationsOpen}
             open={model.notificationsOpen}
             readNotificationIds={model.notificationReadIds}
@@ -218,18 +259,22 @@ export function ClinicDashboardWorkspaceComposition({
       ) : null}
       <div hidden={activeSection !== "messages"}>
         <Messages
+          focusTarget={model.messageFocusTarget}
+          initialInquiryOpen={model.locationChangeCount === 0 && start.dialog === "patient-inquiry"}
+          inquiry={selectedSnapshot.patientInquiry}
           isInteractive={capabilities.canUseMessaging}
           key={selectedLocation.id}
-          onPatientInquiryOpen={actions.openPatientInquiry}
+          messageCommands={messageCommands}
+          onFocusHandled={actions.clearMessageFocusRequest}
           snapshot={selectedSnapshot.messages}
         />
       </div>
       <div hidden={activeSection !== "reviews"}>
         <Reviews
           commands={reviewCommands}
-          focusHeading={model.reviewsFocusRequested}
+          focusTarget={model.reviewFocusTarget}
           key={selectedLocation.id}
-          onFocusHandled={actions.clearReviewsFocusRequest}
+          onFocusHandled={actions.clearReviewFocusRequest}
           showManagement={capabilities.canManageReviews}
           snapshot={selectedSnapshot.reviews}
         />
@@ -244,9 +289,12 @@ export function ClinicDashboardWorkspaceComposition({
               ? start.dialog
               : undefined
           }
-          initialProfile={selectedSnapshot.clinicProfile}
+          initialProfile={selectedProfile}
           key={selectedLocation.id}
           onFocusHandled={actions.clearProfileFocusRequest}
+          onProfileSaved={(profile) =>
+            setSavedProfileProjection({ locationId: selectedLocation.id, profile })
+          }
           onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
           profileManagement={capabilities.profileManagement}
           teamManagement={capabilities.teamManagement}
@@ -267,12 +315,6 @@ export function ClinicDashboardWorkspaceComposition({
         />
       ) : null}
 
-      <PatientInquiryProfileDialog
-        canViewDetailedInquiry={capabilities.canViewDetailedPatientInquiry}
-        onOpenChange={actions.setPatientInquiryOpen}
-        open={model.patientInquiryOpen}
-        patient={selectedSnapshot.patientInquiry}
-      />
       <ProfileTaskDialog
         onOpenChange={actions.setProfileTaskOpen}
         onProfileDestinationOpen={openProfileDestination}

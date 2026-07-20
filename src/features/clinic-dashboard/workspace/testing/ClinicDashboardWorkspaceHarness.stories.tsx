@@ -60,20 +60,27 @@ export const VisualReferenceLocationSwitching: Story = {
   },
 }
 
-export const PresentationUsesDefaultLocation: Story = {
+export const PresentationLocationSwitching: Story = {
   args: { prototypeMode: "presentation" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
     const header = within(canvas.getByRole("banner"))
     const dashboardLocation = within(
       canvas.getByRole("region", { name: "Dashboard clinic location summary" }),
     )
+    const locationSelector = header.getByRole("button", { name: /Switch clinic location/ })
 
-    await expect(canvas.queryByRole("button", { name: /Switch clinic location/ })).not.toBeInTheDocument()
-    await expect(
-      header.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
-    ).toBeInTheDocument()
+    await expect(locationSelector).toHaveAccessibleName(/Current location: Berlin Health Clinic — Mitte/)
     await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
+
+    await userEvent.click(locationSelector)
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
+    )
+    await expect(locationSelector).toHaveAccessibleName(
+      /Current location: Berlin Health Clinic — Charlottenburg/,
+    )
   },
 }
 
@@ -134,7 +141,7 @@ export const VisualReferenceSubscriptions: Story = {
   },
 }
 
-export const PresentationHidesSubscriptions: Story = {
+export const PresentationSubscriptionsPlaceholder: Story = {
   args: { prototypeMode: "presentation" },
   render: () => (
     <ClinicDashboardWorkspaceHarness prototypeMode="presentation" start={{ section: "subscriptions" }} />
@@ -142,9 +149,14 @@ export const PresentationHidesSubscriptions: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.queryByRole("button", { name: "Subscriptions" })).not.toBeInTheDocument()
-    await expect(canvas.queryByRole("heading", { level: 1, name: "Subscriptions" })).not.toBeInTheDocument()
-    await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Subscriptions" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    )
+    await expect(canvas.getByRole("heading", { level: 1, name: "Subscriptions" })).toBeInTheDocument()
+    const region = canvas.getByRole("region", { name: "Subscriptions" })
+    await expect(within(region).queryByRole("button")).not.toBeInTheDocument()
+    await expect(within(region).queryByRole("link")).not.toBeInTheDocument()
   },
 }
 
@@ -199,7 +211,7 @@ export const VisualReferenceCertificatesAndAccreditations: Story = {
   },
 }
 
-export const PresentationHidesCertificatesAndAccreditations: Story = {
+export const PresentationCredentialsPlaceholder: Story = {
   args: { prototypeMode: "presentation" },
   render: () => (
     <ClinicDashboardWorkspaceHarness
@@ -210,11 +222,13 @@ export const PresentationHidesCertificatesAndAccreditations: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.queryByRole("button", { name: "Credentials" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Credentials" })).toHaveAttribute("aria-current", "page")
     await expect(
-      canvas.queryByRole("heading", { level: 1, name: "Certificates and accreditations" }),
-    ).not.toBeInTheDocument()
-    await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
+      canvas.getByRole("heading", { level: 1, name: "Certificates and accreditations" }),
+    ).toBeInTheDocument()
+    const region = canvas.getByRole("region", { name: "Certificates and accreditations" })
+    await expect(within(region).queryByRole("button")).not.toBeInTheDocument()
+    await expect(within(region).queryByRole("link")).not.toBeInTheDocument()
   },
 }
 

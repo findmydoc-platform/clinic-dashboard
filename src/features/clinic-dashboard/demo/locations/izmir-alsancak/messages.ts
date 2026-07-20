@@ -50,7 +50,7 @@ export const izmirAlsancakMessages = {
       id: "izmir-alsancak-conversation-can-aydin",
       initials: "CA",
       name: "Can Aydın",
-      preview: "Thursday afternoon would be ideal.",
+      preview: "Thursday afternoon is my preferred contact window.",
       section: "Recent chats",
       time: "Thu",
       treatment: { name: "Laser teeth whitening" },
@@ -72,7 +72,7 @@ export const izmirAlsancakMessages = {
       time: "09:24",
     },
     {
-      body: "That sounds good. I would prefer an appointment after 16:00 next week.",
+      body: "That sounds good. I would prefer to be contacted after 16:00 next week.",
       id: "izmir-alsancak-message-3",
       sender: "patient",
       time: "09:31",
@@ -81,13 +81,13 @@ export const izmirAlsancakMessages = {
 } satisfies MessagesSnapshot
 
 export const izmirAlsancakPatientInquiry = {
-  age: "29 years",
-  avatar: personCAvatar,
+  contactWindow: "Weekdays after 16:00",
   email: "leyla.demir@example.com",
-  gender: "Female",
+  id: "izmir-alsancak-inquiry-leyla-demir",
   interest: "Ceramic veneers",
-  lastVisit: "July 19, 2026",
-  medicalNotes:
-    "The patient requests an initial aesthetic dentistry consultation. Clinical suitability and treatment scope have not yet been assessed.",
+  message:
+    "I would like advice about ceramic veneers and whether a whitening assessment can be discussed at the same consultation.",
   name: "Leyla Demir",
+  phone: "+90 000 000 00 02",
+  treatmentTimeline: "Within 1–3 months",
 } satisfies PatientInquiryProfile

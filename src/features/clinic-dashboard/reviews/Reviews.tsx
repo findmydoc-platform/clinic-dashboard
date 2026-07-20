@@ -8,32 +8,48 @@ import type { ReviewsSnapshot } from "./model/reviews-snapshot"
 
 export type ReviewsProps = Readonly<{
   commands: ReviewCommands
-  focusHeading?: boolean
+  focusTarget?: ReviewFocusTarget
   onFocusHandled?: () => void
   showManagement: boolean
   snapshot: ReviewsSnapshot
 }>
 
-export function Reviews({
-  commands,
-  focusHeading = false,
-  onFocusHandled,
-  showManagement,
-  snapshot,
-}: ReviewsProps) {
+export type ReviewFocusTarget = Readonly<{ kind: "heading" }> | Readonly<{ kind: "review"; reviewId: string }>
+
+export function Reviews({ commands, focusTarget, onFocusHandled, showManagement, snapshot }: ReviewsProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const controller = useReviewsController({ commands, showManagement, snapshot })
+  const { focusReview } = controller
 
   useEffect(() => {
-    if (!focusHeading) return
+    if (!focusTarget) return
+
+    if (focusTarget.kind === "heading") {
+      const frame = requestAnimationFrame(() => {
+        const heading = rootRef.current?.querySelector<HTMLElement>("[data-reviews-heading]")
+        heading?.focus()
+        if (heading) onFocusHandled?.()
+      })
+
+      return () => cancelAnimationFrame(frame)
+    }
+
+    const reviewId = focusTarget.reviewId
+    if (!reviewId || !focusReview(reviewId)) return
 
     const frame = requestAnimationFrame(() => {
-      rootRef.current?.querySelector<HTMLElement>("[data-reviews-heading]")?.focus()
-      onFocusHandled?.()
+      requestAnimationFrame(() => {
+        const review = [...(rootRef.current?.querySelectorAll<HTMLElement>("[data-review-id]") ?? [])].find(
+          (element) => element.dataset.reviewId === reviewId,
+        )
+        review?.scrollIntoView({ block: "center" })
+        review?.focus()
+        if (review) onFocusHandled?.()
+      })
     })
 
     return () => cancelAnimationFrame(frame)
-  }, [focusHeading, onFocusHandled])
+  }, [focusReview, focusTarget, onFocusHandled])
 
   return (
     <div ref={rootRef}>

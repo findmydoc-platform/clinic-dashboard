@@ -1,4 +1,4 @@
-export { Reviews, type ReviewsProps } from "./Reviews"
+export { Reviews, type ReviewFocusTarget, type ReviewsProps } from "./Reviews"
 export type { ReviewCommands } from "./model/review-commands"
 export { createReviewAppealCase, markReviewAppealUnderReview } from "./model/appeal-case"
 export type {

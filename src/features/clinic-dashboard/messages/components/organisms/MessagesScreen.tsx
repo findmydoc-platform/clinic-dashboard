@@ -9,17 +9,29 @@ import { cn } from "@/lib/utils"
 import { ConversationActionsMenu } from "../molecules/ConversationActionsMenu"
 import { ConversationListItem } from "../molecules/ConversationListItem"
 import { MessageComposer } from "../molecules/MessageComposer"
-import type { MessagesScreenActions, MessagesViewModel } from "../../model/messages"
+import type { MessageFocusTarget, MessagesScreenActions, MessagesViewModel } from "../../model/messages"
 
 type MessagesScreenProps = Readonly<{
   actions: MessagesScreenActions
+  focusTarget?: MessageFocusTarget
   model: MessagesViewModel
+  onFocusHandled?: () => void
 }>
 
-export function MessagesScreen({ actions, model }: MessagesScreenProps) {
+export function MessagesScreen({ actions, focusTarget, model, onFocusHandled }: MessagesScreenProps) {
   const conversationRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const messageLogRef = useRef<HTMLDivElement>(null)
   const mobileThreadHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    if (focusTarget?.conversationId !== model.selectedConversation.id) return
+
+    const frame = requestAnimationFrame(() => {
+      mobileThreadHeadingRef.current?.focus()
+      onFocusHandled?.()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusTarget?.conversationId, model.selectedConversation.id, onFocusHandled])
 
   useEffect(() => {
     if (!model.isInteractive || !model.mobileThreadOpen || window.matchMedia("(min-width: 1024px)").matches)
@@ -32,13 +44,31 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
   useEffect(() => {
     if (!model.hasFullConversation) return
 
-    const frame = requestAnimationFrame(() => {
-      const messageLog = messageLogRef.current
+    let cancelled = false
+    let frame = 0
+    const messageLog = messageLogRef.current
+    const scrollToLatestMessage = () => {
       if (messageLog) messageLog.scrollTop = messageLog.scrollHeight
+    }
+
+    scrollToLatestMessage()
+    const resizeObserver = messageLog ? new ResizeObserver(scrollToLatestMessage) : undefined
+    if (messageLog) resizeObserver?.observe(messageLog)
+    void document.fonts.ready.then(() => {
+      if (!cancelled) frame = requestAnimationFrame(scrollToLatestMessage)
     })
 
-    return () => cancelAnimationFrame(frame)
-  }, [model.hasFullConversation, model.selectedConversation.id, model.visibleMessages.length])
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(frame)
+      resizeObserver?.disconnect()
+    }
+  }, [
+    model.hasFullConversation,
+    model.mobileThreadOpen,
+    model.selectedConversation.id,
+    model.visibleMessages.length,
+  ])
 
   const returnToConversationList = () => {
     actions.onMobileBack()
@@ -130,8 +160,8 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
           model.isInteractive && !model.mobileThreadOpen ? "hidden" : "flex",
         )}
       >
-        <header className="flex flex-col gap-3 border-b border-[var(--border)] p-4 sm:p-5">
-          <div className="flex w-full items-start gap-2 sm:items-center sm:gap-3">
+        <header className="flex flex-col gap-2 border-b border-[var(--border)] p-3 sm:gap-3 sm:p-5">
+          <div className="flex w-full items-center gap-2 sm:gap-3">
             {model.isInteractive ? (
               <Button
                 aria-label="Back to conversations"
@@ -144,22 +174,19 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
               </Button>
             ) : null}
             <Avatar
-              className="size-11 sm:size-12"
+              className="size-10 sm:size-12"
               initials={model.selectedConversation.initials}
               src={model.selectedConversation.avatar}
             />
             <div className="min-w-0 flex-1">
-              <h1
-                className="truncate text-lg font-bold text-[var(--secondary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:text-xl lg:hidden"
+              <h2
+                className="truncate text-lg font-bold text-[var(--secondary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:text-xl"
                 ref={mobileThreadHeadingRef}
                 tabIndex={-1}
               >
                 {model.selectedConversation.name}
-              </h1>
-              <h2 className="hidden truncate text-lg font-bold text-[var(--secondary)] sm:text-xl lg:block">
-                {model.selectedConversation.name}
               </h2>
-              <div className="mt-1 text-xs leading-5 sm:text-sm">
+              <div className="mt-1 hidden text-sm leading-5 sm:block">
                 <p className="flex flex-wrap items-center gap-x-1 gap-y-0 text-[var(--foreground)]">
                   <UserRound aria-hidden="true" className="size-4 shrink-0" />
                   Doctor:{" "}
@@ -179,7 +206,7 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
                       </strong>
                     </p>
                     {model.selectedConversation.treatment.categoryPath?.length ? (
-                      <p className="text-[var(--foreground)]">
+                      <p className="hidden text-[var(--foreground)] sm:block">
                         Category: {model.selectedConversation.treatment.categoryPath.join(" / ")}
                       </p>
                     ) : null}
@@ -209,17 +236,37 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
               </div>
             ) : null}
           </div>
-          {model.hasFullConversation ? (
-            <Button
-              aria-label="View patient inquiry"
-              className="w-full sm:hidden"
-              onClick={actions.onPatientInquiryOpen}
-              variant="outline"
-            >
-              <FileText aria-hidden="true" className="size-4" />
-              View patient inquiry
-            </Button>
-          ) : null}
+          <div className="flex items-start justify-between gap-2 sm:hidden">
+            <div className="min-w-0 space-y-1 text-xs leading-4 text-[var(--foreground)]">
+              <p className="flex min-w-0 items-center gap-1">
+                <UserRound aria-hidden="true" className="size-4 shrink-0" />
+                <span className="sr-only">Doctor: </span>
+                <strong className="truncate text-[var(--secondary)]">
+                  {model.selectedConversation.doctor.name}
+                </strong>
+              </p>
+              {model.selectedConversation.treatment ? (
+                <p className="flex min-w-0 items-center gap-1">
+                  <Stethoscope aria-hidden="true" className="size-4 shrink-0" />
+                  <span className="sr-only">Treatment: </span>
+                  <strong className="truncate text-[var(--secondary)]">
+                    {model.selectedConversation.treatment.name}
+                  </strong>
+                </p>
+              ) : null}
+            </div>
+            {model.hasFullConversation ? (
+              <Button
+                aria-label="View patient inquiry"
+                className="shrink-0"
+                onClick={actions.onPatientInquiryOpen}
+                variant="outline"
+              >
+                <FileText aria-hidden="true" className="size-4" />
+                Inquiry
+              </Button>
+            ) : null}
+          </div>
         </header>
 
         {model.hasFullConversation ? (
@@ -252,11 +299,14 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
                           "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]",
                       )}
                     >
-                      {message.body}
-                      {message.attachmentSummary ? (
+                      {message.body ? <p>{message.body}</p> : null}
+                      {message.attachment ? (
                         <div className="mt-3 flex items-center gap-2 rounded-lg bg-[var(--surface)] p-3 text-[var(--secondary)]">
                           <FileImage aria-hidden="true" className="size-5" />
-                          {message.attachmentSummary}
+                          <span className="min-w-0">
+                            <span className="block truncate font-bold">{message.attachment.name}</span>
+                            <span className="block text-xs">{message.attachment.type}</span>
+                          </span>
                         </div>
                       ) : null}
                     </div>
@@ -270,9 +320,15 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
             </div>
             {model.isInteractive ? (
               <MessageComposer
+                attachment={model.attachment}
+                attachmentError={model.attachmentError}
                 draft={model.draft}
+                isSending={model.isSending}
+                onAttachmentRemove={actions.onAttachmentRemove}
+                onAttachmentSelect={actions.onAttachmentSelect}
                 onDraftChange={actions.onDraftChange}
                 onSend={actions.onMessageSend}
+                statusMessage={model.messageStatus}
               />
             ) : null}
           </>
@@ -280,7 +336,7 @@ export function MessagesScreen({ actions, model }: MessagesScreenProps) {
           <div className="flex flex-1 items-center justify-center bg-[var(--canvas)] p-6">
             <div className="max-w-md rounded-xl border border-[var(--border)] bg-[var(--background)] p-6 text-center shadow-sm">
               <MessageSquare aria-hidden="true" className="mx-auto size-8 text-[var(--primary)]" />
-              <h3 className="mt-4 text-lg font-bold text-[var(--secondary)]">Conversation preview</h3>
+              <h2 className="mt-4 text-lg font-bold text-[var(--secondary)]">Conversation preview</h2>
               <p className="mt-3 text-sm leading-6 text-[var(--secondary)]">
                 “{model.selectedConversation.preview}”
               </p>

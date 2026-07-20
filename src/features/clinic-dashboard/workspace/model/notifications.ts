@@ -1,3 +1,6 @@
+export type ClinicDashboardNotificationTarget =
+  Readonly<{ conversationId: string; kind: "conversation" }> | Readonly<{ kind: "review"; reviewId: string }>
+
 export type ClinicDashboardNotification = Readonly<{
   createdAt: string
   detail: string
@@ -5,10 +8,21 @@ export type ClinicDashboardNotification = Readonly<{
   locationId: string
   locationLabel: string
   timestamp: string
+  target: ClinicDashboardNotificationTarget
   title: string
   type: "message" | "review"
   unread: boolean
 }>
+
+export type ClinicDashboardNotificationTargetIndex = Readonly<
+  Record<
+    string,
+    Readonly<{
+      conversationIds: readonly string[]
+      reviewIds: readonly string[]
+    }>
+  >
+>
 
 export function getUnreadNotifications(
   notifications: readonly ClinicDashboardNotification[],
@@ -32,4 +46,31 @@ export function markAllNotificationsAsRead(
   })
 
   return [...readIds]
+}
+
+export function markNotificationAsRead(notificationId: string, readNotificationIds: readonly string[]) {
+  return readNotificationIds.includes(notificationId)
+    ? readNotificationIds
+    : [...readNotificationIds, notificationId]
+}
+
+export function assertClinicDashboardNotificationTargets(
+  notifications: readonly ClinicDashboardNotification[],
+  targetsByLocation: ClinicDashboardNotificationTargetIndex,
+) {
+  notifications.forEach((notification) => {
+    const locationTargets = targetsByLocation[notification.locationId]
+    if (!locationTargets) {
+      throw new Error(`Notification ${notification.id} references an unknown location.`)
+    }
+
+    const targetExists =
+      notification.target.kind === "conversation"
+        ? locationTargets.conversationIds.includes(notification.target.conversationId)
+        : locationTargets.reviewIds.includes(notification.target.reviewId)
+
+    if (!targetExists) {
+      throw new Error(`Notification ${notification.id} references an unknown ${notification.target.kind}.`)
+    }
+  })
 }

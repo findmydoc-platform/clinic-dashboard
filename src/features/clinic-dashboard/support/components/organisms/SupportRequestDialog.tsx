@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useId, useRef } from "react"
-import { Upload } from "lucide-react"
+import { CheckCircle2, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -22,46 +22,81 @@ export function SupportRequestDialog({ onOpenChange, open }: SupportRequestDialo
     model,
     refs: { categoryRef, messageRef, screenshotRef, subjectRef },
   } = useSupportRequestController()
-  const { errors, request, result } = model
+  const { errors, isSubmitting, request, result } = model
   const screenshotId = useId()
   const doneButtonRef = useRef<HTMLButtonElement>(null)
+  const focusCategoryAfterResetRef = useRef(false)
 
   useEffect(() => {
     if (result) doneButtonRef.current?.focus()
   }, [result])
+
+  useEffect(() => {
+    if (result || !focusCategoryAfterResetRef.current) return
+
+    focusCategoryAfterResetRef.current = false
+    const frame = requestAnimationFrame(() => categoryRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [categoryRef, result])
+
+  const closeDialog = () => {
+    focusCategoryAfterResetRef.current = false
+    actions.reset()
+    onOpenChange(false)
+  }
 
   return (
     <Modal
       description="Complete this local demo form. Nothing will be sent."
       footer={
         result ? (
-          <div className="flex justify-end">
-            <Button onClick={() => onOpenChange(false)} ref={doneButtonRef}>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              onClick={() => {
+                focusCategoryAfterResetRef.current = true
+                actions.reset()
+              }}
+              variant="outline"
+            >
+              Create another request
+            </Button>
+            <Button onClick={closeDialog} ref={doneButtonRef}>
               Done
             </Button>
           </div>
         ) : (
           <div className="flex flex-wrap justify-end gap-2">
-            <Button onClick={() => onOpenChange(false)} variant="outline">
+            <Button disabled={isSubmitting} onClick={closeDialog} variant="outline">
               Cancel
             </Button>
-            <Button onClick={actions.submit}>Submit demo request</Button>
+            <Button aria-busy={isSubmitting} disabled={isSubmitting} onClick={() => void actions.submit()}>
+              {isSubmitting ? "Completing demo…" : "Submit demo request"}
+            </Button>
           </div>
         )
       }
-      onOpenChange={onOpenChange}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) closeDialog()
+      }}
       open={open}
       panelClassName="max-w-3xl"
       title="Contact support"
     >
       <div>
         {result ? (
-          <p
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-sm font-bold text-[var(--secondary)]"
+          <div
+            aria-label={result.message}
+            className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-[var(--secondary)]"
             role="status"
           >
-            {result.message}
-          </p>
+            <CheckCircle2 aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[var(--primary)]" />
+            <div>
+              <h3 className="font-bold">Demo complete</h3>
+              <p className="mt-1 text-sm leading-6 text-[var(--foreground)]">
+                No support request was sent or saved.
+              </p>
+            </div>
+          </div>
         ) : (
           <section aria-labelledby="support-form-heading">
             <h3 className="font-bold text-[var(--secondary)]" id="support-form-heading">

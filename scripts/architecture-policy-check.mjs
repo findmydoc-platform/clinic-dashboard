@@ -63,12 +63,29 @@ function isClinicDashboardServerTarget(target) {
   return /^src\/features\/clinic-dashboard\/server(?:\.[cm]?[jt]s)?$/u.test(target)
 }
 
+function isClinicDashboardWorkspaceProviderTarget(target) {
+  return /^src\/features\/clinic-dashboard\/workspace-provider(?:\.[cm]?[jt]s)?$/u.test(target)
+}
+
+function isClinicDashboardWorkspaceProviderSource(file) {
+  return /^src\/features\/clinic-dashboard\/workspace-provider\.[cm]?[jt]s$/u.test(file)
+}
+
+function isAllowedClinicDashboardWorkspaceProviderImport(file) {
+  return (
+    file === "src/features/clinic-dashboard/server.ts" ||
+    file === "src/features/clinic-dashboard/demo/loader.ts"
+  )
+}
+
 function isAllowedClinicDashboardServerImport(file) {
   return file === "src/app/page.tsx" || file === "tests/unit/clinic-dashboard-demo-data.test.ts"
 }
 
-function isDemoWorkspaceInputTarget(target) {
-  return /^src\/features\/clinic-dashboard\/workspace\/model\/workspace-input(?:\.[cm]?[jt]s)?$/u.test(target)
+function isDemoPrivateWorkspaceContractTarget(target) {
+  return /^src\/features\/clinic-dashboard\/workspace\/model\/(?:notifications|profile-save-projection|workspace-input)(?:\.[cm]?[jt]s)?$/u.test(
+    target,
+  )
 }
 
 function isSharedUiDomainTarget(target) {
@@ -374,7 +391,7 @@ function isAllowedClinicDashboardDemoImport(file, reference) {
   const target = importTarget(reference)
 
   if (/^src\/features\/clinic-dashboard\/demo\//u.test(file)) {
-    return isClinicDashboardDemoTarget(target) || isDemoWorkspaceInputTarget(target)
+    return isClinicDashboardDemoTarget(target) || isDemoPrivateWorkspaceContractTarget(target)
   }
 
   if (isClinicDashboardServerSource(file)) {
@@ -750,6 +767,7 @@ function collectFindings() {
       const demoImport = isClinicDashboardDemoImport(reference)
       const allowedDemoImport = demoImport && isAllowedClinicDashboardDemoImport(file, reference)
       const serverImport = isClinicDashboardServerTarget(target)
+      const workspaceProviderImport = isClinicDashboardWorkspaceProviderTarget(target)
       const sourceArea = getFeatureArea(file)
       const targetArea = getFeatureArea(target)
       const sourceLayer = atomicLayer(file)
@@ -851,7 +869,18 @@ function collectFindings() {
             "runtime-demo-source-boundary",
             file,
             reference.moduleSpecifier,
-            "Runtime demo sources may be imported only within demo, by the server loader entry, or as demo commands at the client composition entry.",
+            "Runtime demo sources may be imported only within demo, by the server loader entry, or as the demo client adapter at the client composition entry.",
+          ),
+        )
+      }
+
+      if (workspaceProviderImport && !isAllowedClinicDashboardWorkspaceProviderImport(file)) {
+        findings.push(
+          createFinding(
+            "clinic-dashboard-workspace-provider-boundary",
+            file,
+            reference.moduleSpecifier,
+            "The private workspace provider contract may be imported only by the server entry and provider implementations.",
           ),
         )
       }
@@ -982,6 +1011,7 @@ function collectFindings() {
       const hasDedicatedFeatureBoundary =
         Boolean(sourceArea) ||
         isClinicDashboardServerSource(file) ||
+        isClinicDashboardWorkspaceProviderSource(file) ||
         /^src\/app\//u.test(file) ||
         /^src\/components\/ui\//u.test(file) ||
         /^src\/providers\//u.test(file)

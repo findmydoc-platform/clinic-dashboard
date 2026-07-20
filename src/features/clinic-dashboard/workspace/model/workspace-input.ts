@@ -27,8 +27,9 @@ export type ClinicDashboardLocationSnapshot = Readonly<{
 /**
  * Private provisional input for the interactive clinic workspace.
  *
- * This contract deliberately models only the current demo source and may be
- * replaced when the Payload and capability contracts are planned.
+ * This contract is shared by the current demo provider and a future live
+ * provider. It may be replaced when the Payload and capability contracts are
+ * planned.
  */
 export type ClinicDashboardWorkspaceInput = Readonly<{
   account: Readonly<{
@@ -37,7 +38,6 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
     name: string
     role: string
   }>
-  dataSource: "demo"
   defaultLocationId: ClinicDashboardLocationId
   locations: readonly ClinicDashboardLocation[]
   locationSnapshots: Readonly<Record<ClinicDashboardLocationId, ClinicDashboardLocationSnapshot>>

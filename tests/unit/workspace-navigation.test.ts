@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { getClinicDashboardCapabilities } from "@/features/clinic-dashboard/prototype/public"
+import { getClinicDashboardDemoInteractionPolicy } from "@/features/clinic-dashboard/prototype/public"
 import {
   selectClinicDashboardNavigationItems,
   selectSafeClinicDashboardSection,
@@ -7,7 +7,7 @@ import {
 
 describe("clinic dashboard workspace navigation", () => {
   it("keeps visual-reference destinations unique and ordered", () => {
-    const capabilities = getClinicDashboardCapabilities("visual-reference")
+    const capabilities = getClinicDashboardDemoInteractionPolicy("visual-reference")
     const items = selectClinicDashboardNavigationItems({
       showCertificatesAccreditationsPlaceholder: capabilities.showCertificatesAccreditationsPlaceholder,
       showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
@@ -25,9 +25,9 @@ describe("clinic dashboard workspace navigation", () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it("uses the typed capability to hide Subscriptions in presentation mode", () => {
-    const visualReference = getClinicDashboardCapabilities("visual-reference")
-    const presentation = getClinicDashboardCapabilities("presentation")
+  it("keeps read-only future placeholders visible in presentation mode", () => {
+    const visualReference = getClinicDashboardDemoInteractionPolicy("visual-reference")
+    const presentation = getClinicDashboardDemoInteractionPolicy("presentation")
 
     expect(
       selectClinicDashboardNavigationItems({
@@ -40,12 +40,19 @@ describe("clinic dashboard workspace navigation", () => {
       showSubscriptionsPlaceholder: presentation.showSubscriptionsPlaceholder,
     })
 
-    expect(presentationItems).not.toContainEqual({ id: "subscriptions", label: "Subscriptions" })
-    expect(presentationItems).not.toContainEqual({
+    expect(presentationItems).toContainEqual({ id: "subscriptions", label: "Subscriptions" })
+    expect(presentationItems).toContainEqual({
       id: "certificates-accreditations",
       label: "Credentials",
     })
-    expect(presentationItems.map(({ id }) => id)).toEqual(["dashboard", "messages", "reviews", "profile"])
+    expect(presentationItems.map(({ id }) => id)).toEqual([
+      "dashboard",
+      "messages",
+      "reviews",
+      "profile",
+      "subscriptions",
+      "certificates-accreditations",
+    ])
   })
 
   it("filters both future destinations independently", () => {
@@ -63,17 +70,14 @@ describe("clinic dashboard workspace navigation", () => {
     ).toEqual(["dashboard", "messages", "reviews", "profile", "certificates-accreditations"])
   })
 
-  it("returns to Dashboard when the current destination is gated", () => {
-    const presentation = getClinicDashboardCapabilities("presentation")
-    const presentationItems = selectClinicDashboardNavigationItems({
-      showCertificatesAccreditationsPlaceholder: presentation.showCertificatesAccreditationsPlaceholder,
-      showSubscriptionsPlaceholder: presentation.showSubscriptionsPlaceholder,
+  it("returns to Dashboard only when a destination is absent", () => {
+    const restrictedItems = selectClinicDashboardNavigationItems({
+      showCertificatesAccreditationsPlaceholder: false,
+      showSubscriptionsPlaceholder: false,
     })
 
-    expect(selectSafeClinicDashboardSection("subscriptions", presentationItems)).toBe("dashboard")
-    expect(selectSafeClinicDashboardSection("certificates-accreditations", presentationItems)).toBe(
-      "dashboard",
-    )
-    expect(selectSafeClinicDashboardSection("reviews", presentationItems)).toBe("reviews")
+    expect(selectSafeClinicDashboardSection("subscriptions", restrictedItems)).toBe("dashboard")
+    expect(selectSafeClinicDashboardSection("certificates-accreditations", restrictedItems)).toBe("dashboard")
+    expect(selectSafeClinicDashboardSection("reviews", restrictedItems)).toBe("reviews")
   })
 })

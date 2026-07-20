@@ -45,10 +45,7 @@ function WorkspaceBrand({ badge, className }: Readonly<{ badge?: string; classNa
   return (
     <div className={cn("flex flex-col items-start gap-2", className)}>
       <BrandMark priority />
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-bold text-[var(--foreground)]">Clinic workspace</span>
-        {badge ? <EnvironmentBadge label={badge} /> : null}
-      </div>
+      {badge ? <EnvironmentBadge label={badge} /> : null}
     </div>
   )
 }

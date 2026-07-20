@@ -81,12 +81,22 @@ export const HonestLocalResult: Story = {
 
     await submitValidRequest(canvasElement)
 
-    const result = await canvas.findByRole("status")
-    await expect(result).toHaveTextContent(/^Demo only — no request was sent\.$/)
+    await expect(canvas.getByRole("button", { name: "Completing demo…" })).toBeDisabled()
+
+    const result = await canvas.findByRole("status", {
+      name: "Demo complete — no support request was sent or saved.",
+    })
+    await expect(within(result).getByRole("heading", { name: "Demo complete" })).toBeVisible()
+    await expect(within(result).getByText("No support request was sent or saved.")).toBeVisible()
     await waitFor(() => expect(canvas.getByRole("button", { name: "Done" })).toHaveFocus())
     await expect(canvas.queryByRole("heading", { name: "Support request" })).not.toBeInTheDocument()
     await expect(canvas.queryByText(prohibitedSupportClaims)).not.toBeInTheDocument()
     await expect(canvas.queryByText(/response|reply/i)).not.toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole("button", { name: "Create another request" }))
+    await expect(canvas.getByRole("heading", { name: "Support request" })).toBeInTheDocument()
+    await expect(canvas.getByRole("textbox", { name: "Subject" })).toHaveValue("")
+    await waitFor(() => expect(canvas.getByRole("combobox", { name: "Category" })).toHaveFocus())
   },
 }
 
@@ -118,7 +128,11 @@ export const Mobile320ShortResult: Story = {
     const canvas = within(canvasElement)
 
     await submitValidRequest(canvasElement)
-    await expect(canvas.getByRole("status")).toHaveTextContent("Demo only — no request was sent.")
+    await expect(
+      await canvas.findByRole("status", {
+        name: "Demo complete — no support request was sent or saved.",
+      }),
+    ).toBeVisible()
     await waitFor(() => expect(canvas.getByRole("button", { name: "Done" })).toHaveFocus())
     await expectDialogWithinViewport(canvasElement)
   },
@@ -158,8 +172,10 @@ export const DarkHonestResult: Story = {
   globals: { theme: "dark" },
   play: async ({ canvasElement }) => {
     await submitValidRequest(canvasElement)
-    await expect(within(canvasElement).getByRole("status")).toHaveTextContent(
-      "Demo only — no request was sent.",
-    )
+    await expect(
+      await within(canvasElement).findByRole("status", {
+        name: "Demo complete — no support request was sent or saved.",
+      }),
+    ).toBeVisible()
   },
 }

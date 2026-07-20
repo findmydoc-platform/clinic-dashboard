@@ -8,6 +8,10 @@ export const clinicDashboardDemoNotifications = [
     locationId: "istanbul-levent",
     locationLabel: "İstanbul",
     timestamp: "Today, 09:42",
+    target: {
+      conversationId: "istanbul-levent-conversation-eren-yilmaz",
+      kind: "conversation",
+    },
     title: "New message from Eren Yılmaz",
     type: "message",
     unread: true,
@@ -19,6 +23,10 @@ export const clinicDashboardDemoNotifications = [
     locationId: "izmir-alsancak",
     locationLabel: "İzmir",
     timestamp: "Today, 09:18",
+    target: {
+      conversationId: "izmir-alsancak-conversation-leyla-demir",
+      kind: "conversation",
+    },
     title: "New message from Leyla Demir",
     type: "message",
     unread: true,
@@ -30,6 +38,10 @@ export const clinicDashboardDemoNotifications = [
     locationId: "antalya-lara",
     locationLabel: "Antalya",
     timestamp: "Today, 08:54",
+    target: {
+      conversationId: "antalya-lara-conversation-ece-arslan",
+      kind: "conversation",
+    },
     title: "New message from Ece Arslan",
     type: "message",
     unread: true,
@@ -41,6 +53,10 @@ export const clinicDashboardDemoNotifications = [
     locationId: "istanbul-levent",
     locationLabel: "İstanbul",
     timestamp: "Yesterday",
+    target: {
+      kind: "review",
+      reviewId: "istanbul-levent-review-open-waiting-time",
+    },
     title: "New 3-star review needs a response",
     type: "review",
     unread: true,
