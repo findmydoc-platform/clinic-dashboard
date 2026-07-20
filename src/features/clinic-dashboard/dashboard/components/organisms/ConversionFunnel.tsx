@@ -157,10 +157,14 @@ export function ConversionFunnel({
           const FunnelIcon = iconConfig.component
           const isFinalStep = index === steps.length - 1
           const isSelected = selectedMetricId === step.metricId
+          const isConnectorOpen = openConnectorId === step.metricId
           const nextStep = steps[index + 1]
 
           return (
-            <li className="relative flex min-w-0 flex-col items-center" key={step.label}>
+            <li
+              className={cn("relative flex min-w-0 flex-col items-center", isConnectorOpen && "z-20")}
+              key={step.label}
+            >
               <button
                 aria-controls={controlsId}
                 aria-pressed={isSelected}
@@ -201,7 +205,7 @@ export function ConversionFunnel({
                   connectorId={step.metricId}
                   conversion={nextStep?.conversion ?? ""}
                   fromLabel={step.label}
-                  isOpen={openConnectorId === step.metricId}
+                  isOpen={isConnectorOpen}
                   onOpenChange={handleConnectorOpenChange}
                   toLabel={nextStep?.label ?? "next stage"}
                 />

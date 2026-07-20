@@ -1,9 +1,11 @@
 export { Messages, type MessagesProps } from "./Messages"
-export { PatientInquiryProfileDialog } from "./components/organisms/PatientInquiryProfileDialog"
+export type { MessageCommands } from "./model/message-commands"
 export type {
   ClinicConversation,
   ClinicMessage,
   ConversationDoctor,
+  MessageAttachmentMetadata,
+  MessageFocusTarget,
   MessagesSnapshot,
   MessagesScreenActions,
   MessagesViewModel,

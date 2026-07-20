@@ -17,19 +17,24 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  const interfaceModeSwitch = page.getByRole("switch", { name: "Demo scope" })
-  await expect(interfaceModeSwitch).not.toBeChecked()
-  await interfaceModeSwitch.click()
-  await expect(interfaceModeSwitch).toBeChecked()
+  await expect(page.getByRole("switch", { name: "Demo scope" })).toHaveCount(0)
   await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
+  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Notifications, 4 new notifications" })).toBeVisible()
 
-  for (const section of ["Messages", "Reviews", "Clinic profile"] as const) {
+  for (const section of ["Messages", "Reviews", "Clinic profile", "Subscriptions", "Credentials"] as const) {
     await page.getByRole("button", { exact: true, name: section }).click()
-    await expect(page.getByRole("heading", { level: 1, name: section })).toBeVisible()
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: section === "Credentials" ? "Certificates and accreditations" : section,
+      }),
+    ).toBeVisible()
   }
 
   await page.reload()
-  await expect(page.getByRole("switch", { name: "Demo scope" })).toBeChecked()
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  await expect(page.getByRole("switch", { name: "Demo scope" })).toHaveCount(0)
 
   const health = await page.request.get("/api/health")
   expect(health.ok()).toBe(true)
@@ -43,7 +48,6 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
 test("switches complete location snapshots and resets local demo changes", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
-  await page.getByRole("switch", { name: "Demo scope" }).click()
 
   const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
   const dashboardLocation = page.getByRole("region", { name: "Dashboard clinic location summary" })
@@ -67,11 +71,11 @@ test("switches complete location snapshots and resets local demo changes", async
 
   await page.getByRole("button", { name: "Messages" }).click()
   await expect(page.getByRole("heading", { name: "Leyla Demir" })).toBeVisible()
-  await expect(
-    page
-      .getByRole("region", { name: "Conversation between Leyla Demir and Dr Derya Aydın" })
-      .getByText("Dr Derya Aydın"),
-  ).toBeVisible()
+  const izmirConversation = page.getByRole("region", {
+    name: "Conversation between Leyla Demir and Dr Derya Aydın",
+  })
+  await expect(izmirConversation).toBeVisible()
+  await expect(izmirConversation).toContainText("Dr Derya Aydın")
   const localMessage = "Local İzmir message must not cross locations."
   await page.getByRole("textbox", { name: "Write a message" }).fill(localMessage)
   await page.getByRole("button", { name: "Send message" }).click()
@@ -81,11 +85,11 @@ test("switches complete location snapshots and resets local demo changes", async
   await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Ece Arslan" })).toBeVisible()
-  await expect(
-    page
-      .getByRole("region", { name: "Conversation between Ece Arslan and Dr Zeynep Arslan" })
-      .getByText("Dr Zeynep Arslan"),
-  ).toBeVisible()
+  const antalyaConversation = page.getByRole("region", {
+    name: "Conversation between Ece Arslan and Dr Zeynep Arslan",
+  })
+  await expect(antalyaConversation).toBeVisible()
+  await expect(antalyaConversation).toContainText("Dr Zeynep Arslan")
   await expect(page.getByText(localMessage)).toHaveCount(0)
 
   await page.getByRole("button", { name: "Reviews" }).click()
@@ -143,6 +147,54 @@ test("switches complete location snapshots and resets local demo changes", async
   await expect(page.getByText("Active local clinic name before reload")).toHaveCount(0)
 })
 
+test("deep-links across locations and projects a saved profile until reload", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+
+  await page.getByRole("button", { name: "Notifications, 4 new notifications" }).click()
+  await page.getByRole("button", { name: /New message from Leyla Demir/ }).click()
+
+  const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
+  await expect(locationSelector).toHaveAccessibleName(/Current location: Avenora Clinic — İzmir/)
+  await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Leyla Demir" })).toBeFocused()
+  await expect(page.getByText("Opened conversation at Avenora Clinic — İzmir.")).toBeVisible()
+
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  const clinicName = page.getByRole("textbox", { name: "Clinic name" })
+  await clinicName.fill("Avenora Clinic — İzmir Presentation")
+
+  const gallery = page.getByRole("region", { name: "Clinic image gallery" })
+  await gallery.getByRole("button", { name: "View all images" }).click()
+  const galleryDialog = page.getByRole("dialog", { name: "Edit clinic images" })
+  await galleryDialog.getByRole("button", { name: "Set cover" }).first().click()
+  await galleryDialog.getByRole("button", { name: "Done" }).click()
+  await page
+    .getByRole("group", { name: "Profile page actions" })
+    .getByRole("button", { name: "Save changes" })
+    .click()
+  await expect(page.getByText("Profile saved as revision 2.")).toBeVisible()
+
+  await page.getByRole("button", { name: "Dashboard" }).click()
+  const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })
+  await expect(clinicPreview.getByText("Avenora Clinic — İzmir Presentation")).toBeVisible()
+  await expect(clinicPreview.getByRole("img", { name: "Reception at Avenora Clinic — İzmir" })).toBeVisible()
+  await expect(page.getByText("94%", { exact: true }).first()).toBeVisible()
+  await expect(page.getByRole("button", { name: "Review images" })).toHaveCount(0)
+
+  await page.reload()
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
+    /Current location: Avenora Clinic — İstanbul/,
+  )
+
+  const reloadedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
+  await reloadedLocationSelector.click()
+  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveValue("Avenora Clinic — İzmir")
+})
+
 test("routes dashboard tasks into their owning workspace sections", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
@@ -151,8 +203,8 @@ test("routes dashboard tasks into their owning workspace sections", async ({ pag
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeFocused()
 
   await page.getByRole("button", { name: "Dashboard" }).click()
-  await page.getByRole("button", { name: "Review images" }).click()
-  const imageDialog = page.getByRole("dialog", { name: "Missing images" })
+  await page.getByRole("button", { name: "Review cover" }).click()
+  const imageDialog = page.getByRole("dialog", { name: "Confirm cover image" })
   await expect(imageDialog).toBeVisible()
   await imageDialog.getByRole("button", { name: "Open image gallery" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeVisible()
@@ -170,7 +222,6 @@ test("opens the honest local support prototype from a missing treatment", async 
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  await page.getByRole("switch", { name: "Demo scope" }).click()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await page.getByRole("button", { name: "New treatment" }).click()
 
@@ -186,7 +237,11 @@ test("opens the honest local support prototype from a missing treatment", async 
     .fill("Please add this treatment to the platform catalogue.")
   await supportDialog.getByRole("button", { name: "Submit demo request" }).click()
 
-  await expect(supportDialog.getByRole("status")).toHaveText("Demo only — no request was sent.")
+  await expect(
+    supportDialog.getByRole("status", {
+      name: "Demo complete — no support request was sent or saved.",
+    }),
+  ).toBeVisible()
 })
 
 test("opens the account menu and signs out", async ({ page }) => {

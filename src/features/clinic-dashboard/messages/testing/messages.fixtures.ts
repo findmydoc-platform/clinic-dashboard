@@ -49,7 +49,7 @@ export const messagesFixture = {
       id: "sarah-meyer",
       initials: "SM",
       name: "Sarah Meyer",
-      preview: "Could we move the appointment to Thursday…",
+      preview: "Thursday afternoon is my preferred contact window…",
       section: "Recent chats",
       time: "Mon",
     },
@@ -70,7 +70,11 @@ export const messagesFixture = {
       time: "10:52",
     },
     {
-      attachmentSummary: "3 photos",
+      attachment: {
+        name: "assessment-photos.pdf",
+        size: 720_000,
+        type: "application/pdf",
+      },
       body: "Here are the requested photos. I hope they help with the initial assessment.",
       id: "message-3",
       sender: "patient",
@@ -80,13 +84,12 @@ export const messagesFixture = {
 } satisfies MessagesSnapshot
 
 export const patientInquiryFixture = {
-  avatar: lukasWeberAvatar,
-  age: "32 years",
+  contactWindow: "Weekdays after 16:00",
   email: "l.weber@example.com",
-  gender: "Male",
+  id: "inquiry-lukas-weber",
   interest: "Hair transplant",
-  lastVisit: "October 12, 2023",
-  medicalNotes:
-    "The patient reports hair loss around the crown for approximately two years. Initial consultation is pending.",
+  message: "I am interested in a hair transplant and would like to know which documents to prepare.",
   name: "Lukas Weber",
+  phone: "+49 000 0000001",
+  treatmentTimeline: "Within 3–6 months",
 } satisfies PatientInquiryProfile

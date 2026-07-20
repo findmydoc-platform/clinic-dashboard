@@ -1302,7 +1302,7 @@ describe("architecture policy checker process fixtures", () => {
     expect(result.stdout).toContain("architecture governance: 0 findings")
   })
 
-  it("allows only the server loader and client command entry to consume the central demo source", () => {
+  it("allows only the server provider and client adapter entries to consume the central demo source", () => {
     const fixtureRoot = createFixture({
       "src/app/page.tsx": `
         import { ClinicDashboardWorkspace } from "../features/clinic-dashboard/public"
@@ -1312,7 +1312,7 @@ describe("architecture policy checker process fixtures", () => {
         }
       `,
       "src/features/clinic-dashboard/demo/commands.ts": `
-        export const demoCommands = { save: async () => undefined }
+        export const demoClientAdapter = { save: async () => undefined }
       `,
       "src/features/clinic-dashboard/demo/dataset.ts": `
         import type { ClinicDashboardWorkspaceInput } from "../workspace/model/workspace-input"
@@ -1320,33 +1320,70 @@ describe("architecture policy checker process fixtures", () => {
       `,
       "src/features/clinic-dashboard/demo/loader.ts": `
         import { dataset } from "./dataset"
-        export function loadClinicDashboardDemoWorkspaceInput() { return dataset }
+        import type { ClinicDashboardWorkspaceProvider } from "../workspace-provider"
+        export const demoProvider = {
+          loadWorkspace: async () => dataset,
+        } satisfies ClinicDashboardWorkspaceProvider
       `,
       "src/features/clinic-dashboard/public.ts": `
         export { ClinicDashboardWorkspace } from "./workspace/ClinicDashboardWorkspace"
       `,
       "src/features/clinic-dashboard/server.ts": `
         import "server-only"
-        import { loadClinicDashboardDemoWorkspaceInput } from "./demo/loader"
+        import { demoProvider } from "./demo/loader"
         import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-input"
-        export function loadClinicDashboardWorkspaceInput(): ClinicDashboardWorkspaceInput {
-          return loadClinicDashboardDemoWorkspaceInput()
+        export function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboardWorkspaceInput> {
+          return demoProvider.loadWorkspace()
         }
       `,
       "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx": `
-        import { demoCommands } from "../demo/commands"
-        export function ClinicDashboardWorkspace(input: unknown) { return { demoCommands, input } }
+        import { demoClientAdapter } from "../demo/commands"
+        export function ClinicDashboardWorkspace(input: unknown) { return { demoClientAdapter, input } }
       `,
       "src/features/clinic-dashboard/workspace/model/workspace-input.ts": `
-        export type ClinicDashboardWorkspaceInput = Readonly<{ dataSource: "demo" }>
+        export type ClinicDashboardWorkspaceInput = Readonly<{ organizationId: string }>
+      `,
+      "src/features/clinic-dashboard/workspace-provider.ts": `
+        import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-input"
+        export type ClinicDashboardWorkspaceProvider = Readonly<{
+          loadWorkspace: () => Promise<ClinicDashboardWorkspaceInput>
+        }>
       `,
     })
 
     const result = runChecker(fixtureRoot)
 
-    expect(result.status).toBe(0)
+    expect(result.status, combinedOutput(result)).toBe(0)
     expect(result.stderr).toBe("")
     expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
+  it("rejects private workspace provider imports outside the server entry and provider implementation", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/dashboard/hooks/useDashboardController.ts": `
+        import type { ClinicDashboardWorkspaceProvider } from "../../workspace-provider"
+        export function useDashboardController(provider: ClinicDashboardWorkspaceProvider) { return provider }
+      `,
+      "src/features/clinic-dashboard/workspace-provider.ts": `
+        export type ClinicDashboardWorkspaceProvider = Readonly<{ loadWorkspace: () => Promise<unknown> }>
+      `,
+      "tests/unit/workspace-provider.test.ts": `
+        import type { ClinicDashboardWorkspaceProvider } from "../../src/features/clinic-dashboard/workspace-provider"
+        export const provider = {} as ClinicDashboardWorkspaceProvider
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR clinic-dashboard-workspace-provider-boundary src/features/clinic-dashboard/dashboard/hooks/useDashboardController.ts",
+    )
+    expect(output).toContain(
+      "ERROR clinic-dashboard-workspace-provider-boundary tests/unit/workspace-provider.test.ts",
+    )
+    expect(output.match(/ERROR clinic-dashboard-workspace-provider-boundary/gu)).toHaveLength(2)
   })
 
   it("rejects client, story, and unrelated test imports of the private server entry", () => {

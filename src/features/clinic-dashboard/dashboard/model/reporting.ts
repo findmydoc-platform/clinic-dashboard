@@ -206,7 +206,7 @@ export function createDashboardReportingSnapshot({
         delta: changes.inquiries,
         id: "inquiries",
         label: "Inquiries",
-        note: "Bookings / reservations",
+        note: "Patient inquiries",
         value: formatCount(totals.inquiries),
       },
     ],

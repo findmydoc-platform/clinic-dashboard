@@ -31,12 +31,15 @@ export function ReviewCard({
 
   return (
     <Card
+      aria-label={`Review by ${review.author}`}
       className={cn(
         "p-5 sm:p-6",
         review.status === "Under review" &&
           "border-[color-mix(in_srgb,var(--destructive)_45%,var(--background))] bg-[color-mix(in_srgb,var(--destructive)_6%,var(--background))]",
       )}
       data-review-status={review.status}
+      data-review-id={review.id}
+      tabIndex={-1}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">

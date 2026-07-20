@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useReducer, useRef } from "react"
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from "react"
 import type { ReviewCommands } from "../model/review-commands"
 import type { ReviewsSnapshot } from "../model/reviews-snapshot"
 import { createReviewsState, reviewsReducer } from "../model/reviews.reducer"
@@ -78,6 +78,17 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
       refreshTimerRef.current = undefined
     }, reviewRefreshDelayMs)
   }
+
+  const focusReview = useCallback(
+    (reviewId: string) => {
+      const reviewIndex = state.reviews.findIndex(({ id }) => id === reviewId)
+      if (reviewIndex < 0) return false
+
+      dispatch({ page: Math.floor(reviewIndex / 3) + 1, type: "review-targeted" })
+      return true
+    },
+    [state.reviews],
+  )
 
   const markReviewAppealUnderReview: ReviewsActions["markReviewAppealUnderReview"] = async () => {
     if (!showManagement) return "discarded"
@@ -176,5 +187,5 @@ export function useReviewsController({ commands, showManagement, snapshot }: Use
     submitReviewResponse,
   }
 
-  return { actions, model }
+  return { actions, focusReview, model }
 }

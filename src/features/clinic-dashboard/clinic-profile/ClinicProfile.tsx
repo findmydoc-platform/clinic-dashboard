@@ -25,6 +25,7 @@ export type ClinicProfileProps = Readonly<{
   initialDialog?: "team-member" | "treatment"
   initialProfile: ClinicProfileDraft
   onFocusHandled: () => void
+  onProfileSaved?: (profile: ClinicProfileDraft) => void
   onTreatmentMissing?: () => void
   profileManagement: ClinicProfileManagementAccess
   teamManagement: ClinicProfileManagementAccess
@@ -37,6 +38,7 @@ export function ClinicProfile({
   initialDialog,
   initialProfile,
   onFocusHandled,
+  onProfileSaved,
   onTreatmentMissing,
   profileManagement,
   teamManagement,
@@ -50,6 +52,7 @@ export function ClinicProfile({
     },
     initialDialog,
     initialProfile,
+    onProfileSaved,
     treatmentCatalogue,
   })
   const { actions, dialog, model } = controller

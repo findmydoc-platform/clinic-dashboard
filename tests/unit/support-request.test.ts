@@ -6,7 +6,7 @@ import {
   validateSupportRequest,
 } from "@/features/clinic-dashboard/support/model/support-request"
 
-describe("support request prototype contract", () => {
+describe("support request demo contract", () => {
   it("allows only structured local fields and an Email reply-method label", () => {
     expect(Object.keys(emptySupportRequest).sort()).toEqual(["category", "message", "screenshot", "subject"])
     expect(supportRequestPolicy.replyMethodLabel).toBe("Email")
@@ -35,8 +35,8 @@ describe("support request prototype contract", () => {
     const result = createSupportRequestResult()
 
     expect(result).toEqual({
-      message: "Demo only — no request was sent.",
-      status: "prototype-only",
+      message: "Demo complete — no support request was sent or saved.",
+      status: "demo-complete",
     })
     expect(result).not.toHaveProperty("ticketId")
     expect(result).not.toHaveProperty("expectedResponse")

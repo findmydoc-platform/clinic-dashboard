@@ -1,6 +1,6 @@
 # Clinic Dashboard Demo Mode and Multi-Location Data
 
-> **Approved implementation plan — 2026-07-19.** This plan introduces a private demo data source and complete location snapshots without defining the later Payload contract.
+> **Approved implementation plan — 2026-07-19.** This plan introduced the private multi-location demo foundation. The later [demo experience and transient flows plan](./clinic-dashboard-demo-experience-and-transient-flows.md) supersedes its workspace-provider, presentation-mode, and session-state details.
 
 ## User Outcome And Audience
 
@@ -8,7 +8,7 @@ Clinic administrators can switch among synthetic Avenora clinics in İstanbul, �
 
 ## Scope
 
-- Add a server loader that returns a private provisional `ClinicDashboardWorkspaceInput` with `dataSource: "demo"`.
+- Add a server loader that returns a private provisional `ClinicDashboardWorkspaceInput`; the later demo-experience plan removes its temporary source marker.
 - Keep organization, account, treatment catalogue, notifications, subscriptions, and credentials organization-wide.
 - Provide location snapshots for dashboard reporting, clinic profile, messages, patient inquiry, and reviews.
 - Use general string location IDs and validate selected IDs against the supplied location list.
@@ -32,7 +32,7 @@ Clinic administrators can switch among synthetic Avenora clinics in İstanbul, �
 
 The existing temporary password guard and public-route allowlist remain unchanged. All demo identities, email addresses, telephone numbers, medical descriptions, reviews, and conversations are synthetic. Email addresses use `example.com`; telephone numbers are visibly non-production values. The fixed demo reference time is `2026-07-19T10:00:00.000Z`.
 
-No data is persisted. `.codex/project-profile.toml` remains at `storage.mode = "none"`. Browser session storage continues to hold only the already approved interface mode and notification read state.
+No clinic data is persisted. `.codex/project-profile.toml` remains at `storage.mode = "none"`. Under the superseding demo-experience plan, browser session storage holds only notification read state; interface mode remains internal QA state.
 
 ## Architecture
 

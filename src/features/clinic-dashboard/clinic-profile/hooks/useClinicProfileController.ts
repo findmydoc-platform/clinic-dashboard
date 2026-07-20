@@ -31,6 +31,7 @@ type UseClinicProfileControllerOptions = Readonly<{
   dialogAvailability: ClinicProfileDialogAvailability
   initialDialog?: Extract<ClinicProfileDialogId, "team-member" | "treatment">
   initialProfile: ClinicProfileDraft
+  onProfileSaved?: (profile: ClinicProfileDraft) => void
   treatmentCatalogue: readonly MasterTreatment[]
 }>
 
@@ -46,6 +47,7 @@ export function useClinicProfileController({
   dialogAvailability,
   initialDialog,
   initialProfile,
+  onProfileSaved,
   treatmentCatalogue,
 }: UseClinicProfileControllerOptions) {
   const [editor, dispatch] = useReducer(
@@ -143,10 +145,11 @@ export function useClinicProfileController({
     try {
       const profile = await commands.saveClinicProfile(projection.profile)
       dispatch({ profile, type: "saveSucceeded" })
+      onProfileSaved?.(profile)
     } catch {
       dispatch({ type: "saveFailed" })
     }
-  }, [canManageProfile, canManageTeam, commands, projection])
+  }, [canManageProfile, canManageTeam, commands, onProfileSaved, projection])
 
   const saveTeamMember = useCallback(
     (input: ClinicTeamMemberInput) => {

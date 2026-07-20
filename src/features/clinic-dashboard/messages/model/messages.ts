@@ -1,4 +1,7 @@
 export const conversationSections = ["New inquiries", "Recent chats"] as const
+const messageAttachmentMimeTypes = ["image/png", "image/jpeg", "image/webp", "application/pdf"] as const
+
+export const maximumMessageAttachmentBytes = 5 * 1024 * 1024
 
 export type ConversationSection = (typeof conversationSections)[number]
 
@@ -39,8 +42,14 @@ export type ClinicConversation = Readonly<{
   unread?: number
 }>
 
+export type MessageAttachmentMetadata = Readonly<{
+  name: string
+  size: number
+  type: string
+}>
+
 export type ClinicMessage = Readonly<{
-  attachmentSummary?: string
+  attachment?: MessageAttachmentMetadata
   body: string
   id: string
   read?: string
@@ -56,15 +65,17 @@ export type MessagesSnapshot = Readonly<{
 }>
 
 export type PatientInquiryProfile = Readonly<{
-  age: string
-  avatar?: MessageImageSource
+  contactWindow: string
   email: string
-  gender: string
+  id: string
   interest: string
-  lastVisit: string
-  medicalNotes: string
+  message: string
   name: string
+  phone: string
+  treatmentTimeline: string
 }>
+
+export type MessageFocusTarget = Readonly<{ conversationId: string }>
 
 export type ConversationListItemModel = Readonly<{
   conversation: ClinicConversation
@@ -78,11 +89,15 @@ export type ConversationSectionModel = Readonly<{
 }>
 
 export type MessagesViewModel = Readonly<{
+  attachment?: MessageAttachmentMetadata
+  attachmentError?: string
   dateLabel: string
   draft: string
   hasFullConversation: boolean
   isInteractive: boolean
+  isSending: boolean
   menuOpen: boolean
+  messageStatus: string
   mobileThreadOpen: boolean
   searchQuery: string
   sections: readonly ConversationSectionModel[]
@@ -94,16 +109,19 @@ export type MessagesViewModel = Readonly<{
 }>
 
 export type MessagesControllerActions = Readonly<{
+  onAttachmentRemove: () => void
+  onAttachmentSelect: (attachment: MessageAttachmentMetadata) => void
   onConversationSelect: (conversationId: string) => void
   onDraftChange: (draft: string) => void
+  onInquiryOpenChange: (open: boolean) => void
   onMenuOpenChange: (open: boolean) => void
-  onMessageSend: (message: string) => void
+  onMessageSend: () => Promise<void>
   onMobileBack: () => void
   onSearchQueryChange: (query: string) => void
   onUnreadToggle: () => void
 }>
 
-export type MessagesScreenActions = MessagesControllerActions &
+export type MessagesScreenActions = Omit<MessagesControllerActions, "onInquiryOpenChange"> &
   Readonly<{
     onPatientInquiryOpen: () => void
   }>
@@ -149,12 +167,18 @@ export function getTotalUnreadCount(
   )
 }
 
-export function createLocalDoctorMessage(body: string, index: number): ClinicMessage {
-  return {
-    body: body.trim(),
-    id: `local-message-${index}`,
-    read: "Read 11:08",
-    sender: "doctor",
-    time: "11:08",
+export function validateMessageAttachment(attachment: MessageAttachmentMetadata): string | undefined {
+  if (!messageAttachmentMimeTypes.includes(attachment.type as (typeof messageAttachmentMimeTypes)[number])) {
+    return "Choose a PNG, JPEG, WebP, or PDF file."
   }
+  if (attachment.size > maximumMessageAttachmentBytes) {
+    return "The attachment must be 5 MB or smaller."
+  }
+  return undefined
+}
+
+export function formatMessageAttachmentSize(size: number) {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.ceil(size / 1024)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }

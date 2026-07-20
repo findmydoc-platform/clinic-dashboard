@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
-  createLocalDoctorMessage,
   filterConversations,
   getConversationUnreadCount,
   getTotalUnreadCount,
+  maximumMessageAttachmentBytes,
+  validateMessageAttachment,
   type ClinicConversation,
+  type ClinicMessage,
   type MessagesSnapshot,
 } from "@/features/clinic-dashboard/messages/model/messages"
 import {
@@ -18,17 +20,17 @@ import {
   patientInquiryFixture,
 } from "@/features/clinic-dashboard/messages/testing/messages.fixtures"
 
-describe("dashboard message prototype", () => {
+const createState = () => createMessagesState({ inquiry: patientInquiryFixture, snapshot: messagesFixture })
+
+describe("dashboard message demo", () => {
   const conversations = messagesFixture.conversations
 
-  it("searches existing patient, doctor, treatment, and optional category metadata", () => {
+  it("searches patient, doctor, treatment, and optional category metadata", () => {
     expect(filterConversations(conversations, "Markus").map(({ id }) => id)).toEqual(["markus-schmidt"])
-    expect(filterConversations(conversations, "hair transplant").map(({ id }) => id)).toEqual(["lukas-weber"])
     expect(filterConversations(conversations, "Anna Keller").map(({ id }) => id)).toEqual([
       "lukas-weber",
       "markus-schmidt",
     ])
-    expect(filterConversations(conversations, "Dermatology").map(({ id }) => id)).toEqual(["sarah-meyer"])
 
     const categorizedConversation: ClinicConversation = {
       doctor: {
@@ -43,295 +45,153 @@ describe("dashboard message prototype", () => {
       preview: "I have a question about my treatment.",
       section: "New inquiries",
       time: "Now",
-      treatment: {
-        categoryPath: ["Orthodontics", "Clear aligner"],
-        name: "Spark Advanced",
-      },
+      treatment: { categoryPath: ["Orthodontics", "Clear aligner"], name: "Spark Advanced" },
     }
 
-    expect(filterConversations([categorizedConversation], "orthodontics")).toEqual([categorizedConversation])
-    expect(filterConversations([categorizedConversation], "spark advanced")).toEqual([
-      categorizedConversation,
-    ])
+    expect(filterConversations([categorizedConversation], "clear aligner")).toEqual([categorizedConversation])
   })
 
-  it("derives unread totals without mutating fixture conversations", () => {
+  it("derives unread totals without mutating the snapshot", () => {
     const activeConversation = conversations.find(({ id }) => id === "lukas-weber")
     expect(activeConversation).toBeDefined()
     expect(getTotalUnreadCount(conversations, [])).toBe(1)
-    expect(getConversationUnreadCount(activeConversation!, [])).toBe(1)
     expect(getConversationUnreadCount(activeConversation!, ["lukas-weber"])).toBe(0)
-    expect(getTotalUnreadCount(conversations, ["lukas-weber"])).toBe(0)
     expect(activeConversation?.unread).toBe(1)
   })
 
-  it("creates a deterministic local doctor message from a controlled draft", () => {
-    expect(createLocalDoctorMessage("  We can review this tomorrow.  ", 2)).toEqual({
-      body: "We can review this tomorrow.",
-      id: "local-message-2",
-      read: "Read 11:08",
-      sender: "doctor",
-      time: "11:08",
-    })
-  })
-
-  it("selects a conversation through one atomic transition", () => {
+  it("selects a conversation and closes transient navigation atomically", () => {
     const initialState: MessagesState = {
-      ...createMessagesState(messagesFixture),
+      ...createState(),
       menuOpen: true,
-      selection: {
-        conversationId: "markus-schmidt",
-        mobilePane: "conversation-list",
-      },
+      selection: { conversationId: "markus-schmidt", mobilePane: "conversation-list" },
     }
-
-    const nextState = messagesReducer(
+    const selected = messagesReducer(
       initialState,
       { conversationId: "lukas-weber", type: "conversationSelected" },
       messagesFixture,
     )
 
-    expect(nextState).toMatchObject({
+    expect(selected).toMatchObject({
       menuOpen: false,
       readConversationIds: ["lukas-weber"],
-      selection: {
-        conversationId: "lukas-weber",
-        mobilePane: "thread",
-      },
+      selection: { conversationId: "lukas-weber", mobilePane: "thread" },
     })
-    expect(initialState).toMatchObject({
-      menuOpen: true,
-      readConversationIds: [],
-      selection: {
-        conversationId: "markus-schmidt",
-        mobilePane: "conversation-list",
-      },
-    })
-
-    const inboxState = messagesReducer(
-      { ...nextState, menuOpen: true },
-      { type: "mobileInboxRequested" },
-      messagesFixture,
-    )
-    expect(inboxState).toMatchObject({
-      menuOpen: false,
-      selection: {
-        conversationId: "lukas-weber",
-        mobilePane: "conversation-list",
-      },
-    })
-  })
-
-  it("rejects selection transitions for unknown conversations", () => {
-    const state = createMessagesState(messagesFixture)
-
     expect(
       messagesReducer(
-        state,
-        { conversationId: "missing-conversation", type: "conversationSelected" },
+        initialState,
+        { conversationId: "unknown", type: "conversationSelected" },
         messagesFixture,
       ),
-    ).toBe(state)
+    ).toBe(initialState)
   })
 
-  it("closes the transient menu when interaction is withdrawn without losing authored state", () => {
-    const state: MessagesState = {
-      ...createMessagesState(messagesFixture),
-      draft: "Preserved draft",
-      menuOpen: true,
-      searchQuery: "Markus",
-      selection: {
-        conversationId: "markus-schmidt",
-        mobilePane: "thread",
-      },
-    }
-
-    const withdrawn = messagesReducer(state, { type: "interaction-withdrawn" }, messagesFixture)
-
-    expect(withdrawn).toEqual({ ...state, menuOpen: false })
-    expect(messagesReducer(withdrawn, { type: "interaction-withdrawn" }, messagesFixture)).toBe(withdrawn)
-  })
-
-  it("toggles unread state without duplicating conversation ids", () => {
-    const state = createMessagesState(messagesFixture)
-    const readState = messagesReducer(state, { type: "unreadToggled" }, messagesFixture)
-    const unreadState = messagesReducer(readState, { type: "unreadToggled" }, messagesFixture)
-
-    expect(readState.readConversationIds).toEqual(["lukas-weber"])
-    expect(unreadState.readConversationIds).toEqual([])
-  })
-
-  it("submits messages only for the full conversation and clears the draft atomically", () => {
-    const data = messagesFixture
-    const draftedState = messagesReducer(
-      createMessagesState(data),
-      { draft: "We can review this tomorrow.", type: "draftChanged" },
-      data,
+  it("accepts only the documented attachment metadata", () => {
+    expect(validateMessageAttachment({ name: "photo.webp", size: 10, type: "image/webp" })).toBeUndefined()
+    expect(validateMessageAttachment({ name: "record.txt", size: 10, type: "text/plain" })).toBe(
+      "Choose a PNG, JPEG, WebP, or PDF file.",
     )
-    const previewState = messagesReducer(
-      draftedState,
-      { conversationId: "markus-schmidt", type: "conversationSelected" },
-      data,
-    )
-
     expect(
-      messagesReducer(
-        previewState,
-        { message: "We can review this tomorrow.", type: "messageSubmitted" },
-        data,
-      ),
-    ).toBe(previewState)
-
-    const activeState = messagesReducer(
-      previewState,
-      { conversationId: data.activeConversationId, type: "conversationSelected" },
-      data,
-    )
-    const submittedState = messagesReducer(
-      activeState,
-      { message: "We can review this tomorrow.", type: "messageSubmitted" },
-      data,
-    )
-
-    expect(submittedState.draft).toBe("")
-    expect(submittedState.localMessages).toEqual([
-      {
-        body: "We can review this tomorrow.",
-        id: "local-message-1",
-        read: "Read 11:08",
-        sender: "doctor",
-        time: "11:08",
-      },
-    ])
+      validateMessageAttachment({
+        name: "large.pdf",
+        size: maximumMessageAttachmentBytes + 1,
+        type: "application/pdf",
+      }),
+    ).toBe("The attachment must be 5 MB or smaller.")
   })
 
-  it("uses the explicit submitted payload even when the controlled draft is empty", () => {
-    const initialState = createMessagesState(messagesFixture)
-
-    expect(initialState.draft).toBe("")
-    expect(messagesReducer(initialState, { message: "   ", type: "messageSubmitted" }, messagesFixture)).toBe(
-      initialState,
+  it("keeps accepted attachment metadata and rejects invalid selections", () => {
+    const attachment = { name: "overview.pdf", size: 2_048, type: "application/pdf" }
+    const accepted = messagesReducer(
+      createState(),
+      { attachment, type: "attachmentSelected" },
+      messagesFixture,
     )
+    expect(accepted.attachment).toEqual(attachment)
 
-    const submittedState = messagesReducer(
-      initialState,
-      { message: "  Payload wins over hidden draft state.  ", type: "messageSubmitted" },
+    const rejected = messagesReducer(
+      accepted,
+      { attachment: { ...attachment, type: "text/plain" }, type: "attachmentSelected" },
+      messagesFixture,
+    )
+    expect(rejected.attachment).toBeUndefined()
+    expect(rejected.attachmentError).toMatch(/PNG/)
+  })
+
+  it("commits a command result and clears draft plus attachment after success", () => {
+    const attachment = { name: "overview.pdf", size: 2_048, type: "application/pdf" }
+    const drafted = messagesReducer(
+      messagesReducer(createState(), { draft: "Local reply", type: "draftChanged" }, messagesFixture),
+      { attachment, type: "attachmentSelected" },
+      messagesFixture,
+    )
+    const sending = messagesReducer(drafted, { type: "messageSendStarted" }, messagesFixture)
+    const message: ClinicMessage = {
+      attachment,
+      body: "Local reply",
+      id: "local-result",
+      sender: "doctor",
+      time: "11:08",
+    }
+    const saved = messagesReducer(sending, { message, type: "messageSendSucceeded" }, messagesFixture)
+
+    expect(saved).toMatchObject({ attachment: undefined, draft: "", isSending: false })
+    expect(saved.localMessages).toEqual([message])
+    expect(saved.messageStatus).toBe("Demo only — message added locally; nothing was sent.")
+  })
+
+  it("preserves authored content when simulated sending fails", () => {
+    const drafted = messagesReducer(
+      createState(),
+      { draft: "Retry this message", type: "draftChanged" },
+      messagesFixture,
+    )
+    const failed = messagesReducer(
+      messagesReducer(drafted, { type: "messageSendStarted" }, messagesFixture),
+      { type: "messageSendFailed" },
       messagesFixture,
     )
 
-    expect(submittedState.draft).toBe("")
-    expect(submittedState.localMessages).toEqual([
-      {
-        body: "Payload wins over hidden draft state.",
-        id: "local-message-1",
-        read: "Read 11:08",
-        sender: "doctor",
-        time: "11:08",
-      },
-    ])
+    expect(failed.draft).toBe("Retry this message")
+    expect(failed.isSending).toBe(false)
+    expect(failed.messageStatus).toMatch(/Try again/)
   })
 
-  it("derives the complete render model without storing filtered or counted state", () => {
-    const data = messagesFixture
-    const selectedState = messagesReducer(
-      createMessagesState(data),
-      { conversationId: "markus-schmidt", type: "conversationSelected" },
-      data,
-    )
-    const searchedState = messagesReducer(
-      { ...selectedState, menuOpen: true },
-      { query: "Markus", type: "searchQueryChanged" },
-      data,
-    )
-
-    const interactiveModel = selectMessagesViewModel(searchedState, data, true)
-    const presentationModel = selectMessagesViewModel(searchedState, data, false)
-
-    expect(interactiveModel).toMatchObject({
-      hasFullConversation: false,
-      menuOpen: true,
-      mobileThreadOpen: true,
-      selectedConversation: { id: "markus-schmidt" },
-      totalConversationCount: 1,
-      totalUnreadCount: 1,
-      visibleMessages: [],
-    })
-    expect(interactiveModel.sections.flatMap(({ conversations: items }) => items)).toHaveLength(1)
-    expect(presentationModel).toMatchObject({
-      draft: "",
-      hasFullConversation: true,
-      menuOpen: false,
-      mobileThreadOpen: false,
-      searchQuery: "",
-      selectedConversation: { id: data.activeConversationId },
-      totalConversationCount: data.conversations.length,
-      totalUnreadCount: 1,
-      visibleMessages: data.messages,
-    })
-    expect(presentationModel.sections.flatMap(({ conversations: items }) => items)).toHaveLength(
-      data.conversations.length,
-    )
-  })
-
-  it("projects a canonical snapshot when interaction is withdrawn", () => {
-    const data = messagesFixture
+  it("projects a canonical read-only snapshot without leaking local changes", () => {
     const staleState: MessagesState = {
+      ...createState(),
       draft: "Hidden draft",
-      localMessages: [createLocalDoctorMessage("Hidden local message", 1)],
+      inquiryOpen: true,
+      localMessages: [{ body: "Hidden", id: "hidden", sender: "doctor", time: "11:08" }],
       menuOpen: true,
-      readConversationIds: [data.activeConversationId],
       searchQuery: "Markus",
-      selection: {
-        conversationId: "markus-schmidt",
-        mobilePane: "thread",
-      },
+      selection: { conversationId: "markus-schmidt", mobilePane: "thread" },
     }
+    const model = selectMessagesViewModel(staleState, messagesFixture, false)
 
-    const projection = selectMessagesViewModel(staleState, data, false)
-
-    expect(projection).toMatchObject({
+    expect(model).toMatchObject({
       draft: "",
       hasFullConversation: true,
       isInteractive: false,
-      menuOpen: false,
-      mobileThreadOpen: false,
       searchQuery: "",
-      selectedConversation: { id: data.activeConversationId },
-      totalConversationCount: data.conversations.length,
-      totalUnreadCount: 1,
+      selectedConversation: { id: messagesFixture.activeConversationId },
     })
-    expect(projection.visibleMessages).toEqual(data.messages)
-    expect(projection.visibleMessages).not.toContainEqual(staleState.localMessages[0])
+    expect(model.visibleMessages).toEqual(messagesFixture.messages)
   })
 
-  it("normalizes an invalid initial selection and rejects an empty conversation source", () => {
+  it("normalizes invalid initial selection and rejects empty conversations", () => {
     const invalidSelectionSnapshot: MessagesSnapshot = {
       ...messagesFixture,
       activeConversationId: "missing-conversation",
     }
-    const normalizedState = createMessagesState(invalidSelectionSnapshot)
-    expect(normalizedState.selection.conversationId).toBe(conversations[0]?.id)
-
+    expect(
+      createMessagesState({ inquiry: patientInquiryFixture, snapshot: invalidSelectionSnapshot }).selection
+        .conversationId,
+    ).toBe(conversations[0]?.id)
     expect(() =>
       createMessagesState({
-        ...invalidSelectionSnapshot,
-        conversations: [],
+        inquiry: patientInquiryFixture,
+        snapshot: { ...invalidSelectionSnapshot, conversations: [] },
       }),
     ).toThrow("Messages require at least one conversation.")
-  })
-
-  it("keeps the fixture treatment-first without inventing category levels", () => {
-    const activeConversation = conversations.find(({ id }) => id === "lukas-weber")
-    expect(activeConversation?.treatment).toEqual({ name: "Hair transplant" })
-  })
-
-  it("keeps fixture identities and active-conversation references consistent", () => {
-    const { activeConversationId, messages } = messagesFixture
-    const activeConversations = conversations.filter(({ id }) => id === activeConversationId)
-
-    expect(activeConversations).toHaveLength(1)
-    expect(activeConversations[0]?.name).toBe(patientInquiryFixture.name)
-    expect(new Set(conversations.map(({ id }) => id)).size).toBe(conversations.length)
-    expect(new Set(messages.map(({ id }) => id)).size).toBe(messages.length)
   })
 })

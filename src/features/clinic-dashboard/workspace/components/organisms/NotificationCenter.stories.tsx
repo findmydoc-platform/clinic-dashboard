@@ -23,6 +23,7 @@ type Story = StoryObj<typeof meta>
 const defaultArgs = {
   notifications: notificationsFixture,
   onMarkAllAsRead: fn(),
+  onNotificationOpen: fn(),
   onOpenChange: fn(),
   open: false,
   readNotificationIds: [],
@@ -53,7 +54,7 @@ function ControlledNotificationCenter(props: ComponentProps<typeof NotificationC
 
 export const ClosedUnread: Story = {
   args: defaultArgs,
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
     const trigger = canvas.getByRole("button", { name: "Notifications, 2 new notifications" })
 
@@ -61,6 +62,8 @@ export const ClosedUnread: Story = {
     await userEvent.click(trigger)
     await expect(canvas.getByRole("dialog", { name: "Notifications" })).toBeInTheDocument()
     await expect(trigger).toHaveAttribute("aria-expanded", "true")
+    await userEvent.click(canvas.getByRole("button", { name: /New message from Lukas Weber/ }))
+    await expect(args.onNotificationOpen).toHaveBeenCalledWith(notificationsFixture[0])
   },
 }
 
@@ -70,7 +73,12 @@ export const OpenUnread: Story = {
     const canvas = within(canvasElement)
     const panel = canvas.getByRole("dialog", { name: "Notifications" })
 
+    await waitFor(() => expect(panel).toHaveFocus())
+    await expect(panel).toHaveStyle({ outlineStyle: "none" })
     await expect(within(panel).getAllByRole("listitem")).toHaveLength(2)
+    await expect(within(panel).queryByText("Message", { exact: true })).not.toBeInTheDocument()
+    await expect(within(panel).queryByText("Review", { exact: true })).not.toBeInTheDocument()
+    await expect(within(panel).queryByText("New", { exact: true })).not.toBeInTheDocument()
     await userEvent.click(within(panel).getByRole("button", { name: "Mark all as read" }))
     const status = within(panel).getByRole("status")
     await waitFor(() => expect(status).toHaveFocus())

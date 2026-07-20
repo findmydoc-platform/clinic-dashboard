@@ -5,7 +5,6 @@ import { patientInquiryFixture } from "../../testing/messages.fixtures"
 
 const meta = {
   args: {
-    canViewDetailedInquiry: true,
     onOpenChange: fn(),
     open: true,
     patient: patientInquiryFixture,
@@ -19,20 +18,24 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const FullProfile: Story = {
+  args: {},
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)
     const dialog = page.getByRole("dialog", { name: "Patient inquiry" })
-    await expect(within(dialog).getByText("Medical notes")).toBeInTheDocument()
-    await expect(within(dialog).getByText("No phone number provided")).toBeInTheDocument()
+    await expect(within(dialog).getByText("Original message")).toBeInTheDocument()
+    await expect(within(dialog).getByText(patientInquiryFixture.phone)).toBeInTheDocument()
+    await expect(within(dialog).queryByText(patientInquiryFixture.id)).not.toBeInTheDocument()
   },
 }
 
-export const ContactOnly: Story = {
-  args: { canViewDetailedInquiry: false },
+export const DefinedDetailsOnly: Story = {
+  args: {},
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)
     const dialog = page.getByRole("dialog", { name: "Patient inquiry" })
     await expect(within(dialog).getByText("l.weber@example.com")).toBeInTheDocument()
-    await expect(within(dialog).queryByText("Medical notes")).not.toBeInTheDocument()
+    await expect(within(dialog).queryByText("Processing status")).not.toBeInTheDocument()
+    await expect(within(dialog).queryByText("Revision")).not.toBeInTheDocument()
+    await expect(within(dialog).queryByText(patientInquiryFixture.id)).not.toBeInTheDocument()
   },
 }

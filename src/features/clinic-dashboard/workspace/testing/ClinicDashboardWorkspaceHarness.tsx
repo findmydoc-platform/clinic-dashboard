@@ -16,7 +16,11 @@ import {
   type DashboardSnapshot,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
-import type { MessagesSnapshot, PatientInquiryProfile } from "@/features/clinic-dashboard/messages/public"
+import type {
+  MessageCommands,
+  MessagesSnapshot,
+  PatientInquiryProfile,
+} from "@/features/clinic-dashboard/messages/public"
 import { messagesFixture, patientInquiryFixture } from "@/features/clinic-dashboard/messages/testing/public"
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import {
@@ -173,11 +177,12 @@ function createMessagesLocationFixture(
 }
 
 function createPatientInquiryLocationFixture(
+  id: string,
   name: string,
   email: string,
   interest: string,
 ): PatientInquiryProfile {
-  return { ...patientInquiryFixture, email, interest, name }
+  return { ...patientInquiryFixture, email, id, interest, name }
 }
 
 function createReviewDistribution(
@@ -264,7 +269,6 @@ const potsdamProfile = {
 
 export const clinicDashboardWorkspaceFixture = {
   account: workspaceAccountFixture,
-  dataSource: "demo",
   defaultLocationId: "berlin-mitte",
   locations: workspaceLocationFixtures,
   locationSnapshots: {
@@ -295,6 +299,7 @@ export const clinicDashboardWorkspaceFixture = {
       }),
       messages: createMessagesLocationFixture("charlottenburg", "Lina Fixture", "Ceramic veneers"),
       patientInquiry: createPatientInquiryLocationFixture(
+        "charlottenburg-inquiry",
         "Lina Fixture",
         "lina.fixture@example.com",
         "Ceramic veneers",
@@ -328,6 +333,7 @@ export const clinicDashboardWorkspaceFixture = {
       }),
       messages: createMessagesLocationFixture("mitte", "Lukas Fixture", "Hair transplant"),
       patientInquiry: createPatientInquiryLocationFixture(
+        "mitte-inquiry",
         "Lukas Fixture",
         "lukas.fixture@example.com",
         "Hair transplant",
@@ -361,6 +367,7 @@ export const clinicDashboardWorkspaceFixture = {
       }),
       messages: createMessagesLocationFixture("potsdam", "Mila Fixture", "Skin analysis"),
       patientInquiry: createPatientInquiryLocationFixture(
+        "potsdam-inquiry",
         "Mila Fixture",
         "mila.fixture@example.com",
         "Skin analysis",
@@ -375,7 +382,7 @@ export const clinicDashboardWorkspaceFixture = {
 
 export function ClinicDashboardWorkspaceHarness({
   notificationState,
-  persistWorkspaceStateInSession = false,
+  persistNotificationReadStateInSession = false,
   prototypeMode,
   reportingPeriod = "30 days",
   showPrototypeModeToggle = false,
@@ -383,15 +390,42 @@ export function ClinicDashboardWorkspaceHarness({
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
   const [reviewCommands] = useState(() => createReviewCommandsFixture())
-
+  const [messageCommands] = useState<MessageCommands>(() => ({
+    sendMessage: async ({ attachment, body, conversationId }) => ({
+      attachment,
+      body,
+      id: `fixture-message-${conversationId}`,
+      read: "Read 11:08",
+      sender: "doctor",
+      time: "11:08",
+    }),
+  }))
   return (
     <ClinicDashboardWorkspaceComposition
       clinicProfileCommands={clinicProfileCommands}
       initialNotificationReadIds={notificationState?.readIds}
       initialNotificationsOpen={notificationState?.isOpen}
       initialReportingPeriod={reportingPeriod}
-      persistWorkspaceStateInSession={persistWorkspaceStateInSession}
+      messageCommands={messageCommands}
+      persistNotificationReadStateInSession={persistNotificationReadStateInSession}
       prototypeMode={prototypeMode}
+      projectDashboardAfterProfileSave={({ initialProfile, savedProfile, snapshot }) => {
+        const coverChanged =
+          initialProfile.gallery.find(({ isCover }) => isCover)?.id !==
+          savedProfile.gallery.find(({ isCover }) => isCover)?.id
+        const teamChanged = JSON.stringify(initialProfile.team) !== JSON.stringify(savedProfile.team)
+        return {
+          ...snapshot,
+          profileCompletion: Math.min(
+            snapshot.profileCompletion + (coverChanged ? 4 : 0) + (teamChanged ? 4 : 0),
+            100,
+          ),
+          profileTasks: snapshot.profileTasks.filter(
+            ({ destination }) =>
+              !(destination === "gallery" && coverChanged) && !(destination === "team" && teamChanged),
+          ),
+        }
+      }}
       reviewCommands={reviewCommands}
       showPrototypeModeToggle={showPrototypeModeToggle}
       start={start}

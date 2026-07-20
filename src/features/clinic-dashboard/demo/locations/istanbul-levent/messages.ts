@@ -34,7 +34,7 @@ export const istanbulLeventMessages = {
       id: "istanbul-levent-conversation-buse-aksoy",
       initials: "BA",
       name: "Buse Aksoy",
-      preview: "Thank you, the appointment time works for me.",
+      preview: "Thank you, I understand the next steps.",
       section: "Recent chats",
       time: "Yesterday",
       treatment: { name: "Skin analysis and treatment" },
@@ -72,7 +72,11 @@ export const istanbulLeventMessages = {
       time: "09:48",
     },
     {
-      attachmentSummary: "3 photos",
+      attachment: {
+        name: "initial-assessment-photos.pdf",
+        size: 842_000,
+        type: "application/pdf",
+      },
       body: "Thank you. I have attached the requested views for the initial assessment.",
       id: "istanbul-levent-message-3",
       sender: "patient",
@@ -82,13 +86,13 @@ export const istanbulLeventMessages = {
 } satisfies MessagesSnapshot
 
 export const istanbulLeventPatientInquiry = {
-  age: "34 years",
-  avatar: personAAvatar,
+  contactWindow: "Weekdays, 16:00–19:00",
   email: "eren.yilmaz@example.com",
-  gender: "Male",
+  id: "istanbul-levent-inquiry-eren-yilmaz",
   interest: "Hair transplant",
-  lastVisit: "July 19, 2026",
-  medicalNotes:
-    "The patient describes gradual hair thinning over three years. No treatment recommendation has been made; an initial consultation is pending.",
+  message:
+    "I am considering a hair transplant and would like to understand which photos are useful before an initial consultation.",
   name: "Eren Yılmaz",
+  phone: "+90 000 000 00 01",
+  treatmentTimeline: "Within 3–6 months",
 } satisfies PatientInquiryProfile

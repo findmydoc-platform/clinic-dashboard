@@ -4,12 +4,12 @@ export const istanbulLeventDashboard = createDemoDashboardSnapshot({
   profileCompletion: 82,
   profileTasks: [
     {
-      actionLabel: "Review images",
-      description: "The public gallery still needs an additional team image before the profile is complete.",
+      actionLabel: "Review cover",
+      description: "Review and confirm a different cover image for the public clinic profile.",
       destination: "gallery",
       destinationLabel: "Open image gallery",
       id: "istanbul-levent-missing-images",
-      label: "Missing images",
+      label: "Confirm cover image",
       priority: "High",
       visibility: "always",
     },

@@ -1,7 +1,7 @@
 export const supportCategories = ["Technical issue", "Account access", "Profile or review", "Other"] as const
 export const supportRequestPolicy = {
   replyMethodLabel: "Email",
-  resultMessage: "Demo only — no request was sent.",
+  resultMessage: "Demo complete — no support request was sent or saved.",
 } as const
 
 export type SupportCategory = (typeof supportCategories)[number]
@@ -21,7 +21,7 @@ export type SupportRequest = Readonly<{
 
 export type SupportRequestResult = Readonly<{
   message: typeof supportRequestPolicy.resultMessage
-  status: "prototype-only"
+  status: "demo-complete"
 }>
 
 type SupportRequestErrorFields = Partial<Record<"category" | "message" | "screenshot" | "subject", string>>
@@ -40,7 +40,7 @@ export const emptySupportRequest = {
 export function createSupportRequestResult(): SupportRequestResult {
   return {
     message: supportRequestPolicy.resultMessage,
-    status: "prototype-only",
+    status: "demo-complete",
   }
 }
 

@@ -34,7 +34,7 @@ export const antalyaLaraMessages = {
       id: "antalya-lara-conversation-mert-kaya",
       initials: "MK",
       name: "Mert Kaya",
-      preview: "The Wednesday appointment works for me.",
+      preview: "Wednesday morning is my preferred contact window.",
       section: "Recent chats",
       time: "Yesterday",
       treatment: { name: "Skin analysis and treatment" },
@@ -72,7 +72,7 @@ export const antalyaLaraMessages = {
       time: "09:01",
     },
     {
-      body: "Thank you. I would like to request an appointment on a Wednesday morning.",
+      body: "Thank you. Please contact me on a Wednesday morning if possible.",
       id: "antalya-lara-message-3",
       sender: "patient",
       time: "09:07",
@@ -81,13 +81,13 @@ export const antalyaLaraMessages = {
 } satisfies MessagesSnapshot
 
 export const antalyaLaraPatientInquiry = {
-  age: "41 years",
-  avatar: personCAvatar,
+  contactWindow: "Wednesday mornings",
   email: "ece.arslan@example.com",
-  gender: "Female",
+  id: "antalya-lara-inquiry-ece-arslan",
   interest: "Dermatology consultation",
-  lastVisit: "July 19, 2026",
-  medicalNotes:
-    "The patient requests a general skin consultation. No diagnosis is included in the demo data and the clinical assessment is pending.",
+  message:
+    "I would like to know whether a referral is needed before requesting a first dermatology consultation.",
   name: "Ece Arslan",
+  phone: "+90 000 000 00 03",
+  treatmentTimeline: "Within 4–8 weeks",
 } satisfies PatientInquiryProfile

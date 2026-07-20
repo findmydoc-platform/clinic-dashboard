@@ -15,6 +15,7 @@ export function useSupportRequestController() {
   const [request, setRequest] = useState<SupportRequest>(emptySupportRequest)
   const [errors, setErrors] = useState<SupportRequestErrors>({})
   const [result, setResult] = useState<SupportRequestResult>()
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const categoryRef = useRef<HTMLSelectElement>(null)
   const subjectRef = useRef<HTMLInputElement>(null)
   const messageRef = useRef<HTMLTextAreaElement>(null)
@@ -32,7 +33,16 @@ export function useSupportRequestController() {
     [update],
   )
 
-  const submit = useCallback(() => {
+  const reset = useCallback(() => {
+    setRequest({ ...emptySupportRequest })
+    setErrors({})
+    setResult(undefined)
+    setIsSubmitting(false)
+    if (screenshotRef.current) screenshotRef.current.value = ""
+  }, [])
+
+  const submit = useCallback(async () => {
+    if (isSubmitting) return
     const nextErrors = validateSupportRequest(request)
     setErrors(nextErrors)
     const firstError = Object.keys(nextErrors)[0] as keyof SupportRequestErrors | undefined
@@ -48,12 +58,15 @@ export function useSupportRequestController() {
       return
     }
 
+    setIsSubmitting(true)
+    await new Promise((done) => setTimeout(done, 300))
     setResult(createSupportRequestResult())
-  }, [request])
+    setIsSubmitting(false)
+  }, [isSubmitting, request])
 
   return {
-    actions: { selectScreenshot, submit, update },
-    model: { errors, request, result },
+    actions: { reset, selectScreenshot, submit, update },
+    model: { errors, isSubmitting, request, result },
     refs: { categoryRef, messageRef, screenshotRef, subjectRef },
   } as const
 }

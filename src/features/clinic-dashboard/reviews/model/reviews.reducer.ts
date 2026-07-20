@@ -21,6 +21,7 @@ export type ReviewsAction =
   | Readonly<{ reviewId: string; type: "review-history-opened" }>
   | Readonly<{ reviewId: string; type: "review-note-opened" }>
   | Readonly<{ reviewId: string; type: "review-response-opened" }>
+  | Readonly<{ page: number; type: "review-targeted" }>
   | Readonly<{ review: ClinicReview; statusMessage: string; type: "review-mutation-succeeded" }>
   | Readonly<{ statusMessage: string; type: "refresh-completed" }>
   | Readonly<{ type: "filters-applied" }>
@@ -78,6 +79,16 @@ export function reviewsReducer(state: ReviewsState, action: ReviewsAction): Revi
       return { ...state, isRefreshing: false, statusMessage: action.statusMessage }
     case "refresh-started":
       return { ...state, isRefreshing: true, statusMessage: "" }
+    case "review-targeted":
+      return {
+        ...state,
+        dialog: { kind: "closed" },
+        draftFilters: defaultReviewFilters,
+        filters: defaultReviewFilters,
+        isMobileFiltersOpen: false,
+        page: action.page,
+        statusMessage: "Review opened from notifications.",
+      }
     case "review-appeal-opened":
       if (
         !state.reviews.some(

@@ -11,6 +11,7 @@ export type { ClinicDashboardNotification } from "../../model/notifications"
 type NotificationCenterProps = Readonly<{
   notifications: readonly ClinicDashboardNotification[]
   onMarkAllAsRead: () => void
+  onNotificationOpen: (notification: ClinicDashboardNotification) => void
   onOpenChange: (open: boolean) => void
   open: boolean
   readNotificationIds: readonly string[]
@@ -19,6 +20,7 @@ type NotificationCenterProps = Readonly<{
 export function NotificationCenter({
   notifications,
   onMarkAllAsRead,
+  onNotificationOpen,
   onOpenChange,
   open,
   readNotificationIds,
@@ -102,7 +104,7 @@ export function NotificationCenter({
       {open ? (
         <div
           aria-label="Notifications"
-          className="fixed top-[4.5rem] right-4 left-4 z-50 flex max-h-[calc(100dvh-5.5rem)] flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)] shadow-xl sm:absolute sm:top-[calc(100%+0.5rem)] sm:right-0 sm:left-auto sm:w-96"
+          className="fixed top-[4.5rem] right-4 left-4 z-50 flex max-h-[calc(100dvh-5.5rem)] flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)] shadow-xl focus:outline-none sm:absolute sm:top-[calc(100%+0.5rem)] sm:right-0 sm:left-auto sm:w-96"
           id={panelId}
           ref={panelRef}
           role="dialog"
@@ -126,36 +128,36 @@ export function NotificationCenter({
                 const Icon = notification.type === "message" ? MessageSquare : Star
 
                 return (
-                  <li className="flex gap-3 px-4 py-4" key={notification.id}>
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "flex size-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-[var(--primary)]",
-                        notification.type === "review" && "bg-[var(--warning)] text-[var(--secondary)]",
-                      )}
+                  <li key={notification.id}>
+                    <button
+                      className="flex min-h-11 w-full gap-3 px-4 py-4 text-left hover:bg-[var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)]"
+                      onClick={() => onNotificationOpen(notification)}
+                      type="button"
                     >
-                      <Icon className="size-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm leading-5 font-bold">{notification.title}</p>
-                        <span className="shrink-0 rounded-full bg-[var(--surface)] px-2 py-1 text-[10px] leading-none font-bold">
-                          {notification.type === "message" ? "Message" : "Review"}
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "flex size-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-[var(--primary)]",
+                          notification.type === "review" && "bg-[var(--warning)] text-[var(--secondary)]",
+                        )}
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm leading-5 font-bold">{notification.title}</span>
+                        <span className="mt-1 block text-sm leading-5 text-[var(--foreground)]">
+                          {notification.detail}
                         </span>
-                      </div>
-                      <p className="mt-1 text-sm leading-5 text-[var(--foreground)]">{notification.detail}</p>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-[var(--foreground)]">
-                        <span className="rounded-full bg-[var(--surface)] px-2 py-1 text-[10px] leading-none font-bold text-[var(--secondary)]">
-                          New
+                        <span className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--foreground)]">
+                          <span>{notification.timestamp}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>
+                            <span className="sr-only">Location: </span>
+                            {notification.locationLabel}
+                          </span>
                         </span>
-                        <span>{notification.timestamp}</span>
-                        <span aria-hidden="true">·</span>
-                        <span>
-                          <span className="sr-only">Location: </span>
-                          {notification.locationLabel}
-                        </span>
-                      </div>
-                    </div>
+                      </span>
+                    </button>
                   </li>
                 )
               })}

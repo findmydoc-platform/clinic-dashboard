@@ -9,11 +9,15 @@ import {
 } from "./messages"
 import { createMessagesState, type MessagesState } from "./messages.reducer"
 
-function selectMessagesConversation(state: MessagesState, snapshot: MessagesSnapshot): ClinicConversation {
+function selectMessagesConversation(
+  state: MessagesState,
+  conversations: readonly ClinicConversation[],
+  snapshot: MessagesSnapshot,
+) {
   const conversation =
-    snapshot.conversations.find(({ id }) => id === state.selection.conversationId) ??
-    snapshot.conversations.find(({ id }) => id === snapshot.activeConversationId) ??
-    snapshot.conversations[0]
+    conversations.find(({ id }) => id === state.selection.conversationId) ??
+    conversations.find(({ id }) => id === snapshot.activeConversationId) ??
+    conversations[0]
 
   if (!conversation) throw new Error("Messages require at least one conversation.")
 
@@ -25,17 +29,22 @@ export function selectMessagesViewModel(
   snapshot: MessagesSnapshot,
   isInteractive: boolean,
 ): MessagesViewModel {
-  const projectedState = isInteractive ? state : createMessagesState(snapshot)
-  const selectedConversation = selectMessagesConversation(projectedState, snapshot)
-  const filteredConversations = filterConversations(snapshot.conversations, projectedState.searchQuery)
+  const projectedState = isInteractive ? state : createMessagesState({ inquiry: state.inquiry, snapshot })
+  const conversations = snapshot.conversations
+  const selectedConversation = selectMessagesConversation(projectedState, conversations, snapshot)
+  const filteredConversations = filterConversations(conversations, projectedState.searchQuery)
   const hasFullConversation = selectedConversation.id === snapshot.activeConversationId
 
   return {
+    attachment: projectedState.attachment,
+    attachmentError: projectedState.attachmentError,
     dateLabel: snapshot.dateLabel,
     draft: projectedState.draft,
     hasFullConversation,
     isInteractive,
+    isSending: projectedState.isSending,
     menuOpen: isInteractive && projectedState.menuOpen,
+    messageStatus: projectedState.messageStatus,
     mobileThreadOpen: isInteractive && projectedState.selection.mobilePane === "thread",
     searchQuery: projectedState.searchQuery,
     sections: conversationSections.map((name) => ({
@@ -51,7 +60,7 @@ export function selectMessagesViewModel(
     selectedConversation,
     selectedUnreadCount: getConversationUnreadCount(selectedConversation, projectedState.readConversationIds),
     totalConversationCount: filteredConversations.length,
-    totalUnreadCount: getTotalUnreadCount(snapshot.conversations, projectedState.readConversationIds),
+    totalUnreadCount: getTotalUnreadCount(conversations, projectedState.readConversationIds),
     visibleMessages: hasFullConversation ? [...snapshot.messages, ...projectedState.localMessages] : [],
   }
 }

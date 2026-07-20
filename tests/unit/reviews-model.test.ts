@@ -134,6 +134,29 @@ describe("reviews model", () => {
     expect(refreshCompleted).toMatchObject({ isRefreshing: false, statusMessage: "Reviews refreshed." })
   })
 
+  it("resets filters, pagination, and dialogs for a notification target", () => {
+    const targeted = reviewsReducer(
+      {
+        ...createReviewsState(reviews),
+        dialog: { kind: "history", reviewId: reviews[0]?.id ?? "missing-review" },
+        draftFilters: { ...defaultReviewFilters, rating: 5 },
+        filters: { ...defaultReviewFilters, rating: 5 },
+        isMobileFiltersOpen: true,
+        page: 2,
+      },
+      { page: 1, type: "review-targeted" },
+    )
+
+    expect(targeted).toMatchObject({
+      dialog: { kind: "closed" },
+      draftFilters: defaultReviewFilters,
+      filters: defaultReviewFilters,
+      isMobileFiltersOpen: false,
+      page: 1,
+      statusMessage: "Review opened from notifications.",
+    })
+  })
+
   it("clears management transients on withdrawal while retaining filters and review state", () => {
     const openReview = reviews.find((review) => review.status === "Open")
     expect(openReview).toBeDefined()

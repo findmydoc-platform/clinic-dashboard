@@ -66,7 +66,7 @@ describe("clinic dashboard demo workspace input", () => {
     const input = await loadClinicDashboardWorkspaceInput()
     const locationIds = input.locations.map(({ id }) => id)
 
-    expect(input.dataSource).toBe("demo")
+    expect(input).not.toHaveProperty("dataSource")
     expect(input.defaultLocationId).toBe("istanbul-levent")
     expect(locationIds).toEqual(["istanbul-levent", "izmir-alsancak", "antalya-lara"])
     expect(Object.keys(input.locationSnapshots).sort()).toEqual([...locationIds].sort())
@@ -87,6 +87,14 @@ describe("clinic dashboard demo workspace input", () => {
       expect(location).toBeDefined()
       expect(notification.locationLabel).toBe(location?.selectorLabel)
       expect(Date.parse(notification.createdAt)).toBeLessThanOrEqual(Date.parse("2026-07-19T10:00:00.000Z"))
+      const snapshot = input.locationSnapshots[notification.locationId]
+      if (notification.target.kind === "conversation") {
+        expect(snapshot?.messages.conversations.map(({ id }) => id)).toContain(
+          notification.target.conversationId,
+        )
+      } else {
+        expect(snapshot?.reviews.items.map(({ id }) => id)).toContain(notification.target.reviewId)
+      }
     }
   })
 
@@ -224,6 +232,13 @@ describe("clinic dashboard demo workspace input", () => {
       expect(activeConversation?.name).toBe(snapshot.patientInquiry.name)
       expect(activeConversation?.treatment?.name).toBe(snapshot.patientInquiry.interest)
       expect(snapshot.patientInquiry.email).toMatch(/@example\.com$/u)
+      expect(snapshot.patientInquiry.phone).toMatch(/000/u)
+      expect(snapshot.patientInquiry).not.toHaveProperty("age")
+      expect(snapshot.patientInquiry).not.toHaveProperty("gender")
+      expect(snapshot.patientInquiry).not.toHaveProperty("lastVisit")
+      expect(snapshot.patientInquiry).not.toHaveProperty("medicalNotes")
+      expect(snapshot.patientInquiry).not.toHaveProperty("revision")
+      expect(snapshot.patientInquiry).not.toHaveProperty("status")
       expect(snapshot.clinicProfile.address.phone).toMatch(/000/u)
       const doctorsById = new Map(snapshot.clinicProfile.team.map((doctor) => [doctor.id, doctor]))
       for (const conversation of snapshot.messages.conversations) {

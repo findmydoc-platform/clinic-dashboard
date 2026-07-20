@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
-  getGateIssue,
-  getVisibilityBehavior,
-  type ClinicDashboardGateId,
-} from "@/features/clinic-dashboard/prototype/prototype-capabilities"
+  getDemoGateIssue,
+  getDemoVisibilityBehavior,
+  type ClinicDashboardDemoGateId,
+} from "@/features/clinic-dashboard/prototype/demo-interaction-policy"
 import { isClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/prototype-mode"
 
 const gateIds = [
@@ -18,7 +18,7 @@ const gateIds = [
   "support",
   "subscriptionsPlaceholder",
   "teamWrites",
-] as const satisfies ReadonlyArray<ClinicDashboardGateId>
+] as const satisfies ReadonlyArray<ClinicDashboardDemoGateId>
 
 describe("clinic dashboard visibility contract", () => {
   it("exposes only the visual-reference and presentation prototype modes", () => {
@@ -29,7 +29,9 @@ describe("clinic dashboard visibility contract", () => {
 
   it("links every temporary gate to an existing website issue", () => {
     for (const gate of gateIds) {
-      expect(getGateIssue(gate)).toMatch(/^https:\/\/github\.com\/findmydoc-platform\/website\/issues\/\d+$/)
+      expect(getDemoGateIssue(gate)).toMatch(
+        /^https:\/\/github\.com\/findmydoc-platform\/website\/issues\/\d+$/,
+      )
     }
   })
 
@@ -37,21 +39,23 @@ describe("clinic dashboard visibility contract", () => {
     for (const gate of gateIds.filter(
       (gate) => gate !== "subscriptionsPlaceholder" && gate !== "certificatesAccreditationsPlaceholder",
     )) {
-      expect(getVisibilityBehavior("visual-reference", gate)).toBe("interactive")
+      expect(getDemoVisibilityBehavior("visual-reference", gate)).toBe("interactive")
     }
 
-    expect(getVisibilityBehavior("visual-reference", "subscriptionsPlaceholder")).toBe("read-only")
-    expect(getVisibilityBehavior("visual-reference", "certificatesAccreditationsPlaceholder")).toBe(
+    expect(getDemoVisibilityBehavior("visual-reference", "subscriptionsPlaceholder")).toBe("read-only")
+    expect(getDemoVisibilityBehavior("visual-reference", "certificatesAccreditationsPlaceholder")).toBe(
       "read-only",
     )
 
-    expect(getVisibilityBehavior("presentation", "messaging")).toBe("hidden")
-    expect(getVisibilityBehavior("presentation", "certificateTasks")).toBe("hidden")
-    expect(getVisibilityBehavior("presentation", "certificatesAccreditationsPlaceholder")).toBe("hidden")
-    expect(getVisibilityBehavior("presentation", "notifications")).toBe("hidden")
-    expect(getVisibilityBehavior("presentation", "profileWrites")).toBe("read-only")
-    expect(getVisibilityBehavior("presentation", "support")).toBe("hidden")
-    expect(getVisibilityBehavior("presentation", "subscriptionsPlaceholder")).toBe("hidden")
-    expect(getVisibilityBehavior("presentation", "teamWrites")).toBe("read-only")
+    expect(getDemoVisibilityBehavior("presentation", "messaging")).toBe("interactive")
+    expect(getDemoVisibilityBehavior("presentation", "certificateTasks")).toBe("hidden")
+    expect(getDemoVisibilityBehavior("presentation", "certificatesAccreditationsPlaceholder")).toBe(
+      "read-only",
+    )
+    expect(getDemoVisibilityBehavior("presentation", "notifications")).toBe("interactive")
+    expect(getDemoVisibilityBehavior("presentation", "profileWrites")).toBe("interactive")
+    expect(getDemoVisibilityBehavior("presentation", "support")).toBe("interactive")
+    expect(getDemoVisibilityBehavior("presentation", "subscriptionsPlaceholder")).toBe("read-only")
+    expect(getDemoVisibilityBehavior("presentation", "teamWrites")).toBe("interactive")
   })
 })
