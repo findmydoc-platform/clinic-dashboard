@@ -20,12 +20,14 @@ type ClinicLocationSelectorProps = Readonly<{
 
 function ClinicIdentity({
   clinicName,
+  compactName,
   organizationName,
-}: Readonly<{ clinicName: string; organizationName: string }>) {
+}: Readonly<{ clinicName: string; compactName: string; organizationName: string }>) {
   return (
     <span className="min-w-0">
-      <span className="block truncate text-xs leading-4 font-bold sm:text-sm lg:text-base">{clinicName}</span>
-      <span className="block truncate text-[11px] leading-4 text-[var(--foreground)] sm:text-xs">
+      <span className="block truncate text-xs leading-4 font-bold sm:hidden">{compactName}</span>
+      <span className="hidden truncate text-sm leading-4 font-bold sm:block lg:text-base">{clinicName}</span>
+      <span className="hidden truncate text-xs leading-4 text-[var(--foreground)] sm:block">
         {organizationName}
       </span>
     </span>
@@ -45,7 +47,11 @@ export function ClinicLocationSelector({
   if (!canSwitchLocations || locations.length < 2) {
     return (
       <div aria-label={`Current clinic identity: ${selectedLocation.name}`} className="min-w-0" role="group">
-        <ClinicIdentity clinicName={selectedLocation.name} organizationName={organizationName} />
+        <ClinicIdentity
+          clinicName={selectedLocation.name}
+          compactName={selectedLocation.selectorLabel}
+          organizationName={organizationName}
+        />
       </div>
     )
   }
@@ -58,10 +64,14 @@ export function ClinicLocationSelector({
           className="group -ml-2 flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-md px-2 text-left transition-colors hover:bg-[var(--surface)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] focus-visible:outline-none"
           type="button"
         >
-          <ClinicIdentity clinicName={selectedLocation.name} organizationName={organizationName} />
+          <ClinicIdentity
+            clinicName={selectedLocation.name}
+            compactName={selectedLocation.selectorLabel}
+            organizationName={organizationName}
+          />
           <ChevronDown
             aria-hidden="true"
-            className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180"
+            className="hidden size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180 sm:block"
           />
         </button>
       </DropdownMenu.Trigger>

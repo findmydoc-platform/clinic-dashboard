@@ -3,6 +3,7 @@ export { PatientInquiryProfileDialog } from "./components/organisms/PatientInqui
 export type {
   ClinicConversation,
   ClinicMessage,
+  ConversationDoctor,
   MessagesSnapshot,
   MessagesScreenActions,
   MessagesViewModel,

@@ -1,6 +1,6 @@
 import { createDemoDashboardSnapshot } from "../../reporting"
 
-export const berlinCharlottenburgDashboard = createDemoDashboardSnapshot({
+export const izmirAlsancakDashboard = createDemoDashboardSnapshot({
   profileCompletion: 91,
   profileTasks: [
     {
@@ -8,7 +8,7 @@ export const berlinCharlottenburgDashboard = createDemoDashboardSnapshot({
       description: "One specialist biography is ready for a final content review.",
       destination: "team",
       destinationLabel: "Open doctors and team",
-      id: "berlin-charlottenburg-team-review",
+      id: "izmir-alsancak-team-review",
       label: "Review team biography",
       priority: "Medium",
       visibility: "always",
@@ -18,7 +18,7 @@ export const berlinCharlottenburgDashboard = createDemoDashboardSnapshot({
       description: "Confirm the new cover image before the next public profile update.",
       destination: "gallery",
       destinationLabel: "Open image gallery",
-      id: "berlin-charlottenburg-cover-review",
+      id: "izmir-alsancak-cover-review",
       label: "Confirm cover image",
       priority: "Low",
       visibility: "always",
@@ -26,7 +26,7 @@ export const berlinCharlottenburgDashboard = createDemoDashboardSnapshot({
     {
       actionLabel: "View details",
       description: "One accreditation record is waiting for verification.",
-      id: "berlin-charlottenburg-accreditation-review",
+      id: "izmir-alsancak-accreditation-review",
       label: "Accreditation review",
       priority: "Medium",
       visibility: "full-interface",
@@ -40,60 +40,60 @@ export const berlinCharlottenburgDashboard = createDemoDashboardSnapshot({
   },
   reporting: {
     "7 days": {
-      changes: { contacts: "+18.4%", impressions: "+9.8%", inquiries: "+16.7%", views: "+14.2%" },
+      changes: { contacts: "+14.8%", impressions: "+9.6%", inquiries: "+16.7%", views: "+12.4%" },
       reviewActivity: "3 new reviews in the last 7 days",
       series: {
-        contacts: [2, 2, 3, 2, 3, 3, 3],
+        contacts: [2, 2, 4, 2, 4, 4, 4],
         impressions: [333, 296, 532, 458, 566, 481, 474],
-        inquiries: [1, 1, 1, 1, 1, 1, 1],
-        uniqueVisitors: [49, 49, 54, 69, 55, 51, 111],
-        views: [73, 69, 98, 102, 104, 91, 135],
+        inquiries: [2, 1, 1, 1, 1, 1, 1],
+        uniqueVisitors: [53, 52, 58, 74, 59, 55, 119],
+        views: [75, 71, 101, 105, 107, 93, 139],
       },
-      totals: { contacts: 18, impressions: 3_140, inquiries: 7, profileViews: 672, uniqueVisitors: 438 },
+      totals: { contacts: 22, impressions: 3_140, inquiries: 8, profileViews: 691, uniqueVisitors: 470 },
     },
     "30 days": {
-      changes: { contacts: "+21.6%", impressions: "+12.4%", inquiries: "+20.0%", views: "+18.9%" },
+      changes: { contacts: "+16.2%", impressions: "+11.8%", inquiries: "+18.4%", views: "+14.6%" },
       reviewActivity: "12 new reviews in the last 30 days",
       series: {
-        contacts: [2, 2, 2, 1, 1, 2, 2, 1, 2, 2, 3, 1, 2, 2, 2, 1, 3, 2, 2, 1, 2, 2, 2, 2, 3, 3, 3, 2, 3, 3],
+        contacts: [3, 3, 3, 2, 2, 3, 3, 2, 3, 3, 4, 2, 3, 3, 3, 2, 4, 3, 3, 2, 3, 3, 3, 3, 4, 4, 4, 3, 4, 4],
         impressions: [
           330, 366, 342, 245, 313, 330, 405, 367, 385, 420, 491, 278, 530, 320, 492, 452, 434, 499, 494, 389,
           391, 416, 457, 527, 467, 477, 451, 552, 523, 617,
         ],
-        inquiries: [0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+        inquiries: [0, 2, 2, 0, 2, 0, 2, 0, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
         uniqueVisitors: [
-          46, 56, 60, 36, 54, 60, 52, 46, 54, 62, 65, 49, 72, 42, 86, 61, 72, 70, 53, 47, 70, 62, 78, 45, 74,
-          62, 71, 61, 57, 57,
+          49, 60, 64, 39, 58, 64, 56, 49, 58, 66, 70, 52, 77, 45, 92, 65, 77, 75, 57, 50, 75, 66, 84, 48, 79,
+          66, 76, 65, 61, 61,
         ],
         views: [
-          66, 76, 101, 50, 94, 55, 103, 70, 101, 86, 69, 83, 105, 62, 111, 67, 95, 100, 116, 73, 117, 111,
-          132, 109, 100, 67, 127, 99, 93, 102,
+          67, 77, 102, 51, 95, 56, 105, 71, 102, 87, 70, 84, 107, 63, 113, 68, 96, 101, 118, 74, 119, 113,
+          134, 111, 101, 68, 129, 100, 94, 104,
         ],
       },
       totals: {
-        contacts: 61,
+        contacts: 91,
         impressions: 12_760,
-        inquiries: 24,
-        profileViews: 2_740,
-        uniqueVisitors: 1_780,
+        inquiries: 33,
+        profileViews: 2_780,
+        uniqueVisitors: 1_904,
       },
     },
     "90 days": {
-      changes: { contacts: "+24.1%", impressions: "+17.2%", inquiries: "+19.2%", views: "+20.5%" },
+      changes: { contacts: "+19.1%", impressions: "+14.9%", inquiries: "+20.6%", views: "+17.3%" },
       reviewActivity: "34 new reviews in the last 90 days",
       series: {
-        contacts: [9, 9, 14, 9, 12, 10, 16, 14, 13, 10, 13, 13, 16],
+        contacts: [14, 14, 22, 14, 19, 16, 25, 22, 21, 16, 21, 21, 25],
         impressions: [2082, 1680, 2893, 1853, 2640, 1885, 3100, 1997, 3684, 3492, 4132, 2714, 3768],
-        inquiries: [4, 4, 4, 4, 4, 3, 5, 5, 7, 4, 7, 4, 7],
-        uniqueVisitors: [267, 244, 444, 249, 406, 333, 365, 407, 475, 274, 506, 419, 471],
-        views: [469, 404, 542, 428, 475, 667, 873, 423, 641, 462, 693, 504, 839],
+        inquiries: [6, 6, 6, 6, 6, 5, 8, 7, 10, 6, 10, 6, 10],
+        uniqueVisitors: [292, 267, 485, 272, 444, 364, 399, 445, 519, 300, 553, 458, 515],
+        views: [490, 422, 567, 447, 497, 697, 912, 442, 670, 483, 724, 527, 877],
       },
       totals: {
-        contacts: 158,
+        contacts: 250,
         impressions: 35_920,
-        inquiries: 62,
-        profileViews: 7_420,
-        uniqueVisitors: 4_860,
+        inquiries: 92,
+        profileViews: 7_755,
+        uniqueVisitors: 5_313,
       },
     },
   },

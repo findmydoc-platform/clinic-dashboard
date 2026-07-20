@@ -87,7 +87,10 @@ export const ConversationSelection: Story = {
     await userEvent.click(conversation)
 
     await expect(conversation).toHaveAttribute("aria-current", "page")
-    await expect(canvas.getByRole("region", { name: "Conversation with Markus Schmidt" })).toBeVisible()
+    await expect(
+      canvas.getByRole("region", { name: "Conversation between Markus Schmidt and Dr Anna Keller" }),
+    ).toBeVisible()
+    await expect(canvas.getByText("Dr Anna Keller")).toBeVisible()
     await expect(canvas.getByRole("heading", { name: "Conversation preview" })).toBeVisible()
   },
 }
@@ -117,7 +120,9 @@ export const MessageSending: Story = {
 
     await expect(composer).toHaveValue("")
     await expect(
-      within(canvas.getByRole("log", { name: "Messages with Lukas Weber" })).getByText(message),
+      within(canvas.getByRole("log", { name: "Messages between Lukas Weber and Dr Anna Keller" })).getByText(
+        message,
+      ),
     ).toBeVisible()
   },
 }
@@ -148,7 +153,9 @@ export const MobileBackToConversations: Story = {
     const selectedConversation = canvas.getByRole("button", { name: /Lukas Weber/ })
 
     await userEvent.click(selectedConversation)
-    await expect(canvas.getByRole("region", { name: "Conversation with Lukas Weber" })).toBeVisible()
+    await expect(
+      canvas.getByRole("region", { name: "Conversation between Lukas Weber and Dr Anna Keller" }),
+    ).toBeVisible()
 
     await userEvent.click(canvas.getByRole("button", { name: "Back to conversations" }))
 
@@ -196,7 +203,9 @@ export const CapabilityWithdrawalProjectsSnapshot: Story = {
     await expect(enableMessaging).toHaveFocus()
     await expect(canvas.queryByRole("searchbox", { name: "Search conversations" })).not.toBeInTheDocument()
     await expect(canvas.queryByRole("textbox", { name: "Write a message" })).not.toBeInTheDocument()
-    await expect(canvas.getByRole("region", { name: "Conversation with Lukas Weber" })).toBeVisible()
+    await expect(
+      canvas.getByRole("region", { name: "Conversation between Lukas Weber and Dr Anna Keller" }),
+    ).toBeVisible()
     await expect(canvas.getByText("Markus Schmidt")).toBeVisible()
     await expect(canvas.queryByRole("button", { name: /Markus Schmidt/ })).not.toBeInTheDocument()
 
@@ -204,7 +213,9 @@ export const CapabilityWithdrawalProjectsSnapshot: Story = {
 
     const search = canvas.getByRole("searchbox", { name: "Search conversations" })
     await expect(search).toHaveValue("Markus")
-    await expect(canvas.getByRole("region", { name: "Conversation with Markus Schmidt" })).toBeVisible()
+    await expect(
+      canvas.getByRole("region", { name: "Conversation between Markus Schmidt and Dr Anna Keller" }),
+    ).toBeVisible()
     await userEvent.clear(search)
     await userEvent.click(canvas.getByRole("button", { name: /Lukas Weber/ }))
     await expect(canvas.getByRole("textbox", { name: "Write a message" })).toHaveValue(preservedDraft)

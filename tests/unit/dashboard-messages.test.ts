@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  createLocalClinicMessage,
+  createLocalDoctorMessage,
   filterConversations,
   getConversationUnreadCount,
   getTotalUnreadCount,
@@ -21,11 +21,22 @@ import {
 describe("dashboard message prototype", () => {
   const conversations = messagesFixture.conversations
 
-  it("searches existing patient, treatment, and optional category metadata", () => {
+  it("searches existing patient, doctor, treatment, and optional category metadata", () => {
     expect(filterConversations(conversations, "Markus").map(({ id }) => id)).toEqual(["markus-schmidt"])
     expect(filterConversations(conversations, "hair transplant").map(({ id }) => id)).toEqual(["lukas-weber"])
+    expect(filterConversations(conversations, "Anna Keller").map(({ id }) => id)).toEqual([
+      "lukas-weber",
+      "markus-schmidt",
+    ])
+    expect(filterConversations(conversations, "Dermatology").map(({ id }) => id)).toEqual(["sarah-meyer"])
 
     const categorizedConversation: ClinicConversation = {
+      doctor: {
+        id: "doctor-orthodontics",
+        initials: "OD",
+        name: "Dr Olivia Diaz",
+        specialty: "Orthodontics",
+      },
       id: "clear-aligner",
       initials: "CA",
       name: "Clear Aligner Patient",
@@ -54,12 +65,12 @@ describe("dashboard message prototype", () => {
     expect(activeConversation?.unread).toBe(1)
   })
 
-  it("creates a deterministic local clinic message from a controlled draft", () => {
-    expect(createLocalClinicMessage("  We can review this tomorrow.  ", 2)).toEqual({
+  it("creates a deterministic local doctor message from a controlled draft", () => {
+    expect(createLocalDoctorMessage("  We can review this tomorrow.  ", 2)).toEqual({
       body: "We can review this tomorrow.",
       id: "local-message-2",
       read: "Read 11:08",
-      sender: "clinic",
+      sender: "doctor",
       time: "11:08",
     })
   })
@@ -188,7 +199,7 @@ describe("dashboard message prototype", () => {
         body: "We can review this tomorrow.",
         id: "local-message-1",
         read: "Read 11:08",
-        sender: "clinic",
+        sender: "doctor",
         time: "11:08",
       },
     ])
@@ -214,7 +225,7 @@ describe("dashboard message prototype", () => {
         body: "Payload wins over hidden draft state.",
         id: "local-message-1",
         read: "Read 11:08",
-        sender: "clinic",
+        sender: "doctor",
         time: "11:08",
       },
     ])
@@ -266,7 +277,7 @@ describe("dashboard message prototype", () => {
     const data = messagesFixture
     const staleState: MessagesState = {
       draft: "Hidden draft",
-      localMessages: [createLocalClinicMessage("Hidden local message", 1)],
+      localMessages: [createLocalDoctorMessage("Hidden local message", 1)],
       menuOpen: true,
       readConversationIds: [data.activeConversationId],
       searchQuery: "Markus",
