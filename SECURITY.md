@@ -6,17 +6,19 @@ Do not open public issues for vulnerabilities or suspected data exposure. Use Gi
 
 ## Current Security Posture
 
-- The preview is data-less and exposes `/api/health`, `/login`, and `/api/auth/login` without a dashboard session.
+- The public auth and health routes are inventoried in `src/lib/security/public-routes.ts`; all other application pages require a Supabase session or approved Payload bootstrap.
 - All application responses and metadata use `noindex`; `robots.txt` disallows crawling.
-- The dashboard uses a temporary server-side password guard. `DASHBOARD_PASSWORD` overrides the initial `findmydoc` fallback.
-- No clinic data, database connection, or Payload credentials exist in this foundation.
+- Supabase session material stays in host-bound, `HttpOnly`, `SameSite=Lax` cookies. Browser code receives no access or refresh token and creates no Supabase browser client.
+- Public and authenticated auth mutations require exact origin, JSON content type, and a signed HMAC-CSRF token. Auth and session responses are private and not cacheable.
+- The server-only Payload client sends only the current access token to the configured HTTPS bootstrap endpoint, rejects redirects, and validates the exact response DTO.
+- No clinic business data, direct database connection, service-role credential, or generic Payload proxy exists in this application.
 - GitHub Actions use read-only permissions by default and pin third-party actions to commit SHAs.
 - Vercel credentials are repository secrets and are never available to fork pull requests or Dependabot.
 - Production deployment is disabled through `VERCEL_PRODUCTION_DEPLOYMENTS_ENABLED=false`.
 
-## Planned Access Boundary
+## Access Boundary
 
-The temporary guard must be replaced by a Supabase session and server-authorized Payload API access before clinic data is connected. Do not add direct database access, service-role credentials, or client-only authorization checks.
+Payload remains authoritative for clinic staff approval, assignment, and capabilities. A `401` receives one refresh and retry; a second `401` clears the local session, while `403` and `503` preserve it. Do not add direct database access, service-role credentials, or client-only authorization checks.
 
 ## GitHub Plan Limitation
 

@@ -6,10 +6,12 @@ async function signIn(page: Page) {
   const response = await page.goto("/")
   expect(response?.headers()["x-robots-tag"]).toContain("noindex")
   await expect(page).toHaveURL(/\/login$/)
+  await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill(testDashboardPassword)
   await page.getByRole("button", { name: "Sign in" }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  await expect(page.getByText("Demo data.", { exact: true })).toBeVisible()
   await page.waitForLoadState("networkidle")
 }
 
@@ -53,7 +55,9 @@ test("switches complete location snapshots and resets local demo changes", async
   const dashboardLocation = page.getByRole("region", { name: "Dashboard clinic location summary" })
   const dashboardMetrics = page.getByRole("region", { name: "Dashboard metrics" })
 
-  await expect(locationSelector).toHaveAccessibleName(/Current location: Avenora Clinic — İstanbul/)
+  await expect(locationSelector).toHaveAccessibleName(
+    /Current location: Demo data · Avenora Clinic — İstanbul/,
+  )
   await expect(dashboardMetrics.getByText("18,420")).toBeVisible()
   await expect(dashboardMetrics.getByText("82%")).toBeVisible()
   await page.getByRole("button", { name: "90 days" }).click()
@@ -62,7 +66,7 @@ test("switches complete location snapshots and resets local demo changes", async
 
   await locationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await expect(locationSelector).toHaveAccessibleName(/Current location: Avenora Clinic — İzmir/)
+  await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
   await expect(dashboardLocation.getByText("Alsancak, İzmir")).toBeVisible()
   await expect(dashboardMetrics.getByText("35,920")).toBeVisible()
   await expect(dashboardMetrics.getByText("91%")).toBeVisible()
@@ -126,7 +130,7 @@ test("switches complete location snapshots and resets local demo changes", async
   await page.reload()
 
   await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-    /Current location: Avenora Clinic — İstanbul/,
+    /Current location: Demo data · Avenora Clinic — İstanbul/,
   )
   await expect(
     page.getByRole("region", { name: "Dashboard clinic location summary" }).getByText("Levent, İstanbul"),
@@ -155,7 +159,7 @@ test("deep-links across locations and projects a saved profile until reload", as
   await page.getByRole("button", { name: /New message from Leyla Demir/ }).click()
 
   const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
-  await expect(locationSelector).toHaveAccessibleName(/Current location: Avenora Clinic — İzmir/)
+  await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
   await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Leyla Demir" })).toBeFocused()
   await expect(page.getByText("Opened conversation at Avenora Clinic — İzmir.")).toBeVisible()
@@ -185,7 +189,7 @@ test("deep-links across locations and projects a saved profile until reload", as
   await page.reload()
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-    /Current location: Avenora Clinic — İstanbul/,
+    /Current location: Demo data · Avenora Clinic — İstanbul/,
   )
 
   const reloadedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
@@ -244,14 +248,14 @@ test("opens the honest local support prototype from a missing treatment", async 
   ).toBeVisible()
 })
 
-test("opens the account menu and signs out", async ({ page }) => {
+test("shows authenticated identity and signs out", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  await page.getByRole("button", { name: "Open account menu for Selin Erdem" }).click()
+  await page.getByRole("button", { name: "Open account menu for Alex Morgan" }).click()
   const menu = page.getByRole("menu", { name: "Account menu" })
-  await expect(menu.getByText("Selin Erdem")).toBeVisible()
-  await expect(menu.getByText("Clinic administrator")).toBeVisible()
+  await expect(menu.getByText("Alex Morgan")).toBeVisible()
+  await expect(menu.getByText("clinic-staff@example.com")).toBeVisible()
   await menu.getByRole("menuitem", { name: "Sign out" }).click()
 
   await expect(page).toHaveURL(/\/login$/)
@@ -269,7 +273,7 @@ test("switches the workspace theme without hydration regressions", async ({ page
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  await page.getByRole("button", { name: "Open account menu for Selin Erdem" }).click()
+  await page.getByRole("button", { name: "Open account menu for Alex Morgan" }).click()
   const darkModeSwitch = page
     .getByRole("menu", { name: "Account menu" })
     .getByRole("menuitemcheckbox", { name: "Dark mode" })
@@ -280,4 +284,108 @@ test("switches the workspace theme without hydration regressions", async ({ page
   await expect(page.locator("html")).toHaveClass(/dark/)
 
   expect(hydrationErrors).toEqual([])
+})
+
+test("rejects invalid credentials without provider details", async ({ page }) => {
+  await page.goto("/login")
+  await page.getByLabel("Email address").fill("clinic-staff@example.com")
+  await page.getByLabel("Password").fill("wrong-password")
+  const responsePromise = page.waitForResponse("**/api/auth/login")
+  await page.getByRole("button", { name: "Sign in" }).click()
+  const response = await responsePromise
+
+  expect(response.status()).toBe(401)
+  expect(await response.json()).toEqual({ code: "INVALID_CREDENTIALS" })
+  await expect(page.getByText("The email address or password is incorrect.")).toBeVisible()
+})
+
+test("does not consume callback tokens on GET and rejects invalid links", async ({ page }) => {
+  const callbackMethods: string[] = []
+  page.on("response", (response) => {
+    if (response.url().includes("/api/auth/callback")) callbackMethods.push(response.request().method())
+  })
+
+  await page.goto("/auth/callback?token_hash=controlled-invite-token&type=invite&next=/auth/invite/complete")
+  await expect(page).toHaveURL(/\/auth\/confirm\?type=invite$/)
+  expect(page.url()).not.toContain("token_hash")
+  expect(callbackMethods).toEqual([])
+  const pendingCookie = (await page.context().cookies()).find(
+    (cookie) => cookie.name === "clinic_dashboard_pending_email",
+  )
+  expect(pendingCookie).toMatchObject({ httpOnly: true, path: "/api/auth/callback", sameSite: "Lax" })
+  await expect(page.getByRole("heading", { name: "Accept your clinic invitation" })).toBeVisible()
+
+  await page.goto("/auth/callback?token_hash=invalid&type=invite&next=/auth/password/reset/complete")
+  await expect(page).toHaveURL(/\/login\?error=invalid-or-expired-link/)
+  await expect(page.getByText(/invalid or has expired/)).toBeVisible()
+})
+
+test("keeps Supabase and Payload traffic out of the browser", async ({ page }) => {
+  const externalRequests: string[] = []
+  page.on("request", (request) => {
+    const origin = new URL(request.url()).origin
+    if (origin !== "http://127.0.0.1:3100") externalRequests.push(request.url())
+  })
+
+  await signIn(page)
+  await page.reload()
+  await page.getByRole("button", { name: "Open account menu for Alex Morgan" }).click()
+  expect(externalRequests).toEqual([])
+})
+
+test("completes invite and recovery links through explicit confirmation", async ({ page }) => {
+  for (const flow of ["invite", "recovery"] as const) {
+    const completionPath = flow === "invite" ? "/auth/invite/complete" : "/auth/password/reset/complete"
+    await page.goto(`/auth/callback?token_hash=controlled-${flow}-token&type=${flow}&next=${completionPath}`)
+    await page
+      .getByRole("button", {
+        name: flow === "invite" ? "Continue invitation" : "Continue password reset",
+      })
+      .click()
+    await expect(page).toHaveURL(new RegExp(`${completionPath.replaceAll("/", "\\/")}$`))
+    await page.getByLabel("Password", { exact: true }).fill("new-password")
+    await page.getByLabel("Confirm password").fill("new-password")
+    await page.getByRole("button", { name: "Save password" }).click()
+    await expect(page).toHaveURL(new RegExp(`/login\\?status=${flow}-complete$`))
+  }
+})
+
+test("maps expired sessions, access denial, and outages without leaking clinic data", async ({
+  page,
+  context,
+}) => {
+  await signIn(page)
+  const sessionCookie = (await context.cookies()).find(
+    (cookie) => cookie.name === "clinic_dashboard_controlled_session",
+  )
+  expect(sessionCookie).toBeDefined()
+
+  await context.addCookies([
+    {
+      domain: "127.0.0.1",
+      name: "clinic_dashboard_controlled_access_state",
+      path: "/",
+      value: "denied",
+    },
+  ])
+  await page.goto("/")
+  await expect(page).toHaveURL(/\/access$/)
+  await expect(page.getByRole("heading", { name: "Clinic access pending" })).toBeVisible()
+  await expect(page.getByText("Controlled Clinic")).toHaveCount(0)
+
+  await context.addCookies([
+    {
+      domain: "127.0.0.1",
+      name: "clinic_dashboard_controlled_access_state",
+      path: "/",
+      value: "outage",
+    },
+  ])
+  await page.goto("/")
+  await expect(page).toHaveURL(/\/access\?state=temporarily-unavailable$/)
+  await expect(page.getByRole("heading", { name: "Service temporarily unavailable" })).toBeVisible()
+
+  await context.clearCookies({ name: "clinic_dashboard_controlled_session" })
+  await page.goto("/")
+  await expect(page).toHaveURL(/\/login$/)
 })

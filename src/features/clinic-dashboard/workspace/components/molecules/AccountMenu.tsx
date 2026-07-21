@@ -13,18 +13,36 @@ import { accountMenuActions, createStaffProfile } from "../../model/account"
 
 type AccountMenuProps = Readonly<{
   avatar?: StaticImageData | string
+  email?: string
   initials: string
   initialOpen?: boolean
   name: string
+  onSignOut?: () => Promise<void>
   role: string
 }>
 
-export function AccountMenu({ avatar, initials, initialOpen = false, name, role }: AccountMenuProps) {
+export function AccountMenu({
+  avatar,
+  email,
+  initials,
+  initialOpen = false,
+  name,
+  onSignOut,
+  role,
+}: AccountMenuProps) {
   const [open, setOpen] = useState(initialOpen)
   const [profileOpen, setProfileOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const { isDark, setDarkMode } = useThemeMode()
-  const profile = createStaffProfile({ initials, name, role })
+  const [signOutPending, setSignOutPending] = useState(false)
+  const profile = createStaffProfile({ email, initials, name, role })
+
+  const signOut = async () => {
+    if (!onSignOut) return
+    setSignOutPending(true)
+    await onSignOut()
+    setSignOutPending(false)
+  }
 
   return (
     <div className="relative">
@@ -50,7 +68,7 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
         >
           <div className="px-4 py-3">
             <p className="text-sm font-bold">{name}</p>
-            <p className="mt-0.5 text-xs text-[var(--foreground)]">{role}</p>
+            <p className="mt-0.5 truncate text-xs text-[var(--foreground)]">{email ?? role}</p>
           </div>
           <DropdownMenu.Separator className="mx-0 my-0" />
           <DropdownMenu.Item className="min-h-12 rounded-none px-4" onSelect={() => setProfileOpen(true)}>
@@ -87,14 +105,18 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
             </span>
           </DropdownMenu.CheckboxItem>
           <DropdownMenu.Separator className="mx-0 my-0" />
-          <form action="/api/auth/logout" method="post">
-            <DropdownMenu.Item asChild onSelect={(event) => event.preventDefault()} variant="destructive">
-              <Button className="w-full justify-start rounded-none px-4" type="submit" variant="ghost">
-                <LogOut aria-hidden="true" className="size-5" />
-                <span>{accountMenuActions.signOut.label}</span>
-              </Button>
-            </DropdownMenu.Item>
-          </form>
+          <DropdownMenu.Item asChild onSelect={(event) => event.preventDefault()} variant="destructive">
+            <Button
+              className="w-full justify-start rounded-none px-4"
+              disabled={signOutPending || !onSignOut}
+              onClick={signOut}
+              type="button"
+              variant="ghost"
+            >
+              <LogOut aria-hidden="true" className="size-5" />
+              <span>{signOutPending ? "Signing out…" : accountMenuActions.signOut.label}</span>
+            </Button>
+          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu>
       <Modal onOpenChange={setProfileOpen} open={profileOpen} title="Staff profile" triggerRef={triggerRef}>
@@ -103,6 +125,7 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
           <div className="min-w-0">
             <p className="font-bold text-[var(--secondary)]">{profile.name}</p>
             <p className="mt-1 text-sm text-[var(--foreground)]">{profile.role}</p>
+            {profile.email ? <p className="mt-1 text-sm text-[var(--foreground)]">{profile.email}</p> : null}
           </div>
         </div>
       </Modal>

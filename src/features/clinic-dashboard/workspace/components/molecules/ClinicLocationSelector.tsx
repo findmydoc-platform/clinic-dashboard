@@ -12,6 +12,7 @@ import {
 
 type ClinicLocationSelectorProps = Readonly<{
   canSwitchLocations: boolean
+  isDemoData?: boolean
   locations: readonly ClinicDashboardLocation[]
   onValueChange: (locationId: ClinicDashboardLocationId) => void
   organizationName: string
@@ -36,6 +37,7 @@ function ClinicIdentity({
 
 export function ClinicLocationSelector({
   canSwitchLocations,
+  isDemoData = false,
   locations,
   onValueChange,
   organizationName,
@@ -43,12 +45,13 @@ export function ClinicLocationSelector({
 }: ClinicLocationSelectorProps) {
   const [open, setOpen] = useState(false)
   const selectedLocation = getClinicDashboardLocation(locations, value)
+  const selectedClinicName = isDemoData ? `Demo data · ${selectedLocation.name}` : selectedLocation.name
 
   if (!canSwitchLocations || locations.length < 2) {
     return (
-      <div aria-label={`Current clinic identity: ${selectedLocation.name}`} className="min-w-0" role="group">
+      <div aria-label={`Current clinic identity: ${selectedClinicName}`} className="min-w-0" role="group">
         <ClinicIdentity
-          clinicName={selectedLocation.name}
+          clinicName={selectedClinicName}
           compactName={selectedLocation.selectorLabel}
           organizationName={organizationName}
         />
@@ -60,12 +63,12 @@ export function ClinicLocationSelector({
     <DropdownMenu onOpenChange={setOpen} open={open}>
       <DropdownMenu.Trigger asChild>
         <button
-          aria-label={`Switch clinic location. Current location: ${selectedLocation.name}. Organization: ${organizationName}`}
+          aria-label={`Switch clinic location. Current location: ${selectedClinicName}. Organization: ${organizationName}`}
           className="group -ml-2 flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-md px-2 text-left transition-colors hover:bg-[var(--surface)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] focus-visible:outline-none"
           type="button"
         >
           <ClinicIdentity
-            clinicName={selectedLocation.name}
+            clinicName={selectedClinicName}
             compactName={selectedLocation.selectorLabel}
             organizationName={organizationName}
           />

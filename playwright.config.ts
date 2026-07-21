@@ -15,8 +15,13 @@ export default defineConfig({
   webServer: {
     command: "pnpm dev --port 3100",
     env: {
-      DASHBOARD_PASSWORD: testDashboardPassword,
-      NEXT_PUBLIC_DEPLOYMENT_ENV: "preview",
+      CLINIC_DASHBOARD_AUTH_TEST_MODE: "controlled",
+      CLINIC_DASHBOARD_TEST_PASSWORD: testDashboardPassword,
+      CSRF_SIGNING_SECRET: "controlled-csrf-secret-32-bytes-minimum",
+      DASHBOARD_ORIGIN: "http://127.0.0.1:3100",
+      PAYLOAD_API_URL: "https://preview.findmydoc.eu",
+      SUPABASE_PUBLISHABLE_KEY: "controlled-publishable-key",
+      SUPABASE_URL: "https://controlled-staging.supabase.co",
     },
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

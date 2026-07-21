@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
+import { authenticatedClinicContextFixture } from "./testing/workspace.fixtures"
 import { clinicDashboardWorkspaceFixture } from "./testing/public"
 import { ClinicDashboardWorkspace } from "./ClinicDashboardWorkspace"
 
 const meta = {
   args: {
+    authenticatedContext: authenticatedClinicContextFixture,
     prototypeMode: "presentation",
     workspaceInput: clinicDashboardWorkspaceFixture,
   },

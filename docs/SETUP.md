@@ -53,11 +53,13 @@ The preview workflow accepts only non-draft, same-repository, non-Dependabot pul
 - Framework: Next.js
 - Node.js: 24.x
 - Automatic Git deployments: disabled
-- Vercel Deployment Protection: disabled; the application-level temporary password guard is enabled
+- Vercel Deployment Protection: disabled; the application uses its own server-side Supabase authentication boundary
 - Preview deployments: enabled through GitHub Actions
 - Production deployments: enabled through the manually dispatched GitHub Actions workflow on `main`
 
-The application guard requires `DASHBOARD_PASSWORD` in Vercel preview and production environments. Only local development and automated tests may fall back to the initial temporary `findmydoc` password. A deployed environment without `DASHBOARD_PASSWORD` fails closed. Vercel Deployment Protection is a separate additional layer and can be enabled later without changing the application code.
+The application requires `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and `CSRF_SIGNING_SECRET` in Vercel preview and production. Preview uses Staging Supabase plus `https://preview.findmydoc.eu`; production uses Production Supabase plus `https://findmydoc.eu` and `https://clinics.findmydoc.eu`. The environment validator fails closed for missing, insecure, or cross-environment values. Vercel Deployment Protection remains an optional additional layer.
+
+Keep the legacy `DASHBOARD_PASSWORD` Vercel values until the trusted preview proves login, reload, logout, invite, and recovery. Remove those unused values only as the final cutover cleanup; the application no longer reads them.
 
 The dedicated team-scoped Vercel token is handed to GitHub through the clipboard or standard input. Never paste it into issues, pull requests, shell arguments, files, or logs.
 

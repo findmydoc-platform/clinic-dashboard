@@ -4,14 +4,14 @@
 
 Read `.codex/project-profile.toml` before implementation work. Bootstrap decisions are complete.
 
-The current application is a data-less foundation preview with a temporary password guard. Supabase authentication and authorized Payload API access are planned but not implemented. Payload remains the future source of truth; do not add direct database access or service-role credentials to this application.
+The current application uses server-side Supabase sessions and the authorized Payload bootstrap for clinic identity. Dashboard business content remains fixture-backed demo data. Payload is the source of truth for identity and authorization; do not add direct database access or service-role credentials to this application.
 
 ## Fixed Standards
 
 - Use Next.js, React, TypeScript, Node 24, pnpm 10, Tailwind 4, Atomic Design, shadcn/ui, Storybook, Vitest, and Playwright.
-- Keep the current unauthenticated surface limited to `/login`, `/api/auth/login`, `/api/health`, and `/robots.txt`; document any change in `src/lib/security/public-routes.ts` and its tests.
+- Keep the unauthenticated surface limited to the routes registered in `src/lib/security/public-routes.ts`; update the registry, project profile, and contract tests together.
 - Use the canonical company logo assets from `public/brand` through `BrandMark`.
-- Keep clinic data, Supabase authentication, and Payload integration out until their dedicated work is approved. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
+- Keep clinic business data out until its dedicated work is approved. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
 - Write code, code comments, repository documentation, and user-facing UI copy in English.
 - Use package scripts for validation and run format, checks, relevant tests, Storybook, and build after code changes.
 - Treat GitHub checks as advisory while the repository remains private on the current Free plan.

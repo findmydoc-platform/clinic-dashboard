@@ -32,7 +32,7 @@ function EnvironmentBadge({ className, label }: Readonly<{ className?: string; l
     <span
       aria-label={`${label} workspace`}
       className={cn(
-        "inline-flex shrink-0 rounded-md bg-[var(--destructive)] px-2 py-1 text-[11px] leading-none font-bold tracking-wide text-[var(--destructive-foreground)] uppercase",
+        "inline-flex shrink-0 rounded-md border border-[color-mix(in_srgb,var(--warning)_45%,var(--border))] bg-[color-mix(in_srgb,var(--warning)_14%,var(--background))] px-2 py-1 text-[11px] leading-none font-bold tracking-wide text-[var(--secondary)] uppercase",
         className,
       )}
     >

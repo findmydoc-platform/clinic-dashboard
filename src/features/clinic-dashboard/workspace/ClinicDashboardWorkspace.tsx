@@ -2,11 +2,13 @@
 
 import { useMemo } from "react"
 import { createClinicDashboardDemoClientAdapter } from "@/features/clinic-dashboard/demo/commands"
+import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceComposition"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
 
 export type ClinicDashboardWorkspaceProps = Readonly<{
+  authenticatedContext: AuthenticatedClinicContext
   persistNotificationReadStateInSession?: boolean
   prototypeMode: ClinicDashboardPrototypeMode
   showPrototypeModeToggle?: boolean
@@ -14,6 +16,7 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
 }>
 
 export function ClinicDashboardWorkspace({
+  authenticatedContext,
   persistNotificationReadStateInSession = false,
   prototypeMode,
   showPrototypeModeToggle = false,
@@ -26,6 +29,7 @@ export function ClinicDashboardWorkspace({
 
   return (
     <ClinicDashboardWorkspaceComposition
+      authenticatedContext={authenticatedContext}
       clinicProfileCommands={demoClientAdapter.clinicProfileCommands}
       messageCommands={demoClientAdapter.messageCommands}
       projectDashboardAfterProfileSave={demoClientAdapter.projectDashboardAfterProfileSave}
