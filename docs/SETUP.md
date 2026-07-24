@@ -57,7 +57,34 @@ The preview workflow accepts only non-draft, same-repository, non-Dependabot pul
 - Preview deployments: enabled through GitHub Actions
 - Production deployments: enabled through the manually dispatched GitHub Actions workflow on `main`
 
-The application requires `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and `CSRF_SIGNING_SECRET` in Vercel preview and production. Preview uses Staging Supabase, `https://preview.findmydoc.eu`, and the stable Clinic Dashboard origin `https://clinic-dashboard-preview-findmydoc.vercel.app`; production uses Production Supabase plus `https://findmydoc.eu` and `https://clinics.findmydoc.eu`. `SUPABASE_URL` must match the expected project reference exactly. The environment validator fails closed for missing, insecure, or cross-environment values. Vercel Deployment Protection remains an optional additional layer.
+The application requires `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`,
+`PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and `CSRF_SIGNING_SECRET` in Vercel preview and production. Preview uses Staging
+Supabase, `https://preview.findmydoc.eu`, and the stable Clinic Dashboard fallback origin
+`https://clinic-dashboard-preview-findmydoc.vercel.app`; production uses Production Supabase plus
+`https://findmydoc.eu` and `https://clinics.findmydoc.eu`. `SUPABASE_URL` must match the expected project reference
+exactly. The environment validator fails closed for missing, insecure, or cross-environment values. Vercel Deployment
+Protection remains an optional additional layer.
+
+Vercel provides server-only `VERCEL_URL` for the current deployment. Preview requests may use that origin only when the
+hostname matches `clinic-dashboard-*-findmydoc.vercel.app`, and the browser `Origin` must equal the request URL origin.
+The future exact origin `https://dashboard.preview.findmydoc.eu` is accepted by the application but does not replace
+the stable fallback until its DNS and Vercel alias are operational. Do not add a manual `NEXT_PUBLIC_*` deployment URL.
+
+## Supabase Staging Redirect Contract
+
+The Staging Auth redirect allowlist preserves its existing entries and includes:
+
+- `https://clinic-dashboard-*-findmydoc.vercel.app/**`
+- `https://dashboard.preview.findmydoc.eu/**`
+
+Update hosted Staging Auth through a field-limited Management API `GET`/`PATCH` of `uri_allow_list`, then re-read the
+field and compare the normalized result. Never store or print the Management API credential, project reference, full
+Auth configuration, or unrelated settings. Production Auth, Site URL, and email templates are not part of this
+contract. The invite and recovery templates must continue to use `RedirectTo`.
+
+This repository documents the Dashboard consumer contract but does not own an incomplete `supabase/config.toml` or a
+privileged configuration script. Shared executable Supabase desired state belongs in the operations configuration
+layer.
 
 Keep the legacy `DASHBOARD_PASSWORD` Vercel values until the trusted preview proves login, reload, logout, invite, and recovery. Remove those unused values only as the final cutover cleanup; the application no longer reads them.
 

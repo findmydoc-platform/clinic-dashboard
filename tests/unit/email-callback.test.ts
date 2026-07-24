@@ -5,6 +5,7 @@ import {
   encodeCompletionGrant,
   validateEmailCallbackRequest,
 } from "@/features/clinic-dashboard/auth/server/public"
+import { GET } from "@/app/auth/callback/route"
 
 describe("email callback validation", () => {
   beforeEach(() => {
@@ -41,6 +42,44 @@ describe("email callback validation", () => {
         ),
       ),
     ).toBeUndefined()
+  })
+
+  it.each([
+    "https://clinic-dashboard-preview-findmydoc.vercel.app",
+    "https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
+    "https://dashboard.preview.findmydoc.eu",
+  ])("continues a valid callback on trusted preview origin %s", (origin) => {
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
+    const url = new URL("/auth/callback", origin)
+    url.searchParams.set("token_hash", "secret-token-hash")
+    url.searchParams.set("type", "recovery")
+    url.searchParams.set("next", "/auth/password/reset/complete")
+
+    const response = GET(new NextRequest(url))
+
+    expect(response.status).toBe(303)
+    expect(response.headers.get("location")).toBe(`${origin}/auth/confirm?type=recovery`)
+    expect(response.headers.get("set-cookie")).toContain("clinic_dashboard_pending_email=")
+  })
+
+  it("fails closed to the canonical login for an untrusted callback origin", () => {
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
+    const url = new URL(
+      "/auth/callback?token_hash=secret-token-hash&type=recovery&next=/auth/password/reset/complete",
+      "https://clinic-dashboard-other-findmydoc.vercel.app",
+    )
+
+    const response = GET(new NextRequest(url))
+
+    expect(response.status).toBe(303)
+    expect(response.headers.get("location")).toBe(
+      "https://clinic-dashboard-preview-findmydoc.vercel.app/login?error=invalid-or-expired-link",
+    )
+    expect(response.headers.get("set-cookie")).toBeNull()
   })
 
   it("accepts only fresh, signed completion grants", () => {

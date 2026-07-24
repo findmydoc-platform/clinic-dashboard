@@ -26,7 +26,7 @@ Payload CORS expansion.
 
 1. Add environment validation and per-request Supabase server-client tests.
 2. Implement server-side password login, explicit TokenHash invite/recovery confirmation, refresh, logout, cookie
-   propagation, exact origin validation, and the central HMAC-CSRF guard.
+   propagation, environment-scoped trusted-origin validation, and the central HMAC-CSRF guard.
 3. Implement the server-only Payload client against `GET /api/clinic-dashboard/bootstrap`. Validate the exact DTO with
    `clinic-profile:view` and `clinic-profile:edit`, classify the three stable `CLINIC_DASHBOARD_*` error codes, and
    preserve private no-store semantics.

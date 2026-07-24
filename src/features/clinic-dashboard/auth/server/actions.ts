@@ -2,8 +2,8 @@ import "server-only"
 
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
-import { getExpectedDashboardOrigin, isControlledAuthTestMode, validateEnvironment } from "@/lib/env"
-import { clearCsrfCookie, validateMutationRequest } from "@/lib/security/csrf"
+import { isControlledAuthTestMode, validateEnvironment } from "@/lib/env"
+import { clearCsrfCookie, getValidatedMutationOrigin, validateMutationRequest } from "@/lib/security/csrf"
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
 import {
   clinicDashboardEmailDestinations,
@@ -171,16 +171,15 @@ export async function handleClinicDashboardLogin(request: NextRequest) {
 }
 
 export async function handleClinicDashboardPasswordResetRequest(request: NextRequest) {
-  const rejected = rejectedMutation(request)
-  if (rejected) return rejected
+  const requestOrigin = getValidatedMutationOrigin(request)
+  if (!requestOrigin) return errorResponse("REQUEST_REJECTED", 403)
 
   const parsed = resetRequestSchema.safeParse(await readJson(request))
   if (!parsed.success) return errorResponse("INVALID_INPUT", 400)
   if (isControlledAuthTestMode()) return privateJson({ accepted: true }, 202)
 
   const routeClient = createRouteSupabaseClient(request)
-  const environment = validateEnvironment()
-  const callback = new URL("/auth/callback", getExpectedDashboardOrigin(environment))
+  const callback = new URL("/auth/callback", requestOrigin)
   callback.searchParams.set("next", clinicDashboardEmailDestinations.recovery)
 
   try {

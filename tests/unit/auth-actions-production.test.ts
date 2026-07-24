@@ -58,14 +58,19 @@ function deniedBootstrapResponse() {
   )
 }
 
-function mutationRequest(pathname: string, body: Record<string, string>, cookies: readonly string[] = []) {
-  const url = `http://localhost:3000${pathname}`
+function mutationRequest(
+  pathname: string,
+  body: Record<string, string>,
+  cookies: readonly string[] = [],
+  origin = "http://localhost:3000",
+) {
+  const url = `${origin}${pathname}`
   const baseRequest = new NextRequest(url, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
       cookie: cookies.join("; "),
-      origin: "http://localhost:3000",
+      origin,
     },
     method: "POST",
   })
@@ -76,7 +81,7 @@ function mutationRequest(pathname: string, body: Record<string, string>, cookies
     headers: {
       "content-type": "application/json",
       cookie: [...cookies, `clinic_dashboard_csrf=${token}`].join("; "),
-      origin: "http://localhost:3000",
+      origin,
       [CLINIC_DASHBOARD_CSRF_HEADER]: token,
     },
     method: "POST",
@@ -217,6 +222,48 @@ describe("production authentication actions", () => {
         redirectTo: "http://localhost:3000/auth/callback?next=%2Fauth%2Fpassword%2Freset%2Fcomplete",
       }),
     )
+    expectPrivate(response)
+  })
+
+  it.each([
+    "https://clinic-dashboard-preview-findmydoc.vercel.app",
+    "https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
+    "https://dashboard.preview.findmydoc.eu",
+  ])("keeps the password reset callback on trusted preview origin %s", async (origin) => {
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
+    const { client } = installRouteClient()
+
+    const response = await handleClinicDashboardPasswordResetRequest(
+      mutationRequest("/api/auth/password/reset", { email: "alex@example.com" }, [], origin),
+    )
+
+    expect(response.status).toBe(202)
+    expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith("alex@example.com", {
+      redirectTo: `${origin}/auth/callback?next=%2Fauth%2Fpassword%2Freset%2Fcomplete`,
+    })
+    expectPrivate(response)
+  })
+
+  it("rejects an untrusted preview reset origin before calling Supabase", async () => {
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
+    installRouteClient()
+
+    const response = await handleClinicDashboardPasswordResetRequest(
+      mutationRequest(
+        "/api/auth/password/reset",
+        { email: "alex@example.com" },
+        [],
+        "https://clinic-dashboard-other-findmydoc.vercel.app",
+      ),
+    )
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual({ code: "REQUEST_REJECTED" })
+    expect(createRouteSupabaseClientMock).not.toHaveBeenCalled()
     expectPrivate(response)
   })
 

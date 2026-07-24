@@ -1,6 +1,9 @@
 import { z } from "zod"
 
 const PREVIEW_DASHBOARD_ORIGIN = "https://clinic-dashboard-preview-findmydoc.vercel.app"
+const PREVIEW_CUSTOM_DASHBOARD_ORIGIN = "https://dashboard.preview.findmydoc.eu"
+const PREVIEW_VERCEL_HOST_PATTERN =
+  /^clinic-dashboard-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?-findmydoc\.vercel\.app$/
 
 const httpUrlSchema = z
   .string()
@@ -22,6 +25,7 @@ const environmentSchema = z
     SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
     SUPABASE_URL: httpUrlSchema,
     VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
+    VERCEL_URL: z.string().optional(),
   })
   .superRefine((environment, context) => {
     const isControlledTestMode = environment.CLINIC_DASHBOARD_AUTH_TEST_MODE === "controlled"
@@ -103,6 +107,18 @@ const environmentSchema = z
       })
     }
 
+    if (
+      environment.VERCEL_ENV === "preview" &&
+      environment.VERCEL_URL !== undefined &&
+      !PREVIEW_VERCEL_HOST_PATTERN.test(environment.VERCEL_URL)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "VERCEL_URL must match the Clinic Dashboard preview deployment host",
+        path: ["VERCEL_URL"],
+      })
+    }
+
     if (environment.VERCEL_ENV === "production") {
       if (environment.DASHBOARD_ORIGIN !== "https://clinics.findmydoc.eu") {
         context.addIssue({
@@ -146,4 +162,55 @@ export function isSecureCookieEnvironment(environment: Record<string, string | u
 
 export function getExpectedDashboardOrigin(environment: RuntimeEnvironment) {
   return new URL(environment.DASHBOARD_ORIGIN).origin
+}
+
+function getPreviewVercelDeploymentOrigin(environment: RuntimeEnvironment) {
+  if (
+    environment.VERCEL_ENV !== "preview" ||
+    !environment.VERCEL_URL ||
+    !PREVIEW_VERCEL_HOST_PATTERN.test(environment.VERCEL_URL)
+  ) {
+    return undefined
+  }
+
+  return `https://${environment.VERCEL_URL}`
+}
+
+export function getTrustedDashboardOrigin(
+  candidate: string | null | undefined,
+  environment: RuntimeEnvironment,
+) {
+  if (!candidate) return undefined
+
+  let normalizedOrigin: string
+  try {
+    normalizedOrigin = new URL(candidate).origin
+  } catch {
+    return undefined
+  }
+  if (normalizedOrigin !== candidate) return undefined
+
+  const trustedOrigins = new Set([getExpectedDashboardOrigin(environment)])
+  if (environment.VERCEL_ENV === "preview") {
+    trustedOrigins.add(PREVIEW_CUSTOM_DASHBOARD_ORIGIN)
+    const deploymentOrigin = getPreviewVercelDeploymentOrigin(environment)
+    if (deploymentOrigin) trustedOrigins.add(deploymentOrigin)
+  }
+
+  return trustedOrigins.has(candidate) ? candidate : undefined
+}
+
+export function getTrustedRequestDashboardOrigin(
+  request: Readonly<{
+    headers: Headers
+    nextUrl: Readonly<{ host: string; protocol: string }>
+  }>,
+  environment: RuntimeEnvironment,
+) {
+  const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim()
+  const protocol = forwardedProtocol || request.nextUrl.protocol.replace(/:$/, "")
+  if (protocol !== "http" && protocol !== "https") return undefined
+
+  const host = request.headers.get("host")?.trim() || request.nextUrl.host
+  return getTrustedDashboardOrigin(`${protocol}://${host}`, environment)
 }

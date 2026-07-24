@@ -2,7 +2,12 @@ import "server-only"
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 import type { NextRequest, NextResponse } from "next/server"
-import { getExpectedDashboardOrigin, isSecureCookieEnvironment, validateEnvironment } from "@/lib/env"
+import {
+  getTrustedDashboardOrigin,
+  getTrustedRequestDashboardOrigin,
+  isSecureCookieEnvironment,
+  validateEnvironment,
+} from "@/lib/env"
 import { CLINIC_DASHBOARD_CSRF_COOKIE, CLINIC_DASHBOARD_CSRF_HEADER } from "./csrf-contract"
 
 const TOKEN_MAX_AGE_SECONDS = 60 * 60 * 8
@@ -82,19 +87,28 @@ export function clearCsrfCookie(response: NextResponse) {
   })
 }
 
-export function validateMutationRequest(request: NextRequest) {
+export function getValidatedMutationOrigin(request: NextRequest) {
   const environment = validateEnvironment()
-  const expectedOrigin = getExpectedDashboardOrigin(environment)
-  const requestOrigin = request.headers.get("origin")
+  const requestOrigin = getTrustedDashboardOrigin(request.headers.get("origin"), environment)
+  const requestUrlOrigin = getTrustedRequestDashboardOrigin(request, environment)
   const cookieToken = request.cookies.get(CLINIC_DASHBOARD_CSRF_COOKIE)?.value
   const headerToken = request.headers.get(CLINIC_DASHBOARD_CSRF_HEADER) ?? undefined
 
-  return (
-    requestOrigin === expectedOrigin &&
+  if (
+    requestOrigin !== undefined &&
+    requestOrigin === requestUrlOrigin &&
     request.headers.get("content-type")?.toLowerCase().startsWith("application/json") === true &&
     cookieToken !== undefined &&
     headerToken !== undefined &&
     safeEqual(cookieToken, headerToken) &&
     isValidCsrfToken(request, cookieToken)
-  )
+  ) {
+    return requestOrigin
+  }
+
+  return undefined
+}
+
+export function validateMutationRequest(request: NextRequest) {
+  return getValidatedMutationOrigin(request) !== undefined
 }

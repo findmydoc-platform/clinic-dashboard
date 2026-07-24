@@ -96,8 +96,9 @@ five password-reset requests per hour. Route handlers additionally reject authen
 Every authenticated state-changing Route Handler composes one central mutation guard. Route implementations cannot
 replace or partially reproduce the guard. The guard:
 
-1. requires the exact configured Dashboard origin in `Origin`;
-2. rejects missing or mismatched browser origins;
+1. requires the browser `Origin` to equal the request URL origin and belong to the environment-scoped trusted Dashboard
+   origin set;
+2. rejects missing, malformed, cross-host, or untrusted browser origins;
 3. validates a stateless HMAC-signed CSRF token from a host-bound cookie against the request header using timing-safe
    comparisons;
 4. binds the HMAC to the current validated Supabase session plus a random nonce, so a token from another session is
@@ -105,6 +106,11 @@ replace or partially reproduce the guard. The guard:
 5. in deployed environments requires `Secure`, `Path=/`, and no `Domain` attribute;
 6. validates content type and request schema before any upstream call; and
 7. derives principal, clinic, and actor from the authenticated Payload result.
+
+Local development and Production each trust only their configured exact origin. Preview additionally trusts the
+validated current Vercel deployment URL and exact `https://dashboard.preview.findmydoc.eu`. Preview deployment
+metadata must match `clinic-dashboard-*-findmydoc.vercel.app`; the application does not accept a generic Vercel
+wildcard. Host-only cookies intentionally prevent sessions and completion state from moving between preview hosts.
 
 The CSRF token contains no access token, refresh token, Supabase identifier, or clinic data. Its session binding is
 derived server-side and is not emitted as cleartext. The CSRF cookie is intentionally readable by same-origin browser
@@ -185,18 +191,20 @@ their temporary prototype gate is removed.
 
 ## Environment Contract
 
-| Environment          | Expected origin                       | Supabase   | Payload API                          | Allowed callback                                                |
-| -------------------- | ------------------------------------- | ---------- | ------------------------------------ | --------------------------------------------------------------- |
-| Local                | `http://localhost:3000`               | Staging    | Exact `https://preview.findmydoc.eu` | Exact `http://localhost:3000/auth/callback`                     |
-| Pull-request preview | Current trusted Vercel deployment URL | Staging    | Exact `https://preview.findmydoc.eu` | `https://clinic-dashboard-*-findmydoc.vercel.app/auth/callback` |
-| Production           | `https://clinics.findmydoc.eu`        | Production | Exact `https://findmydoc.eu`         | Exact `https://clinics.findmydoc.eu/auth/callback`              |
+| Environment          | Trusted Dashboard origins                                                                                    | Supabase   | Payload API                          | Allowed callback origins                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ | ---------- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Local                | Exact `http://localhost:3000`                                                                                | Staging    | Exact `https://preview.findmydoc.eu` | Exact local callback                                                                      |
+| Pull-request preview | Stable configured origin, validated current `VERCEL_URL`, and exact `https://dashboard.preview.findmydoc.eu` | Staging    | Exact `https://preview.findmydoc.eu` | Stable callback, generated Vercel Preview hosts, and the future exact custom Preview host |
+| Production           | Exact `https://clinics.findmydoc.eu`                                                                         | Production | Exact `https://findmydoc.eu`         | Exact Production callback                                                                 |
 
 The environment contract validates `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`,
 `PAYLOAD_API_URL`, the expected Dashboard origin, and the server-only `CSRF_SIGNING_SECRET` as one bundle. `SUPABASE_URL`
 must equal `https://<EXPECTED_SUPABASE_PROJECT_REF>.supabase.co` with no alternate host, path, credentials, query, or
 fragment. No service-role key is accepted. `PAYLOAD_API_URL` must equal the exact environment origin in the table; HTTPS
-and redirect rejection are mandatory. Preview origin derivation may use trusted Vercel metadata only after validating
-HTTPS and the expected project suffix. The existing random Vercel deployment URLs remain unchanged.
+and redirect rejection are mandatory. `VERCEL_URL` is optional server-only deployment metadata. When present in
+Preview, it must contain only a deployment hostname matching the expected project and team shape; missing or invalid
+metadata never broadens the trusted set. The stable preview origin remains the fallback until the custom preview domain
+has working DNS and a Vercel alias.
 
 ## Cache Contract
 
