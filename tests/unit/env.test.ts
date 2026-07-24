@@ -35,17 +35,22 @@ describe("environment contract", () => {
     ).toThrow(/Controlled authentication/)
   })
 
-  it("enforces the canonical preview and production Payload origins", () => {
+  it("enforces the canonical preview and production origins", () => {
     const preview = validateEnvironment({
       ...baseEnvironment,
-      DASHBOARD_ORIGIN: "https://clinic-dashboard-git-feature-findmydoc.vercel.app",
+      DASHBOARD_ORIGIN: "https://clinic-dashboard-preview-findmydoc.vercel.app",
       VERCEL_ENV: "preview",
-      VERCEL_URL: "clinic-dashboard-git-feature-findmydoc.vercel.app",
     })
-    expect(getExpectedDashboardOrigin(preview)).toBe(
-      "https://clinic-dashboard-git-feature-findmydoc.vercel.app",
-    )
+    expect(getExpectedDashboardOrigin(preview)).toBe("https://clinic-dashboard-preview-findmydoc.vercel.app")
     expect(isSecureCookieEnvironment(preview)).toBe(true)
+
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        DASHBOARD_ORIGIN: "https://clinic-dashboard-git-feature-findmydoc.vercel.app",
+        VERCEL_ENV: "preview",
+      }),
+    ).toThrow(/canonical stable Clinic Dashboard origin/)
 
     expect(
       validateEnvironment({

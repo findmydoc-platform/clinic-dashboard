@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+const PREVIEW_DASHBOARD_ORIGIN = "https://clinic-dashboard-preview-findmydoc.vercel.app"
+
 const httpUrlSchema = z
   .string()
   .url()
@@ -20,7 +22,6 @@ const environmentSchema = z
     SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
     SUPABASE_URL: httpUrlSchema,
     VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
-    VERCEL_URL: z.string().min(1).optional(),
   })
   .superRefine((environment, context) => {
     const isControlledTestMode = environment.CLINIC_DASHBOARD_AUTH_TEST_MODE === "controlled"
@@ -94,6 +95,14 @@ const environmentSchema = z
       })
     }
 
+    if (environment.VERCEL_ENV === "preview" && environment.DASHBOARD_ORIGIN !== PREVIEW_DASHBOARD_ORIGIN) {
+      context.addIssue({
+        code: "custom",
+        message: "Preview must use the canonical stable Clinic Dashboard origin",
+        path: ["DASHBOARD_ORIGIN"],
+      })
+    }
+
     if (environment.VERCEL_ENV === "production") {
       if (environment.DASHBOARD_ORIGIN !== "https://clinics.findmydoc.eu") {
         context.addIssue({
@@ -136,16 +145,5 @@ export function isSecureCookieEnvironment(environment: Record<string, string | u
 }
 
 export function getExpectedDashboardOrigin(environment: RuntimeEnvironment) {
-  if (environment.VERCEL_ENV === "preview" && environment.VERCEL_URL) {
-    const previewOrigin = new URL(`https://${environment.VERCEL_URL}`)
-    if (
-      !previewOrigin.hostname.startsWith("clinic-dashboard-") ||
-      !previewOrigin.hostname.endsWith("-findmydoc.vercel.app")
-    ) {
-      throw new Error("VERCEL_URL must resolve to the trusted Clinic Dashboard preview hostname")
-    }
-    return previewOrigin.origin
-  }
-
   return new URL(environment.DASHBOARD_ORIGIN).origin
 }
