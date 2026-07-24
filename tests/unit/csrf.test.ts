@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   createCsrfToken,
+  getValidatedMutationOrigin,
   isValidCsrfToken,
   setCsrfCookie,
   validateMutationRequest,
@@ -15,9 +16,10 @@ function createRequest(
     contentType?: string
     headerToken?: string
     includeOrigin?: boolean
+    requestUrlOrigin?: string
   }> = {},
 ) {
-  return new NextRequest("http://localhost:3000/api/auth/login", {
+  return new NextRequest(`${options.requestUrlOrigin ?? origin}/api/auth/login`, {
     body: JSON.stringify({}),
     headers: {
       "content-type": options.contentType ?? "application/json",
@@ -76,6 +78,41 @@ describe("CSRF contract", () => {
     ).toBe(false)
     expect(validateMutationRequest(createRequest(tampered))).toBe(false)
     expect(validateMutationRequest(createRequest(futureToken))).toBe(false)
+  })
+
+  it.each([
+    "https://clinic-dashboard-preview-findmydoc.vercel.app",
+    "https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
+    "https://dashboard.preview.findmydoc.eu",
+  ])("accepts a trusted preview mutation on %s", (origin) => {
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
+
+    const token = createCsrfToken(createRequest(undefined, origin))
+    const request = createRequest(token, origin)
+
+    expect(getValidatedMutationOrigin(request)).toBe(origin)
+    expect(validateMutationRequest(request)).toBe(true)
+  })
+
+  it("rejects a preview origin that is not the current deployment or request host", () => {
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
+
+    const currentOrigin = "https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app"
+    const otherDeployment = "https://clinic-dashboard-other-findmydoc.vercel.app"
+    const token = createCsrfToken(createRequest(undefined, currentOrigin))
+
+    expect(validateMutationRequest(createRequest(token, otherDeployment))).toBe(false)
+    expect(
+      validateMutationRequest(
+        createRequest(token, currentOrigin, {
+          requestUrlOrigin: "https://clinic-dashboard-preview-findmydoc.vercel.app",
+        }),
+      ),
+    ).toBe(false)
   })
 
   it("writes a host-only, client-readable, same-site cookie", () => {

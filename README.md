@@ -27,6 +27,12 @@ The current release authenticates clinic staff with server-side Supabase session
 
 Required server-only variables are `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and a `CSRF_SIGNING_SECRET` containing at least 32 random bytes. `SUPABASE_URL` must resolve exactly to the expected project reference. Do not add `NEXT_PUBLIC_*` authentication variables, a Supabase service-role key, or database credentials. Automated browser tests use a controlled local-only auth mode that the environment validator rejects in deployed environments.
 
+Vercel Preview deployments additionally use the automatically provided server-only `VERCEL_URL`. The application
+accepts it only when it identifies the current `clinic-dashboard-*-findmydoc.vercel.app` deployment. The stable Preview
+origin remains the fallback, while exact `https://dashboard.preview.findmydoc.eu` support is ready for the later
+DNS/Vercel alias rollout. Supabase Staging must allow both Preview hosts as documented in `docs/SETUP.md`; Production
+remains exact-origin only.
+
 ## Validation
 
 Run:

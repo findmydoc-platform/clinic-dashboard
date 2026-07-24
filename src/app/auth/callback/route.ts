@@ -4,16 +4,18 @@ import {
   setPendingEmailCallbackCookie,
   validateEmailCallbackRequest,
 } from "@/features/clinic-dashboard/auth/server/public"
-import { getExpectedDashboardOrigin, validateEnvironment } from "@/lib/env"
+import { getExpectedDashboardOrigin, getTrustedRequestDashboardOrigin, validateEnvironment } from "@/lib/env"
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
 
 export const runtime = "nodejs"
 
 export function GET(request: NextRequest) {
-  const callback = validateEmailCallbackRequest(request)
+  const environment = validateEnvironment()
+  const requestOrigin = getTrustedRequestDashboardOrigin(request, environment)
+  const callback = requestOrigin ? validateEmailCallbackRequest(request) : undefined
   const target = new URL(
     callback ? "/auth/confirm" : "/login",
-    getExpectedDashboardOrigin(validateEnvironment()),
+    requestOrigin ?? getExpectedDashboardOrigin(environment),
   )
 
   if (callback) {
