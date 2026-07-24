@@ -44,20 +44,20 @@ describe("environment contract", () => {
   it("enforces the canonical preview and production origins", () => {
     const preview = validateEnvironment({
       ...baseEnvironment,
-      DASHBOARD_ORIGIN: "https://clinic-dashboard-preview-findmydoc.vercel.app",
+      DASHBOARD_ORIGIN: "https://clinics.preview.findmydoc.eu",
       VERCEL_URL: "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
       VERCEL_ENV: "preview",
     })
-    expect(getExpectedDashboardOrigin(preview)).toBe("https://clinic-dashboard-preview-findmydoc.vercel.app")
-    expect(getTrustedDashboardOrigin("https://clinic-dashboard-preview-findmydoc.vercel.app", preview)).toBe(
-      "https://clinic-dashboard-preview-findmydoc.vercel.app",
+    expect(getExpectedDashboardOrigin(preview)).toBe("https://clinics.preview.findmydoc.eu")
+    expect(getTrustedDashboardOrigin("https://clinics.preview.findmydoc.eu", preview)).toBe(
+      "https://clinics.preview.findmydoc.eu",
     )
     expect(
       getTrustedDashboardOrigin("https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app", preview),
     ).toBe("https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
-    expect(getTrustedDashboardOrigin("https://dashboard.preview.findmydoc.eu", preview)).toBe(
-      "https://dashboard.preview.findmydoc.eu",
-    )
+    expect(
+      getTrustedDashboardOrigin("https://clinic-dashboard-preview-findmydoc.vercel.app", preview),
+    ).toBeUndefined()
     expect(isSecureCookieEnvironment(preview)).toBe(true)
 
     expect(() =>
@@ -83,7 +83,7 @@ describe("environment contract", () => {
     expect(
       getTrustedDashboardOrigin("https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app", production),
     ).toBeUndefined()
-    expect(getTrustedDashboardOrigin("https://dashboard.preview.findmydoc.eu", production)).toBeUndefined()
+    expect(getTrustedDashboardOrigin("https://clinics.preview.findmydoc.eu", production)).toBeUndefined()
     expect(() =>
       validateEnvironment({
         ...baseEnvironment,
@@ -97,7 +97,7 @@ describe("environment contract", () => {
   it("fails closed for missing, malformed, or unrelated preview deployment hosts", () => {
     const previewWithoutDeploymentUrl = validateEnvironment({
       ...baseEnvironment,
-      DASHBOARD_ORIGIN: "https://clinic-dashboard-preview-findmydoc.vercel.app",
+      DASHBOARD_ORIGIN: "https://clinics.preview.findmydoc.eu",
       VERCEL_ENV: "preview",
     })
     expect(
@@ -118,7 +118,7 @@ describe("environment contract", () => {
       expect(() =>
         validateEnvironment({
           ...baseEnvironment,
-          DASHBOARD_ORIGIN: "https://clinic-dashboard-preview-findmydoc.vercel.app",
+          DASHBOARD_ORIGIN: "https://clinics.preview.findmydoc.eu",
           VERCEL_ENV: "preview",
           VERCEL_URL,
         }),
@@ -129,7 +129,7 @@ describe("environment contract", () => {
   it("derives only the current preview origin from Vercel forwarding headers", () => {
     const preview = validateEnvironment({
       ...baseEnvironment,
-      DASHBOARD_ORIGIN: "https://clinic-dashboard-preview-findmydoc.vercel.app",
+      DASHBOARD_ORIGIN: "https://clinics.preview.findmydoc.eu",
       VERCEL_URL: "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
       VERCEL_ENV: "preview",
     })

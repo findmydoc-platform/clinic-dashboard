@@ -3,19 +3,19 @@
 ## Outcome and Audience
 
 Clinic staff can request and complete invite or recovery flows on the exact Vercel preview deployment they opened.
-The existing stable preview origin remains the fallback, and `https://dashboard.preview.findmydoc.eu` is already
-recognized as a future exact preview origin without becoming canonical before its DNS and Vercel alias exist.
+Pull requests keep generated temporary deployment URLs. Every merge to `main` creates a separate Vercel Preview and
+moves `https://clinics.preview.findmydoc.eu` to that deployment.
 
 The change serves clinic staff testing preview authentication and developers validating pull-request deployments.
 
 ## Scope and Access Decision
 
 - Keep all authentication requests same-origin and server-side.
-- In Preview, trust the configured stable origin, the current deployment origin derived from validated server-only
-  `VERCEL_URL`, and the exact future custom preview origin.
+- In Preview, trust the configured stable origin and the current deployment origin derived from validated server-only
+  `VERCEL_URL`.
 - Require the browser `Origin` to equal the request URL origin for every state-changing request.
 - Keep Production restricted to its single configured origin.
-- Add only the project-and-team-scoped Vercel wildcard and future custom preview origin to the Staging Supabase redirect
+- Add only the project-and-team-scoped Vercel wildcard and stable Main Preview origin to the Staging Supabase redirect
   allowlist.
 
 The public route inventory and HTTP response contracts do not change. Authentication cookies remain host-only, so a
@@ -39,6 +39,8 @@ screens continue to render their current states.
   verify the normalized value by re-reading it.
 - Deploy a direct Vercel Preview to the existing `clinic-dashboard` project and complete a fresh recovery flow on its
   generated URL.
+- Deploy every merged `main` revision as a Preview, verify the target, then atomically move and verify the stable Main
+  Preview alias. Keep pull-request aliases temporary.
 - Recommend security and test reviewers before handoff and run them only after confirmation.
 - Merge only accepted, validated changes. Deploy Production from a clean checkout of the latest `origin/main`;
   Production Supabase configuration remains unchanged.
@@ -56,7 +58,7 @@ screens continue to render their current states.
 
 ## Explicit Non-goals
 
-- Production Supabase, Site URL, email-template, DNS, or Vercel-domain changes.
+- Production Supabase, Site URL, email-template, or DNS changes.
 - A generic `*.vercel.app` application allowlist.
 - Cross-host session or cookie sharing.
 - A Supabase configuration script or incomplete `supabase/config.toml` in this repository; privileged shared

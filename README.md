@@ -28,10 +28,10 @@ The current release authenticates clinic staff with server-side Supabase session
 Required server-only variables are `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and a `CSRF_SIGNING_SECRET` containing at least 32 random bytes. `SUPABASE_URL` must resolve exactly to the expected project reference. Do not add `NEXT_PUBLIC_*` authentication variables, a Supabase service-role key, or database credentials. Automated browser tests use a controlled local-only auth mode that the environment validator rejects in deployed environments.
 
 Vercel Preview deployments additionally use the automatically provided server-only `VERCEL_URL`. The application
-accepts it only when it identifies the current `clinic-dashboard-*-findmydoc.vercel.app` deployment. The stable Preview
-origin remains the fallback, while exact `https://dashboard.preview.findmydoc.eu` support is ready for the later
-DNS/Vercel alias rollout. Supabase Staging must allow both Preview hosts as documented in `docs/SETUP.md`; Production
-remains exact-origin only.
+accepts it only when it identifies the current `clinic-dashboard-*-findmydoc.vercel.app` deployment. Pull requests keep
+their generated temporary URL. Every merge to `main` creates a separate Preview deployment and points
+`https://clinics.preview.findmydoc.eu` to it. Supabase Staging must allow both Preview host forms as documented in
+`docs/SETUP.md`; Production remains exact-origin only.
 
 ## Validation
 
@@ -48,6 +48,6 @@ Run:
 
 ## Delivery
 
-Pull-request checks are advisory on the current private GitHub Free repository: failures are visible but do not technically block a merge. Preview and manually dispatched production deployments run through GitHub Actions and repository-level Vercel credentials. Production deployments are restricted to `main`.
+Pull-request checks are advisory on the current private GitHub Free repository: failures are visible but do not technically block a merge. Pull requests receive temporary Preview deployments, each merge to `main` updates the stable Main Preview, and manually dispatched Production deployments run through GitHub Actions and repository-level Vercel credentials. Production deployments are restricted to `main`.
 
 See `docs/SETUP.md` for the verified GitHub/Vercel setup and the pending `clinics.findmydoc.eu` DNS step.

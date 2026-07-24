@@ -44,7 +44,10 @@ Repository variables:
 - `VERCEL_PRODUCTION_DEPLOYMENTS_ENABLED=true`
 - `DEPENDENCY_REVIEW_ENABLED=false`
 
-The preview workflow accepts only non-draft, same-repository, non-Dependabot pull requests. It does not use GitHub Environments.
+The pull-request Preview workflow accepts only non-draft, same-repository, non-Dependabot pull requests and publishes
+only the generated temporary deployment URL. A separate `push` workflow deploys the merged `main` revision as a
+Vercel Preview and moves the stable `clinics.preview.findmydoc.eu` alias to that deployment. Neither workflow uses
+GitHub Environments.
 
 ## Vercel
 
@@ -54,28 +57,34 @@ The preview workflow accepts only non-draft, same-repository, non-Dependabot pul
 - Node.js: 24.x
 - Automatic Git deployments: disabled
 - Vercel Deployment Protection: disabled; the application uses its own server-side Supabase authentication boundary
-- Preview deployments: enabled through GitHub Actions
+- Pull-request Preview deployments: enabled through GitHub Actions with generated temporary URLs
+- Main Preview deployments: enabled through GitHub Actions with the stable `clinics.preview.findmydoc.eu` alias
 - Production deployments: enabled through the manually dispatched GitHub Actions workflow on `main`
 
 The application requires `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`,
 `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and `CSRF_SIGNING_SECRET` in Vercel preview and production. Preview uses Staging
-Supabase, `https://preview.findmydoc.eu`, and the stable Clinic Dashboard fallback origin
-`https://clinic-dashboard-preview-findmydoc.vercel.app`; production uses Production Supabase plus
+Supabase, `https://preview.findmydoc.eu`, and the stable Clinic Dashboard origin
+`https://clinics.preview.findmydoc.eu`; production uses Production Supabase plus
 `https://findmydoc.eu` and `https://clinics.findmydoc.eu`. `SUPABASE_URL` must match the expected project reference
 exactly. The environment validator fails closed for missing, insecure, or cross-environment values. Vercel Deployment
 Protection remains an optional additional layer.
 
 Vercel provides server-only `VERCEL_URL` for the current deployment. Preview requests may use that origin only when the
 hostname matches `clinic-dashboard-*-findmydoc.vercel.app`, and the browser `Origin` must equal the request URL origin.
-The future exact origin `https://dashboard.preview.findmydoc.eu` is accepted by the application but does not replace
-the stable fallback until its DNS and Vercel alias are operational. Do not add a manual `NEXT_PUBLIC_*` deployment URL.
+The exact stable Main Preview origin is `https://clinics.preview.findmydoc.eu`. Do not add a manual `NEXT_PUBLIC_*`
+deployment URL.
+
+The Main Preview workflow deploys only `refs/heads/main`, verifies that Vercel created a Preview target, assigns the
+stable alias, and verifies that the alias resolves to the deployment created by the same workflow run. GoDaddy owns
+the external DNS record. Until that record points to Vercel, the generated deployment URL remains the verification
+surface.
 
 ## Supabase Staging Redirect Contract
 
 The Staging Auth redirect allowlist preserves its existing entries and includes:
 
 - `https://clinic-dashboard-*-findmydoc.vercel.app/**`
-- `https://dashboard.preview.findmydoc.eu/**`
+- `https://clinics.preview.findmydoc.eu/**`
 
 Update hosted Staging Auth through a field-limited Management API `GET`/`PATCH` of `uri_allow_list`, then re-read the
 field and compare the normalized result. Never store or print the Management API credential, project reference, full
@@ -103,4 +112,6 @@ Before handoff:
 1. Run formatting, static checks, unit tests, Storybook tests and build, Playwright smoke tests, and the Next.js build.
 2. Confirm every advisory pull-request check appears.
 3. Confirm the Vercel preview URL is public and data-less.
-4. Confirm the production workflow deploys only from `main`; verify the Vercel production URL and record whether the custom domain is live.
+4. Confirm pull requests retain generated temporary Preview URLs.
+5. Confirm the Main Preview workflow deploys only `main` and moves `clinics.preview.findmydoc.eu` to that exact Preview.
+6. Confirm the production workflow deploys only from `main`; verify the Vercel production URL and record whether the custom domain is live.

@@ -226,11 +226,10 @@ describe("production authentication actions", () => {
   })
 
   it.each([
-    "https://clinic-dashboard-preview-findmydoc.vercel.app",
+    "https://clinics.preview.findmydoc.eu",
     "https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
-    "https://dashboard.preview.findmydoc.eu",
   ])("keeps the password reset callback on trusted preview origin %s", async (origin) => {
-    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
     const { client } = installRouteClient()
@@ -247,7 +246,7 @@ describe("production authentication actions", () => {
   })
 
   it("rejects an untrusted preview reset origin before calling Supabase", async () => {
-    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
     installRouteClient()

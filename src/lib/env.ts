@@ -1,7 +1,6 @@
 import { z } from "zod"
 
-const PREVIEW_DASHBOARD_ORIGIN = "https://clinic-dashboard-preview-findmydoc.vercel.app"
-const PREVIEW_CUSTOM_DASHBOARD_ORIGIN = "https://dashboard.preview.findmydoc.eu"
+const PREVIEW_DASHBOARD_ORIGIN = "https://clinics.preview.findmydoc.eu"
 const PREVIEW_VERCEL_HOST_PATTERN =
   /^clinic-dashboard-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?-findmydoc\.vercel\.app$/
 
@@ -192,7 +191,6 @@ export function getTrustedDashboardOrigin(
 
   const trustedOrigins = new Set([getExpectedDashboardOrigin(environment)])
   if (environment.VERCEL_ENV === "preview") {
-    trustedOrigins.add(PREVIEW_CUSTOM_DASHBOARD_ORIGIN)
     const deploymentOrigin = getPreviewVercelDeploymentOrigin(environment)
     if (deploymentOrigin) trustedOrigins.add(deploymentOrigin)
   }
