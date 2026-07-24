@@ -15,6 +15,7 @@ type FieldProps = Readonly<{
   description?: ReactNode
   error?: ReactNode
   id?: string
+  isInvalid?: boolean
   isRequired?: boolean
   label: ReactNode
 }>
@@ -25,6 +26,7 @@ export function Field({
   description,
   error,
   id,
+  isInvalid = false,
   isRequired = false,
   label,
 }: FieldProps) {
@@ -49,7 +51,7 @@ export function Field({
       {children({
         "aria-describedby": describedBy,
         "aria-errormessage": errorId,
-        "aria-invalid": error ? true : undefined,
+        "aria-invalid": error || isInvalid ? true : undefined,
         id: controlId,
         required: isRequired ? true : undefined,
       })}

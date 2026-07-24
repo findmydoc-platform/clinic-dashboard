@@ -45,7 +45,7 @@ The architecture keeps these responsibilities separate:
 
 | Module                     | Responsibility                                                                                                                 | Prohibited responsibility                                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Environment contract       | Validate Dashboard origin, Supabase URL, publishable key, Payload API URL, and environment pairing at startup.                 | Deriving trust from an unchecked request `Host` header.                                    |
+| Environment contract       | Validate Dashboard origin, exact Supabase project URL, publishable key, Payload API URL, and environment pairing at startup.   | Deriving trust from an unchecked request `Host` header.                                    |
 | Server Supabase factory    | Create one cookie-aware client per request and expose login, callback, refresh, logout, and current-session operations.        | Global clients, browser clients, service-role operations, or shared user state.            |
 | Session cookie adapter     | Read request cookies and apply every returned cookie and cache header to the final response.                                   | Exposing access or refresh tokens to Client Components.                                    |
 | Server-only Payload client | Send the current access token as a Bearer token and map upstream failures.                                                     | Direct database access or accepting browser-provided Payload paths.                        |
@@ -73,19 +73,23 @@ Storybook.
 
 The Dashboard owns these same-origin contracts:
 
-| Route                      | Method | Contract                                                                                                                                                   |
-| -------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/login`          | `POST` | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.  |
-| `/auth/callback`           | `GET`  | Validate TokenHash, flow type, and exact destination without consuming the token; redirect only to the configured Dashboard origin and confirmation page.  |
-| `/api/auth/callback`       | `POST` | Validate CSRF and exact origin, call `verifyOtp` once, establish cookies, verify clinic account eligibility, and return only the allowed completion route. |
-| `/api/auth/password/reset` | `POST` | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                 |
-| Invite/reset completion    | `POST` | Require the temporary verified session, enforce the eight-character matching password rule, update the password, sign out, and return to normal login.     |
-| `/api/auth/logout`         | `POST` | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                |
-| `/api/dashboard/bootstrap` | `GET`  | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.           |
+| Route                      | Method | Contract                                                                                                                                                                                                                |
+| -------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/login`          | `POST` | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                               |
+| `/auth/callback`           | `GET`  | Validate TokenHash, flow type, and exact destination without consuming the token; redirect only to the configured Dashboard origin and confirmation page.                                                               |
+| `/api/auth/callback`       | `POST` | Validate CSRF and exact origin, call `verifyOtp` once, establish cookies, verify clinic account eligibility, issue a short-lived flow-and-subject-bound completion grant, and return only the allowed completion route. |
+| `/api/auth/password/reset` | `POST` | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                                                                              |
+| Invite/reset completion    | `POST` | Require the verified session and matching one-use completion grant, enforce the eight-character matching password rule, clear the grant, update the password, sign out, and return to normal login.                     |
+| `/api/auth/logout`         | `POST` | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                             |
+| `/api/dashboard/bootstrap` | `GET`  | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                        |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
 is unnecessary unless a later UI flow demonstrates the need. Callback and login failures return sanitized error codes;
 they never return Supabase response bodies, token hashes, or provider details to application UI.
+
+The Vercel project applies fixed-window, IP-keyed WAF limits before the application: 20 login requests per minute and
+five password-reset requests per hour. Route handlers additionally reject authentication request bodies larger than
+8 KiB before JSON parsing. The WAF limits are project configuration, not an application-memory counter.
 
 ## CSRF and Origin Contract
 
@@ -187,11 +191,12 @@ their temporary prototype gate is removed.
 | Pull-request preview | Current trusted Vercel deployment URL | Staging    | Exact `https://preview.findmydoc.eu` | `https://clinic-dashboard-*-findmydoc.vercel.app/auth/callback` |
 | Production           | `https://clinics.findmydoc.eu`        | Production | Exact `https://findmydoc.eu`         | Exact `https://clinics.findmydoc.eu/auth/callback`              |
 
-The environment contract validates `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, the expected Dashboard
-origin, and the server-only `CSRF_SIGNING_SECRET` as one bundle. No service-role key is accepted. `PAYLOAD_API_URL` must
-equal the exact environment origin in the table; HTTPS and redirect rejection are mandatory. Preview origin derivation
-may use trusted Vercel metadata only after validating HTTPS and the expected project suffix. The existing random Vercel
-deployment URLs remain unchanged.
+The environment contract validates `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`,
+`PAYLOAD_API_URL`, the expected Dashboard origin, and the server-only `CSRF_SIGNING_SECRET` as one bundle. `SUPABASE_URL`
+must equal `https://<EXPECTED_SUPABASE_PROJECT_REF>.supabase.co` with no alternate host, path, credentials, query, or
+fragment. No service-role key is accepted. `PAYLOAD_API_URL` must equal the exact environment origin in the table; HTTPS
+and redirect rejection are mandatory. Preview origin derivation may use trusted Vercel metadata only after validating
+HTTPS and the expected project suffix. The existing random Vercel deployment URLs remain unchanged.
 
 ## Cache Contract
 

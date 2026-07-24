@@ -79,6 +79,7 @@ export const NarrowViewport: Story = {
     )
     await userEvent.click(potsdam)
     await expect(trigger).toHaveAccessibleName(/Current location: Berlin Health Clinic — Potsdam/)
+    await expect(canvas.getByText(workspaceOrganizationFixture.name, { exact: true })).toBeVisible()
     await expect(canvas.getByText("Potsdam", { exact: true })).toBeVisible()
     await expect(canvas.getByText("Berlin Health Clinic — Potsdam", { exact: true })).not.toBeVisible()
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
@@ -95,5 +96,27 @@ export const StaticIdentity: Story = {
       canvas.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
     ).toBeInTheDocument()
     await expect(canvas.getByText(workspaceOrganizationFixture.name)).toBeInTheDocument()
+  },
+}
+
+export const DemoSwitchableIdentity: Story = {
+  args: { isDemoData: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("button", {
+        name: /Current location: Demo data · Berlin Health Clinic — Mitte/,
+      }),
+    ).toBeInTheDocument()
+  },
+}
+
+export const DemoStaticIdentity: Story = {
+  args: { canSwitchLocations: false, isDemoData: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("group", {
+        name: "Current clinic identity: Demo data · Berlin Health Clinic — Mitte",
+      }),
+    ).toBeInTheDocument()
   },
 }

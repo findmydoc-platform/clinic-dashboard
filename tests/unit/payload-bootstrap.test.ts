@@ -24,9 +24,10 @@ describe("Payload clinic bootstrap", () => {
   beforeEach(() => {
     vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
     vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
     vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
-    vi.stubEnv("SUPABASE_URL", "https://staging-project.supabase.co")
+    vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
   })
 
   afterEach(() => vi.unstubAllEnvs())

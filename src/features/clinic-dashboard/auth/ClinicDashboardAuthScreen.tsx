@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState, type FormEvent, type ReactNode } from "react"
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react"
 import { AlertCircle, ArrowLeft, CheckCircle2, RefreshCw } from "lucide-react"
 import { BrandMark } from "@/components/brand/BrandMark"
 import { Button } from "@/components/ui/button"
@@ -22,9 +22,12 @@ type AuthAction = (
   body: Record<string, string>,
 ) => Promise<ClinicDashboardAuthApiResult>
 
+type NavigateAction = (path: string) => void
+
 type SharedBasicScreenProps = Readonly<{
   initialError?: ClinicDashboardAuthErrorCode
   initialStatus?: "invite-complete" | "recovery-complete"
+  navigateAction?: NavigateAction
   submitAction?: AuthAction
 }>
 
@@ -33,6 +36,7 @@ type ResetRequestScreenProps = SharedBasicScreenProps & Readonly<{ mode: "reset-
 
 type ConfirmScreenProps = Readonly<{
   mode: "confirm"
+  navigateAction?: NavigateAction
   submitAction?: AuthAction
   type: ClinicDashboardEmailFlow
 }>
@@ -40,12 +44,15 @@ type ConfirmScreenProps = Readonly<{
 type PasswordScreenProps = Readonly<{
   flow: ClinicDashboardEmailFlow
   mode: "complete-password"
+  navigateAction?: NavigateAction
   submitAction?: AuthAction
 }>
 
 type AccessScreenProps = Readonly<{
   clinicName?: string
   mode: "access"
+  navigateAction?: NavigateAction
+  reloadAction?: () => void
   state: "account-unavailable" | "denied" | "temporarily-unavailable"
   submitAction?: AuthAction
 }>
@@ -93,7 +100,15 @@ function AuthCard({
   )
 }
 
-function StatusMessage({ children, tone }: Readonly<{ children: ReactNode; tone: "error" | "success" }>) {
+function StatusMessage({
+  children,
+  statusRef,
+  tone,
+}: Readonly<{
+  children: ReactNode
+  statusRef?: RefObject<HTMLDivElement | null>
+  tone: "error" | "success"
+}>) {
   const Icon = tone === "error" ? AlertCircle : CheckCircle2
   return (
     <div
@@ -103,7 +118,9 @@ function StatusMessage({ children, tone }: Readonly<{ children: ReactNode; tone:
           ? "border-[color-mix(in_srgb,var(--destructive)_42%,var(--border))] bg-[color-mix(in_srgb,var(--destructive)_8%,var(--background))]"
           : "border-[color-mix(in_srgb,var(--accent)_42%,var(--border))] bg-[var(--accent-soft)]",
       )}
+      ref={statusRef}
       role={tone === "error" ? "alert" : "status"}
+      tabIndex={-1}
     >
       <Icon
         aria-hidden="true"
@@ -117,21 +134,49 @@ function StatusMessage({ children, tone }: Readonly<{ children: ReactNode; tone:
   )
 }
 
-function redirectFromResult(result: ClinicDashboardAuthApiResult) {
+function PendingStatus({ children, pending }: Readonly<{ children: ReactNode; pending: boolean }>) {
+  if (!pending) return null
+  return (
+    <p aria-live="polite" className="sr-only" role="status">
+      {children}
+    </p>
+  )
+}
+
+function useStatusFocus(active: unknown) {
+  const statusRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (active) statusRef.current?.focus()
+  }, [active])
+  return statusRef
+}
+
+function redirectFromResult(result: ClinicDashboardAuthApiResult, navigateAction: NavigateAction) {
   if (!result.ok) return result.code
   const redirectTo = result.body.redirectTo
-  if (typeof redirectTo !== "string" || !redirectTo.startsWith("/")) return "REQUEST_REJECTED"
-  window.location.assign(redirectTo)
+  if (
+    typeof redirectTo !== "string" ||
+    !redirectTo.startsWith("/") ||
+    redirectTo.startsWith("//") ||
+    redirectTo.includes("\\")
+  ) {
+    return "REQUEST_REJECTED"
+  }
+  navigateAction(redirectTo)
   return undefined
 }
+
+const navigateBrowser: NavigateAction = (path) => window.location.assign(path)
 
 function LoginScreen({
   initialError,
   initialStatus,
+  navigateAction = navigateBrowser,
   submitAction = submitClinicDashboardAuthAction,
 }: LoginScreenProps) {
   const [error, setError] = useState<ClinicDashboardAuthErrorCode | undefined>(initialError)
   const [pending, setPending] = useState(false)
+  const statusRef = useStatusFocus(error ?? initialStatus)
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -143,7 +188,7 @@ function LoginScreen({
       next: "/",
       password: String(form.get("password") ?? ""),
     })
-    setError(redirectFromResult(result))
+    setError(redirectFromResult(result, navigateAction))
     setPending(false)
   }
 
@@ -154,7 +199,7 @@ function LoginScreen({
     >
       {initialStatus ? (
         <div className="mb-5">
-          <StatusMessage tone="success">
+          <StatusMessage statusRef={statusRef} tone="success">
             {initialStatus === "invite-complete"
               ? "Your password is set. Sign in to continue."
               : "Your password was reset. Sign in with your new password."}
@@ -163,10 +208,12 @@ function LoginScreen({
       ) : null}
       {error ? (
         <div className="mb-5">
-          <StatusMessage tone="error">{errorMessages[error]}</StatusMessage>
+          <StatusMessage statusRef={statusRef} tone="error">
+            {errorMessages[error]}
+          </StatusMessage>
         </div>
       ) : null}
-      <form className="space-y-5" onSubmit={submit}>
+      <form aria-busy={pending} className="space-y-5" onSubmit={submit}>
         <Field isRequired label="Email address">
           {(props) => <Input {...props} autoComplete="email" name="email" type="email" />}
         </Field>
@@ -176,6 +223,7 @@ function LoginScreen({
         <Button className="w-full" disabled={pending} type="submit">
           {pending ? "Signing in…" : "Sign in"}
         </Button>
+        <PendingStatus pending={pending}>Signing in.</PendingStatus>
       </form>
       <Link
         className="mt-5 inline-flex text-sm font-bold text-[var(--primary)] hover:underline"
@@ -191,6 +239,7 @@ function ResetRequestScreen({ submitAction = submitClinicDashboardAuthAction }: 
   const [accepted, setAccepted] = useState(false)
   const [error, setError] = useState<ClinicDashboardAuthErrorCode>()
   const [pending, setPending] = useState(false)
+  const statusRef = useStatusFocus(error ?? (accepted ? "accepted" : undefined))
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -211,23 +260,26 @@ function ResetRequestScreen({ submitAction = submitClinicDashboardAuthAction }: 
       title="Reset your password"
     >
       {accepted ? (
-        <StatusMessage tone="success">
+        <StatusMessage statusRef={statusRef} tone="success">
           Check your inbox for the next step. You can close this page safely.
         </StatusMessage>
       ) : (
         <>
           {error ? (
             <div className="mb-5">
-              <StatusMessage tone="error">{errorMessages[error]}</StatusMessage>
+              <StatusMessage statusRef={statusRef} tone="error">
+                {errorMessages[error]}
+              </StatusMessage>
             </div>
           ) : null}
-          <form className="space-y-5" onSubmit={submit}>
+          <form aria-busy={pending} className="space-y-5" onSubmit={submit}>
             <Field isRequired label="Email address">
               {(props) => <Input {...props} autoComplete="email" name="email" type="email" />}
             </Field>
             <Button className="w-full" disabled={pending} type="submit">
               {pending ? "Requesting reset…" : "Send reset instructions"}
             </Button>
+            <PendingStatus pending={pending}>Requesting password reset instructions.</PendingStatus>
           </form>
         </>
       )}
@@ -241,15 +293,20 @@ function ResetRequestScreen({ submitAction = submitClinicDashboardAuthAction }: 
   )
 }
 
-function ConfirmScreen({ submitAction = submitClinicDashboardAuthAction, type }: ConfirmScreenProps) {
+function ConfirmScreen({
+  navigateAction = navigateBrowser,
+  submitAction = submitClinicDashboardAuthAction,
+  type,
+}: ConfirmScreenProps) {
   const [error, setError] = useState<ClinicDashboardAuthErrorCode>()
   const [pending, setPending] = useState(false)
+  const statusRef = useStatusFocus(error)
 
   const confirm = async () => {
     setError(undefined)
     setPending(true)
     const result = await submitAction("/api/auth/callback", {})
-    setError(redirectFromResult(result))
+    setError(redirectFromResult(result, navigateAction))
     setPending(false)
   }
 
@@ -260,12 +317,15 @@ function ConfirmScreen({ submitAction = submitClinicDashboardAuthAction, type }:
     >
       {error ? (
         <div className="mb-5">
-          <StatusMessage tone="error">{errorMessages[error]}</StatusMessage>
+          <StatusMessage statusRef={statusRef} tone="error">
+            {errorMessages[error]}
+          </StatusMessage>
         </div>
       ) : null}
-      <Button className="w-full" disabled={pending} onClick={confirm}>
+      <Button aria-busy={pending} className="w-full" disabled={pending} onClick={confirm}>
         {pending ? "Confirming…" : type === "invite" ? "Continue invitation" : "Continue password reset"}
       </Button>
+      <PendingStatus pending={pending}>Confirming email link.</PendingStatus>
       <Link
         className="mt-5 inline-flex text-sm font-bold text-[var(--primary)] hover:underline"
         href="/login"
@@ -278,24 +338,37 @@ function ConfirmScreen({ submitAction = submitClinicDashboardAuthAction, type }:
 
 function CompletePasswordScreen({
   flow,
+  navigateAction = navigateBrowser,
   submitAction = submitClinicDashboardAuthAction,
 }: PasswordScreenProps) {
   const [error, setError] = useState<ClinicDashboardAuthErrorCode>()
+  const [passwordMismatch, setPasswordMismatch] = useState(false)
   const [pending, setPending] = useState(false)
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const statusRef = useStatusFocus(error)
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(undefined)
-    setPending(true)
+    setPasswordMismatch(false)
     const form = new FormData(event.currentTarget)
+    const password = String(form.get("password") ?? "")
+    const confirmPassword = String(form.get("confirmPassword") ?? "")
+    if (password !== confirmPassword) {
+      setPasswordMismatch(true)
+      passwordRef.current?.focus()
+      return
+    }
+
+    setPending(true)
     const result = await submitAction(
       flow === "invite" ? "/api/auth/invite/complete" : "/api/auth/password/reset/complete",
       {
-        confirmPassword: String(form.get("confirmPassword") ?? ""),
-        password: String(form.get("password") ?? ""),
+        confirmPassword,
+        password,
       },
     )
-    setError(redirectFromResult(result))
+    setError(redirectFromResult(result, navigateAction))
     setPending(false)
   }
 
@@ -306,16 +379,34 @@ function CompletePasswordScreen({
     >
       {error ? (
         <div className="mb-5">
-          <StatusMessage tone="error">{errorMessages[error]}</StatusMessage>
+          <StatusMessage statusRef={statusRef} tone="error">
+            {errorMessages[error]}
+          </StatusMessage>
         </div>
       ) : null}
-      <form className="space-y-5" onSubmit={submit}>
-        <Field description="Minimum eight characters." isRequired label="Password">
+      <form aria-busy={pending} className="space-y-5" onSubmit={submit}>
+        <Field
+          description="Minimum eight characters."
+          isInvalid={passwordMismatch}
+          isRequired
+          label="Password"
+        >
           {(props) => (
-            <Input {...props} autoComplete="new-password" minLength={8} name="password" type="password" />
+            <Input
+              {...props}
+              autoComplete="new-password"
+              minLength={8}
+              name="password"
+              ref={passwordRef}
+              type="password"
+            />
           )}
         </Field>
-        <Field isRequired label="Confirm password">
+        <Field
+          error={passwordMismatch ? "Passwords must match." : undefined}
+          isRequired
+          label="Confirm password"
+        >
           {(props) => (
             <Input
               {...props}
@@ -329,6 +420,7 @@ function CompletePasswordScreen({
         <Button className="w-full" disabled={pending} type="submit">
           {pending ? "Saving password…" : "Save password"}
         </Button>
+        <PendingStatus pending={pending}>Saving password.</PendingStatus>
       </form>
     </AuthCard>
   )
@@ -336,16 +428,19 @@ function CompletePasswordScreen({
 
 function AccessScreen({
   clinicName,
+  navigateAction = navigateBrowser,
+  reloadAction = () => window.location.reload(),
   state,
   submitAction = submitClinicDashboardAuthAction,
 }: AccessScreenProps) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<ClinicDashboardAuthErrorCode>()
+  const statusRef = useStatusFocus(error)
 
   const signOut = async () => {
     setPending(true)
     const result = await submitAction("/api/auth/logout", {})
-    setError(redirectFromResult(result))
+    setError(redirectFromResult(result, navigateAction))
     setPending(false)
   }
 
@@ -371,18 +466,21 @@ function AccessScreen({
       {clinicName ? <p className="mb-5 text-sm font-bold text-[var(--secondary)]">{clinicName}</p> : null}
       {error ? (
         <div className="mb-5">
-          <StatusMessage tone="error">{errorMessages[error]}</StatusMessage>
+          <StatusMessage statusRef={statusRef} tone="error">
+            {errorMessages[error]}
+          </StatusMessage>
         </div>
       ) : null}
       <div className="flex flex-col gap-3 sm:flex-row">
         {isOutage ? (
-          <Button className="gap-2" onClick={() => window.location.reload()}>
+          <Button className="gap-2" onClick={reloadAction}>
             <RefreshCw aria-hidden="true" className="size-4" /> Try again
           </Button>
         ) : null}
         <Button disabled={pending} onClick={signOut} variant={isOutage ? "outline" : "primary"}>
           {pending ? "Signing out…" : "Sign out"}
         </Button>
+        <PendingStatus pending={pending}>Signing out.</PendingStatus>
       </div>
     </AuthCard>
   )

@@ -90,6 +90,12 @@ export function ClinicDashboardShell({
 
   return (
     <div className="min-h-dvh bg-[var(--canvas)] text-[var(--foreground)]" data-clinic-dashboard-root>
+      <a
+        className="fixed top-3 left-3 z-[100] -translate-y-24 rounded-md bg-[var(--background)] px-4 py-2 font-bold text-[var(--secondary)] shadow-lg transition-transform focus:translate-y-0 focus:ring-2 focus:ring-[var(--ring)] focus:outline-none"
+        href="#clinic-dashboard-main"
+      >
+        Skip to main content
+      </a>
       <aside
         aria-label="Desktop clinic navigation"
         className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-[var(--border)] bg-[var(--background)] p-4 md:flex"
@@ -161,7 +167,9 @@ export function ClinicDashboardShell({
             {clinicIdentity}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {environmentBadge ? <EnvironmentBadge className="md:hidden" label={environmentBadge} /> : null}
+            {environmentBadge ? (
+              <EnvironmentBadge className="hidden sm:inline-flex md:hidden" label={environmentBadge} />
+            ) : null}
             {headerActions ? <div className="hidden items-center gap-2 sm:flex">{headerActions}</div> : null}
             {notificationCenter}
             {accountMenu}
@@ -172,7 +180,13 @@ export function ClinicDashboardShell({
             {headerActions}
           </div>
         ) : null}
-        <main className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:px-8 lg:py-7">{children}</main>
+        <main
+          className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:px-8 lg:py-7"
+          id="clinic-dashboard-main"
+          tabIndex={-1}
+        >
+          {children}
+        </main>
       </div>
     </div>
   )

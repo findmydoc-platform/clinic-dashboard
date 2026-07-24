@@ -165,7 +165,11 @@ export function ClinicDashboardWorkspaceComposition({
 
   const signOut = async () => {
     const result = await submitClinicDashboardAuthAction("/api/auth/logout", {})
-    if (result.ok && result.body.redirectTo === "/login") window.location.assign("/login")
+    if (result.ok && result.body.redirectTo === "/login") {
+      window.location.assign("/login")
+      return { ok: true }
+    }
+    return { message: "Sign out failed. Please try again.", ok: false }
   }
 
   const selectLocation = (locationId: ClinicDashboardLocationId) => {

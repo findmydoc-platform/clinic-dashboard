@@ -57,7 +57,7 @@ The preview workflow accepts only non-draft, same-repository, non-Dependabot pul
 - Preview deployments: enabled through GitHub Actions
 - Production deployments: enabled through the manually dispatched GitHub Actions workflow on `main`
 
-The application requires `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and `CSRF_SIGNING_SECRET` in Vercel preview and production. Preview uses Staging Supabase plus `https://preview.findmydoc.eu`; production uses Production Supabase plus `https://findmydoc.eu` and `https://clinics.findmydoc.eu`. The environment validator fails closed for missing, insecure, or cross-environment values. Vercel Deployment Protection remains an optional additional layer.
+The application requires `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and `CSRF_SIGNING_SECRET` in Vercel preview and production. Preview uses Staging Supabase plus `https://preview.findmydoc.eu`; production uses Production Supabase plus `https://findmydoc.eu` and `https://clinics.findmydoc.eu`. `SUPABASE_URL` must match the expected project reference exactly. The environment validator fails closed for missing, insecure, or cross-environment values. Vercel Deployment Protection remains an optional additional layer.
 
 Keep the legacy `DASHBOARD_PASSWORD` Vercel values until the trusted preview proves login, reload, logout, invite, and recovery. Remove those unused values only as the final cutover cleanup; the application no longer reads them.
 

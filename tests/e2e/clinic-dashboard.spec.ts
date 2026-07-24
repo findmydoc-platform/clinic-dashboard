@@ -24,6 +24,14 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   await expect(page.getByRole("button", { name: /Switch clinic location/ })).toBeVisible()
   await expect(page.getByRole("button", { name: "Notifications, 4 new notifications" })).toBeVisible()
 
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await page.keyboard.press("Tab")
+  const skipLink = page.getByRole("link", { name: "Skip to main content" })
+  await expect(skipLink).toBeFocused()
+  await expect(skipLink).toBeVisible()
+  await page.keyboard.press("Enter")
+  await expect(page.locator("#clinic-dashboard-main")).toBeFocused()
+
   for (const section of ["Messages", "Reviews", "Clinic profile", "Subscriptions", "Credentials"] as const) {
     await page.getByRole("button", { exact: true, name: section }).click()
     await expect(
@@ -320,16 +328,65 @@ test("does not consume callback tokens on GET and rejects invalid links", async 
   await expect(page.getByText(/invalid or has expired/)).toBeVisible()
 })
 
-test("keeps Supabase and Payload traffic out of the browser", async ({ page }) => {
+test("keeps Supabase and Payload traffic and token material out of the browser", async ({
+  context,
+  page,
+}) => {
   const externalRequests: string[] = []
+  const sensitiveValues = ["controlled-access-token", "controlled-invite-token", "controlled-recovery-token"]
   page.on("request", (request) => {
     const origin = new URL(request.url()).origin
     if (origin !== "http://127.0.0.1:3100") externalRequests.push(request.url())
   })
-
   await signIn(page)
   await page.reload()
+  const responseBodies = await page.evaluate(async (password) => {
+    const htmlResponse = await fetch("/", {
+      credentials: "same-origin",
+      headers: { Accept: "text/html" },
+    })
+    const bootstrapResponse = await fetch("/api/dashboard/bootstrap", {
+      credentials: "same-origin",
+    })
+    const csrfToken = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("clinic_dashboard_csrf="))
+      ?.slice("clinic_dashboard_csrf=".length)
+    if (!csrfToken) throw new Error("Expected a browser-readable CSRF token")
+    const loginResponse = await fetch("/api/auth/login", {
+      body: JSON.stringify({
+        email: "clinic-staff@example.com",
+        next: "/",
+        password,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "x-csrf-token": decodeURIComponent(csrfToken),
+      },
+      method: "POST",
+    })
+
+    return Promise.all([htmlResponse.text(), bootstrapResponse.text(), loginResponse.text()])
+  }, testDashboardPassword)
   await page.getByRole("button", { name: "Open account menu for Alex Morgan" }).click()
+  await page.waitForLoadState("networkidle")
+
+  const documentText = await page.locator("html").textContent()
+  const browserStorage = await page.evaluate(() => ({
+    local: Object.values(localStorage),
+    session: Object.values(sessionStorage),
+  }))
+  const cookies = await context.cookies()
+  expect(responseBodies).toHaveLength(3)
+  for (const sensitiveValue of sensitiveValues) {
+    for (const body of responseBodies) expect(body).not.toContain(sensitiveValue)
+    expect(documentText).not.toContain(sensitiveValue)
+    expect(browserStorage.local).not.toContain(sensitiveValue)
+    expect(browserStorage.session).not.toContain(sensitiveValue)
+    for (const cookie of cookies) expect(cookie.value).not.toContain(sensitiveValue)
+  }
   expect(externalRequests).toEqual([])
 })
 
@@ -343,10 +400,17 @@ test("completes invite and recovery links through explicit confirmation", async 
       })
       .click()
     await expect(page).toHaveURL(new RegExp(`${completionPath.replaceAll("/", "\\/")}$`))
+    const completionGrant = (await page.context().cookies()).find(
+      (cookie) => cookie.name === "clinic_dashboard_completion_grant",
+    )
+    expect(completionGrant).toMatchObject({ httpOnly: true, path: "/", sameSite: "Lax" })
     await page.getByLabel("Password", { exact: true }).fill("new-password")
     await page.getByLabel("Confirm password").fill("new-password")
     await page.getByRole("button", { name: "Save password" }).click()
     await expect(page).toHaveURL(new RegExp(`/login\\?status=${flow}-complete$`))
+    expect(
+      (await page.context().cookies()).find((cookie) => cookie.name === "clinic_dashboard_completion_grant"),
+    ).toBeUndefined()
   }
 })
 

@@ -11,6 +11,8 @@ export {
   handleClinicDashboardPasswordResetRequest,
 } from "./actions"
 export {
+  decodeCompletionGrant,
+  encodeCompletionGrant,
   encodePendingEmailCallback,
   setPendingEmailCallbackCookie,
   validateEmailCallbackRequest,

@@ -25,11 +25,15 @@ function ClinicIdentity({
   organizationName,
 }: Readonly<{ clinicName: string; compactName: string; organizationName: string }>) {
   return (
-    <span className="min-w-0">
-      <span className="block truncate text-xs leading-4 font-bold sm:hidden">{compactName}</span>
-      <span className="hidden truncate text-sm leading-4 font-bold sm:block lg:text-base">{clinicName}</span>
-      <span className="hidden truncate text-xs leading-4 text-[var(--foreground)] sm:block">
+    <span className="flex min-w-0 flex-col">
+      <span className="order-1 block truncate text-xs leading-4 font-bold sm:order-2 sm:font-normal">
         {organizationName}
+      </span>
+      <span className="order-2 block truncate text-[11px] leading-4 text-[var(--foreground)] sm:hidden">
+        {compactName}
+      </span>
+      <span className="order-1 hidden truncate text-sm leading-4 font-bold sm:block lg:text-base">
+        {clinicName}
       </span>
     </span>
   )

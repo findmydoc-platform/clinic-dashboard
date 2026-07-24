@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 }
 
 export default async function CompletePasswordResetPage() {
-  const access = await getCompletionAccess(await cookies())
+  const access = await getCompletionAccess(await cookies(), "recovery")
   if (access.status === "unauthenticated" || access.status === "unauthorized") {
     redirect("/login?error=invalid-or-expired-link")
   }

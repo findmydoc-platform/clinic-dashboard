@@ -14,6 +14,7 @@ const environmentSchema = z
     CLINIC_DASHBOARD_TEST_PASSWORD: z.string().min(8).optional(),
     CSRF_SIGNING_SECRET: z.string().min(32),
     DASHBOARD_ORIGIN: httpUrlSchema,
+    EXPECTED_SUPABASE_PROJECT_REF: z.string().regex(/^[a-z0-9]{20}$/),
     NODE_ENV: z.enum(["development", "test", "production"]).optional(),
     PAYLOAD_API_URL: httpUrlSchema,
     SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
@@ -24,6 +25,8 @@ const environmentSchema = z
   .superRefine((environment, context) => {
     const isControlledTestMode = environment.CLINIC_DASHBOARD_AUTH_TEST_MODE === "controlled"
     const isDeployed = environment.VERCEL_ENV === "preview" || environment.VERCEL_ENV === "production"
+    const supabaseUrl = new URL(environment.SUPABASE_URL)
+    const expectedSupabaseOrigin = `https://${environment.EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
 
     for (const [key, value] of [
       ["PAYLOAD_API_URL", environment.PAYLOAD_API_URL],
@@ -36,6 +39,21 @@ const environmentSchema = z
           path: [key],
         })
       }
+    }
+
+    if (
+      supabaseUrl.origin !== expectedSupabaseOrigin ||
+      supabaseUrl.pathname !== "/" ||
+      supabaseUrl.search ||
+      supabaseUrl.hash ||
+      supabaseUrl.username ||
+      supabaseUrl.password
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "SUPABASE_URL must match EXPECTED_SUPABASE_PROJECT_REF exactly",
+        path: ["SUPABASE_URL"],
+      })
     }
 
     if (isControlledTestMode) {
@@ -110,7 +128,11 @@ export function isControlledAuthTestMode(environment: Record<string, string | un
 }
 
 export function isSecureCookieEnvironment(environment: Record<string, string | undefined> = process.env) {
-  return environment.VERCEL_ENV === "preview" || environment.VERCEL_ENV === "production"
+  return (
+    environment.NODE_ENV === "production" ||
+    environment.VERCEL_ENV === "preview" ||
+    environment.VERCEL_ENV === "production"
+  )
 }
 
 export function getExpectedDashboardOrigin(environment: RuntimeEnvironment) {

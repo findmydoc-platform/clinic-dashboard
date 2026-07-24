@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  encodeCompletionGrant,
   encodePendingEmailCallback,
   handleClinicDashboardEmailCallback,
   handleClinicDashboardLogin,
@@ -20,6 +21,7 @@ function mutationRequest(
     tokenHash: string
     type: "invite" | "recovery"
   }>,
+  completionFlow?: "invite" | "recovery",
 ) {
   const url = `http://localhost:3000${pathname}`
   const baseRequest = new NextRequest(url, {
@@ -33,6 +35,15 @@ function mutationRequest(
     ...(session ? ["clinic_dashboard_controlled_session=controlled-clinic-staff"] : []),
     ...(pendingCallback
       ? [`clinic_dashboard_pending_email=${encodePendingEmailCallback(pendingCallback)}`]
+      : []),
+    ...(completionFlow
+      ? [
+          `clinic_dashboard_completion_grant=${encodeCompletionGrant({
+            flow: completionFlow,
+            issuedAt: Math.floor(Date.now() / 1000),
+            subject: "controlled-clinic-staff",
+          })}`,
+        ]
       : []),
   ]
   return new NextRequest(url, {
@@ -59,10 +70,11 @@ describe("controlled authentication route contract", () => {
     vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")
     vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
     vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
     vi.stubEnv("NODE_ENV", "test")
     vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
-    vi.stubEnv("SUPABASE_URL", "https://staging-project.supabase.co")
+    vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
   })
 
   afterEach(() => vi.unstubAllEnvs())
@@ -90,6 +102,7 @@ describe("controlled authentication route contract", () => {
     )
     expect(invalid.status).toBe(401)
     await expect(invalid.json()).resolves.toEqual({ code: "INVALID_CREDENTIALS" })
+    expectPrivate(invalid)
   })
 
   it("returns the neutral reset response for every syntactically valid email", async () => {
@@ -113,6 +126,7 @@ describe("controlled authentication route contract", () => {
     )
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ redirectTo: "/auth/invite/complete" })
+    expectPrivate(response)
 
     const invalid = await handleClinicDashboardEmailCallback(
       mutationRequest("/api/auth/callback", {}, false, {
@@ -123,6 +137,7 @@ describe("controlled authentication route contract", () => {
     )
     expect(invalid.status).toBe(400)
     await expect(invalid.json()).resolves.toEqual({ code: "INVALID_OR_EXPIRED_LINK" })
+    expectPrivate(invalid)
   })
 
   it.each(["invite", "recovery"] as const)("completes %s and removes the local session", async (flow) => {
@@ -131,12 +146,31 @@ describe("controlled authentication route contract", () => {
         flow === "invite" ? "/api/auth/invite/complete" : "/api/auth/password/reset/complete",
         { confirmPassword: "new-password", password: "new-password" },
         true,
+        undefined,
+        flow,
       ),
       flow,
     )
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ redirectTo: `/login?status=${flow}-complete` })
     expect(response.headers.get("set-cookie")).toContain("clinic_dashboard_controlled_session=;")
+    expect(response.headers.get("set-cookie")).toContain("clinic_dashboard_completion_grant=;")
+    expectPrivate(response)
+  })
+
+  it("rejects password completion without the callback-bound flow grant", async () => {
+    const response = await handleClinicDashboardPasswordCompletion(
+      mutationRequest(
+        "/api/auth/invite/complete",
+        { confirmPassword: "new-password", password: "new-password" },
+        true,
+      ),
+      "invite",
+    )
+    expect(response.status).toBe(401)
+    await expect(response.json()).resolves.toEqual({ code: "INVALID_OR_EXPIRED_LINK" })
+    expect(response.headers.get("set-cookie")).toContain("clinic_dashboard_completion_grant=;")
+    expectPrivate(response)
   })
 
   it("logs out through a CSRF-protected JSON mutation", async () => {
@@ -144,6 +178,7 @@ describe("controlled authentication route contract", () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ redirectTo: "/login" })
     expect(response.headers.get("set-cookie")).toContain("clinic_dashboard_controlled_session=;")
+    expectPrivate(response)
   })
 
   it("rejects missing CSRF proof before parsing credentials", async () => {
@@ -156,5 +191,19 @@ describe("controlled authentication route contract", () => {
     )
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toEqual({ code: "REQUEST_REJECTED" })
+    expectPrivate(response)
+  })
+
+  it("rejects an oversized authentication body before schema processing", async () => {
+    const response = await handleClinicDashboardLogin(
+      mutationRequest("/api/auth/login", {
+        email: "clinic-staff@example.com",
+        next: "/",
+        password: "x".repeat(9_000),
+      }),
+    )
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ code: "INVALID_INPUT" })
+    expectPrivate(response)
   })
 })

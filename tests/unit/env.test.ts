@@ -4,9 +4,10 @@ import { getExpectedDashboardOrigin, isSecureCookieEnvironment, validateEnvironm
 const baseEnvironment = {
   CSRF_SIGNING_SECRET: "0123456789abcdef0123456789abcdef",
   DASHBOARD_ORIGIN: "http://localhost:3000",
+  EXPECTED_SUPABASE_PROJECT_REF: "abcdefghijklmnopqrst",
   PAYLOAD_API_URL: "https://preview.findmydoc.eu",
   SUPABASE_PUBLISHABLE_KEY: "publishable-key",
-  SUPABASE_URL: "https://staging-project.supabase.co",
+  SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
 } as const
 
 describe("environment contract", () => {
@@ -50,8 +51,9 @@ describe("environment contract", () => {
       validateEnvironment({
         ...baseEnvironment,
         DASHBOARD_ORIGIN: "https://clinics.findmydoc.eu",
+        EXPECTED_SUPABASE_PROJECT_REF: "zyxwvutsrqponmlkjihg",
         PAYLOAD_API_URL: "https://findmydoc.eu",
-        SUPABASE_URL: "https://production-project.supabase.co",
+        SUPABASE_URL: "https://zyxwvutsrqponmlkjihg.supabase.co",
         VERCEL_ENV: "production",
       }),
     ).toBeDefined()
@@ -74,5 +76,19 @@ describe("environment contract", () => {
         VERCEL_ENV: "preview",
       }),
     ).toThrow(/HTTPS/)
+  })
+
+  it("rejects a Supabase origin that does not match the expected project reference", () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        SUPABASE_URL: "https://zyxwvutsrqponmlkjihg.supabase.co",
+      }),
+    ).toThrow(/EXPECTED_SUPABASE_PROJECT_REF/)
+  })
+
+  it("uses secure cookies for any production Node runtime", () => {
+    expect(isSecureCookieEnvironment({ NODE_ENV: "production" })).toBe(true)
+    expect(isSecureCookieEnvironment({ NODE_ENV: "test" })).toBe(false)
   })
 })

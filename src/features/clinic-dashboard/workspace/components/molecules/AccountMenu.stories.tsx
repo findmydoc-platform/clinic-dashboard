@@ -23,7 +23,7 @@ const defaultArgs = {
   email: account.email,
   initials: account.initials,
   name: account.name,
-  onSignOut: fn(),
+  onSignOut: fn(async () => ({ ok: true })),
   role: account.role,
 } satisfies Story["args"]
 
@@ -125,13 +125,28 @@ export const ProfileDialog: Story = {
 }
 
 export const SignOutSubmits: Story = {
-  args: { ...defaultArgs, initialOpen: true, onSignOut: fn(async () => undefined) },
+  args: { ...defaultArgs, initialOpen: true, onSignOut: fn(async () => ({ ok: true })) },
   play: async ({ args, canvasElement }) => {
     const menu = within(canvasElement.ownerDocument.body).getByRole("menu")
     const signOut = within(menu).getByRole("menuitem", { name: "Sign out" })
 
     await userEvent.click(signOut)
     await expect(args.onSignOut).toHaveBeenCalledOnce()
+  },
+}
+
+export const SignOutFailure: Story = {
+  args: {
+    ...defaultArgs,
+    initialOpen: true,
+    onSignOut: fn(async () => ({ message: "Sign out failed. Please try again.", ok: false })),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("menuitem", { name: "Sign out" }))
+    const alert = await page.findByRole("alert")
+    await expect(alert).toHaveTextContent("Sign out failed")
+    await waitFor(() => expect(alert).toHaveFocus())
   },
 }
 
