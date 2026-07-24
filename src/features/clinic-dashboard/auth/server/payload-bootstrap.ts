@@ -38,8 +38,12 @@ function hasPrivateBootstrapHeaders(response: Response) {
 
 async function readErrorCode(response: Response) {
   const body: unknown = await response.json().catch(() => null)
-  if (!body || typeof body !== "object" || !("code" in body)) return undefined
-  return typeof body.code === "string" ? body.code : undefined
+  if (!body || typeof body !== "object" || !("error" in body)) return undefined
+
+  const error = body.error
+  if (!error || typeof error !== "object" || !("code" in error)) return undefined
+
+  return typeof error.code === "string" ? error.code : undefined
 }
 
 export async function fetchClinicDashboardBootstrap(

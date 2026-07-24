@@ -53,22 +53,28 @@ describe("Payload clinic bootstrap", () => {
     [403, "CLINIC_DASHBOARD_ACCESS_DENIED", "denied"],
     [503, "CLINIC_DASHBOARD_TEMPORARILY_UNAVAILABLE", "temporarily-unavailable"],
   ] as const)("maps %s with its exact code", async (status, code, expectedStatus) => {
-    const fetcher = vi.fn(async () => jsonResponse({ code }, status))
+    const fetcher = vi.fn(async () => jsonResponse({ error: { code } }, status))
     await expect(fetchClinicDashboardBootstrap("access-token", fetcher as typeof fetch)).resolves.toEqual({
       status: expectedStatus,
     })
   })
 
-  it("fails closed for malformed DTOs, error codes, cache headers, and redirects", async () => {
+  it.each([
+    [{ code: "CLINIC_DASHBOARD_ACCESS_DENIED" }, 403],
+    [{ error: {} }, 403],
+    [{ error: { code: 403 } }, 403],
+    [{ error: { code: "OTHER" } }, 403],
+  ] as const)("fails closed for an invalid error response %#", async (body, status) => {
+    const fetcher = vi.fn(async () => jsonResponse(body, status))
+    await expect(fetchClinicDashboardBootstrap("token", fetcher as typeof fetch)).resolves.toEqual({
+      status: "temporarily-unavailable",
+    })
+  })
+
+  it("fails closed for malformed DTOs, cache headers, and network errors", async () => {
     const malformed = { ...bootstrap, capabilities: [...bootstrap.capabilities].reverse() }
     await expect(
       fetchClinicDashboardBootstrap("token", vi.fn(async () => jsonResponse(malformed)) as typeof fetch),
-    ).resolves.toEqual({ status: "temporarily-unavailable" })
-    await expect(
-      fetchClinicDashboardBootstrap(
-        "token",
-        vi.fn(async () => jsonResponse({ code: "OTHER" }, 401)) as typeof fetch,
-      ),
     ).resolves.toEqual({ status: "temporarily-unavailable" })
     await expect(
       fetchClinicDashboardBootstrap(
