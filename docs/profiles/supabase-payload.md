@@ -39,6 +39,7 @@ This profile is active. Trusted preview and production rollout evidence remain p
 | -------------------- | ---------- | ------------------------------------ | --------------------------------------------------------------- |
 | Local                | Staging    | Exact `https://preview.findmydoc.eu` | Exact local callback                                            |
 | Pull-request preview | Staging    | Exact `https://preview.findmydoc.eu` | Project-specific Vercel wildcard restricted to `/auth/callback` |
+| Main preview         | Staging    | Exact `https://preview.findmydoc.eu` | Exact `https://clinics.preview.findmydoc.eu/auth/callback`      |
 | Production           | Production | Exact `https://findmydoc.eu`         | Exact `https://clinics.findmydoc.eu/auth/callback`              |
 
 Cross-environment combinations fail configuration validation. The Payload client requires HTTPS, rejects redirects,

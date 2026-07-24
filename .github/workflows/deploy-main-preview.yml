@@ -1,0 +1,115 @@
+name: Deploy Main Preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: main-preview-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 24.14.0
+  PNPM_VERSION: 10.28.2
+  VERCEL_CLI_VERSION: 56.0.0
+  NEXT_TELEMETRY_DISABLED: 1
+  STORYBOOK_DISABLE_TELEMETRY: 1
+  STABLE_PREVIEW_DOMAIN: clinics.preview.findmydoc.eu
+  VERCEL_SCOPE: findmydoc
+
+jobs:
+  deployment-disabled:
+    name: Main preview disabled
+    if: vars.VERCEL_DEPLOYMENTS_ENABLED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report disabled state
+        run: echo "Main Preview deployments are disabled by repository policy."
+
+  main-guard:
+    name: Require main
+    if: vars.VERCEL_DEPLOYMENTS_ENABLED == 'true' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop deployment
+        run: exit 1
+
+  deploy-main-preview:
+    name: Vercel Main Preview
+    if: vars.VERCEL_DEPLOYMENTS_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pull Vercel preview settings
+        run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" pull --yes --environment=preview --git-branch=main --token="$VERCEL_TOKEN"
+
+      - name: Build Vercel main preview
+        run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" build
+
+      - name: Deploy verified main preview
+        id: deploy
+        run: |
+          deployment_url="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" deploy --prebuilt --yes --token="$VERCEL_TOKEN")"
+
+          if ! deployment_json="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" inspect "$deployment_url" --format=json --token="$VERCEL_TOKEN")"; then
+            pnpm dlx "vercel@${VERCEL_CLI_VERSION}" remove "$deployment_url" --yes --token="$VERCEL_TOKEN" || true
+            echo "::error::Unable to verify the Vercel deployment target; deployment removed."
+            exit 1
+          fi
+
+          deployment_target="$(jq -r '.target' <<< "$deployment_json")"
+          deployment_id="$(jq -r '.id' <<< "$deployment_json")"
+          if [[ "$deployment_target" != "preview" || -z "$deployment_id" || "$deployment_id" == "null" ]]; then
+            pnpm dlx "vercel@${VERCEL_CLI_VERSION}" remove "$deployment_url" --yes --token="$VERCEL_TOKEN" || true
+            echo "::error::Expected a verified Vercel Preview deployment; deployment removed."
+            exit 1
+          fi
+
+          echo "id=$deployment_id" >> "$GITHUB_OUTPUT"
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+
+      - name: Point stable domain to main preview
+        env:
+          DEPLOYMENT_ID: ${{ steps.deploy.outputs.id }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          pnpm dlx "vercel@${VERCEL_CLI_VERSION}" alias set "$DEPLOYMENT_URL" "$STABLE_PREVIEW_DOMAIN" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+
+          if ! alias_json="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" inspect "https://${STABLE_PREVIEW_DOMAIN}" --format=json --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN")"; then
+            echo "::error::Unable to verify the stable Preview alias."
+            exit 1
+          fi
+
+          alias_deployment_id="$(jq -r '.id' <<< "$alias_json")"
+          if [[ "$alias_deployment_id" != "$DEPLOYMENT_ID" ]]; then
+            echo "::error::Stable Preview alias does not resolve to the deployment created by this run."
+            exit 1
+          fi
+
+          echo "### Vercel Main Preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "Stable: https://${STABLE_PREVIEW_DOMAIN}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"

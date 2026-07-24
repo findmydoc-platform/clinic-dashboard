@@ -108,7 +108,7 @@ replace or partially reproduce the guard. The guard:
 7. derives principal, clinic, and actor from the authenticated Payload result.
 
 Local development and Production each trust only their configured exact origin. Preview additionally trusts the
-validated current Vercel deployment URL and exact `https://dashboard.preview.findmydoc.eu`. Preview deployment
+validated current Vercel deployment URL and exact `https://clinics.preview.findmydoc.eu`. Preview deployment
 metadata must match `clinic-dashboard-*-findmydoc.vercel.app`; the application does not accept a generic Vercel
 wildcard. Host-only cookies intentionally prevent sessions and completion state from moving between preview hosts.
 
@@ -191,11 +191,12 @@ their temporary prototype gate is removed.
 
 ## Environment Contract
 
-| Environment          | Trusted Dashboard origins                                                                                    | Supabase   | Payload API                          | Allowed callback origins                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ | ---------- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Local                | Exact `http://localhost:3000`                                                                                | Staging    | Exact `https://preview.findmydoc.eu` | Exact local callback                                                                      |
-| Pull-request preview | Stable configured origin, validated current `VERCEL_URL`, and exact `https://dashboard.preview.findmydoc.eu` | Staging    | Exact `https://preview.findmydoc.eu` | Stable callback, generated Vercel Preview hosts, and the future exact custom Preview host |
-| Production           | Exact `https://clinics.findmydoc.eu`                                                                         | Production | Exact `https://findmydoc.eu`         | Exact Production callback                                                                 |
+| Environment          | Trusted Dashboard origins                                                       | Supabase   | Payload API                          | Allowed callback origins                                       |
+| -------------------- | ------------------------------------------------------------------------------- | ---------- | ------------------------------------ | -------------------------------------------------------------- |
+| Local                | Exact `http://localhost:3000`                                                   | Staging    | Exact `https://preview.findmydoc.eu` | Exact local callback                                           |
+| Pull-request preview | Exact validated current `VERCEL_URL` and configured stable origin               | Staging    | Exact `https://preview.findmydoc.eu` | Generated Vercel Preview host and stable callback              |
+| Main preview         | Exact `https://clinics.preview.findmydoc.eu` and validated current `VERCEL_URL` | Staging    | Exact `https://preview.findmydoc.eu` | Stable Main Preview callback and generated deployment callback |
+| Production           | Exact `https://clinics.findmydoc.eu`                                            | Production | Exact `https://findmydoc.eu`         | Exact Production callback                                      |
 
 The environment contract validates `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`,
 `PAYLOAD_API_URL`, the expected Dashboard origin, and the server-only `CSRF_SIGNING_SECRET` as one bundle. `SUPABASE_URL`
@@ -203,8 +204,8 @@ must equal `https://<EXPECTED_SUPABASE_PROJECT_REF>.supabase.co` with no alterna
 fragment. No service-role key is accepted. `PAYLOAD_API_URL` must equal the exact environment origin in the table; HTTPS
 and redirect rejection are mandatory. `VERCEL_URL` is optional server-only deployment metadata. When present in
 Preview, it must contain only a deployment hostname matching the expected project and team shape; missing or invalid
-metadata never broadens the trusted set. The stable preview origin remains the fallback until the custom preview domain
-has working DNS and a Vercel alias.
+metadata never broadens the trusted set. The stable Preview origin remains valid only for deployments built with the
+matching Preview environment bundle.
 
 ## Cache Contract
 

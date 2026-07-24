@@ -81,11 +81,10 @@ describe("CSRF contract", () => {
   })
 
   it.each([
-    "https://clinic-dashboard-preview-findmydoc.vercel.app",
+    "https://clinics.preview.findmydoc.eu",
     "https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
-    "https://dashboard.preview.findmydoc.eu",
   ])("accepts a trusted preview mutation on %s", (origin) => {
-    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
 
@@ -97,7 +96,7 @@ describe("CSRF contract", () => {
   })
 
   it("rejects a preview origin that is not the current deployment or request host", () => {
-    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
 
@@ -109,7 +108,7 @@ describe("CSRF contract", () => {
     expect(
       validateMutationRequest(
         createRequest(token, currentOrigin, {
-          requestUrlOrigin: "https://clinic-dashboard-preview-findmydoc.vercel.app",
+          requestUrlOrigin: "https://clinics.preview.findmydoc.eu",
         }),
       ),
     ).toBe(false)

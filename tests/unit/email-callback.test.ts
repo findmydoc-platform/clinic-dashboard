@@ -45,11 +45,10 @@ describe("email callback validation", () => {
   })
 
   it.each([
-    "https://clinic-dashboard-preview-findmydoc.vercel.app",
+    "https://clinics.preview.findmydoc.eu",
     "https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
-    "https://dashboard.preview.findmydoc.eu",
   ])("continues a valid callback on trusted preview origin %s", (origin) => {
-    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
     const url = new URL("/auth/callback", origin)
@@ -65,7 +64,7 @@ describe("email callback validation", () => {
   })
 
   it("fails closed to the canonical login for an untrusted callback origin", () => {
-    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
     const url = new URL(
@@ -77,7 +76,7 @@ describe("email callback validation", () => {
 
     expect(response.status).toBe(303)
     expect(response.headers.get("location")).toBe(
-      "https://clinic-dashboard-preview-findmydoc.vercel.app/login?error=invalid-or-expired-link",
+      "https://clinics.preview.findmydoc.eu/login?error=invalid-or-expired-link",
     )
     expect(response.headers.get("set-cookie")).toBeNull()
   })

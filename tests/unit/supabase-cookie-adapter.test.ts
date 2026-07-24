@@ -13,7 +13,7 @@ describe("Supabase cookie adapter", () => {
   beforeEach(() => {
     createServerClientMock.mockImplementation((_url, _key, options) => ({ options }))
     vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
-    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinic-dashboard-preview-findmydoc.vercel.app")
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
     vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
     vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
@@ -28,7 +28,7 @@ describe("Supabase cookie adapter", () => {
 
   it("forces host-only HttpOnly session cookies and forwards Supabase response headers", () => {
     const routeClient = createRouteSupabaseClient(
-      new NextRequest("https://clinic-dashboard-preview-findmydoc.vercel.app/api/auth/login"),
+      new NextRequest("https://clinics.preview.findmydoc.eu/api/auth/login"),
     )
     const configuredClient = routeClient.client as unknown as {
       options: {
