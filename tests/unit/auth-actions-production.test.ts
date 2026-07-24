@@ -43,6 +43,21 @@ function approvedBootstrapResponse() {
   )
 }
 
+function deniedBootstrapResponse() {
+  return new Response(
+    JSON.stringify({
+      error: { code: "CLINIC_DASHBOARD_ACCESS_DENIED" },
+    }),
+    {
+      headers: {
+        "cache-control": "private, no-store",
+        vary: "Authorization",
+      },
+      status: 403,
+    },
+  )
+}
+
 function mutationRequest(pathname: string, body: Record<string, string>, cookies: readonly string[] = []) {
   const url = `http://localhost:3000${pathname}`
   const baseRequest = new NextRequest(url, {
@@ -253,6 +268,41 @@ describe("production authentication actions", () => {
     expect(response.headers.get("set-cookie")).toContain("clinic-dashboard-auth=;")
     expectPrivate(response)
   })
+
+  it.each(["invite", "recovery"] as const)(
+    "allows %s password completion while clinic onboarding is pending",
+    async (flow) => {
+      const fetcher = vi.fn(async () => deniedBootstrapResponse())
+      vi.stubGlobal("fetch", fetcher)
+      const { client } = installRouteClient()
+      const grant = encodeCompletionGrant({
+        flow,
+        issuedAt: Math.floor(Date.now() / 1000),
+        subject: "staff-1",
+      })
+      const path = flow === "invite" ? "/api/auth/invite/complete" : "/api/auth/password/reset/complete"
+
+      const response = await handleClinicDashboardPasswordCompletion(
+        mutationRequest(path, { confirmPassword: "new-password", password: "new-password" }, [
+          "clinic-dashboard-auth=session-cookie",
+          `clinic_dashboard_completion_grant=${grant}`,
+        ]),
+        flow,
+      )
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+        redirectTo: `/login?status=${flow}-complete`,
+      })
+      expect(client.auth.updateUser).toHaveBeenCalledWith({ password: "new-password" })
+      expect(client.auth.refreshSession).not.toHaveBeenCalled()
+      expect(client.auth.signOut).toHaveBeenCalledWith({
+        scope: flow === "recovery" ? "global" : "local",
+      })
+      expect(fetcher).toHaveBeenCalledOnce()
+      expectPrivate(response)
+    },
+  )
 
   it("logs out locally and propagates private response headers", async () => {
     const { client } = installRouteClient()

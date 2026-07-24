@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { resolveMutableClinicDashboardAccess } from "@/features/clinic-dashboard/auth/server/access"
 
 function response(status: number, code: string) {
-  return new Response(JSON.stringify({ code }), {
+  return new Response(JSON.stringify({ error: { code } }), {
     headers: { "cache-control": "private, no-store", vary: "Authorization" },
     status,
   })
