@@ -55,7 +55,7 @@ export const NotificationOpensConversationAtItsLocation: Story = {
 
     await expect(canvas.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
     await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-      /Current location: Berlin Health Clinic — Mitte/,
+      /Current location: Demo data · Berlin Health Clinic — Mitte/,
     )
     const conversationHeading = canvas.getByRole("heading", { name: "Lukas Fixture" })
     await waitFor(() => expect(conversationHeading).toHaveFocus())
@@ -73,7 +73,7 @@ export const NotificationOpensReviewAtItsLocation: Story = {
 
     await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
     await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-      /Current location: Berlin Health Clinic — Charlottenburg/,
+      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
     )
     const review = canvas.getByRole("region", { name: "Review by Eva Fixture" })
     await waitFor(() => expect(review).toHaveFocus())

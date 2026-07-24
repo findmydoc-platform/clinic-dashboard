@@ -63,6 +63,10 @@ function isClinicDashboardServerTarget(target) {
   return /^src\/features\/clinic-dashboard\/server(?:\.[cm]?[jt]s)?$/u.test(target)
 }
 
+function isClinicDashboardAuthServerTarget(target) {
+  return /^src\/features\/clinic-dashboard\/auth\/server\/public(?:\.[cm]?[jt]s)?$/u.test(target)
+}
+
 function isClinicDashboardWorkspaceProviderTarget(target) {
   return /^src\/features\/clinic-dashboard\/workspace-provider(?:\.[cm]?[jt]s)?$/u.test(target)
 }
@@ -975,7 +979,8 @@ function collectFindings() {
         /^src\/app\//u.test(file) &&
         /(?:^|\/)features(?:\/|$)/u.test(target) &&
         target !== "src/features/clinic-dashboard/public.ts" &&
-        !isClinicDashboardServerTarget(target)
+        !isClinicDashboardServerTarget(target) &&
+        !isClinicDashboardAuthServerTarget(target)
       ) {
         findings.push(
           createFinding(

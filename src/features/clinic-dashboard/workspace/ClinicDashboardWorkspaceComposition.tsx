@@ -2,6 +2,10 @@
 
 import { useState } from "react"
 import {
+  submitClinicDashboardAuthAction,
+  type AuthenticatedClinicContext,
+} from "@/features/clinic-dashboard/auth/public"
+import {
   ClinicProfile,
   type ClinicProfileCommands,
   type ClinicProfileDraft,
@@ -53,6 +57,7 @@ export type ClinicDashboardWorkspaceStartState =
     }>
 
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
+  authenticatedContext: AuthenticatedClinicContext
   clinicProfileCommands: ClinicProfileCommands
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
@@ -75,6 +80,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
 }>
 
 export function ClinicDashboardWorkspaceComposition({
+  authenticatedContext,
   clinicProfileCommands,
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
@@ -150,6 +156,22 @@ export function ClinicDashboardWorkspaceComposition({
     snapshot: projectedDashboardSnapshot,
   })
 
+  const accountInitials = authenticatedContext.principal.displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
+
+  const signOut = async () => {
+    const result = await submitClinicDashboardAuthAction("/api/auth/logout", {})
+    if (result.ok && result.body.redirectTo === "/login") {
+      window.location.assign("/login")
+      return { ok: true }
+    }
+    return { message: "Sign out failed. Please try again.", ok: false }
+  }
+
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
     const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
     const nextSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, locationId)
@@ -168,23 +190,25 @@ export function ClinicDashboardWorkspaceComposition({
     <ClinicDashboardShell
       accountMenu={
         <AccountMenu
-          avatar={workspaceInput.account.avatar}
-          initials={workspaceInput.account.initials}
-          name={workspaceInput.account.name}
-          role={workspaceInput.account.role}
+          email={authenticatedContext.principal.email}
+          initials={accountInitials || "CS"}
+          name={authenticatedContext.principal.displayName}
+          onSignOut={signOut}
+          role="Clinic staff"
         />
       }
       activeSection={activeSection}
       clinicIdentity={
         <ClinicLocationSelector
           canSwitchLocations={capabilities.canSwitchLocations}
+          isDemoData
           locations={workspaceInput.locations}
           onValueChange={selectLocation}
-          organizationName={workspaceInput.organization.name}
+          organizationName={authenticatedContext.clinic.name}
           value={selectedLocation.id}
         />
       }
-      environmentBadge="Demo"
+      environmentBadge="Demo data"
       headerActions={
         activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
           <DashboardPeriodControl
@@ -243,6 +267,11 @@ export function ClinicDashboardWorkspaceComposition({
       <p aria-live="polite" className="sr-only" role="status">
         {model.locationAnnouncement}
       </p>
+
+      <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
+        <strong className="text-[var(--secondary)]">Demo data.</strong> Dashboard cards, charts, messages,
+        reviews, profile details, and actions are local examples only.
+      </div>
 
       {activeSection === "dashboard" ? (
         <DashboardScreen

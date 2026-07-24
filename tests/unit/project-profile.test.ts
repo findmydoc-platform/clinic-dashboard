@@ -7,10 +7,12 @@ describe("project profile contract", () => {
   it("records the completed data-less foundation and delivery decisions", () => {
     expect(profile).toContain("schema_version = 1")
     expect(profile).toMatch(/\[bootstrap\]\s+status = "complete"/)
-    expect(profile).toContain('profile = "temporary-password-guard"')
-    expect(profile).toContain('status = "active-temporary"')
+    expect(profile).toContain('profile = "server-side-supabase-bff"')
+    expect(profile).toContain('status = "implemented-preview-validation-pending"')
     expect(profile).toContain('mode = "none"')
-    expect(profile).toContain('public_routes = ["/api/auth/login", "/api/health", "/login", "/robots.txt"]')
+    expect(profile).toContain(
+      'public_routes = ["/login", "/api/auth/login", "/auth/password/reset", "/api/auth/password/reset", "/auth/callback", "/auth/confirm", "/api/auth/callback", "/api/health", "/robots.txt"]',
+    )
     expect(profile).toContain(
       'active = ["storybook", "github-actions", "vercel-preview", "vercel-production"]',
     )

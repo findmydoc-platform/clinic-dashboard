@@ -7,6 +7,18 @@ export const workspaceAccountFixture = {
   initials: "SS",
   name: "Sarah Schmidt",
   role: "Clinic administrator",
+  email: "sarah.schmidt@example.com",
+} as const
+
+export const authenticatedClinicContextFixture = {
+  capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+  clinic: { id: "berlin-health-group", name: "Berlin Health Group" },
+  principal: {
+    displayName: "Sarah Schmidt",
+    email: "sarah.schmidt@example.com",
+    id: "clinic-staff-sarah-schmidt",
+  },
+  status: "approved",
 } as const
 
 export const workspaceOrganizationFixture = {

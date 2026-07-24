@@ -169,7 +169,7 @@ const DropdownMenuItem = forwardRef<ComponentRef<typeof DropdownMenuPrimitive.It
   ({ className, inset = false, variant = "default", ...props }, forwardedRef) => (
     <DropdownMenuPrimitive.Item
       className={cn(
-        "relative flex min-h-11 cursor-default items-center gap-3 rounded-md px-3 text-sm font-bold transition-colors outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-[var(--surface)] data-[highlighted]:text-[var(--foreground)]",
+        "relative flex min-h-11 cursor-default items-center gap-3 rounded-md px-3 text-sm font-bold transition-colors outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-[var(--surface)] data-[highlighted]:text-[var(--foreground)] data-[highlighted]:ring-2 data-[highlighted]:ring-[var(--ring)] data-[highlighted]:ring-inset",
         inset && "pl-9",
         variant === "destructive" &&
           "text-[var(--destructive)] data-[highlighted]:bg-[color-mix(in_srgb,var(--destructive)_8%,var(--background))] data-[highlighted]:text-[var(--destructive)]",
@@ -190,7 +190,7 @@ const DropdownMenuCheckboxItem = forwardRef<
 >(({ children, className, ...props }, forwardedRef) => (
   <DropdownMenuPrimitive.CheckboxItem
     className={cn(
-      "relative flex min-h-11 cursor-default items-center gap-3 rounded-md px-3 text-sm font-bold transition-colors outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-[var(--surface)] data-[highlighted]:text-[var(--foreground)]",
+      "relative flex min-h-11 cursor-default items-center gap-3 rounded-md px-3 text-sm font-bold transition-colors outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-[var(--surface)] data-[highlighted]:text-[var(--foreground)] data-[highlighted]:ring-2 data-[highlighted]:ring-[var(--ring)] data-[highlighted]:ring-inset",
       className,
     )}
     ref={forwardedRef}

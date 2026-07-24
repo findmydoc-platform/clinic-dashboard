@@ -1,13 +1,12 @@
 # Supabase Session and Payload API Profile
 
-> **Temporary runtime notice:** The application does not use this profile at runtime yet. Remove this notice
-> when Supabase session handling and the Payload BFF are active.
+This profile is active. Trusted preview and production rollout evidence remain pending.
 
 ## Boundary
 
 - The Clinic Dashboard is a stateless Next.js Backend for Frontend without a database.
-- Supabase establishes the clinic user's access and refresh session through Dashboard-owned login, PKCE callback,
-  refresh, and logout routes.
+- Supabase establishes the clinic user's access and refresh session through Dashboard-owned password login, explicitly
+  confirmed TokenHash invite/recovery callbacks, refresh, and logout routes.
 - The Dashboard stores session material in secure, host-bound, `HttpOnly` cookies. Browser application code receives
   no token and creates no Supabase browser client.
 - React Server Components read through a server-only Payload client. Browser-initiated reads and mutations
@@ -28,8 +27,8 @@
   header.
 - Accept only validated relative post-authentication destinations.
 - Apply one shared mutation guard to every authenticated state-changing Route Handler. It validates session, input,
-  exact origin, and a stateless HMAC-signed CSRF token bound to the current Supabase session. Staging and Production use
-  a host-only `__Host-` CSRF cookie; Payload requires no change.
+  exact origin, and a stateless HMAC-signed CSRF token bound to the current Supabase session. Public forms receive a
+  pre-session token; deployed cookies are host-only and secure. Payload requires no CSRF-specific change.
 - Keep session, principal, clinic, capability, and Dashboard data private and `no-store`. Request-local deduplication is
   permitted; ISR, shared caches, and durable Dashboard caches are not.
 - Preserve the website's existing public revalidation when an authorized Payload mutation changes a public surface.
@@ -50,5 +49,5 @@ and never forwards the Bearer token to another origin.
 The architecture is approved by
 [ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md).
 The detailed repository contract is
-[the local authentication and BFF architecture](../authentication-and-bff.md). Runtime activation remains separate
-from this documentation change. Do not infer new shared contracts from this profile or from prototype controls.
+[the local authentication and BFF architecture](../authentication-and-bff.md). Do not infer new shared contracts from
+this profile or from prototype controls.

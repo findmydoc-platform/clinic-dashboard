@@ -14,7 +14,7 @@
 
 ## Status and Scope
 
-Status: planned. This document owns implementation order and acceptance evidence only. Durable session, BFF, API,
+Status: implemented in code; trusted preview and production rollout evidence pending. This document owns implementation order and acceptance evidence only. Durable session, BFF, API,
 environment, security, error, and cache contracts live in the paired architecture documents and must not be redefined
 here.
 
@@ -24,16 +24,16 @@ Payload CORS expansion.
 
 ## Implementation Sequence
 
-1. Add environment validation and per-request Supabase server-client tests without replacing the temporary guard.
-2. Implement PKCE login, callback, refresh, logout, cookie propagation, exact origin validation, and the central
-   session-bound HMAC-CSRF guard.
+1. Add environment validation and per-request Supabase server-client tests.
+2. Implement server-side password login, explicit TokenHash invite/recovery confirmation, refresh, logout, cookie
+   propagation, exact origin validation, and the central HMAC-CSRF guard.
 3. Implement the server-only Payload client against `GET /api/clinic-dashboard/bootstrap`. Validate the exact DTO with
    `clinic-profile:view` and `clinic-profile:edit`, classify the three stable `CLINIC_DASHBOARD_*` error codes, and
    preserve private no-store semantics.
 4. Add the server data layer and bootstrap Route Handler while keeping React Server Components on direct function
    calls.
-5. Replace the temporary guard only after local and trusted preview authentication, principal, cookie, CSRF, and
-   failure tests pass.
+5. Validate the replacement locally, then prove authentication, principal, cookie, CSRF, and failure states on the
+   trusted preview before merge and environment cleanup.
 6. Integrate capability-specific reads and mutations one gate at a time.
 7. Configure the exact production callback only after Staging preview evidence is complete.
 
@@ -55,7 +55,8 @@ Payload CORS expansion.
   details.
 - Every authenticated mutation uses the shared session-bound HMAC-CSRF guard.
 - Server-rendered pages make no internal HTTP request to Dashboard Route Handlers.
-- Local and trusted Vercel previews complete PKCE against Staging and return to the original deployment URL.
+- Local and trusted Vercel previews complete password login plus explicitly confirmed TokenHash invite and recovery
+  against Staging and return to the original deployment URL.
 - Invalid sessions, denied principals, invalid callbacks, upstream failures, and cross-environment configuration produce
   the documented controlled states.
 - Authenticated responses remain private and absent from shared or durable caches.

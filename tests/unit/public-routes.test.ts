@@ -1,14 +1,37 @@
 import { describe, expect, it } from "vitest"
-import { isPublicPath } from "@/lib/security/public-routes"
+import { isPublicPath, isSessionPath } from "@/lib/security/public-routes"
 
-describe("public route registry", () => {
-  it("allows only registered routes and prefixes", () => {
-    expect(isPublicPath("/")).toBe(false)
-    expect(isPublicPath("/api/health")).toBe(true)
-    expect(isPublicPath("/api/auth/login")).toBe(true)
-    expect(isPublicPath("/login")).toBe(true)
-    expect(isPublicPath("/robots.txt")).toBe(true)
-    expect(isPublicPath("/api/auth/signin")).toBe(false)
-    expect(isPublicPath("/admin")).toBe(false)
+describe("route access registry", () => {
+  it.each([
+    "/login",
+    "/api/auth/login",
+    "/auth/password/reset",
+    "/api/auth/password/reset",
+    "/auth/callback",
+    "/auth/confirm",
+    "/api/auth/callback",
+    "/api/health",
+    "/robots.txt",
+  ])("registers %s as public", (pathname) => {
+    expect(isPublicPath(pathname)).toBe(true)
   })
+
+  it.each([
+    "/auth/invite/complete",
+    "/api/auth/invite/complete",
+    "/auth/password/reset/complete",
+    "/api/auth/password/reset/complete",
+    "/access",
+    "/api/auth/logout",
+  ])("registers %s as session protected", (pathname) => {
+    expect(isSessionPath(pathname)).toBe(true)
+    expect(isPublicPath(pathname)).toBe(false)
+  })
+
+  it.each(["/", "/api/dashboard/bootstrap", "/admin", "/api/auth/signin"])(
+    "does not accidentally expose %s",
+    (pathname) => {
+      expect(isPublicPath(pathname)).toBe(false)
+    },
+  )
 })

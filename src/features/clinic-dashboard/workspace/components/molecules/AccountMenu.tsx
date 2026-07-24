@@ -13,18 +13,51 @@ import { accountMenuActions, createStaffProfile } from "../../model/account"
 
 type AccountMenuProps = Readonly<{
   avatar?: StaticImageData | string
+  email?: string
   initials: string
   initialOpen?: boolean
   name: string
+  onSignOut?: () => Promise<Readonly<{ message?: string; ok: boolean }>>
   role: string
 }>
 
-export function AccountMenu({ avatar, initials, initialOpen = false, name, role }: AccountMenuProps) {
+export function AccountMenu({
+  avatar,
+  email,
+  initials,
+  initialOpen = false,
+  name,
+  onSignOut,
+  role,
+}: AccountMenuProps) {
   const [open, setOpen] = useState(initialOpen)
   const [profileOpen, setProfileOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const { isDark, setDarkMode } = useThemeMode()
-  const profile = createStaffProfile({ initials, name, role })
+  const [signOutError, setSignOutError] = useState<string>()
+  const [signOutPending, setSignOutPending] = useState(false)
+  const signOutErrorRef = useRef<HTMLParagraphElement>(null)
+  const shouldFocusSignOutErrorRef = useRef(false)
+  const profile = createStaffProfile({ email, initials, name, role })
+
+  const signOut = async () => {
+    if (!onSignOut) return
+    setSignOutError(undefined)
+    setSignOutPending(true)
+    try {
+      const result = await onSignOut()
+      if (!result.ok) {
+        shouldFocusSignOutErrorRef.current = true
+        setOpen(false)
+        setSignOutError(result.message ?? "Sign out failed. Please try again.")
+      }
+    } catch {
+      shouldFocusSignOutErrorRef.current = true
+      setOpen(false)
+      setSignOutError("Sign out failed. Please try again.")
+    }
+    setSignOutPending(false)
+  }
 
   return (
     <div className="relative">
@@ -47,10 +80,18 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
           align="end"
           aria-label="Account menu"
           className="w-[calc(100vw-2rem)] max-w-60 p-0 sm:w-60"
+          onCloseAutoFocus={(event) => {
+            if (!shouldFocusSignOutErrorRef.current) return
+            event.preventDefault()
+            requestAnimationFrame(() => {
+              shouldFocusSignOutErrorRef.current = false
+              signOutErrorRef.current?.focus()
+            })
+          }}
         >
           <div className="px-4 py-3">
             <p className="text-sm font-bold">{name}</p>
-            <p className="mt-0.5 text-xs text-[var(--foreground)]">{role}</p>
+            <p className="mt-0.5 truncate text-xs text-[var(--foreground)]">{email ?? role}</p>
           </div>
           <DropdownMenu.Separator className="mx-0 my-0" />
           <DropdownMenu.Item className="min-h-12 rounded-none px-4" onSelect={() => setProfileOpen(true)}>
@@ -87,22 +128,37 @@ export function AccountMenu({ avatar, initials, initialOpen = false, name, role 
             </span>
           </DropdownMenu.CheckboxItem>
           <DropdownMenu.Separator className="mx-0 my-0" />
-          <form action="/api/auth/logout" method="post">
-            <DropdownMenu.Item asChild onSelect={(event) => event.preventDefault()} variant="destructive">
-              <Button className="w-full justify-start rounded-none px-4" type="submit" variant="ghost">
-                <LogOut aria-hidden="true" className="size-5" />
-                <span>{accountMenuActions.signOut.label}</span>
-              </Button>
-            </DropdownMenu.Item>
-          </form>
+          <DropdownMenu.Item asChild onSelect={(event) => event.preventDefault()} variant="destructive">
+            <Button
+              className="w-full justify-start rounded-none px-4"
+              disabled={signOutPending || !onSignOut}
+              onClick={signOut}
+              type="button"
+              variant="ghost"
+            >
+              <LogOut aria-hidden="true" className="size-5" />
+              <span>{signOutPending ? "Signing out…" : accountMenuActions.signOut.label}</span>
+            </Button>
+          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu>
+      {signOutError ? (
+        <p
+          className="absolute top-12 right-0 z-50 w-60 rounded-md border border-[color-mix(in_srgb,var(--destructive)_42%,var(--border))] bg-[var(--background)] p-3 text-xs font-bold text-[var(--destructive)] shadow-lg focus:ring-2 focus:ring-[var(--ring)] focus:outline-none"
+          ref={signOutErrorRef}
+          role="alert"
+          tabIndex={-1}
+        >
+          {signOutError}
+        </p>
+      ) : null}
       <Modal onOpenChange={setProfileOpen} open={profileOpen} title="Staff profile" triggerRef={triggerRef}>
         <div className="flex items-center gap-4">
           <Avatar className="size-16 text-base" initials={profile.initials} loading="eager" src={avatar} />
           <div className="min-w-0">
             <p className="font-bold text-[var(--secondary)]">{profile.name}</p>
             <p className="mt-1 text-sm text-[var(--foreground)]">{profile.role}</p>
+            {profile.email ? <p className="mt-1 text-sm text-[var(--foreground)]">{profile.email}</p> : null}
           </div>
         </div>
       </Modal>

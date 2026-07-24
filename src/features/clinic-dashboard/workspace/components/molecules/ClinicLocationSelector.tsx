@@ -12,6 +12,7 @@ import {
 
 type ClinicLocationSelectorProps = Readonly<{
   canSwitchLocations: boolean
+  isDemoData?: boolean
   locations: readonly ClinicDashboardLocation[]
   onValueChange: (locationId: ClinicDashboardLocationId) => void
   organizationName: string
@@ -24,11 +25,15 @@ function ClinicIdentity({
   organizationName,
 }: Readonly<{ clinicName: string; compactName: string; organizationName: string }>) {
   return (
-    <span className="min-w-0">
-      <span className="block truncate text-xs leading-4 font-bold sm:hidden">{compactName}</span>
-      <span className="hidden truncate text-sm leading-4 font-bold sm:block lg:text-base">{clinicName}</span>
-      <span className="hidden truncate text-xs leading-4 text-[var(--foreground)] sm:block">
+    <span className="flex min-w-0 flex-col">
+      <span className="order-1 block truncate text-xs leading-4 font-bold sm:order-2 sm:font-normal">
         {organizationName}
+      </span>
+      <span className="order-2 block truncate text-[11px] leading-4 text-[var(--foreground)] sm:hidden">
+        {compactName}
+      </span>
+      <span className="order-1 hidden truncate text-sm leading-4 font-bold sm:block lg:text-base">
+        {clinicName}
       </span>
     </span>
   )
@@ -36,6 +41,7 @@ function ClinicIdentity({
 
 export function ClinicLocationSelector({
   canSwitchLocations,
+  isDemoData = false,
   locations,
   onValueChange,
   organizationName,
@@ -43,12 +49,13 @@ export function ClinicLocationSelector({
 }: ClinicLocationSelectorProps) {
   const [open, setOpen] = useState(false)
   const selectedLocation = getClinicDashboardLocation(locations, value)
+  const selectedClinicName = isDemoData ? `Demo data · ${selectedLocation.name}` : selectedLocation.name
 
   if (!canSwitchLocations || locations.length < 2) {
     return (
-      <div aria-label={`Current clinic identity: ${selectedLocation.name}`} className="min-w-0" role="group">
+      <div aria-label={`Current clinic identity: ${selectedClinicName}`} className="min-w-0" role="group">
         <ClinicIdentity
-          clinicName={selectedLocation.name}
+          clinicName={selectedClinicName}
           compactName={selectedLocation.selectorLabel}
           organizationName={organizationName}
         />
@@ -60,12 +67,12 @@ export function ClinicLocationSelector({
     <DropdownMenu onOpenChange={setOpen} open={open}>
       <DropdownMenu.Trigger asChild>
         <button
-          aria-label={`Switch clinic location. Current location: ${selectedLocation.name}. Organization: ${organizationName}`}
+          aria-label={`Switch clinic location. Current location: ${selectedClinicName}. Organization: ${organizationName}`}
           className="group -ml-2 flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-md px-2 text-left transition-colors hover:bg-[var(--surface)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] focus-visible:outline-none"
           type="button"
         >
           <ClinicIdentity
-            clinicName={selectedLocation.name}
+            clinicName={selectedClinicName}
             compactName={selectedLocation.selectorLabel}
             organizationName={organizationName}
           />

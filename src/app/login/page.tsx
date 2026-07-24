@@ -1,75 +1,27 @@
 import type { Metadata } from "next"
-import { CircleAlert, LockKeyhole } from "lucide-react"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { BrandMark } from "@/components/brand/BrandMark"
-import { Button } from "@/components/ui/button"
-import { Field } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+import {
+  ClinicDashboardAuthScreen,
+  type ClinicDashboardAuthErrorCode,
+} from "@/features/clinic-dashboard/public"
 
 export const metadata: Metadata = {
-  robots: {
-    follow: false,
-    index: false,
-  },
+  robots: { follow: false, index: false },
   title: "Sign in | Clinic Dashboard",
 }
 
 type LoginPageProps = Readonly<{
-  searchParams: Promise<{
-    error?: string | string[]
-  }>
+  searchParams: Promise<Readonly<{ error?: string; status?: string }>>
 }>
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const params = await searchParams
-  const error = Array.isArray(params.error) ? params.error[0] : params.error
-  const hasInvalidPassword = error === "invalid_password"
+  const { error, status } = await searchParams
+  const initialError: ClinicDashboardAuthErrorCode | undefined =
+    error === "invalid-or-expired-link"
+      ? "INVALID_OR_EXPIRED_LINK"
+      : error === "account-unavailable"
+        ? "ACCOUNT_UNAVAILABLE"
+        : undefined
+  const initialStatus = status === "invite-complete" || status === "recovery-complete" ? status : undefined
 
-  return (
-    <main className="min-h-dvh bg-[var(--canvas)] px-6 py-6 text-[var(--foreground)] lg:px-12">
-      <header className="mx-auto flex max-w-[1620px] items-center justify-between">
-        <BrandMark priority />
-        <ThemeToggle showLabel />
-      </header>
-
-      <section className="mx-auto flex min-h-[calc(100dvh-7rem)] max-w-md items-center justify-center py-10">
-        <div className="w-full border border-[var(--border)] bg-[var(--background)] p-8 shadow-sm sm:p-10">
-          <div className="flex size-12 items-center justify-center bg-[var(--accent)] text-[var(--secondary)]">
-            <LockKeyhole aria-hidden="true" size={22} />
-          </div>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--secondary)]">Sign in</h1>
-
-          <form action="/api/auth/login" className="mt-8 space-y-5" method="post">
-            <Field
-              error={
-                hasInvalidPassword ? (
-                  <span className="inline-flex items-center gap-2">
-                    <CircleAlert aria-hidden="true" className="size-4 shrink-0" /> Invalid password.
-                  </span>
-                ) : undefined
-              }
-              id="password"
-              isRequired
-              label="Password"
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  autoComplete="current-password"
-                  autoFocus
-                  name="password"
-                  placeholder="Password"
-                  type="password"
-                />
-              )}
-            </Field>
-
-            <Button className="w-full" size="large" type="submit">
-              Sign in
-            </Button>
-          </form>
-        </div>
-      </section>
-    </main>
-  )
+  return <ClinicDashboardAuthScreen initialError={initialError} initialStatus={initialStatus} mode="login" />
 }

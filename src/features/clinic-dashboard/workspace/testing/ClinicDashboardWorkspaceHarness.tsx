@@ -35,13 +35,14 @@ import {
 import type { ClinicDashboardWorkspaceInput } from "../model/workspace-input"
 import {
   notificationsFixture,
+  authenticatedClinicContextFixture,
   workspaceAccountFixture,
   workspaceLocationFixtures,
   workspaceOrganizationFixture,
 } from "./workspace.fixtures"
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
-  Omit<ClinicDashboardWorkspaceProps, "workspaceInput"> & {
+  Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "workspaceInput"> & {
     notificationState?: Readonly<{
       isOpen?: boolean
       readIds?: readonly string[]
@@ -402,6 +403,7 @@ export function ClinicDashboardWorkspaceHarness({
   }))
   return (
     <ClinicDashboardWorkspaceComposition
+      authenticatedContext={authenticatedClinicContextFixture}
       clinicProfileCommands={clinicProfileCommands}
       initialNotificationReadIds={notificationState?.readIds}
       initialNotificationsOpen={notificationState?.isOpen}

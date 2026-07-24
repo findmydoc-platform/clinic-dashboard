@@ -21,6 +21,7 @@ describe("workspace account profile", () => {
     }
 
     expect(createStaffProfile(source)).toEqual({
+      email: "not-exposed@example.test",
       initials: "SS",
       name: "Sarah Schmidt",
       role: "Clinic administrator",
