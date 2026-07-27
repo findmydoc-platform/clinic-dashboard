@@ -3,10 +3,7 @@ import { handlePatientInquiryStatusUpdate } from "@/features/clinic-dashboard/se
 
 export const runtime = "nodejs"
 
-export async function PATCH(
-  request: NextRequest,
-  context: RouteContext<"/api/dashboard/inquiries/[inquiryId]/status">,
-) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ inquiryId: string }> }) {
   const { inquiryId } = await context.params
   return handlePatientInquiryStatusUpdate(request, inquiryId)
 }

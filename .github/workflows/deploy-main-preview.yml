@@ -110,6 +110,8 @@ jobs:
             exit 1
           fi
 
-          echo "### Vercel Main Preview" >> "$GITHUB_STEP_SUMMARY"
-          echo "Stable: https://${STABLE_PREVIEW_DOMAIN}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Deployment: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Vercel Main Preview"
+            echo "Stable: https://${STABLE_PREVIEW_DOMAIN}"
+            echo "Deployment: ${DEPLOYMENT_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
