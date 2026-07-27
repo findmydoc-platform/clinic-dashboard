@@ -31,7 +31,6 @@ export function ClinicDashboardWorkspace({
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedContext}
       clinicProfileCommands={demoClientAdapter.clinicProfileCommands}
-      messageCommands={demoClientAdapter.messageCommands}
       projectDashboardAfterProfileSave={demoClientAdapter.projectDashboardAfterProfileSave}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}
       prototypeMode={prototypeMode}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "high": true,
+  "package-manager": "pnpm",
+  "report-type": "summary",
+  "allowlist": [
+    {
+      "GHSA-mh99-v99m-4gvg|eslint>minimatch>brace-expansion": {
+        "active": true,
+        "expiry": "2026-09-30",
+        "notes": "Development-only ESLint path. Remove when eslint-plugin-import, eslint-plugin-react, and eslint-plugin-jsx-a11y support ESLint 10.",
+      },
+    },
+  ],
+}

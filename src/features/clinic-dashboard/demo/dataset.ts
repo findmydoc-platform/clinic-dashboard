@@ -12,6 +12,11 @@ import { izmirAlsancakProfile } from "./locations/izmir-alsancak/profile"
 import { izmirAlsancakReviews } from "./locations/izmir-alsancak/reviews"
 import { clinicDashboardDemoNotifications } from "./notifications"
 import {
+  getPatientInquiryStatusTransitions,
+  type PatientInquiry,
+  type PatientInquiryProfile,
+} from "../messages/public"
+import {
   clinicDashboardDemoAccount,
   clinicDashboardDemoDefaultLocationId,
   clinicDashboardDemoLocations,
@@ -21,10 +26,34 @@ import {
 import type { ClinicDashboardWorkspaceInput } from "../workspace/model/workspace-input"
 import { assertClinicDashboardNotificationTargets } from "../workspace/model/notifications"
 
+function createDemoInquiry(
+  inquiry: PatientInquiryProfile,
+  createdAt: string,
+  dateLabel: string,
+  timeLabel: string,
+): PatientInquiry {
+  return {
+    ...inquiry,
+    availableTransitions: getPatientInquiryStatusTransitions("submitted"),
+    createdAt,
+    dateLabel,
+    status: "submitted",
+    timeLabel,
+  }
+}
+
 export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspaceInput {
   const input: ClinicDashboardWorkspaceInput = {
     account: clinicDashboardDemoAccount,
     defaultLocationId: clinicDashboardDemoDefaultLocationId,
+    inquiryQueue: {
+      inquiries: [
+        createDemoInquiry(istanbulLeventPatientInquiry, "2026-07-26T07:45:00.000Z", "26 July 2026", "09:45"),
+        createDemoInquiry(izmirAlsancakPatientInquiry, "2026-07-25T14:20:00.000Z", "25 July 2026", "16:20"),
+        createDemoInquiry(antalyaLaraPatientInquiry, "2026-07-24T06:54:00.000Z", "24 July 2026", "08:54"),
+      ],
+      status: "ready",
+    },
     locations: clinicDashboardDemoLocations,
     locationSnapshots: {
       "antalya-lara": {
@@ -60,7 +89,6 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
       Object.entries(input.locationSnapshots).map(([locationId, snapshot]) => [
         locationId,
         {
-          conversationIds: snapshot.messages.conversations.map(({ id }) => id),
           reviewIds: snapshot.reviews.items.map(({ id }) => id),
         },
       ]),

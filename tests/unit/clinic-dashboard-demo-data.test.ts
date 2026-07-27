@@ -88,11 +88,7 @@ describe("clinic dashboard demo workspace input", () => {
       expect(notification.locationLabel).toBe(location?.selectorLabel)
       expect(Date.parse(notification.createdAt)).toBeLessThanOrEqual(Date.parse("2026-07-19T10:00:00.000Z"))
       const snapshot = input.locationSnapshots[notification.locationId]
-      if (notification.target.kind === "conversation") {
-        expect(snapshot?.messages.conversations.map(({ id }) => id)).toContain(
-          notification.target.conversationId,
-        )
-      } else {
+      if (notification.target.kind === "review") {
         expect(snapshot?.reviews.items.map(({ id }) => id)).toContain(notification.target.reviewId)
       }
     }

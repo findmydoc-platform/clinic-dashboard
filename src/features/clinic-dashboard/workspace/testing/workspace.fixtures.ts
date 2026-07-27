@@ -55,7 +55,7 @@ export const notificationsFixture = [
     locationId: "berlin-mitte",
     locationLabel: "Mitte",
     timestamp: "Today, 10:45",
-    target: { conversationId: "mitte-active-conversation", kind: "conversation" },
+    target: { kind: "messages" },
     title: "New message from Lukas Weber",
     type: "message",
     unread: true,

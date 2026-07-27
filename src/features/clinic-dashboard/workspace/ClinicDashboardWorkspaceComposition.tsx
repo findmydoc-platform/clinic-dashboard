@@ -19,7 +19,7 @@ import {
   type DashboardSnapshot,
   useDashboardController,
 } from "@/features/clinic-dashboard/dashboard/public"
-import { Messages, type MessageCommands } from "@/features/clinic-dashboard/messages/public"
+import { InquiryQueue } from "@/features/clinic-dashboard/messages/public"
 import {
   getClinicDashboardDemoInteractionPolicy,
   isClinicDashboardPrototypeMode,
@@ -62,7 +62,6 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
   initialReportingPeriod?: DashboardReportingPeriod
-  messageCommands: MessageCommands
   persistNotificationReadStateInSession: boolean
   prototypeMode: ClinicDashboardPrototypeMode
   projectDashboardAfterProfileSave: (
@@ -85,7 +84,6 @@ export function ClinicDashboardWorkspaceComposition({
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
   initialReportingPeriod = "30 days",
-  messageCommands,
   persistNotificationReadStateInSession,
   prototypeMode,
   projectDashboardAfterProfileSave,
@@ -269,8 +267,8 @@ export function ClinicDashboardWorkspaceComposition({
       </p>
 
       <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
-        <strong className="text-[var(--secondary)]">Demo data.</strong> Dashboard cards, charts, messages,
-        reviews, profile details, and actions are local examples only.
+        <strong className="text-[var(--secondary)]">Demo data.</strong> Dashboard cards, charts, reviews,
+        profile details, and their actions are local examples only. Patient inquiries are loaded separately.
       </div>
 
       {activeSection === "dashboard" ? (
@@ -287,15 +285,10 @@ export function ClinicDashboardWorkspaceComposition({
         />
       ) : null}
       <div hidden={activeSection !== "messages"}>
-        <Messages
-          focusTarget={model.messageFocusTarget}
-          initialInquiryOpen={model.locationChangeCount === 0 && start.dialog === "patient-inquiry"}
-          inquiry={selectedSnapshot.patientInquiry}
-          isInteractive={capabilities.canUseMessaging}
-          key={selectedLocation.id}
-          messageCommands={messageCommands}
+        <InquiryQueue
+          focusHeading={model.messageFocusTarget === "heading"}
           onFocusHandled={actions.clearMessageFocusRequest}
-          snapshot={selectedSnapshot.messages}
+          snapshot={workspaceInput.inquiryQueue}
         />
       </div>
       <div hidden={activeSection !== "reviews"}>

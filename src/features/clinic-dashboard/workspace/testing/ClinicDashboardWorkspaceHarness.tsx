@@ -16,10 +16,10 @@ import {
   type DashboardSnapshot,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
-import type {
-  MessageCommands,
-  MessagesSnapshot,
-  PatientInquiryProfile,
+import {
+  getPatientInquiryStatusTransitions,
+  type MessagesSnapshot,
+  type PatientInquiryProfile,
 } from "@/features/clinic-dashboard/messages/public"
 import { messagesFixture, patientInquiryFixture } from "@/features/clinic-dashboard/messages/testing/public"
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
@@ -271,6 +271,19 @@ const potsdamProfile = {
 export const clinicDashboardWorkspaceFixture = {
   account: workspaceAccountFixture,
   defaultLocationId: "berlin-mitte",
+  inquiryQueue: {
+    inquiries: [
+      {
+        ...patientInquiryFixture,
+        availableTransitions: getPatientInquiryStatusTransitions("submitted"),
+        createdAt: "2026-07-26T08:54:00.000Z",
+        dateLabel: "26 July 2026",
+        status: "submitted",
+        timeLabel: "10:54",
+      },
+    ],
+    status: "ready",
+  },
   locations: workspaceLocationFixtures,
   locationSnapshots: {
     "berlin-charlottenburg": {
@@ -391,16 +404,6 @@ export function ClinicDashboardWorkspaceHarness({
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
   const [reviewCommands] = useState(() => createReviewCommandsFixture())
-  const [messageCommands] = useState<MessageCommands>(() => ({
-    sendMessage: async ({ attachment, body, conversationId }) => ({
-      attachment,
-      body,
-      id: `fixture-message-${conversationId}`,
-      read: "Read 11:08",
-      sender: "doctor",
-      time: "11:08",
-    }),
-  }))
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedClinicContextFixture}
@@ -408,7 +411,6 @@ export function ClinicDashboardWorkspaceHarness({
       initialNotificationReadIds={notificationState?.readIds}
       initialNotificationsOpen={notificationState?.isOpen}
       initialReportingPeriod={reportingPeriod}
-      messageCommands={messageCommands}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}
       prototypeMode={prototypeMode}
       projectDashboardAfterProfileSave={({ initialProfile, savedProfile, snapshot }) => {

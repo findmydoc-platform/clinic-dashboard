@@ -22,6 +22,16 @@ export const getClinicDashboardAccess = cache(async (): Promise<ClinicDashboardA
   return resolveAccessForSession(await getClinicDashboardSession(cookieStore))
 })
 
+export const getClinicDashboardAccessToken = cache(async () => {
+  try {
+    const cookieStore = await cookies()
+    const session = await getClinicDashboardSession(cookieStore)
+    return session?.isClinicAccount ? session.accessToken : undefined
+  } catch {
+    return undefined
+  }
+})
+
 export async function resolveMutableClinicDashboardAccess(
   client: SupabaseClient,
 ): Promise<ClinicDashboardAccessResult> {

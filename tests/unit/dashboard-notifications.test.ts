@@ -34,13 +34,12 @@ describe("dashboard notification fixtures", () => {
     expect(getUnreadNotifications(notificationsFixture, readIds)).toHaveLength(0)
   })
 
-  it("rejects unknown location, conversation, and review notification targets", () => {
+  it("rejects unknown location and review notification targets", () => {
     const targetIndex = {
       "berlin-charlottenburg": {
-        conversationIds: [],
         reviewIds: ["charlottenburg-review-markus-schmidt"],
       },
-      "berlin-mitte": { conversationIds: ["mitte-active-conversation"], reviewIds: [] },
+      "berlin-mitte": { reviewIds: [] },
     }
     expect(() => assertClinicDashboardNotificationTargets(notificationsFixture, targetIndex)).not.toThrow()
     expect(() =>
@@ -49,17 +48,6 @@ describe("dashboard notification fixtures", () => {
         targetIndex,
       ),
     ).toThrow(/unknown location/)
-    expect(() =>
-      assertClinicDashboardNotificationTargets(
-        [
-          {
-            ...notificationsFixture[0]!,
-            target: { conversationId: "unknown", kind: "conversation" },
-          },
-        ],
-        targetIndex,
-      ),
-    ).toThrow(/unknown conversation/)
     expect(() =>
       assertClinicDashboardNotificationTargets(
         [

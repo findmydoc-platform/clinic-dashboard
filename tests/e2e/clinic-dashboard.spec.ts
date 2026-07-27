@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
 const testDashboardPassword = "clinic-dashboard-test"
+const testDashboardOrigin = `http://127.0.0.1:${process.env.CLINIC_DASHBOARD_E2E_PORT ?? "3100"}`
 
 async function signIn(page: Page) {
   const response = await page.goto("/")
@@ -82,27 +83,22 @@ test("switches complete location snapshots and resets local demo changes", async
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
   await page.getByRole("button", { name: "Messages" }).click()
-  await expect(page.getByRole("heading", { name: "Leyla Demir" })).toBeVisible()
-  const izmirConversation = page.getByRole("region", {
-    name: "Conversation between Leyla Demir and Dr Derya Aydın",
-  })
-  await expect(izmirConversation).toBeVisible()
-  await expect(izmirConversation).toContainText("Dr Derya Aydın")
-  const localMessage = "Local İzmir message must not cross locations."
-  await page.getByRole("textbox", { name: "Write a message" }).fill(localMessage)
-  await page.getByRole("button", { name: "Send message" }).click()
-  await expect(page.getByText(localMessage)).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Lukas Weber" })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Write a message" })).toHaveCount(0)
+  await page.getByRole("button", { name: "Change inquiry status. Current status: Submitted" }).click()
+  await page.getByRole("menuitem", { name: "In review" }).click()
+  await expect(
+    page.getByRole("button", { name: "Change inquiry status. Current status: In review" }),
+  ).toBeVisible()
+  await expect(page.getByText("Status changed from Submitted to In review · 11:08")).toBeVisible()
 
   await locationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Ece Arslan" })).toBeVisible()
-  const antalyaConversation = page.getByRole("region", {
-    name: "Conversation between Ece Arslan and Dr Zeynep Arslan",
-  })
-  await expect(antalyaConversation).toBeVisible()
-  await expect(antalyaConversation).toContainText("Dr Zeynep Arslan")
-  await expect(page.getByText(localMessage)).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Lukas Weber" })).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Change inquiry status. Current status: In review" }),
+  ).toBeVisible()
 
   await page.getByRole("button", { name: "Reviews" }).click()
   await expect(page.getByText("Melis Güneş")).toBeVisible()
@@ -126,11 +122,6 @@ test("switches complete location snapshots and resets local demo changes", async
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
-  const reloadMessage = "Active local message must be cleared by reload."
-  await page.getByRole("button", { name: "Messages" }).click()
-  await page.getByRole("textbox", { name: "Write a message" }).fill(reloadMessage)
-  await page.getByRole("button", { name: "Send message" }).click()
-  await expect(page.getByText(reloadMessage)).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile" }).click()
   await page.getByLabel("Clinic name").fill("Active local clinic name before reload")
   await expect(page.getByLabel("Clinic name")).toHaveValue("Active local clinic name before reload")
@@ -152,8 +143,10 @@ test("switches complete location snapshots and resets local demo changes", async
   await reloadedLocationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
   await page.getByRole("button", { name: "Messages" }).click()
-  await expect(page.getByText(localMessage)).toHaveCount(0)
-  await expect(page.getByText(reloadMessage)).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Change inquiry status. Current status: Submitted" }),
+  ).toBeVisible()
+  await expect(page.getByText("Status changed from Submitted to In review · 11:08")).toHaveCount(0)
   await page.getByRole("button", { name: "Clinic profile" }).click()
   await expect(page.getByLabel("Clinic name")).toHaveValue("Avenora Clinic — İzmir")
   await expect(page.getByText("Active local clinic name before reload")).toHaveCount(0)
@@ -168,9 +161,8 @@ test("deep-links across locations and projects a saved profile until reload", as
 
   const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
   await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
-  await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Leyla Demir" })).toBeFocused()
-  await expect(page.getByText("Opened conversation at Avenora Clinic — İzmir.")).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeFocused()
+  await expect(page.getByText("Opened messages at Avenora Clinic — İzmir.")).toBeVisible()
 
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   const clinicName = page.getByRole("textbox", { name: "Clinic name" })
@@ -336,7 +328,7 @@ test("keeps Supabase and Payload traffic and token material out of the browser",
   const sensitiveValues = ["controlled-access-token", "controlled-invite-token", "controlled-recovery-token"]
   page.on("request", (request) => {
     const origin = new URL(request.url()).origin
-    if (origin !== "http://127.0.0.1:3100") externalRequests.push(request.url())
+    if (origin !== testDashboardOrigin) externalRequests.push(request.url())
   })
   await signIn(page)
   await page.reload()

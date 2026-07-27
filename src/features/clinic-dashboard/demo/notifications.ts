@@ -9,8 +9,7 @@ export const clinicDashboardDemoNotifications = [
     locationLabel: "İstanbul",
     timestamp: "Today, 09:42",
     target: {
-      conversationId: "istanbul-levent-conversation-eren-yilmaz",
-      kind: "conversation",
+      kind: "messages",
     },
     title: "New message from Eren Yılmaz",
     type: "message",
@@ -24,8 +23,7 @@ export const clinicDashboardDemoNotifications = [
     locationLabel: "İzmir",
     timestamp: "Today, 09:18",
     target: {
-      conversationId: "izmir-alsancak-conversation-leyla-demir",
-      kind: "conversation",
+      kind: "messages",
     },
     title: "New message from Leyla Demir",
     type: "message",
@@ -39,8 +37,7 @@ export const clinicDashboardDemoNotifications = [
     locationLabel: "Antalya",
     timestamp: "Today, 08:54",
     target: {
-      conversationId: "antalya-lara-conversation-ece-arslan",
-      kind: "conversation",
+      kind: "messages",
     },
     title: "New message from Ece Arslan",
     type: "message",

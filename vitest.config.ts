@@ -33,6 +33,22 @@ export default defineConfig({
           setupFiles: ["tests/setup/vitest.ts"],
         },
       }),
+      defineProject({
+        resolve: {
+          alias: {
+            "@": path.resolve(dirname, "src"),
+            "server-only": path.resolve(dirname, "tests/setup/server-only.ts"),
+          },
+        },
+        test: {
+          environment: "node",
+          exclude: ["node_modules", ".next"],
+          globals: true,
+          include: ["tests/integration/**/*.test.ts", "tests/integration/**/*.test.tsx"],
+          name: "integration",
+          setupFiles: ["tests/setup/vitest.ts"],
+        },
+      }),
       {
         extends: true,
         plugins: [

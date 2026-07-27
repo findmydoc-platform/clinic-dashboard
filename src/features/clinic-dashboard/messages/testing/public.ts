@@ -1,1 +1,6 @@
-export { messagesFixture, patientInquiryFixture } from "./messages.fixtures"
+export {
+  inquiryQueueFixture,
+  messagesFixture,
+  patientInquiryFixture,
+  secondaryInquiryFixture,
+} from "./messages.fixtures"

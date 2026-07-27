@@ -50,6 +50,9 @@ jobs:
       - name: Unit tests
         run: pnpm test:unit
 
+      - name: Integration tests
+        run: pnpm test:integration
+
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
