@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { composeClinicDashboardDataProviders } from "@/features/clinic-dashboard/data-provider-composition"
 
 const localEnvironment = {
-  CSRF_SIGNING_SECRET: "0123456789abcdef0123456789abcdef",
+  CSRF_SIGNING_SECRET: "0123456789abcdef0123456789abcdef", // pragma: allowlist secret
   DASHBOARD_ORIGIN: "http://localhost:3000",
   EXPECTED_SUPABASE_PROJECT_REF: "abcdefghijklmnopqrst",
   NODE_ENV: "test",
@@ -33,7 +33,7 @@ describe("Clinic Dashboard data provider composition", () => {
 
   it("selects the deterministic inquiry adapter for a verified controlled session", async () => {
     vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
-    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password") // pragma: allowlist secret
     const fetcher = vi.fn()
     vi.stubGlobal("fetch", fetcher)
 
@@ -71,7 +71,7 @@ describe("Clinic Dashboard data provider composition", () => {
       {
         ...localEnvironment,
         CLINIC_DASHBOARD_AUTH_TEST_MODE: "controlled",
-        CLINIC_DASHBOARD_TEST_PASSWORD: "test-password",
+        CLINIC_DASHBOARD_TEST_PASSWORD: "test-password", // pragma: allowlist secret
         DASHBOARD_ORIGIN: "https://clinics.preview.findmydoc.eu",
         VERCEL_ENV: "preview",
       },
@@ -81,7 +81,7 @@ describe("Clinic Dashboard data provider composition", () => {
       {
         ...localEnvironment,
         CLINIC_DASHBOARD_AUTH_TEST_MODE: "controlled",
-        CLINIC_DASHBOARD_TEST_PASSWORD: "test-password",
+        CLINIC_DASHBOARD_TEST_PASSWORD: "test-password", // pragma: allowlist secret
         DASHBOARD_ORIGIN: "https://clinics.findmydoc.eu",
         EXPECTED_SUPABASE_PROJECT_REF: "zyxwvutsrqponmlkjihg",
         NODE_ENV: "production",
