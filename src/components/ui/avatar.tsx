@@ -5,10 +5,11 @@ type AvatarProps = Readonly<{
   className?: string
   initials: string
   loading?: ImageProps["loading"]
+  sizes?: ImageProps["sizes"]
   src?: StaticImageData | string
 }>
 
-export function Avatar({ className, initials, loading, src }: AvatarProps) {
+export function Avatar({ className, initials, loading, sizes = "64px", src }: AvatarProps) {
   return (
     <span
       aria-hidden="true"
@@ -18,7 +19,7 @@ export function Avatar({ className, initials, loading, src }: AvatarProps) {
       )}
     >
       {src ? (
-        <Image alt="" className="object-cover" fill loading={loading} sizes="64px" src={src} />
+        <Image alt="" className="object-cover" fill loading={loading} sizes={sizes} src={src} />
       ) : (
         initials
       )}

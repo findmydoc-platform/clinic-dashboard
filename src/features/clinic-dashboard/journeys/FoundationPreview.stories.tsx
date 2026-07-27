@@ -109,7 +109,7 @@ export const ProfileSaveProjectsIntoDashboard: Story = {
     await expect(within(preview).getByRole("img", { name: "Berlin Health Clinic exterior" })).toBeVisible()
     await expect(canvas.getAllByText("86%")[0]).toBeVisible()
     await expect(canvas.queryByRole("button", { name: "Review images" })).not.toBeInTheDocument()
-    await expect(canvas.getByRole("button", { name: "Review team" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Review doctors" })).toBeInTheDocument()
   },
 }
 

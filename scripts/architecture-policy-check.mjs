@@ -123,6 +123,9 @@ function isAllowedClinicDashboardServerImport(file) {
   return (
     file === "src/app/page.tsx" ||
     file === "src/app/api/dashboard/inquiries/[inquiryId]/status/route.ts" ||
+    /^src\/app\/api\/dashboard\/doctors(?:\/\[doctorId\](?:\/image|\/specialties(?:\/\[assignmentId\])?)?)?\/route\.ts$/u.test(
+      file,
+    ) ||
     file === "tests/unit/clinic-dashboard-demo-data.test.ts" ||
     file === "tests/integration/patient-inquiry-queue-loading.test.ts" ||
     file === "tests/integration/patient-inquiry-status-route.test.ts"
@@ -1105,7 +1108,7 @@ function collectFindings() {
             "clinic-dashboard-server-boundary",
             file,
             reference.moduleSpecifier,
-            "The Clinic Dashboard server entry may be imported only by the root server page, the inquiry status route, and its exact data-contract tests.",
+            "The Clinic Dashboard server entry may be imported only by the root server page, approved live-domain BFF routes, and exact data-contract tests.",
           ),
         )
       }

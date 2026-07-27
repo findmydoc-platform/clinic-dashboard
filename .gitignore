@@ -18,6 +18,7 @@
 /storybook-static
 .artifacts/
 .playwright-cli/
+design-qa.md
 *.tsbuildinfo
 
 # local tooling

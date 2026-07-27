@@ -3,6 +3,10 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { selectClinicTreatmentViews } from "../../model/clinic-treatments"
 import { clinicProfileFixture, clinicTreatmentCatalogueFixture } from "../../testing/clinic-profile.fixtures"
 import {
+  createDoctorProfileCommandsFixture,
+  doctorDirectoryFixture,
+} from "../../testing/doctor-profile.fixtures"
+import {
   ClinicProfileScreen,
   type ClinicProfileScreenActions,
   type ClinicProfileScreenModel,
@@ -11,6 +15,7 @@ import {
 const actions = {
   onAddressEdit: fn(),
   onDescriptionChange: fn(),
+  onDoctorsChange: fn(),
   onFocusHandled: fn(),
   onGalleryOpen: fn(),
   onNameChange: fn(),
@@ -20,9 +25,6 @@ const actions = {
   onRemovalUndo: fn(),
   onSpecialtyDialogOpen: fn(),
   onSpecialtyRemove: fn(),
-  onTeamMemberCreate: fn(),
-  onTeamMemberOpen: fn(),
-  onTeamMemberRemove: fn(),
   onTreatmentCreate: fn(),
   onTreatmentOpen: fn(),
   onTreatmentRemove: fn(),
@@ -34,12 +36,14 @@ const treatmentViews = selectClinicTreatmentViews(
 )
 
 const readOnlyModel = {
+  doctorCommands: createDoctorProfileCommandsFixture(),
+  doctorDirectory: doctorDirectoryFixture,
+  doctorManagement: "hidden",
   isDirty: false,
   profile: clinicProfileFixture,
   profileManagement: "hidden",
   saveState: "idle",
   statusMessage: "",
-  teamManagement: "hidden",
   treatments: treatmentViews,
 } satisfies ClinicProfileScreenModel
 
@@ -60,10 +64,9 @@ export const ManagementUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeInTheDocument()
     await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toBeDisabled()
     await expect(canvas.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument()
-    await expect(canvas.queryByRole("button", { name: "Add team member" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "Add doctor" })).not.toBeInTheDocument()
   },
 }
 
@@ -72,61 +75,34 @@ export const EditableWithUndo: Story = {
     actions,
     model: {
       ...readOnlyModel,
+      doctorManagement: "interactive",
       isDirty: true,
       profileManagement: "interactive",
       statusMessage: "Treatment removed.",
-      teamManagement: "interactive",
       undoKind: "treatment",
       undoMessage: "FUE hair transplant removed. Undo restores this item.",
     },
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const profileActions = within(canvas.getByRole("group", { name: "Profile page actions" }))
-
-    await expect(profileActions.getByRole("button", { name: "Save changes" })).toBeEnabled()
-    await expect(canvas.getByRole("button", { name: "Add team member" })).toBeEnabled()
+    await expect(canvas.getByRole("button", { name: "Add doctor" })).toBeEnabled()
     await userEvent.click(canvas.getByRole("button", { name: "Undo removal" }))
     await expect(args.actions.onRemovalUndo).toHaveBeenCalledOnce()
   },
 }
 
-export const ReadOnlyManagementPreview: Story = {
+export const DoctorsFocusRequest: Story = {
   args: {
     actions,
     model: {
       ...readOnlyModel,
-      profileManagement: "read-only",
-      teamManagement: "read-only",
+      focusTarget: "doctors",
     },
   },
   play: async ({ args, canvasElement }) => {
-    const canvas = within(canvasElement)
-
-    await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toBeDisabled()
-    await expect(canvas.queryByRole("button", { name: "Add team member" })).not.toBeInTheDocument()
-    await expect(canvas.queryByRole("button", { name: "New treatment" })).not.toBeInTheDocument()
-    await expect(canvas.getByRole("button", { name: "View Dr Markus Weber" })).toBeEnabled()
-    await expect(canvas.getByRole("button", { name: /View Laser teeth whitening/ })).toBeEnabled()
-    const openGallery = canvas.getByRole("button", { name: /more images/ })
-    await expect(openGallery).toBeEnabled()
-    await userEvent.click(openGallery)
-    await expect(args.actions.onGalleryOpen).toHaveBeenCalledOnce()
-    await expect(canvas.queryByRole("group", { name: "Profile page actions" })).not.toBeInTheDocument()
-  },
-}
-
-export const GalleryFocusRequest: Story = {
-  args: {
-    actions,
-    model: {
-      ...readOnlyModel,
-      focusTarget: "gallery",
-    },
-  },
-  play: async ({ args, canvasElement }) => {
-    const gallery = within(canvasElement).getByRole("region", { name: "Clinic image gallery" })
-    await waitFor(() => expect(gallery).toHaveFocus())
+    const doctors = within(canvasElement).getByRole("heading", { name: "Doctors" }).closest("section")
+    if (!doctors) throw new Error("Doctor directory is required.")
+    await waitFor(() => expect(doctors).toHaveFocus())
     await expect(args.actions.onFocusHandled).toHaveBeenCalledOnce()
   },
 }

@@ -3,3 +3,4 @@ export {
   clinicTreatmentCatalogueFixture,
   createClinicProfileCommandsFixture,
 } from "./clinic-profile.fixtures"
+export { createDoctorProfileCommandsFixture, doctorDirectoryFixture } from "./doctor-profile.fixtures"

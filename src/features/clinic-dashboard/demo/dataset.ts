@@ -46,6 +46,11 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
   const input: ClinicDashboardWorkspaceInput = {
     account: clinicDashboardDemoAccount,
     defaultLocationId: clinicDashboardDemoDefaultLocationId,
+    doctorDirectory: {
+      doctors: [],
+      medicalSpecialties: [],
+      status: "temporarily-unavailable",
+    },
     inquiryQueue: {
       inquiries: [
         createDemoInquiry(istanbulLeventPatientInquiry, "2026-07-26T07:45:00.000Z", "26 July 2026", "09:45"),

@@ -101,7 +101,7 @@ describe("Patient inquiry status mutation", () => {
         status: "in_review",
       },
     })
-    expect(createProvider).toHaveBeenCalledWith("controlled-access-token")
+    expect(createProvider).toHaveBeenCalledWith("controlled-access-token", "controlled-clinic")
     expect(providerMocks.changeStatus).toHaveBeenCalledWith({
       inquiryId: "inquiry-lukas-weber",
       status: "in_review",
