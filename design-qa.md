@@ -2,20 +2,14 @@
 
 ## Evidence
 
-- Source visual truth:
-  `/private/tmp/product-design-audit-doctor-option2/00-reference-option-2.png`
-- Final light implementation:
-  `/private/tmp/product-design-audit-doctor-option2/10-final-light-clinic-context.png`
-- Final mobile implementation:
-  `/private/tmp/product-design-audit-doctor-option2/11-final-mobile-light.png`
-- Final dark implementation:
-  `/private/tmp/product-design-audit-doctor-option2/12-final-dark.png`
-- Equal-size source and implementation comparison:
-  `/private/tmp/product-design-audit-doctor-option2/13-final-reference-vs-implementation.png`
-- Post-review light implementation:
-  `/private/tmp/product-design-audit-doctor-option2/14-review-fixes-final-light.jpg`
-- Post-review source and implementation comparison:
-  `/private/tmp/product-design-audit-doctor-option2/15-reference-vs-review-fixes.png`
+- Source visual truth: the selected Option 2 screenshot from the implementation
+  thread.
+- Final light, mobile, and dark implementations: the captures attached to the
+  implementation handoff.
+- Post-review light implementation: the final desktop capture attached after
+  the reviewer fixes.
+- Equal-size comparisons: the source and implementation comparisons reviewed
+  during the initial and post-review design QA passes.
 - Desktop source, implementation, and viewport: `1487 × 1058`
 - Mobile viewport: `390 × 844`
 - State: active Sarah Schmidt profile with portrait, two qualifications,
