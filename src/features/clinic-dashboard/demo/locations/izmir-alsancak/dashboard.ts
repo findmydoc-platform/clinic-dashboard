@@ -4,12 +4,12 @@ export const izmirAlsancakDashboard = createDemoDashboardSnapshot({
   profileCompletion: 91,
   profileTasks: [
     {
-      actionLabel: "Review team",
+      actionLabel: "Review doctors",
       description: "One specialist biography is ready for a final content review.",
-      destination: "team",
-      destinationLabel: "Open doctors and team",
-      id: "izmir-alsancak-team-review",
-      label: "Review team biography",
+      destination: "doctors",
+      destinationLabel: "Open doctors",
+      id: "izmir-alsancak-doctor-review",
+      label: "Review doctor biography",
       priority: "Medium",
       visibility: "always",
     },

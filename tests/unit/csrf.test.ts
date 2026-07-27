@@ -5,6 +5,7 @@ import {
   getValidatedMutationOrigin,
   isValidCsrfToken,
   setCsrfCookie,
+  validateMultipartMutationRequest,
   validateMutationRequest,
 } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
@@ -52,6 +53,16 @@ describe("CSRF contract", () => {
     const request = createRequest(token)
     expect(isValidCsrfToken(request, token)).toBe(true)
     expect(validateMutationRequest(request)).toBe(true)
+  })
+
+  it("accepts multipart mutations only through the dedicated validator", () => {
+    const token = createCsrfToken(createRequest())
+    const request = createRequest(token, undefined, {
+      contentType: "multipart/form-data; boundary=doctor-image",
+    })
+
+    expect(validateMultipartMutationRequest(request)).toBe(true)
+    expect(validateMutationRequest(request)).toBe(false)
   })
 
   it("rejects cross-origin, missing, and expired tokens", () => {

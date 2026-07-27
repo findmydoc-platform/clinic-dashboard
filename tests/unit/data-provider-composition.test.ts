@@ -37,7 +37,10 @@ describe("Clinic Dashboard data provider composition", () => {
     const fetcher = vi.fn()
     vi.stubGlobal("fetch", fetcher)
 
-    const result = await composeClinicDashboardDataProviders("controlled-access-token").inquiries.loadQueue()
+    const result = await composeClinicDashboardDataProviders(
+      "controlled-access-token",
+      "controlled-clinic",
+    ).inquiries.loadQueue()
 
     expect(result).toMatchObject({
       ok: true,
@@ -52,7 +55,9 @@ describe("Clinic Dashboard data provider composition", () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ docs: [] }))
     vi.stubGlobal("fetch", fetcher)
 
-    await expect(composeClinicDashboardDataProviders("access-token").inquiries.loadQueue()).resolves.toEqual({
+    await expect(
+      composeClinicDashboardDataProviders("access-token", "clinic-1").inquiries.loadQueue(),
+    ).resolves.toEqual({
       ok: true,
       value: { inquiries: [], status: "ready" },
     })
@@ -62,7 +67,8 @@ describe("Clinic Dashboard data provider composition", () => {
   })
 
   it("requires a verified request-scoped access token", () => {
-    expect(() => composeClinicDashboardDataProviders("")).toThrow(/verified clinic access token/)
+    expect(() => composeClinicDashboardDataProviders("", "clinic-1")).toThrow(/verified clinic access token/)
+    expect(() => composeClinicDashboardDataProviders("access-token", "")).toThrow(/verified clinic identity/)
   })
 
   it.each([
@@ -91,7 +97,7 @@ describe("Clinic Dashboard data provider composition", () => {
       },
     ],
   ] as const)("rejects controlled inquiry data in %s", (_name, environment) => {
-    expect(() => composeClinicDashboardDataProviders("access-token", environment)).toThrow(
+    expect(() => composeClinicDashboardDataProviders("access-token", "clinic-1", environment)).toThrow(
       /Controlled authentication/,
     )
   })

@@ -12,7 +12,7 @@ async function signIn(page: Page) {
   await page.getByRole("button", { name: "Sign in" }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
-  await expect(page.getByText("Demo data.", { exact: true })).toBeVisible()
+  await expect(page.getByText("Mixed data.", { exact: true })).toBeVisible()
   await page.waitForLoadState("networkidle")
 }
 
@@ -215,11 +215,103 @@ test("routes dashboard tasks into their owning workspace sections", async ({ pag
   await expect(page.locator("#clinic-profile-gallery")).toBeFocused()
 
   await page.getByRole("button", { name: "Dashboard" }).click()
-  await page.getByRole("button", { name: "Review team" }).click()
-  const teamDialog = page.getByRole("dialog", { name: "Open doctor profiles" })
-  await expect(teamDialog).toBeVisible()
-  await teamDialog.getByRole("button", { name: "Open doctors and team" }).click()
-  await expect(page.locator("#clinic-profile-team")).toBeFocused()
+  await page.getByRole("button", { name: "Review doctors" }).click()
+  const doctorsDialog = page.getByRole("dialog", { name: "Open doctor profiles" })
+  await expect(doctorsDialog).toBeVisible()
+  await doctorsDialog.getByRole("button", { name: "Open doctors" }).click()
+  await expect(page.locator("#clinic-profile-doctors")).toBeFocused()
+})
+
+test("persists doctor creation and editing through the authenticated BFF", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await page.getByRole("button", { exact: true, name: "Add doctor" }).click()
+
+  const createDialog = page.getByRole("dialog", { name: "Add doctor" })
+  await createDialog.getByRole("textbox", { name: "First name" }).fill("Lea")
+  await createDialog.getByRole("textbox", { name: "Last name" }).fill("Fischer")
+  await createDialog.getByRole("combobox", { name: "Gender" }).selectOption("female")
+  await createDialog.getByRole("combobox", { name: "Qualifications" }).fill("MD")
+  await createDialog.getByRole("combobox", { name: "Qualifications" }).press("Enter")
+  await createDialog.getByRole("combobox", { name: "Languages" }).fill("Eng")
+  await createDialog.getByRole("option", { name: "English" }).click()
+  await createDialog.getByRole("textbox", { name: "First name" }).click()
+  await createDialog.getByRole("button", { name: "Add specialty" }).click()
+  await createDialog.getByRole("combobox", { name: "Specialty 1" }).selectOption("specialty-cardiology")
+  await createDialog.getByRole("combobox", { name: "Specialization level 1" }).selectOption("specialist")
+  await createDialog.locator('input[type="file"][aria-label="Profile photo"]').setInputFiles({
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    ),
+    mimeType: "image/png",
+    name: "lea-fischer.png",
+  })
+
+  const createDoctorResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/doctors" && response.request().method() === "POST",
+  )
+  const createSpecialtyResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith("/specialties") && response.request().method() === "POST",
+  )
+  const imageResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith("/image") && response.request().method() === "POST",
+  )
+  const activationResponse = page.waitForResponse((response) => {
+    const pathname = new URL(response.url()).pathname
+    return /^\/api\/dashboard\/doctors\/[^/]+$/u.test(pathname) && response.request().method() === "PATCH"
+  })
+
+  await createDialog.getByRole("button", { name: "Add doctor" }).click()
+  const [createdDoctor, createdSpecialty, createdImage, activatedDoctor] = await Promise.all([
+    createDoctorResponse,
+    createSpecialtyResponse,
+    imageResponse,
+    activationResponse,
+  ])
+  for (const response of [createdDoctor, createdSpecialty, createdImage, activatedDoctor]) {
+    expect(response.ok()).toBe(true)
+  }
+  await expect(createdImage.json()).resolves.toMatchObject({
+    cleanupPending: false,
+    profile: {
+      firstName: "Lea",
+      image: { id: expect.stringContaining("controlled-doctor-image-") },
+    },
+  })
+  await expect(createDialog).not.toBeVisible()
+
+  const createdDoctorName = page.getByText("Lea Fischer", { exact: true })
+  await expect(createdDoctorName).toBeVisible()
+  const createdDoctorRow = createdDoctorName.locator("..").locator("..")
+  await expect(createdDoctorRow.getByText("Active", { exact: true })).toBeVisible()
+  await expect(createdDoctorRow.getByText("Cardiology · specialist", { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Edit Lea Fischer" }).click()
+  const editDialog = page.getByRole("dialog", { name: "Edit doctor" })
+  await editDialog.getByRole("switch", { name: "Published profile" }).click()
+  await editDialog.getByRole("combobox", { name: "Specialty 1" }).selectOption("specialty-dermatology")
+
+  const updateDoctorResponse = page.waitForResponse((response) => {
+    const pathname = new URL(response.url()).pathname
+    return /^\/api\/dashboard\/doctors\/[^/]+$/u.test(pathname) && response.request().method() === "PATCH"
+  })
+  const updateSpecialtyResponse = page.waitForResponse(
+    (response) =>
+      /\/specialties\/[^/]+$/u.test(new URL(response.url()).pathname) &&
+      response.request().method() === "PATCH",
+  )
+  await editDialog.getByRole("button", { name: "Save doctor" }).click()
+  const [updatedDoctor, updatedSpecialty] = await Promise.all([updateDoctorResponse, updateSpecialtyResponse])
+  expect(updatedDoctor.ok()).toBe(true)
+  expect(updatedSpecialty.ok()).toBe(true)
+  await expect(editDialog).not.toBeVisible()
+  await expect(createdDoctorRow.getByText("Inactive", { exact: true })).toBeVisible()
+  await expect(createdDoctorRow.getByText("Dermatology · specialist", { exact: true })).toBeVisible()
 })
 
 test("opens the honest local support prototype from a missing treatment", async ({ page }) => {

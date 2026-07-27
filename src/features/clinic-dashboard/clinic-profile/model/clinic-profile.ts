@@ -1,4 +1,4 @@
-export type ClinicProfileFocusTarget = "gallery" | "team"
+export type ClinicProfileFocusTarget = "doctors" | "gallery"
 
 export type ClinicProfileImageSource =
   | string
@@ -82,13 +82,4 @@ export function cloneClinicProfile(profile: ClinicProfileDraft): ClinicProfileDr
 
 export function isClinicProfileDirty(saved: ClinicProfileDraft, draft: ClinicProfileDraft) {
   return JSON.stringify(saved) !== JSON.stringify(draft)
-}
-
-export function getTeamMemberInitials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("")
 }

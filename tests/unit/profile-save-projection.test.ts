@@ -3,7 +3,7 @@ import { clinicProfileFixture } from "@/features/clinic-dashboard/clinic-profile
 import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
 import { projectDashboardProfileSave } from "@/features/clinic-dashboard/workspace/model/profile-save-projection"
 
-const rule = { galleryIncrement: 4, maximum: 90, teamIncrement: 4 }
+const rule = { galleryIncrement: 4, maximum: 90 }
 
 describe("dashboard profile-save projection", () => {
   it("does not change completion for an unrelated saved profile field", () => {
@@ -18,7 +18,7 @@ describe("dashboard profile-save projection", () => {
     expect(projected.profileTasks).toEqual(dashboardFixture.profileTasks)
   })
 
-  it("resolves gallery and team tasks only after their saved values change", () => {
+  it("resolves the gallery task only after its saved value changes", () => {
     const nextCover = clinicProfileFixture.gallery[1]
     if (!nextCover) throw new Error("A second gallery fixture is required.")
     const savedProfile = {
@@ -27,9 +27,6 @@ describe("dashboard profile-save projection", () => {
         ...image,
         isCover: image.id === nextCover.id,
       })),
-      team: clinicProfileFixture.team.map((member, index) =>
-        index === 0 ? { ...member, biography: `${member.biography} Updated.` } : member,
-      ),
     }
     const projected = projectDashboardProfileSave({
       initialProfile: clinicProfileFixture,
@@ -38,9 +35,9 @@ describe("dashboard profile-save projection", () => {
       snapshot: dashboardFixture,
     })
 
-    expect(projected.profileCompletion).toBe(90)
+    expect(projected.profileCompletion).toBe(86)
     expect(projected.profileTasks.some(({ destination }) => destination === "gallery")).toBe(false)
-    expect(projected.profileTasks.some(({ destination }) => destination === "team")).toBe(false)
+    expect(projected.profileTasks.some(({ destination }) => destination === "doctors")).toBe(true)
     expect(projected.profileTasks.filter(({ destination }) => !destination)).toEqual(
       dashboardFixture.profileTasks.filter(({ destination }) => !destination),
     )

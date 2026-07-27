@@ -8,11 +8,12 @@ import {
   ClinicProfileScreen,
   type ClinicProfileScreenActions,
 } from "./components/organisms/ClinicProfileScreen"
-import { TeamMemberDialog } from "./components/organisms/TeamMemberDialog"
 import { TreatmentDialog } from "./components/organisms/TreatmentDialog"
 import { useClinicProfileController } from "./hooks/useClinicProfileController"
 import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
 import type { ClinicProfileDraft, ClinicProfileFocusTarget, MasterTreatment } from "./model/clinic-profile"
+import type { DoctorDirectorySnapshot, DoctorProfile } from "./model/doctor-profile"
+import type { DoctorProfileCommands } from "./model/doctor-profile-commands"
 import {
   isClinicProfileManagementInteractive,
   isClinicProfileManagementVisible,
@@ -21,34 +22,40 @@ import {
 
 export type ClinicProfileProps = Readonly<{
   commands: ClinicProfileCommands
+  doctorCommands: DoctorProfileCommands
+  doctorDirectory: DoctorDirectorySnapshot
+  doctorManagement: ClinicProfileManagementAccess
   focusTarget?: ClinicProfileFocusTarget
-  initialDialog?: "team-member" | "treatment"
+  initialDialog?: "treatment"
   initialProfile: ClinicProfileDraft
   onFocusHandled: () => void
+  onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   onProfileSaved?: (profile: ClinicProfileDraft) => void
   onTreatmentMissing?: () => void
   profileManagement: ClinicProfileManagementAccess
-  teamManagement: ClinicProfileManagementAccess
   treatmentCatalogue: readonly MasterTreatment[]
 }>
 
 export function ClinicProfile({
   commands,
+  doctorCommands,
+  doctorDirectory,
+  doctorManagement,
   focusTarget,
   initialDialog,
   initialProfile,
   onFocusHandled,
+  onDoctorsChange,
   onProfileSaved,
   onTreatmentMissing,
   profileManagement,
-  teamManagement,
   treatmentCatalogue,
 }: ClinicProfileProps) {
   const controller = useClinicProfileController({
     commands,
     dialogAvailability: {
       profileManagement,
-      teamManagement,
+      teamManagement: "hidden",
     },
     initialDialog,
     initialProfile,
@@ -60,6 +67,7 @@ export function ClinicProfile({
   const screenActions: ClinicProfileScreenActions = {
     onAddressEdit: () => actions.openDialog("address"),
     onDescriptionChange: actions.changeDescription,
+    onDoctorsChange: (doctors) => onDoctorsChange?.(doctors),
     onFocusHandled,
     onGalleryOpen: () => actions.openDialog("gallery"),
     onNameChange: actions.changeName,
@@ -69,9 +77,6 @@ export function ClinicProfile({
     onRemovalUndo: actions.undoRemoval,
     onSpecialtyDialogOpen: () => actions.openDialog("specialty"),
     onSpecialtyRemove: actions.removeSpecialty,
-    onTeamMemberCreate: () => actions.openTeamMemberDialog(),
-    onTeamMemberOpen: actions.openTeamMemberDialog,
-    onTeamMemberRemove: actions.removeTeamMember,
     onTreatmentCreate: () => actions.openTreatmentDialog(),
     onTreatmentOpen: actions.openTreatmentDialog,
     onTreatmentRemove: actions.removeTreatment,
@@ -83,8 +88,10 @@ export function ClinicProfile({
         actions={screenActions}
         model={{
           focusTarget,
+          doctorCommands,
+          doctorDirectory,
+          doctorManagement,
           profileManagement,
-          teamManagement,
           treatments: model.treatmentViews,
           ...model,
         }}
@@ -119,18 +126,6 @@ export function ClinicProfile({
           existing={model.profile.specialties}
           onAdd={actions.addSpecialty}
           onOpenChange={(open) => actions.setDialogOpen("specialty", open)}
-          open
-        />
-      ) : null}
-      {dialog === "team-member" &&
-      isClinicProfileManagementVisible(teamManagement) &&
-      (model.selectedTeamMember || isClinicProfileManagementInteractive(teamManagement)) ? (
-        <TeamMemberDialog
-          initialMember={model.selectedTeamMember}
-          isReadOnly={!isClinicProfileManagementInteractive(teamManagement)}
-          key={model.selectedTeamMember?.id ?? "new-team-member"}
-          onOpenChange={(open) => actions.setDialogOpen("team-member", open)}
-          onSave={actions.saveTeamMember}
           open
         />
       ) : null}

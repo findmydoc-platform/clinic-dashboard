@@ -87,17 +87,18 @@ export function clearCsrfCookie(response: NextResponse) {
   })
 }
 
-export function getValidatedMutationOrigin(request: NextRequest) {
+function getValidatedMutationOriginForContentType(request: NextRequest, contentTypePrefix: string) {
   const environment = validateEnvironment()
   const requestOrigin = getTrustedDashboardOrigin(request.headers.get("origin"), environment)
   const requestUrlOrigin = getTrustedRequestDashboardOrigin(request, environment)
+  const contentType = request.headers.get("content-type")?.toLowerCase()
   const cookieToken = request.cookies.get(CLINIC_DASHBOARD_CSRF_COOKIE)?.value
   const headerToken = request.headers.get(CLINIC_DASHBOARD_CSRF_HEADER) ?? undefined
 
   if (
     requestOrigin !== undefined &&
     requestOrigin === requestUrlOrigin &&
-    request.headers.get("content-type")?.toLowerCase().startsWith("application/json") === true &&
+    contentType?.startsWith(contentTypePrefix) === true &&
     cookieToken !== undefined &&
     headerToken !== undefined &&
     safeEqual(cookieToken, headerToken) &&
@@ -109,6 +110,14 @@ export function getValidatedMutationOrigin(request: NextRequest) {
   return undefined
 }
 
+export function getValidatedMutationOrigin(request: NextRequest) {
+  return getValidatedMutationOriginForContentType(request, "application/json")
+}
+
 export function validateMutationRequest(request: NextRequest) {
   return getValidatedMutationOrigin(request) !== undefined
+}
+
+export function validateMultipartMutationRequest(request: NextRequest) {
+  return getValidatedMutationOriginForContentType(request, "multipart/form-data") !== undefined
 }

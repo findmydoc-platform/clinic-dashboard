@@ -323,7 +323,7 @@ export const DemoBadgeAndFourImageGallery: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getAllByText("Demo data")[0]).toBeVisible()
+    await expect(canvas.getAllByText("Mixed data")[0]).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
     await expect(canvas.getByRole("button", { name: "View all images" })).toBeInTheDocument()
   },

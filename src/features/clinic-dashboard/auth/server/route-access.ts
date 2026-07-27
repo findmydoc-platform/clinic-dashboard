@@ -11,6 +11,7 @@ type ClinicDashboardMutationAccess =
   | Readonly<{
       accessToken: string
       applyToResponse: (response: NextResponse) => NextResponse
+      clinicId: string
       status: "approved"
     }>
   | Readonly<{
@@ -28,7 +29,12 @@ export async function resolveClinicDashboardMutationAccess(
 
     if (access.status === "approved") {
       return session
-        ? { accessToken: session.accessToken, applyToResponse, status: "approved" }
+        ? {
+            accessToken: session.accessToken,
+            applyToResponse,
+            clinicId: access.context.clinic.id,
+            status: "approved",
+          }
         : { applyToResponse, status: "unauthenticated" }
     }
 
@@ -46,6 +52,7 @@ export async function resolveClinicDashboardMutationAccess(
     ? {
         accessToken: session.accessToken,
         applyToResponse: routeClient.applyToResponse,
+        clinicId: access.context.clinic.id,
         status: "approved",
       }
     : { applyToResponse: routeClient.applyToResponse, status: "unauthenticated" }

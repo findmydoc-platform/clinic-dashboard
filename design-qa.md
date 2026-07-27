@@ -2,82 +2,88 @@
 
 ## Evidence
 
-- Source visual truth: the selected Option 2 visual from the implementation thread
-- Browser-rendered implementation: the final light-mode desktop capture attached to the implementation handoff
-- Equal-size side-by-side comparison: the final source-versus-implementation comparison reviewed during design QA
-- Responsive evidence:
-  - Light mobile: final `390 × 844` light-mode capture
-  - Dark mobile: final `390 × 844` dark-mode capture
-- Desktop comparison viewport: `1487 × 1058` CSS pixels
-- Source pixels: `1487 × 1058`
-- Implementation pixels: `1487 × 1058`
-- Desktop device scale factor: `1`
-- Density normalization: none required; source and implementation were compared at equal pixel dimensions.
-- Mobile viewport and screenshot pixels: `390 × 844`
-- Mobile device scale factor: `1`
-- State: Lukas Weber inquiry selected after a successful `Submitted` to `In review` transition.
+- Source visual truth:
+  `/private/tmp/product-design-audit-doctor-option2/00-reference-option-2.png`
+- Final light implementation:
+  `/private/tmp/product-design-audit-doctor-option2/10-final-light-clinic-context.png`
+- Final mobile implementation:
+  `/private/tmp/product-design-audit-doctor-option2/11-final-mobile-light.png`
+- Final dark implementation:
+  `/private/tmp/product-design-audit-doctor-option2/12-final-dark.png`
+- Equal-size source and implementation comparison:
+  `/private/tmp/product-design-audit-doctor-option2/13-final-reference-vs-implementation.png`
+- Post-review light implementation:
+  `/private/tmp/product-design-audit-doctor-option2/14-review-fixes-final-light.jpg`
+- Post-review source and implementation comparison:
+  `/private/tmp/product-design-audit-doctor-option2/15-reference-vs-review-fixes.png`
+- Desktop source, implementation, and viewport: `1487 × 1058`
+- Mobile viewport: `390 × 844`
+- State: active Sarah Schmidt profile with portrait, two qualifications,
+  German and English, long biography, and two reviewed specialty assignments.
 
 ## Full-view comparison
 
-The source and implementation were opened together in one equal-size comparison input. The final desktop pass aligns the `376px` queue split and the principal header, metadata, date, and inquiry-card landmarks within roughly `10px`. The implementation preserves the two-column queue/detail composition, calm single-action header, four-field inquiry summary, original inquiry card, and inline status event. The existing dashboard shell reserves vertical space outside this component, so the compared component ends above the viewport edge.
+The selected Option 2 reference and final light implementation were reviewed
+together in one equal-size side-by-side image. The implementation now matches
+the reference's wide editor, approximately one-third/two-thirds column split,
+large portrait with overlaid camera action, publication row, full-width
+identity fields, tag-based medical fields, long biography, compact specialty
+table, and anchored footer.
 
-Intentional state and copy corrections:
+Intentional contract-driven differences:
 
-- The source combines a `Submitted` status with an event saying the status changed to `In review`. The implementation shows `In review`, removes the new-state dot, and changes the list summary to `Up to date`.
-- `Search conversations…` is `Search inquiries…` because the selected surface is inquiry-only.
-- `New inquiries` is `Inquiries` because the queue can retain later workflow states.
-- The inquiry button, dialog, composer, attachments, menus, and recent-chat treatment are absent.
+- The real Sarah Schmidt asset and fixture data replace the generated person.
+- The upload guidance lists every supported media type and the exact `4 MB`
+  contract.
+- Medical specialties remain optional and can only use the reviewed catalogue.
+- The implementation uses the existing clinic-profile composition as its
+  backdrop instead of reproducing the generated dashboard shell.
 
-## Focused-region comparison
+## Resolved findings
 
-No additional crop was required because the equal-size desktop comparison kept the header, metadata, contact links, inquiry card, and status event legible. Separate light and dark mobile captures were used to inspect header wrapping, control placement, tap-target spacing, contrast, and horizontal overflow.
+- P1: Qualifications and languages now use a reusable tag input derived from
+  the current shadcn combobox/chips pattern and backed by Base UI.
+- P1: The editor uses the selected one-third/two-thirds desktop structure.
+- P1: `Add specialty` creates an empty row that requires explicit choices;
+  unsaved rows can be discarded and persisted rows cannot be removed.
+- P1: A submit attempt reveals field-local errors with `aria-invalid`,
+  associated error text, and focus on the first invalid control.
+- P2: Portrait, camera action, field geometry, helper placement, specialty
+  headings, years suffix, and footer treatment now follow Option 2.
+- P2: Initial focus moves to the first meaningful form control instead of the
+  close action.
+- P2: The visual fixture now includes a long biography and two specialty rows.
+- P2: Specialty-row validation now marks and focuses the actual invalid row and
+  associates that row with its error message.
+- P2: The hidden upload input is removed from keyboard tab order while the
+  visible profile-photo action remains keyboard accessible.
 
-## Required fidelity surfaces
+## Responsive and theme checks
 
-- Fonts and typography: the product font stack, bold hierarchy, compact labels, body line height, and truncation match the established dashboard system. No broken desktop wrapping remains.
-- Spacing and layout rhythm: the sidebar/detail split, header grouping, metadata grid, separators, inquiry card, radii, and elevation preserve the source structure. The desktop header and metadata density were increased after review. Mobile collapses to one panel without horizontal overflow.
-- Colors and visual tokens: background, canvas, borders, teal selected state, semantic status treatment, and foreground contrast use the existing light/dark design tokens. Both themes were visually checked.
-- Image quality and asset fidelity: the target contains no photographic or illustrative assets. Initial avatars and outline icons use the existing Avatar and Lucide component system; no custom SVG, CSS art, or placeholder image was introduced.
-- Copy and content: labels describe an inquiry-only workflow and the visible status is consistent with the recorded transition.
-- Icons and controls: search, identity, timing, contact, back, status, and event icons share one outline family and remain aligned. The status control is the only desktop header action.
-- Accessibility and responsiveness: the inquiry collection is a semantic list, result counts use a focused status region, selection uses `aria-pressed`, the status trigger preserves focus while busy, and mobile input text remains `16px`. Keyboard menu behavior, mobile back-focus restoration, minimum control heights, and `390px` light/dark layouts were verified.
+- At `390 × 844`, the editor collapses to one column, keeps the footer visible,
+  scrolls the body independently, and reports no horizontal overflow.
+- At `1280 × 900` in dark mode, text, controls, tags, borders, portrait
+  treatment, switch, and footer retain clear contrast.
+- At `1487 × 1058` in light mode, the final browser session reports no warning
+  or error console entries and no horizontal overflow.
+
+## Interaction evidence
+
+- Storybook covers tag creation/removal, fixed language selection, inline
+  create validation, editing, partial failure, unsaved-close confirmation,
+  mobile, dark mode, and the empty/discardable specialty row.
+- Tag-input stories additionally cover comma, paste, blur, normalization,
+  deduplication, and configured limits.
+- The tag popup has a named, keyboard-focusable multiselect listbox.
+- Required identity, qualification, and language controls expose associated
+  validation feedback.
 
 ## Findings
 
-No actionable P0, P1, or P2 visual findings remain. The review findings for search/detail divergence, notification focus, status-trigger focus loss, list semantics, contradictory section copy, mobile input size, missing selection edge, and compressed desktop density were resolved and retested.
+No actionable P0, P1, or P2 design findings remain.
 
-## Open questions
-
-None.
-
-## Comparison history
-
-- Pass 1: reviewer feedback found compressed desktop density and an incomplete selected-row treatment.
-- Pass 2: the queue split, header, metadata spacing, section density, and accent edge were aligned more closely to the source at the exact source viewport.
-- Responsive pass: `390 × 844` light and dark captures confirmed a stable single-panel detail layout with `scrollWidth === 390`.
-- Post-validation evidence: final desktop light, mobile light, and mobile dark captures attached to the implementation handoff.
-
-## Primary interactions tested
-
-- Select an inquiry on mobile and return to the list.
-- Return keyboard focus to the selected inquiry after the mobile back action.
-- Open the status menu by keyboard, preserve trigger focus while busy, and persist a valid transition to `In review`.
-- Render the matching status system event.
-- Handle a failed status update without applying the optimistic state.
-- Search to a second inquiry and render an explicit zero-result state without stale details.
-- Open a message notification at its location and focus the Messages heading without passing a stale conversation identifier.
-- Exercise the authenticated inquiry status route through the current worktree E2E server.
-
-## Console errors
-
-The final desktop light, mobile light, and mobile dark captures reported no browser console warnings or errors.
-
-## Implementation checklist
-
-- [x] Match Option 2 without an inquiry button.
-- [x] Keep status as the only header action.
-- [x] Preserve server-validated status transitions and system events.
-- [x] Verify desktop light, mobile light, and mobile dark states.
-- [x] Verify Storybook interactions and browser console output.
+The remaining P3 differences are intentional: the real product fixture differs
+from the generated doctor, the supported file guidance is more complete, and
+specialties are optional under the approved product contract.
 
 final result: passed

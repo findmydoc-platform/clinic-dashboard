@@ -6,9 +6,10 @@ import { PageHeading } from "@/components/ui/page-heading"
 import type {
   ClinicProfileDraft,
   ClinicProfileFocusTarget,
-  ClinicTeamMember,
   ClinicTreatmentView,
 } from "../../model/clinic-profile"
+import type { DoctorDirectorySnapshot } from "../../model/doctor-profile"
+import type { DoctorProfileCommands } from "../../model/doctor-profile-commands"
 import {
   isClinicProfileManagementInteractive,
   isClinicProfileManagementVisible,
@@ -17,17 +18,19 @@ import {
 import { ClinicProfileBasics } from "./ClinicProfileBasics"
 import { ClinicProfileDetails } from "./ClinicProfileDetails"
 import { ClinicProfileGallery } from "./ClinicProfileGallery"
-import { ClinicProfileTeam } from "./ClinicProfileTeam"
+import { DoctorDirectory } from "./DoctorDirectory"
 import { ClinicProfileTreatments } from "./ClinicProfileTreatments"
 
 export type ClinicProfileScreenModel = Readonly<{
+  doctorCommands: DoctorProfileCommands
+  doctorDirectory: DoctorDirectorySnapshot
+  doctorManagement: ClinicProfileManagementAccess
   focusTarget?: ClinicProfileFocusTarget
   isDirty: boolean
   profile: ClinicProfileDraft
   profileManagement: ClinicProfileManagementAccess
   saveState: "idle" | "saved" | "saving"
   statusMessage: string
-  teamManagement: ClinicProfileManagementAccess
   treatments: readonly ClinicTreatmentView[]
   undoKind?: "team" | "treatment"
   undoMessage?: string
@@ -38,6 +41,7 @@ export type ClinicProfileScreenActions = Readonly<{
   onDescriptionChange: (description: string) => void
   onFocusHandled: () => void
   onGalleryOpen: () => void
+  onDoctorsChange: (doctors: readonly DoctorDirectorySnapshot["doctors"][number][]) => void
   onNameChange: (name: string) => void
   onOpeningHoursEdit: () => void
   onProfileCancel: () => void
@@ -45,9 +49,6 @@ export type ClinicProfileScreenActions = Readonly<{
   onRemovalUndo: () => void
   onSpecialtyDialogOpen: () => void
   onSpecialtyRemove: (specialty: string) => void
-  onTeamMemberCreate: () => void
-  onTeamMemberOpen: (member: ClinicTeamMember) => void
-  onTeamMemberRemove: (id: string) => void
   onTreatmentCreate: () => void
   onTreatmentOpen: (treatment: ClinicTreatmentView) => void
   onTreatmentRemove: (id: string) => void
@@ -60,10 +61,10 @@ type ClinicProfileScreenProps = Readonly<{
 
 export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps) {
   const galleryRef = useRef<HTMLElement>(null)
-  const teamRef = useRef<HTMLElement>(null)
+  const doctorsRef = useRef<HTMLElement>(null)
   const canManageProfile = isClinicProfileManagementInteractive(model.profileManagement)
-  const canManageTeam = isClinicProfileManagementInteractive(model.teamManagement)
-  const canSaveProfile = canManageProfile || canManageTeam
+  const canManageDoctors = isClinicProfileManagementInteractive(model.doctorManagement)
+  const canSaveProfile = canManageProfile
   const isBusy = model.saveState === "saving"
   const isEditingDisabled = !canManageProfile || isBusy
   const { onFocusHandled } = actions
@@ -72,7 +73,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
     if (!model.focusTarget) return
 
     const frame = requestAnimationFrame(() => {
-      const target = model.focusTarget === "gallery" ? galleryRef.current : teamRef.current
+      const target = model.focusTarget === "gallery" ? galleryRef.current : doctorsRef.current
       if (!target) return
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -139,18 +140,12 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             showSpecialtyActions={canManageProfile}
             specialties={model.profile.specialties}
           />
-          <ClinicProfileTeam
-            isBusy={isBusy}
-            members={model.profile.team}
-            onCreate={actions.onTeamMemberCreate}
-            onMemberOpen={actions.onTeamMemberOpen}
-            onRemove={actions.onTeamMemberRemove}
-            onUndo={actions.onRemovalUndo}
-            ref={teamRef}
-            showCreateAction={canManageTeam}
-            showMemberActions={canManageTeam}
-            showMemberViewAction={isClinicProfileManagementVisible(model.teamManagement) && !canManageTeam}
-            undoMessage={model.undoKind === "team" ? model.undoMessage : undefined}
+          <DoctorDirectory
+            canManage={canManageDoctors}
+            commands={model.doctorCommands}
+            onDoctorsChange={actions.onDoctorsChange}
+            ref={doctorsRef}
+            snapshot={model.doctorDirectory}
           />
           <ClinicProfileTreatments
             isBusy={isBusy}

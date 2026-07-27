@@ -7,9 +7,12 @@ import { cn } from "@/lib/utils"
 
 type ModalProps = Readonly<{
   children: ReactNode
+  contentClassName?: string
   description?: string
   footer?: ReactNode
+  footerClassName?: string
   headerMeta?: ReactNode
+  initialFocusRef?: RefObject<HTMLElement | null>
   onOpenChange: (open: boolean) => void
   open: boolean
   panelClassName?: string
@@ -20,9 +23,12 @@ type ModalProps = Readonly<{
 
 export function Modal({
   children,
+  contentClassName,
   description,
   footer,
+  footerClassName,
   headerMeta,
+  initialFocusRef,
   onOpenChange,
   open,
   panelClassName,
@@ -42,13 +48,14 @@ export function Modal({
     if (open && !dialog.open) {
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       dialog.showModal()
+      initialFocusRef?.current?.focus({ preventScroll: true })
     }
     if (!open && dialog.open) {
       dialog.close()
       const focusTarget = triggerRef?.current ?? openerRef.current
       focusTarget?.focus()
     }
-  }, [open, triggerRef])
+  }, [initialFocusRef, open, triggerRef])
 
   useEffect(
     () => () => {
@@ -111,13 +118,18 @@ export function Modal({
       </header>
       <div
         aria-label={`${title} content`}
-        className="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6"
+        className={cn("min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6", contentClassName)}
         tabIndex={0}
       >
         {children}
       </div>
       {footer ? (
-        <footer className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+        <footer
+          className={cn(
+            "shrink-0 border-t border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5",
+            footerClassName,
+          )}
+        >
           {footer}
         </footer>
       ) : null}

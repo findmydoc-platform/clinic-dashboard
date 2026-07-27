@@ -81,7 +81,7 @@ export async function handlePatientInquiryStatusUpdate(
   }
 
   try {
-    const result = await createProvider(authorization.accessToken).changeStatus({
+    const result = await createProvider(authorization.accessToken, authorization.clinicId).changeStatus({
       inquiryId: inquiryId.data,
       status: input.data.status,
     })

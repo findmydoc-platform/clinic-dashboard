@@ -35,4 +35,4 @@ export type PatientInquiryProvider = Readonly<{
   >
 }>
 
-export type PatientInquiryProviderFactory = (accessToken: string) => PatientInquiryProvider
+export type PatientInquiryProviderFactory = (accessToken: string, clinicId: string) => PatientInquiryProvider

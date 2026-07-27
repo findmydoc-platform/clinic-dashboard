@@ -84,6 +84,7 @@ describe("Patient inquiry status BFF boundary", () => {
         )
         return response
       },
+      clinicId: "clinic-1",
       status: "approved",
     })
   })

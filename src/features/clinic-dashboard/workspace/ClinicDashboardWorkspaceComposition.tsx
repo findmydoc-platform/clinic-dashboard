@@ -10,6 +10,8 @@ import {
   type ClinicProfileCommands,
   type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
+  type DoctorDirectorySnapshot,
+  type DoctorProfileCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
   DashboardPeriodControl,
@@ -52,13 +54,14 @@ export type ClinicDashboardWorkspaceStartState =
       section: Extract<ClinicDashboardSection, "messages">
     }>
   | Readonly<{
-      dialog: Extract<ClinicDashboardDialog, "team-member" | "treatment">
+      dialog: Extract<ClinicDashboardDialog, "treatment">
       section: Extract<ClinicDashboardSection, "profile">
     }>
 
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
   clinicProfileCommands: ClinicProfileCommands
+  doctorProfileCommands: DoctorProfileCommands
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
   initialReportingPeriod?: DashboardReportingPeriod
@@ -81,6 +84,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
 export function ClinicDashboardWorkspaceComposition({
   authenticatedContext,
   clinicProfileCommands,
+  doctorProfileCommands,
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
   initialReportingPeriod = "30 days",
@@ -95,6 +99,7 @@ export function ClinicDashboardWorkspaceComposition({
   const [savedProfileProjection, setSavedProfileProjection] = useState<
     Readonly<{ locationId: string; profile: ClinicProfileDraft }> | undefined
   >()
+  const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
@@ -206,7 +211,7 @@ export function ClinicDashboardWorkspaceComposition({
           value={selectedLocation.id}
         />
       }
-      environmentBadge="Demo data"
+      environmentBadge="Mixed data"
       headerActions={
         activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
           <DashboardPeriodControl
@@ -267,8 +272,8 @@ export function ClinicDashboardWorkspaceComposition({
       </p>
 
       <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
-        <strong className="text-[var(--secondary)]">Demo data.</strong> Dashboard cards, charts, reviews,
-        profile details, and their actions are local examples only. Patient inquiries are loaded separately.
+        <strong className="text-[var(--secondary)]">Mixed data.</strong> Doctors and patient inquiries are
+        live. Dashboard cards, charts, reviews and the remaining profile details are local examples.
       </div>
 
       {activeSection === "dashboard" ? (
@@ -304,22 +309,26 @@ export function ClinicDashboardWorkspaceComposition({
       <div hidden={activeSection !== "profile"}>
         <ClinicProfile
           commands={clinicProfileCommands}
+          doctorCommands={doctorProfileCommands}
+          doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
+          doctorManagement={capabilities.teamManagement}
           focusTarget={model.profileFocusTarget}
           initialDialog={
-            model.locationChangeCount === 0 &&
-            (start.dialog === "team-member" || start.dialog === "treatment")
-              ? start.dialog
-              : undefined
+            model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined
           }
           initialProfile={selectedProfile}
           key={selectedLocation.id}
           onFocusHandled={actions.clearProfileFocusRequest}
+          onDoctorsChange={(doctors) => {
+            const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
+            if (source.status !== "ready") return
+            setDoctorDirectoryProjection({ ...source, doctors })
+          }}
           onProfileSaved={(profile) =>
             setSavedProfileProjection({ locationId: selectedLocation.id, profile })
           }
           onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
           profileManagement={capabilities.profileManagement}
-          teamManagement={capabilities.teamManagement}
           treatmentCatalogue={workspaceInput.treatmentCatalogue}
         />
       </div>

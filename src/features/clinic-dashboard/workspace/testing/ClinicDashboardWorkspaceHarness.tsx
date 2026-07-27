@@ -5,6 +5,8 @@ import {
   clinicProfileFixture,
   clinicTreatmentCatalogueFixture,
   createClinicProfileCommandsFixture,
+  createDoctorProfileCommandsFixture,
+  doctorDirectoryFixture,
 } from "@/features/clinic-dashboard/clinic-profile/testing/public"
 import {
   createDashboardReportingSnapshot,
@@ -271,6 +273,7 @@ const potsdamProfile = {
 export const clinicDashboardWorkspaceFixture = {
   account: workspaceAccountFixture,
   defaultLocationId: "berlin-mitte",
+  doctorDirectory: doctorDirectoryFixture,
   inquiryQueue: {
     inquiries: [
       {
@@ -403,11 +406,13 @@ export function ClinicDashboardWorkspaceHarness({
   start,
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
+  const [doctorProfileCommands] = useState(() => createDoctorProfileCommandsFixture())
   const [reviewCommands] = useState(() => createReviewCommandsFixture())
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedClinicContextFixture}
       clinicProfileCommands={clinicProfileCommands}
+      doctorProfileCommands={doctorProfileCommands}
       initialNotificationReadIds={notificationState?.readIds}
       initialNotificationsOpen={notificationState?.isOpen}
       initialReportingPeriod={reportingPeriod}
@@ -417,16 +422,11 @@ export function ClinicDashboardWorkspaceHarness({
         const coverChanged =
           initialProfile.gallery.find(({ isCover }) => isCover)?.id !==
           savedProfile.gallery.find(({ isCover }) => isCover)?.id
-        const teamChanged = JSON.stringify(initialProfile.team) !== JSON.stringify(savedProfile.team)
         return {
           ...snapshot,
-          profileCompletion: Math.min(
-            snapshot.profileCompletion + (coverChanged ? 4 : 0) + (teamChanged ? 4 : 0),
-            100,
-          ),
+          profileCompletion: Math.min(snapshot.profileCompletion + (coverChanged ? 4 : 0), 100),
           profileTasks: snapshot.profileTasks.filter(
-            ({ destination }) =>
-              !(destination === "gallery" && coverChanged) && !(destination === "team" && teamChanged),
+            ({ destination }) => !(destination === "gallery" && coverChanged),
           ),
         }
       }}

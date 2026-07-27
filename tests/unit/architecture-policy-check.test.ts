@@ -1627,6 +1627,53 @@ describe("architecture policy checker process fixtures", () => {
     expect(result.status, combinedOutput(result)).toBe(0)
   })
 
+  it("allows exact doctor BFF routes to use the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/app/api/dashboard/doctors/[doctorId]/image/route.ts": `
+        import { handleDoctorImageReplace } from "../../../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleDoctorImageReplace(request, "doctor-1")
+        }
+      `,
+      "src/app/api/dashboard/doctors/[doctorId]/route.ts": `
+        import { handleDoctorUpdate } from "../../../../../features/clinic-dashboard/server"
+        export function PATCH(request: Request) {
+          return handleDoctorUpdate(request, "doctor-1")
+        }
+      `,
+      "src/app/api/dashboard/doctors/[doctorId]/specialties/[assignmentId]/route.ts": `
+        import { handleDoctorSpecialtyUpdate } from "../../../../../../../features/clinic-dashboard/server"
+        export function PATCH(request: Request) {
+          return handleDoctorSpecialtyUpdate(request, "doctor-1", "assignment-1")
+        }
+      `,
+      "src/app/api/dashboard/doctors/[doctorId]/specialties/route.ts": `
+        import { handleDoctorSpecialtyCreate } from "../../../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleDoctorSpecialtyCreate(request, "doctor-1")
+        }
+      `,
+      "src/app/api/dashboard/doctors/route.ts": `
+        import { handleDoctorCreate } from "../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleDoctorCreate(request)
+        }
+      `,
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function handleDoctorCreate() { return new Response() }
+        export function handleDoctorImageReplace() { return new Response() }
+        export function handleDoctorSpecialtyCreate() { return new Response() }
+        export function handleDoctorSpecialtyUpdate() { return new Response() }
+        export function handleDoctorUpdate() { return new Response() }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
+  })
+
   it("allows the exact inquiry queue loading contract test to use the private server entry", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/server.ts": `

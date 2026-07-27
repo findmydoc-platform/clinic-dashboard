@@ -5,7 +5,7 @@ import { RemovalUndoBanner } from "./RemovalUndoBanner"
 const meta = {
   args: {
     isBusy: false,
-    message: "Team member removed. Undo restores this item.",
+    message: "Treatment removed. Undo restores this item.",
     onUndo: fn(),
   },
   component: RemovalUndoBanner,
