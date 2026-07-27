@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import {
-  fetchPatientInquiry,
-  fetchPatientInquiryQueue,
-  updatePatientInquiryStatus,
-} from "@/features/clinic-dashboard/messages/server/public"
+import { createPayloadPatientInquiryProvider } from "@/features/clinic-dashboard/messages/server/payload-inquiries"
 
 const upstreamInquiry = {
   assignedTo: { id: "platform-user", name: "Private assignee" },
@@ -44,30 +40,37 @@ describe("Patient inquiry Payload adapter", () => {
     vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
   })
 
-  afterEach(() => vi.unstubAllEnvs())
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+  })
 
   it("projects only purpose-specific own-clinic inquiry fields", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ docs: [upstreamInquiry] }))
+    const provider = createPayloadPatientInquiryProvider("access-token", fetcher)
 
-    await expect(fetchPatientInquiryQueue("access-token", fetcher)).resolves.toEqual({
-      inquiries: [
-        {
-          availableTransitions: ["in_review", "contacted", "closed", "spam"],
-          contactWindow: "Afternoon",
-          createdAt: "2026-07-26T08:54:00.000Z",
-          dateLabel: "26 July 2026",
-          email: "l.weber@example.com",
-          id: "inquiry-1",
-          interest: "Hair transplant",
-          message: "I would like to know which documents to prepare.",
-          name: "Lukas Weber",
-          phone: "+49 000 0000001",
-          status: "submitted",
-          timeLabel: "10:54",
-          treatmentTimeline: "Within one month",
-        },
-      ],
-      status: "ready",
+    await expect(provider.loadQueue()).resolves.toEqual({
+      ok: true,
+      value: {
+        inquiries: [
+          {
+            availableTransitions: ["in_review", "contacted", "closed", "spam"],
+            contactWindow: "Afternoon",
+            createdAt: "2026-07-26T08:54:00.000Z",
+            dateLabel: "26 July 2026",
+            email: "l.weber@example.com",
+            id: "inquiry-1",
+            interest: "Hair transplant",
+            message: "I would like to know which documents to prepare.",
+            name: "Lukas Weber",
+            phone: "+49 000 0000001",
+            status: "submitted",
+            timeLabel: "10:54",
+            treatmentTimeline: "Within one month",
+          },
+        ],
+        status: "ready",
+      },
     })
 
     const [url, init] = fetcher.mock.calls[0] ?? []
@@ -84,70 +87,195 @@ describe("Patient inquiry Payload adapter", () => {
     })
   })
 
-  it("sends only the requested status and projects the updated inquiry", async () => {
-    const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
-      expect(init?.body).toBe('{"status":"in_review"}')
-      return jsonResponse({
-        doc: {
-          ...upstreamInquiry,
+  it("hides the current-state read and status write behind changeStatus", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          doc: {
+            ...upstreamInquiry,
+            status: "in_review",
+            updatedAt: "2026-07-26T09:08:00.000Z",
+          },
+        }),
+      )
+    const provider = createPayloadPatientInquiryProvider("access-token", fetcher)
+
+    const result = await provider.changeStatus({
+      inquiryId: "inquiry-1",
+      status: "in_review",
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        changedAt: "11:08",
+        inquiry: {
+          availableTransitions: ["contacted", "closed", "spam"],
           status: "in_review",
-          updatedAt: "2026-07-26T09:08:00.000Z",
         },
-      })
-    })
-
-    const result = await updatePatientInquiryStatus("access-token", "inquiry-1", "in_review", fetcher)
-
-    expect(result.changedAt).toBe("11:08")
-    expect(result.inquiry.status).toBe("in_review")
-    expect(result.inquiry.availableTransitions).toEqual(["contacted", "closed", "spam"])
-    const [url, init] = fetcher.mock.calls[0] ?? []
-    expect(String(url)).toBe("https://preview.findmydoc.eu/api/patientClinicInquiries/inquiry-1")
-    expect(init).toMatchObject({
-      headers: {
-        Accept: "application/json",
-        Authorization: "Bearer access-token",
-        "Content-Type": "application/json",
       },
-      method: "PATCH",
     })
-  })
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    const [currentUrl, currentInit] = fetcher.mock.calls[0] ?? []
+    const [updateUrl, updateInit] = fetcher.mock.calls[1] ?? []
+    const expectedUrl = "https://preview.findmydoc.eu/api/patientClinicInquiries/inquiry-1"
 
-  it("loads one own-clinic inquiry before a server-side transition check", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(upstreamInquiry))
-
-    await expect(fetchPatientInquiry("access-token", "inquiry/1", fetcher)).resolves.toMatchObject({
-      id: "inquiry-1",
-      status: "submitted",
-    })
-
-    const [url, init] = fetcher.mock.calls[0] ?? []
-    expect(String(url)).toBe("https://preview.findmydoc.eu/api/patientClinicInquiries/inquiry%2F1")
-    expect(init).toMatchObject({
+    expect(String(currentUrl)).toBe(expectedUrl)
+    expect(currentInit).toMatchObject({
       cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        Authorization: "Bearer access-token",
-      },
       redirect: "error",
     })
+    expect(currentInit?.body).toBeUndefined()
+    expect(currentInit?.headers).toEqual({
+      Accept: "application/json",
+      Authorization: "Bearer access-token",
+    })
+    expect(currentInit?.method).toBeUndefined()
+
+    expect(String(updateUrl)).toBe(expectedUrl)
+    expect(updateInit).toMatchObject({
+      body: '{"status":"in_review"}',
+      cache: "no-store",
+      method: "PATCH",
+      redirect: "error",
+    })
+    expect(updateInit?.headers).toEqual({
+      Accept: "application/json",
+      Authorization: "Bearer access-token",
+      "Content-Type": "application/json",
+    })
   })
 
-  it("fails closed for malformed and rejected upstream responses", async () => {
-    await expect(
-      fetchPatientInquiryQueue(
-        "access-token",
-        vi.fn(async () => jsonResponse({ docs: [{ id: "inquiry-1" }] })) as typeof fetch,
-      ),
-    ).rejects.toMatchObject({ kind: "temporarily-unavailable" })
+  it.each([
+    [401, "unauthorized"],
+    [403, "forbidden"],
+    [500, "temporarily-unavailable"],
+  ] as const)("maps a queue HTTP %i response to %s", async (status, error) => {
+    const provider = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi.fn(async () => jsonResponse({ error: "rejected" }, status)) as typeof fetch,
+    )
 
-    await expect(
-      updatePatientInquiryStatus(
-        "access-token",
-        "inquiry-1",
-        "closed",
-        vi.fn(async () => jsonResponse({ error: "not allowed" }, 400)) as typeof fetch,
-      ),
-    ).rejects.toMatchObject({ kind: "conflict" })
+    await expect(provider.loadQueue()).resolves.toEqual({ error, ok: false })
+  })
+
+  it.each([
+    [401, "unauthorized"],
+    [403, "forbidden"],
+    [404, "not-found"],
+    [409, "conflict"],
+    [500, "temporarily-unavailable"],
+  ] as const)("maps a current-inquiry HTTP %i response to %s", async (status, error) => {
+    const provider = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi.fn(async () => jsonResponse({ error: "rejected" }, status)) as typeof fetch,
+    )
+
+    await expect(provider.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
+      error,
+      ok: false,
+    })
+  })
+
+  it.each([
+    [400, "conflict"],
+    [401, "unauthorized"],
+    [403, "forbidden"],
+    [404, "not-found"],
+    [409, "conflict"],
+    [422, "conflict"],
+    [500, "temporarily-unavailable"],
+  ] as const)("maps a status-write HTTP %i response to %s", async (status, error) => {
+    const provider = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
+        .mockResolvedValueOnce(jsonResponse({ error: "rejected" }, status)),
+    )
+
+    await expect(provider.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
+      error,
+      ok: false,
+    })
+  })
+
+  it("maps malformed queue data and queue network failures without throwing", async () => {
+    const malformed = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi.fn(async () => jsonResponse({ docs: [{ id: "inquiry-1" }] })) as typeof fetch,
+    )
+    await expect(malformed.loadQueue()).resolves.toEqual({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+
+    const unavailable = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi.fn(async () => {
+        throw new Error("network unavailable")
+      }) as typeof fetch,
+    )
+    await expect(unavailable.loadQueue()).resolves.toEqual({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+  })
+
+  it("maps malformed status-write data and status-write network failures without throwing", async () => {
+    const malformed = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
+        .mockResolvedValueOnce(jsonResponse({ doc: { id: "inquiry-1" } })),
+    )
+    await expect(malformed.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+
+    const unavailable = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
+        .mockRejectedValueOnce(new Error("network unavailable")),
+    )
+    await expect(unavailable.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+  })
+
+  it.each([
+    ["current inquiry ID", { currentId: "inquiry-2", updatedId: undefined, updatedStatus: undefined }],
+    ["updated inquiry ID", { currentId: undefined, updatedId: "inquiry-2", updatedStatus: undefined }],
+    ["updated inquiry status", { currentId: undefined, updatedId: undefined, updatedStatus: "contacted" }],
+  ] as const)("fails closed when Payload returns a mismatched %s", async (_case, mismatch) => {
+    const currentInquiry = {
+      ...upstreamInquiry,
+      id: mismatch.currentId ?? upstreamInquiry.id,
+    }
+    const updatedInquiry = {
+      ...upstreamInquiry,
+      id: mismatch.updatedId ?? upstreamInquiry.id,
+      status: mismatch.updatedStatus ?? "in_review",
+      updatedAt: "2026-07-26T09:08:00.000Z",
+    }
+    const provider = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse(currentInquiry))
+        .mockResolvedValueOnce(jsonResponse({ doc: updatedInquiry })),
+    )
+
+    await expect(provider.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
   })
 })

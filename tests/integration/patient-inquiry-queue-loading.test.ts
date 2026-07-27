@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const serverMocks = vi.hoisted(() => ({
-  fetchPatientInquiryQueue: vi.fn(),
+  composeDataProviders: vi.fn(),
   getClinicDashboardAccessToken: vi.fn(),
   loadWorkspace: vi.fn(),
+  loadQueue: vi.fn(),
 }))
 
-vi.mock("@/lib/env", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/env")>()),
-  isControlledAuthTestMode: () => false,
+vi.mock("@/features/clinic-dashboard/data-provider-composition", () => ({
+  composeClinicDashboardDataProviders: serverMocks.composeDataProviders,
 }))
 vi.mock("@/features/clinic-dashboard/demo/loader", () => ({
   clinicDashboardDemoWorkspaceProvider: {
@@ -20,8 +20,6 @@ vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
   getClinicDashboardAccessToken: serverMocks.getClinicDashboardAccessToken,
 }))
 vi.mock("@/features/clinic-dashboard/messages/server/public", () => ({
-  fetchPatientInquiryQueue: serverMocks.fetchPatientInquiryQueue,
-  getControlledPatientInquiryQueue: vi.fn(),
   handlePatientInquiryStatusUpdate: vi.fn(),
 }))
 
@@ -42,6 +40,12 @@ describe("Patient inquiry queue server loading", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     serverMocks.loadWorkspace.mockResolvedValue(workspace)
+    serverMocks.composeDataProviders.mockReturnValue({
+      inquiries: {
+        changeStatus: vi.fn(),
+        loadQueue: serverMocks.loadQueue,
+      },
+    })
   })
 
   it("fails closed when no verified clinic access token is available", async () => {
@@ -50,12 +54,15 @@ describe("Patient inquiry queue server loading", () => {
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
     })
-    expect(serverMocks.fetchPatientInquiryQueue).not.toHaveBeenCalled()
+    expect(serverMocks.composeDataProviders).not.toHaveBeenCalled()
   })
 
   it("fails closed when the Payload queue request is unavailable", async () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
-    serverMocks.fetchPatientInquiryQueue.mockRejectedValue(new Error("upstream unavailable"))
+    serverMocks.loadQueue.mockResolvedValue({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
 
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
@@ -84,9 +91,10 @@ describe("Patient inquiry queue server loading", () => {
       status: "ready",
     } as const
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
-    serverMocks.fetchPatientInquiryQueue.mockResolvedValue(inquiryQueue)
+    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: inquiryQueue })
 
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({ inquiryQueue })
-    expect(serverMocks.fetchPatientInquiryQueue).toHaveBeenCalledWith("access-token")
+    expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("access-token")
+    expect(serverMocks.loadQueue).toHaveBeenCalledOnce()
   })
 })

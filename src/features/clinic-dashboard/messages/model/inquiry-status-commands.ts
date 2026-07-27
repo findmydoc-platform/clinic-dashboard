@@ -1,4 +1,4 @@
-import type { PatientInquiry, PatientInquiryStatus } from "./inquiries"
+import type { PatientInquiryStatus, PatientInquiryStatusUpdate } from "./inquiries"
 
 export type InquiryStatusCommands = Readonly<{
   updateStatus: (
@@ -6,10 +6,5 @@ export type InquiryStatusCommands = Readonly<{
       inquiryId: string
       status: PatientInquiryStatus
     }>,
-  ) => Promise<
-    Readonly<{
-      changedAt: string
-      inquiry: PatientInquiry
-    }>
-  >
+  ) => Promise<PatientInquiryStatusUpdate>
 }>

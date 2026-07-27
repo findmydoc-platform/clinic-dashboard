@@ -9,10 +9,12 @@ const accessMocks = vi.hoisted(() => ({
 }))
 
 vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
+  getClinicDashboardAccess: vi.fn(),
+  getClinicDashboardAccessToken: vi.fn(),
   resolveClinicDashboardMutationAccess: accessMocks.resolveClinicDashboardMutationAccess,
 }))
 
-import { handlePatientInquiryStatusUpdate } from "@/features/clinic-dashboard/messages/server/public"
+import { handlePatientInquiryStatusUpdate } from "@/features/clinic-dashboard/server"
 
 const upstreamInquiry = {
   createdAt: "2026-07-26T08:54:00.000Z",

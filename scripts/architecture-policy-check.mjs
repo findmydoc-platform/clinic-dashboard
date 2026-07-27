@@ -18,6 +18,7 @@ import {
 const rootDir = process.cwd()
 const browserGlobals = new Set(["crypto", "document", "localStorage", "sessionStorage", "window"])
 const atomicLayers = new Set(["atoms", "molecules", "organisms"])
+const controlledModeSelectorName = "isControlledAuthTestMode"
 const catchAllDirectoryPattern =
   /^(?:catch-?all|common|helpers?|misc|primitives|repositor(?:y|ies)|services?|shared|utilities|utils?)$/iu
 
@@ -63,6 +64,42 @@ function isClinicDashboardServerTarget(target) {
   return /^src\/features\/clinic-dashboard\/server(?:\.[cm]?[jt]s)?$/u.test(target)
 }
 
+function isClinicDashboardDataProviderCompositionSource(file) {
+  return /^src\/features\/clinic-dashboard\/data-provider-composition\.[cm]?[jt]s$/u.test(file)
+}
+
+function isClinicDashboardDataProviderCompositionTarget(target) {
+  return /^src\/features\/clinic-dashboard\/data-provider-composition(?:\.[cm]?[jt]s)?$/u.test(target)
+}
+
+function isPatientInquiryProviderContractTarget(target) {
+  return /^src\/features\/clinic-dashboard\/messages\/server\/patient-inquiry-provider(?:\.[cm]?[jt]s)?$/u.test(
+    target,
+  )
+}
+
+function isPatientInquiryProviderAdapterSource(file) {
+  return /^src\/features\/clinic-dashboard\/messages\/server\/(?:controlled|payload)-inquiries\.[cm]?[jt]s$/u.test(
+    file,
+  )
+}
+
+function isPatientInquiryProviderAdapterTarget(target) {
+  return /^src\/features\/clinic-dashboard\/messages\/server\/(?:controlled|payload)-inquiries(?:\.[cm]?[jt]s)?$/u.test(
+    target,
+  )
+}
+
+function isPatientInquiryProviderContractSource(file) {
+  return /^src\/features\/clinic-dashboard\/messages\/server\/patient-inquiry-provider\.[cm]?[jt]s$/u.test(
+    file,
+  )
+}
+
+function isPatientInquiryServerPublicSource(file) {
+  return /^src\/features\/clinic-dashboard\/messages\/server\/public\.[cm]?[jt]s$/u.test(file)
+}
+
 function isClinicDashboardAuthServerTarget(target) {
   return /^src\/features\/clinic-dashboard\/auth\/server\/public(?:\.[cm]?[jt]s)?$/u.test(target)
 }
@@ -87,8 +124,46 @@ function isAllowedClinicDashboardServerImport(file) {
     file === "src/app/page.tsx" ||
     file === "src/app/api/dashboard/inquiries/[inquiryId]/status/route.ts" ||
     file === "tests/unit/clinic-dashboard-demo-data.test.ts" ||
-    file === "tests/integration/patient-inquiry-queue-loading.test.ts"
+    file === "tests/integration/patient-inquiry-queue-loading.test.ts" ||
+    file === "tests/integration/patient-inquiry-status-route.test.ts"
   )
+}
+
+function isAllowedClinicDashboardDataProviderCompositionImport(file) {
+  return (
+    file === "src/features/clinic-dashboard/server.ts" ||
+    file === "tests/unit/data-provider-composition.test.ts"
+  )
+}
+
+function isAllowedPatientInquiryProviderAdapterImport(file) {
+  return (
+    isClinicDashboardDataProviderCompositionSource(file) ||
+    file === "tests/unit/patient-inquiry-provider-contract.test.ts" ||
+    file === "tests/unit/patient-inquiry-payload.test.ts"
+  )
+}
+
+function isAllowedPatientInquiryProviderContractImport(file) {
+  return (
+    isClinicDashboardDataProviderCompositionSource(file) ||
+    isClinicDashboardServerSource(file) ||
+    /^src\/features\/clinic-dashboard\/messages\/server\//u.test(file) ||
+    file === "tests/unit/inquiry-status-actions.test.ts" ||
+    file === "tests/unit/patient-inquiry-provider-contract.test.ts"
+  )
+}
+
+function isAllowedControlledModeSelection(file) {
+  return (
+    file === "src/lib/env.ts" ||
+    isClinicDashboardDataProviderCompositionSource(file) ||
+    /^src\/features\/clinic-dashboard\/auth\/server\//u.test(file)
+  )
+}
+
+function isControlledModeSelectorTarget(target) {
+  return /^src\/lib\/env(?:\.[cm]?[jt]s)?$/u.test(target)
 }
 
 function isDemoPrivateWorkspaceContractTarget(target) {
@@ -571,6 +646,56 @@ function collectTransitiveReExportTargets(target, reExportTargetsByFile, visited
   ]
 }
 
+function reachesControlledModeSelectorTarget(target, reExportTargetsByFile) {
+  return (
+    isControlledModeSelectorTarget(target) ||
+    collectTransitiveReExportTargets(target, reExportTargetsByFile).some(isControlledModeSelectorTarget)
+  )
+}
+
+function bindingSelectsControlledMode(binding, reExportTargetsByFile) {
+  if (binding.importedName === controlledModeSelectorName) return true
+  if (!binding.resolvedPath) return false
+
+  if (isControlledModeSelectorTarget(binding.resolvedPath)) {
+    return binding.importedName === "*"
+  }
+
+  return reachesControlledModeSelectorTarget(binding.resolvedPath, reExportTargetsByFile)
+}
+
+function reExportsControlledMode(sourceFile, references, reExportTargetsByFile) {
+  const exportTargets = new Map(
+    references
+      .filter((reference) => reference.kind === "export" && reference.resolvedPath)
+      .map((reference) => [reference.moduleSpecifier, reference.resolvedPath]),
+  )
+
+  return sourceFile.statements.some((statement) => {
+    if (
+      !ts.isExportDeclaration(statement) ||
+      !statement.moduleSpecifier ||
+      !ts.isStringLiteral(statement.moduleSpecifier)
+    ) {
+      return false
+    }
+
+    const target = exportTargets.get(statement.moduleSpecifier.text)
+    if (!target || !reachesControlledModeSelectorTarget(target, reExportTargetsByFile)) {
+      return false
+    }
+
+    if (!statement.exportClause || ts.isNamespaceExport(statement.exportClause)) return true
+    if (!ts.isNamedExports(statement.exportClause)) return false
+
+    if (!isControlledModeSelectorTarget(target)) return true
+
+    return statement.exportClause.elements.some(
+      (element) => (element.propertyName?.text ?? element.name.text) === controlledModeSelectorName,
+    )
+  })
+}
+
 function findHigherAtomicReExportTarget(sourceLayer, target, reExportTargetsByFile) {
   const rank = { atoms: 0, molecules: 1, organisms: 2 }
 
@@ -625,6 +750,8 @@ function collectFindings() {
   }
 
   for (const { file, references, sourceFile } of sourceEntries) {
+    const importBindings = getImportBindings(rootDir, sourceFile)
+
     if (/^src\/components\/(?:atoms|molecules|organisms|templates)\//u.test(file)) {
       findings.push(
         createFinding(
@@ -744,6 +871,38 @@ function collectFindings() {
       )
     }
 
+    if (
+      (isClinicDashboardDataProviderCompositionSource(file) ||
+        isPatientInquiryProviderContractSource(file) ||
+        isPatientInquiryProviderAdapterSource(file) ||
+        isPatientInquiryServerPublicSource(file)) &&
+      !references.some((reference) => reference.moduleSpecifier === "server-only")
+    ) {
+      findings.push(
+        createFinding(
+          "clinic-dashboard-data-provider-server-marker",
+          file,
+          "server-only",
+          "Clinic Dashboard data-provider composition, interfaces, and adapters must remain server-only.",
+        ),
+      )
+    }
+
+    const selectsControlledMode =
+      [...importBindings.values()].some((binding) =>
+        bindingSelectsControlledMode(binding, reExportTargetsByFile),
+      ) || reExportsControlledMode(sourceFile, references, reExportTargetsByFile)
+    if (selectsControlledMode && !isAllowedControlledModeSelection(file)) {
+      findings.push(
+        createFinding(
+          "clinic-dashboard-controlled-mode-selection",
+          file,
+          "isControlledAuthTestMode",
+          "Controlled data-source selection belongs only to the central provider composition; authentication keeps its existing server-only exception.",
+        ),
+      )
+    }
+
     if (/^src\/features\/.+\/model\//u.test(file)) {
       for (const globalName of containsReferencedIdentifier(sourceFile, browserGlobals)) {
         findings.push(
@@ -771,10 +930,23 @@ function collectFindings() {
       }
 
       const target = importTarget(reference)
+      const reachableTargets = [
+        target,
+        ...(reference.resolvedPath
+          ? collectTransitiveReExportTargets(reference.resolvedPath, reExportTargetsByFile)
+          : []),
+      ]
       const prototypeDataImport = isPrototypeDataImport(reference)
       const runtimePrototypeCommandImport = isRuntimePrototypeCommandImport(reference)
       const demoImport = isClinicDashboardDemoImport(reference)
       const allowedDemoImport = demoImport && isAllowedClinicDashboardDemoImport(file, reference)
+      const dataProviderCompositionImport = reachableTargets.some(
+        isClinicDashboardDataProviderCompositionTarget,
+      )
+      const patientInquiryProviderAdapterImport = reachableTargets.some(isPatientInquiryProviderAdapterTarget)
+      const patientInquiryProviderContractImport = reachableTargets.some(
+        isPatientInquiryProviderContractTarget,
+      )
       const serverImport = isClinicDashboardServerTarget(target)
       const workspaceProviderImport = isClinicDashboardWorkspaceProviderTarget(target)
       const sourceArea = getFeatureArea(file)
@@ -890,6 +1062,39 @@ function collectFindings() {
             file,
             reference.moduleSpecifier,
             "The private workspace provider contract may be imported only by the server entry and provider implementations.",
+          ),
+        )
+      }
+
+      if (dataProviderCompositionImport && !isAllowedClinicDashboardDataProviderCompositionImport(file)) {
+        findings.push(
+          createFinding(
+            "clinic-dashboard-data-provider-composition-boundary",
+            file,
+            reference.moduleSpecifier,
+            "The data-provider composition may be imported only by the Clinic Dashboard server root and its exact composition test.",
+          ),
+        )
+      }
+
+      if (patientInquiryProviderAdapterImport && !isAllowedPatientInquiryProviderAdapterImport(file)) {
+        findings.push(
+          createFinding(
+            "patient-inquiry-provider-adapter-boundary",
+            file,
+            reference.moduleSpecifier,
+            "Concrete patient-inquiry adapters may be imported only by the central composition and exact adapter-contract tests.",
+          ),
+        )
+      }
+
+      if (patientInquiryProviderContractImport && !isAllowedPatientInquiryProviderContractImport(file)) {
+        findings.push(
+          createFinding(
+            "patient-inquiry-provider-contract-boundary",
+            file,
+            reference.moduleSpecifier,
+            "The patient-inquiry provider interface is private server-only infrastructure and must not enter UI, App Router, or Storybook modules.",
           ),
         )
       }
@@ -1021,6 +1226,7 @@ function collectFindings() {
       const hasDedicatedFeatureBoundary =
         Boolean(sourceArea) ||
         isClinicDashboardServerSource(file) ||
+        isClinicDashboardDataProviderCompositionSource(file) ||
         isClinicDashboardWorkspaceProviderSource(file) ||
         /^src\/app\//u.test(file) ||
         /^src\/components\/ui\//u.test(file) ||

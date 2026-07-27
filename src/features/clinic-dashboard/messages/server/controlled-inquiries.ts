@@ -4,9 +4,8 @@ import {
   getPatientInquiryStatusTransitions,
   isAllowedPatientInquiryStatusTransition,
   type PatientInquiry,
-  type PatientInquiryQueueSnapshot,
-  type PatientInquiryStatus,
 } from "../model/inquiries"
+import type { PatientInquiryProvider } from "./patient-inquiry-provider"
 
 const controlledInquiry = {
   availableTransitions: getPatientInquiryStatusTransitions("submitted"),
@@ -24,27 +23,33 @@ const controlledInquiry = {
   treatmentTimeline: "Within 3–6 months",
 } as const satisfies PatientInquiry
 
-export function getControlledPatientInquiryQueue(): PatientInquiryQueueSnapshot {
-  return { inquiries: [{ ...controlledInquiry }], status: "ready" }
-}
-
-export function updateControlledPatientInquiryStatus(
-  inquiryId: string,
-  status: PatientInquiryStatus,
-): Readonly<{ changedAt: string; inquiry: PatientInquiry }> | undefined {
-  if (
-    inquiryId !== controlledInquiry.id ||
-    !isAllowedPatientInquiryStatusTransition(controlledInquiry.status, status)
-  ) {
-    return undefined
-  }
-
+export function createControlledPatientInquiryProvider(): PatientInquiryProvider {
   return {
-    changedAt: "11:08",
-    inquiry: {
-      ...controlledInquiry,
-      availableTransitions: getPatientInquiryStatusTransitions(status),
-      status,
+    async changeStatus({ inquiryId, status }) {
+      if (inquiryId !== controlledInquiry.id) {
+        return { error: "not-found", ok: false }
+      }
+      if (!isAllowedPatientInquiryStatusTransition(controlledInquiry.status, status)) {
+        return { error: "conflict", ok: false }
+      }
+
+      return {
+        ok: true,
+        value: {
+          changedAt: "11:08",
+          inquiry: {
+            ...controlledInquiry,
+            availableTransitions: getPatientInquiryStatusTransitions(status),
+            status,
+          },
+        },
+      }
+    },
+    async loadQueue() {
+      return {
+        ok: true,
+        value: { inquiries: [{ ...controlledInquiry }], status: "ready" },
+      }
     },
   }
 }

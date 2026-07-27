@@ -1,9 +1,10 @@
 import "server-only"
 
 export { handlePatientInquiryStatusUpdate } from "./actions"
-export {
-  fetchPatientInquiry,
-  fetchPatientInquiryQueue,
-  updatePatientInquiryStatus,
-} from "./payload-inquiries"
-export { getControlledPatientInquiryQueue } from "./controlled-inquiries"
+export type {
+  PatientInquiryChangeError,
+  PatientInquiryProvider,
+  PatientInquiryProviderFactory,
+  PatientInquiryProviderResult,
+  PatientInquiryReadError,
+} from "./patient-inquiry-provider"

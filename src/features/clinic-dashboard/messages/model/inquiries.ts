@@ -34,6 +34,11 @@ export type PatientInquiry = Readonly<{
   treatmentTimeline: string
 }>
 
+export type PatientInquiryStatusUpdate = Readonly<{
+  changedAt: string
+  inquiry: PatientInquiry
+}>
+
 export type PatientInquiryQueueSnapshot =
   | Readonly<{
       inquiries: readonly PatientInquiry[]
