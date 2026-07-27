@@ -34,7 +34,14 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 ## Codex Reviewers
 
-Recommend matching read-only reviewers before handoff and ask for confirmation before running them. Present all findings before applying reviewer-driven fixes.
+- Before handoff, run `pnpm review:route --base origin/main --format json` after local validation and use the `$review-gate` skill to recommend the exact risk-based reviewer set.
+- State every recommended and omitted reviewer with its routing reason. Ask for one explicit confirmation before any reviewer run.
+- Treat route output as temporary current-task context. Do not persist route manifests, normalized finding files, or reviewer transcripts.
+- Treat each reviewer's `sandbox_mode = "read-only"` configuration as the technical write boundary. Do not ask the user to change the parent task permission; the coordinator must perform no repository or external writes while the approved reviewer run is active.
+- Run `planning_reviewer` separately and early when routed; run up to four implementation reviewers in parallel after implementation.
+- Present all deduplicated findings before applying reviewer-driven fixes. Severity 7-10 blocks handoff and merge; severity 4-6 requires an explicit fix or deferral decision; severity 1-3 remains visible and advisory.
+- A failed or incomplete reviewer blocks the gate until retry or an explicit documented exception. Do not routinely rerun reviewers after approved fixes; a material scope expansion starts a new approved review cycle.
+- CI validates deterministic reviewer contracts only. It must not start AI reviewers.
 
 ## Pull Request Metadata Rules
 

@@ -17,7 +17,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && pnpm governance:check && pnpm ai:slop-check && pnpm deadcode:check",
+    "check": "pnpm lint && pnpm typecheck && pnpm governance:check && pnpm review:verify && pnpm ai:slop-check && pnpm deadcode:check",
     "test": "vitest run --project unit",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
@@ -34,6 +34,8 @@
     "architecture:check": "node scripts/architecture-policy-check.mjs",
     "stories:governance:check": "node scripts/storybook-governance-check.mjs",
     "governance:check": "pnpm architecture:check && pnpm stories:governance:check",
+    "review:route": "node .codex/skills/review-gate/scripts/collect-review-context.mjs",
+    "review:verify": "node .codex/skills/review-gate/scripts/verify-review-system.mjs",
     "hooks:install": "node scripts/setup-hooks.mjs",
     "deadcode:check": "knip --include files,exports",
     "deps:audit": "audit-ci --config audit-ci.jsonc"
