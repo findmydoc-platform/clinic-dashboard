@@ -18,6 +18,7 @@ import {
 const rootDir = process.cwd()
 const browserGlobals = new Set(["crypto", "document", "localStorage", "sessionStorage", "window"])
 const atomicLayers = new Set(["atoms", "molecules", "organisms"])
+const controlledModeSelectorName = "isControlledAuthTestMode"
 const catchAllDirectoryPattern =
   /^(?:catch-?all|common|helpers?|misc|primitives|repositor(?:y|ies)|services?|shared|utilities|utils?)$/iu
 
@@ -159,6 +160,10 @@ function isAllowedControlledModeSelection(file) {
     isClinicDashboardDataProviderCompositionSource(file) ||
     /^src\/features\/clinic-dashboard\/auth\/server\//u.test(file)
   )
+}
+
+function isControlledModeSelectorTarget(target) {
+  return /^src\/lib\/env(?:\.[cm]?[jt]s)?$/u.test(target)
 }
 
 function isDemoPrivateWorkspaceContractTarget(target) {
@@ -641,6 +646,56 @@ function collectTransitiveReExportTargets(target, reExportTargetsByFile, visited
   ]
 }
 
+function reachesControlledModeSelectorTarget(target, reExportTargetsByFile) {
+  return (
+    isControlledModeSelectorTarget(target) ||
+    collectTransitiveReExportTargets(target, reExportTargetsByFile).some(isControlledModeSelectorTarget)
+  )
+}
+
+function bindingSelectsControlledMode(binding, reExportTargetsByFile) {
+  if (binding.importedName === controlledModeSelectorName) return true
+  if (!binding.resolvedPath) return false
+
+  if (isControlledModeSelectorTarget(binding.resolvedPath)) {
+    return binding.importedName === "*"
+  }
+
+  return reachesControlledModeSelectorTarget(binding.resolvedPath, reExportTargetsByFile)
+}
+
+function reExportsControlledMode(sourceFile, references, reExportTargetsByFile) {
+  const exportTargets = new Map(
+    references
+      .filter((reference) => reference.kind === "export" && reference.resolvedPath)
+      .map((reference) => [reference.moduleSpecifier, reference.resolvedPath]),
+  )
+
+  return sourceFile.statements.some((statement) => {
+    if (
+      !ts.isExportDeclaration(statement) ||
+      !statement.moduleSpecifier ||
+      !ts.isStringLiteral(statement.moduleSpecifier)
+    ) {
+      return false
+    }
+
+    const target = exportTargets.get(statement.moduleSpecifier.text)
+    if (!target || !reachesControlledModeSelectorTarget(target, reExportTargetsByFile)) {
+      return false
+    }
+
+    if (!statement.exportClause || ts.isNamespaceExport(statement.exportClause)) return true
+    if (!ts.isNamedExports(statement.exportClause)) return false
+
+    if (!isControlledModeSelectorTarget(target)) return true
+
+    return statement.exportClause.elements.some(
+      (element) => (element.propertyName?.text ?? element.name.text) === controlledModeSelectorName,
+    )
+  })
+}
+
 function findHigherAtomicReExportTarget(sourceLayer, target, reExportTargetsByFile) {
   const rank = { atoms: 0, molecules: 1, organisms: 2 }
 
@@ -833,9 +888,10 @@ function collectFindings() {
       )
     }
 
-    const selectsControlledMode = [...importBindings.values()].some(
-      (binding) => binding.importedName === "isControlledAuthTestMode",
-    )
+    const selectsControlledMode =
+      [...importBindings.values()].some((binding) =>
+        bindingSelectsControlledMode(binding, reExportTargetsByFile),
+      ) || reExportsControlledMode(sourceFile, references, reExportTargetsByFile)
     if (selectsControlledMode && !isAllowedControlledModeSelection(file)) {
       findings.push(
         createFinding(

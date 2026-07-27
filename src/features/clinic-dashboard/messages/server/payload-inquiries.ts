@@ -183,6 +183,9 @@ export function createPayloadPatientInquiryProvider(
           return { error: "temporarily-unavailable", ok: false }
         }
         const currentRaw = "doc" in currentParsed.data ? currentParsed.data.doc : currentParsed.data
+        if (currentRaw.id !== inquiryId) {
+          return { error: "temporarily-unavailable", ok: false }
+        }
         const currentInquiry = mapPatientInquiry(currentRaw)
         if (!isAllowedPatientInquiryStatusTransition(currentInquiry.status, status)) {
           return { error: "conflict", ok: false }
@@ -213,6 +216,9 @@ export function createPayloadPatientInquiryProvider(
         }
 
         const updatedRaw = "doc" in updatedParsed.data ? updatedParsed.data.doc : updatedParsed.data
+        if (updatedRaw.id !== inquiryId || updatedRaw.status !== status) {
+          return { error: "temporarily-unavailable", ok: false }
+        }
         return {
           ok: true,
           value: {

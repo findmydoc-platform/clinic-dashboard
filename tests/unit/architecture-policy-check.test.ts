@@ -1532,6 +1532,41 @@ describe("architecture policy checker process fixtures", () => {
     expect(output.match(/ERROR clinic-dashboard-controlled-mode-selection/gu)).toHaveLength(1)
   })
 
+  it("rejects namespace and transitive re-export bypasses of controlled mode selection", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/server/actions.ts": `
+        import * as environment from "../../../../lib/env"
+        export const dataSource = environment.isControlledAuthTestMode() ? "controlled" : "payload"
+      `,
+      "src/features/clinic-dashboard/messages/server/controlled-mode.ts": `
+        export { isControlledAuthTestMode as selectControlledDataSource } from "../../../../lib/env"
+      `,
+      "src/features/clinic-dashboard/messages/server/consumer.ts": `
+        import { selectControlledDataSource } from "./controlled-mode"
+        export const dataSource = selectControlledDataSource() ? "controlled" : "payload"
+      `,
+      "src/lib/env.ts": `
+        export function isControlledAuthTestMode() { return false }
+        export function validateEnvironment() { return {} }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR clinic-dashboard-controlled-mode-selection src/features/clinic-dashboard/messages/server/actions.ts",
+    )
+    expect(output).toContain(
+      "ERROR clinic-dashboard-controlled-mode-selection src/features/clinic-dashboard/messages/server/consumer.ts",
+    )
+    expect(output).toContain(
+      "ERROR clinic-dashboard-controlled-mode-selection src/features/clinic-dashboard/messages/server/controlled-mode.ts",
+    )
+    expect(output.match(/ERROR clinic-dashboard-controlled-mode-selection/gu)).toHaveLength(3)
+  })
+
   it("rejects client, story, and unrelated test imports of the private server entry", () => {
     const fixtureRoot = createFixture({
       "src/app/page.tsx": `

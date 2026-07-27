@@ -118,18 +118,33 @@ describe("Patient inquiry Payload adapter", () => {
       },
     })
     expect(fetcher).toHaveBeenCalledTimes(2)
-    expect(String(fetcher.mock.calls[0]?.[0])).toBe(
-      "https://preview.findmydoc.eu/api/patientClinicInquiries/inquiry-1",
-    )
-    expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
+    const [currentUrl, currentInit] = fetcher.mock.calls[0] ?? []
+    const [updateUrl, updateInit] = fetcher.mock.calls[1] ?? []
+    const expectedUrl = "https://preview.findmydoc.eu/api/patientClinicInquiries/inquiry-1"
+
+    expect(String(currentUrl)).toBe(expectedUrl)
+    expect(currentInit).toMatchObject({
       cache: "no-store",
       redirect: "error",
     })
-    expect(fetcher.mock.calls[1]?.[1]).toMatchObject({
+    expect(currentInit?.body).toBeUndefined()
+    expect(currentInit?.headers).toEqual({
+      Accept: "application/json",
+      Authorization: "Bearer access-token",
+    })
+    expect(currentInit?.method).toBeUndefined()
+
+    expect(String(updateUrl)).toBe(expectedUrl)
+    expect(updateInit).toMatchObject({
       body: '{"status":"in_review"}',
       cache: "no-store",
       method: "PATCH",
       redirect: "error",
+    })
+    expect(updateInit?.headers).toEqual({
+      Accept: "application/json",
+      Authorization: "Bearer access-token",
+      "Content-Type": "application/json",
     })
   })
 
@@ -164,18 +179,30 @@ describe("Patient inquiry Payload adapter", () => {
     })
   })
 
-  it("maps rejected writes, malformed data, and network failures without throwing", async () => {
-    const rejectedWrite = createPayloadPatientInquiryProvider(
+  it.each([
+    [400, "conflict"],
+    [401, "unauthorized"],
+    [403, "forbidden"],
+    [404, "not-found"],
+    [409, "conflict"],
+    [422, "conflict"],
+    [500, "temporarily-unavailable"],
+  ] as const)("maps a status-write HTTP %i response to %s", async (status, error) => {
+    const provider = createPayloadPatientInquiryProvider(
       "access-token",
       vi
         .fn<typeof fetch>()
         .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
-        .mockResolvedValueOnce(jsonResponse({ error: "conflict" }, 409)),
+        .mockResolvedValueOnce(jsonResponse({ error: "rejected" }, status)),
     )
-    await expect(
-      rejectedWrite.changeStatus({ inquiryId: "inquiry-1", status: "in_review" }),
-    ).resolves.toEqual({ error: "conflict", ok: false })
 
+    await expect(provider.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
+      error,
+      ok: false,
+    })
+  })
+
+  it("maps malformed queue data and queue network failures without throwing", async () => {
     const malformed = createPayloadPatientInquiryProvider(
       "access-token",
       vi.fn(async () => jsonResponse({ docs: [{ id: "inquiry-1" }] })) as typeof fetch,
@@ -192,6 +219,61 @@ describe("Patient inquiry Payload adapter", () => {
       }) as typeof fetch,
     )
     await expect(unavailable.loadQueue()).resolves.toEqual({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+  })
+
+  it("maps malformed status-write data and status-write network failures without throwing", async () => {
+    const malformed = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
+        .mockResolvedValueOnce(jsonResponse({ doc: { id: "inquiry-1" } })),
+    )
+    await expect(malformed.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+
+    const unavailable = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
+        .mockRejectedValueOnce(new Error("network unavailable")),
+    )
+    await expect(unavailable.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+  })
+
+  it.each([
+    ["current inquiry ID", { currentId: "inquiry-2", updatedId: undefined, updatedStatus: undefined }],
+    ["updated inquiry ID", { currentId: undefined, updatedId: "inquiry-2", updatedStatus: undefined }],
+    ["updated inquiry status", { currentId: undefined, updatedId: undefined, updatedStatus: "contacted" }],
+  ] as const)("fails closed when Payload returns a mismatched %s", async (_case, mismatch) => {
+    const currentInquiry = {
+      ...upstreamInquiry,
+      id: mismatch.currentId ?? upstreamInquiry.id,
+    }
+    const updatedInquiry = {
+      ...upstreamInquiry,
+      id: mismatch.updatedId ?? upstreamInquiry.id,
+      status: mismatch.updatedStatus ?? "in_review",
+      updatedAt: "2026-07-26T09:08:00.000Z",
+    }
+    const provider = createPayloadPatientInquiryProvider(
+      "access-token",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse(currentInquiry))
+        .mockResolvedValueOnce(jsonResponse({ doc: updatedInquiry })),
+    )
+
+    await expect(provider.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
       error: "temporarily-unavailable",
       ok: false,
     })
