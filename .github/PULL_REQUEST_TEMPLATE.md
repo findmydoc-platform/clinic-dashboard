@@ -46,6 +46,18 @@ user-facing UI, mobile behavior, accessibility, SEO, web vitals, or complex busi
 | -------- | ----------------- | -------------------------------------------- | ------------------------------- | -------------------------------------------- |
 | P1/P2/P3 | `path/to/file.ts` | Short concrete risk, not a generic category. | Specific question for reviewer. | Test, screenshot, log, or `Not yet covered`. |
 
+## Reviewer gate
+
+<!--
+Record only the compact gate status and decisions, never full reviewer transcripts.
+If the gate was not run, state why.
+-->
+
+- Reviewed diff:
+- Reviewer set:
+- Result:
+- Open, fixed, deferred, or excepted decisions:
+
 ## Validation
 
 <!-- Check every relevant item. If an item was not run or is not applicable, leave it unchecked and explain why after the colon. -->
