@@ -4,31 +4,25 @@ This document records the foundation setup for `findmydoc-platform/clinic-dashbo
 
 ## GitHub
 
-The repository is private and uses `main` as its default branch.
+The repository is public and uses `main` as its default branch.
 
 Available and configured:
 
 - GitHub Actions checks for CI, PR gates, workflow security, deep quality, and Vercel preview deployment
+- Dependency Review for pull requests, failing on high-severity dependency changes
+- GitHub secret scanning and push protection
+- An active production ruleset for `main` that requires pull requests, blocks deletion and non-fast-forward updates, and
+  enforces the configured code-scanning and code-quality thresholds
 - Read-only default `GITHUB_TOKEN` permissions
 - Squash merges only
 - Automatic deletion of merged branches
 - Repository-level Actions secrets and variables
-- Dependabot version updates without auto-merge
+- Dependabot version and security updates without auto-merge
 
 Available but advisory:
 
-- Pull-request checks and reviews run and remain visible, but do not block merges.
-- The team process requires green checks before merge.
-
-Unavailable for this private repository on the current GitHub Free organization plan:
-
-- Classic branch protection
-- Repository rulesets, including Evaluate mode
-- Required reviews or status checks
-- Protected GitHub Environments and environment secrets
-- Auto-merge
-
-Direct pushes and merges with failing checks cannot be prevented by repository policy under this plan.
+- The production ruleset does not require an approving review; the team can merge after the required automated checks
+  pass.
 
 ## Repository Actions Configuration
 
@@ -42,7 +36,7 @@ Repository variables:
 
 - `VERCEL_DEPLOYMENTS_ENABLED=true`
 - `VERCEL_PRODUCTION_DEPLOYMENTS_ENABLED=true`
-- `DEPENDENCY_REVIEW_ENABLED=false`
+- `DEPENDENCY_REVIEW_ENABLED=true`
 
 The pull-request Preview workflow accepts only non-draft, same-repository, non-Dependabot pull requests and publishes
 only the generated temporary deployment URL. A separate `push` workflow deploys the merged `main` revision as a

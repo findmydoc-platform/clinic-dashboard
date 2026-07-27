@@ -1,6 +1,10 @@
 import type { ClinicProfileDraft, MasterTreatment } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardSnapshot } from "@/features/clinic-dashboard/dashboard/public"
-import type { MessagesSnapshot, PatientInquiryProfile } from "@/features/clinic-dashboard/messages/public"
+import type {
+  MessagesSnapshot,
+  PatientInquiryProfile,
+  PatientInquiryQueueSnapshot,
+} from "@/features/clinic-dashboard/messages/public"
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import type { ClinicDashboardLocation, ClinicDashboardLocationId } from "./locations"
 import type { ClinicDashboardNotification } from "./notifications"
@@ -39,6 +43,7 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
     role: string
   }>
   defaultLocationId: ClinicDashboardLocationId
+  inquiryQueue: PatientInquiryQueueSnapshot
   locations: readonly ClinicDashboardLocation[]
   locationSnapshots: Readonly<Record<ClinicDashboardLocationId, ClinicDashboardLocationSnapshot>>
   notifications: readonly ClinicDashboardNotification[]

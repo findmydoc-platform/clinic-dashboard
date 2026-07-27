@@ -56,8 +56,18 @@ describe("workspace session persistence", () => {
   })
 
   it("keeps local actions functional when notification writes throw", () => {
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("Session storage is blocked.", "SecurityError")
+    const sessionStorage = window.sessionStorage
+    vi.spyOn(window, "sessionStorage", "get").mockReturnValue({
+      clear: sessionStorage.clear.bind(sessionStorage),
+      getItem: sessionStorage.getItem.bind(sessionStorage),
+      key: sessionStorage.key.bind(sessionStorage),
+      get length() {
+        return sessionStorage.length
+      },
+      removeItem: sessionStorage.removeItem.bind(sessionStorage),
+      setItem: () => {
+        throw new DOMException("Session storage is blocked.", "SecurityError")
+      },
     })
     const { result } = renderController(true)
 
@@ -103,14 +113,12 @@ describe("workspace session persistence", () => {
     act(() => result.current.actions.openNotification(notification, "Mitte", alternateProfileTask))
 
     expect(result.current.model.activeSection).toBe("messages")
-    expect(result.current.model.messageFocusTarget).toEqual({
-      conversationId: "mitte-active-conversation",
-    })
+    expect(result.current.model.messageFocusTarget).toBe("heading")
     expect(result.current.model.notificationReadIds).toEqual([notification.id])
     expect(result.current.model.profileTaskOpen).toBe(false)
     expect(result.current.model.profileFocusTarget).toBeUndefined()
     expect(result.current.model.supportOpen).toBe(false)
-    expect(result.current.model.locationAnnouncement).toBe("Opened conversation at Mitte.")
+    expect(result.current.model.locationAnnouncement).toBe("Opened messages at Mitte.")
   })
 
   it("requests heading focus for direct review navigation", () => {

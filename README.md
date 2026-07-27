@@ -41,6 +41,7 @@ Run:
     pnpm check
     pnpm ai:slop-check
     pnpm test:unit
+    pnpm test:integration
     pnpm test:storybook
     pnpm build-storybook
     pnpm test:e2e:smoke

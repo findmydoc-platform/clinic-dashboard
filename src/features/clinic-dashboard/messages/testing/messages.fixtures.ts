@@ -1,6 +1,11 @@
 import lukasWeberAvatar from "@/assets/clinic-dashboard/lukas-weber.jpg"
 import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
+import {
+  getPatientInquiryStatusTransitions,
+  type PatientInquiry,
+  type PatientInquiryQueueSnapshot,
+} from "../model/inquiries"
 import type { MessagesSnapshot, PatientInquiryProfile } from "../model/messages"
 
 export const messagesFixture = {
@@ -93,3 +98,33 @@ export const patientInquiryFixture = {
   phone: "+49 000 0000001",
   treatmentTimeline: "Within 3–6 months",
 } satisfies PatientInquiryProfile
+
+export const inquiryQueueFixture = {
+  inquiries: [
+    {
+      ...patientInquiryFixture,
+      availableTransitions: getPatientInquiryStatusTransitions("submitted"),
+      createdAt: "2026-07-26T08:54:00.000Z",
+      dateLabel: "26 July 2026",
+      status: "submitted",
+      timeLabel: "10:54",
+    },
+  ],
+  status: "ready",
+} satisfies PatientInquiryQueueSnapshot
+
+export const secondaryInquiryFixture = {
+  availableTransitions: getPatientInquiryStatusTransitions("submitted"),
+  contactWindow: "Mornings",
+  createdAt: "2026-07-26T08:12:00.000Z",
+  dateLabel: "26 July 2026",
+  email: "a.kaya@example.com",
+  id: "inquiry-aylin-kaya",
+  interest: "Dental veneers",
+  message: "I would like to understand the consultation process for dental veneers.",
+  name: "Aylin Kaya",
+  phone: "+49 000 0000002",
+  status: "submitted",
+  timeLabel: "10:12",
+  treatmentTimeline: "Within one month",
+} satisfies PatientInquiry

@@ -1427,6 +1427,42 @@ describe("architecture policy checker process fixtures", () => {
     expect(output.match(/ERROR clinic-dashboard-server-boundary/gu)).toHaveLength(3)
   })
 
+  it("allows the exact inquiry status route to use the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/app/api/dashboard/inquiries/[inquiryId]/status/route.ts": `
+        import { handlePatientInquiryStatusUpdate } from "../../../../../../features/clinic-dashboard/server"
+        export function PATCH(request: Request) {
+          return handlePatientInquiryStatusUpdate(request, "inquiry-1")
+        }
+      `,
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function handlePatientInquiryStatusUpdate() { return new Response() }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
+  })
+
+  it("allows the exact inquiry queue loading contract test to use the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function loadClinicDashboardWorkspaceInput() { return { inquiryQueue: [] } }
+      `,
+      "tests/integration/patient-inquiry-queue-loading.test.ts": `
+        import { loadClinicDashboardWorkspaceInput } from "../../src/features/clinic-dashboard/server"
+        export const source = loadClinicDashboardWorkspaceInput
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
+  })
+
   it("requires the private server entry to declare its server-only boundary", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/server.ts": `
