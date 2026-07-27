@@ -3,16 +3,10 @@ import "server-only"
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { resolveClinicDashboardMutationAccess } from "@/features/clinic-dashboard/auth/server/public"
-import { isControlledAuthTestMode } from "@/lib/env"
 import { validateMutationRequest } from "@/lib/security/csrf"
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
-import { isAllowedPatientInquiryStatusTransition, patientInquiryStatusValues } from "../model/inquiries"
-import { updateControlledPatientInquiryStatus } from "./controlled-inquiries"
-import {
-  fetchPatientInquiry,
-  isPatientInquiryPayloadError,
-  updatePatientInquiryStatus,
-} from "./payload-inquiries"
+import { patientInquiryStatusValues } from "../model/inquiries"
+import type { PatientInquiryChangeError, PatientInquiryProviderFactory } from "./patient-inquiry-provider"
 
 const inquiryIdSchema = z
   .string()
@@ -62,15 +56,19 @@ function accessErrorResponse(
   return privateJson({ code: "INQUIRY_UNAUTHORIZED" }, 401)
 }
 
-function payloadErrorResponse(error: Error & Readonly<{ kind: string }>) {
-  if (error.kind === "unauthorized") return privateJson({ code: "INQUIRY_UNAUTHORIZED" }, 401)
-  if (error.kind === "forbidden") return privateJson({ code: "INQUIRY_ACCESS_DENIED" }, 403)
-  if (error.kind === "not-found") return privateJson({ code: "INQUIRY_NOT_FOUND" }, 404)
-  if (error.kind === "conflict") return privateJson({ code: "INQUIRY_STATUS_CONFLICT" }, 409)
+function providerErrorResponse(error: PatientInquiryChangeError) {
+  if (error === "unauthorized") return privateJson({ code: "INQUIRY_UNAUTHORIZED" }, 401)
+  if (error === "forbidden") return privateJson({ code: "INQUIRY_ACCESS_DENIED" }, 403)
+  if (error === "not-found") return privateJson({ code: "INQUIRY_NOT_FOUND" }, 404)
+  if (error === "conflict") return privateJson({ code: "INQUIRY_STATUS_CONFLICT" }, 409)
   return privateJson({ code: "INQUIRY_SERVICE_UNAVAILABLE" }, 503)
 }
 
-export async function handlePatientInquiryStatusUpdate(request: NextRequest, inquiryIdValue: string) {
+export async function handlePatientInquiryStatusUpdate(
+  request: NextRequest,
+  inquiryIdValue: string,
+  createProvider: PatientInquiryProviderFactory,
+) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
   const inquiryId = inquiryIdSchema.safeParse(inquiryIdValue)
@@ -83,21 +81,13 @@ export async function handlePatientInquiryStatusUpdate(request: NextRequest, inq
   }
 
   try {
-    let result: Awaited<ReturnType<typeof updatePatientInquiryStatus>> | undefined
-    if (isControlledAuthTestMode()) {
-      result = updateControlledPatientInquiryStatus(inquiryId.data, input.data.status)
-    } else {
-      const currentInquiry = await fetchPatientInquiry(authorization.accessToken, inquiryId.data)
-      result = isAllowedPatientInquiryStatusTransition(currentInquiry.status, input.data.status)
-        ? await updatePatientInquiryStatus(authorization.accessToken, inquiryId.data, input.data.status)
-        : undefined
-    }
-    const response = result ? privateJson(result) : privateJson({ code: "INQUIRY_STATUS_CONFLICT" }, 409)
+    const result = await createProvider(authorization.accessToken).changeStatus({
+      inquiryId: inquiryId.data,
+      status: input.data.status,
+    })
+    const response = result.ok ? privateJson(result.value) : providerErrorResponse(result.error)
     return authorization.applyToResponse(response)
-  } catch (error) {
-    const response = isPatientInquiryPayloadError(error)
-      ? payloadErrorResponse(error)
-      : privateJson({ code: "INQUIRY_SERVICE_UNAVAILABLE" }, 503)
-    return authorization.applyToResponse(response)
+  } catch {
+    return authorization.applyToResponse(privateJson({ code: "INQUIRY_SERVICE_UNAVAILABLE" }, 503))
   }
 }

@@ -6,6 +6,9 @@
 > **Paired website architecture:**
 > [Clinic Dashboard application and API architecture](https://github.com/findmydoc-platform/website/blob/main/docs/integrations/clinic-dashboard-api.md)
 >
+> **Dashboard live-domain composition:**
+> [ADR 0003: Domain Data Provider Composition](adr/0003-domain-data-provider-composition.md)
+>
 > **Repository responsibility:** This repository owns the Dashboard BFF, session cookies, password login, explicitly confirmed TokenHash callbacks,
 > refresh and logout, server-only Payload client, capability-specific Route Handlers, environment validation, and
 > user-facing auth and upstream-error states. The website repository owns Payload authentication, authorization,
@@ -17,9 +20,9 @@
 
 ## Runtime Status and Scope
 
-The Supabase session boundary and Payload bootstrap are implemented. Trusted preview and production rollout evidence
-remain required before cutover. Authenticated staff and clinic identity are real; all dashboard business content remains
-fixture-backed and visibly marked as demo data.
+The Supabase session boundary, Payload bootstrap, and patient-inquiry domain are implemented. Authenticated staff,
+clinic identity, inquiry reads, and inquiry status changes are live in normal mode. The remaining Dashboard business
+content stays fixture-backed and visibly marked as demo data.
 
 This document records the durable authentication and Backend for Frontend architecture of the stateless Next.js
 application. It is not an execution plan. The Dashboard owns no database, durable business cache, Supabase service-role
@@ -30,7 +33,9 @@ key, browser-readable auth token, or generic Payload proxy.
 ```text
 Dashboard Browser
   -> React Server Component or same-origin Route Handler
-  -> server-only Payload client with current Supabase access token
+  -> root server composition with current Supabase access token
+  -> domain-specific server-only provider
+  -> exact Payload request sequence
   -> Payload REST or focused custom endpoint
   -> current clinicStaff authorization and purpose-specific DTO
 ```
@@ -43,14 +48,16 @@ Payload path, collection, query, actor, clinic, or authorization scope.
 
 The architecture keeps these responsibilities separate:
 
-| Module                     | Responsibility                                                                                                                 | Prohibited responsibility                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Environment contract       | Validate Dashboard origin, exact Supabase project URL, publishable key, Payload API URL, and environment pairing at startup.   | Deriving trust from an unchecked request `Host` header.                                    |
-| Server Supabase factory    | Create one cookie-aware client per request and expose login, callback, refresh, logout, and current-session operations.        | Global clients, browser clients, service-role operations, or shared user state.            |
-| Session cookie adapter     | Read request cookies and apply every returned cookie and cache header to the final response.                                   | Exposing access or refresh tokens to Client Components.                                    |
-| Server-only Payload client | Send the current access token as a Bearer token and map upstream failures.                                                     | Direct database access or accepting browser-provided Payload paths.                        |
-| Dashboard data layer       | Fetch typed capability DTOs for React Server Components and request-local deduplication.                                       | Persistent caching or internal HTTP calls to Route Handlers.                               |
-| Route Handlers             | Compose one shared mutation guard for session, input, exact origin, session-bound HMAC-CSRF, and capability-specific commands. | Reimplementing Payload tenant or permission decisions or duplicating CSRF logic per route. |
+| Module                       | Responsibility                                                                                                                 | Prohibited responsibility                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Environment contract         | Validate Dashboard origin, exact Supabase project URL, publishable key, Payload API URL, and environment pairing at startup.   | Deriving trust from an unchecked request `Host` header.                                  |
+| Server Supabase factory      | Create one cookie-aware client per request and expose login, callback, refresh, logout, and current-session operations.        | Global clients, browser clients, service-role operations, or shared user state.          |
+| Session cookie adapter       | Read request cookies and apply every returned cookie and cache header to the final response.                                   | Exposing access or refresh tokens to Client Components.                                  |
+| Domain provider composition  | Bind a verified token request-locally and select each approved domain's Controlled or Payload provider in one place.           | Dynamic registration, route logic, automatic fallback, or Controlled data when deployed. |
+| Domain provider contract     | Expose meaningful typed reads and changes with closed sanitized results for one live domain.                                   | Transport sequences, UI state, raw upstream documents, or broad repository operations.   |
+| Server-only provider adapter | Send the current access token to exact Payload resources, validate responses, minimize DTOs, and map upstream failures.        | Direct database access or accepting browser-provided Payload paths.                      |
+| Dashboard server composition | Combine the remaining fixture workspace with approved live-domain results for React Server Components.                         | Persistent caching or internal HTTP calls to Route Handlers.                             |
+| Route Handlers               | Compose one shared mutation guard for session, input, exact origin, session-bound HMAC-CSRF, and capability-specific commands. | Reimplementing Payload tenant or permission decisions or duplicating provider logic.     |
 
 Server-only modules must use the framework's server-only boundary and must never be imported by Client Components or
 Storybook.
@@ -126,14 +133,15 @@ validation. Payload receives only the authorized business request and requires n
 
 ## Payload Client and DTO Contract
 
-The Payload client receives an access token only from the current server session. It uses REST resources and focused
-custom endpoints from the paired website architecture. The first custom contract is the self-and-capability bootstrap.
+Payload provider adapters receive an access token only from the current server session. They use REST resources and
+focused custom endpoints from the paired website architecture. The first custom contract is the self-and-capability
+bootstrap.
 
 For each environment, the client accepts one exact HTTPS Payload origin and configures authenticated fetches to reject
 redirects. An origin mismatch, non-HTTPS target, or cross-environment URL fails before the first token-bearing request.
 A redirect response fails without sending the Bearer token to the redirect target.
 
-The Dashboard consumes this synchronized initial contract:
+The Dashboard consumes this synchronized bootstrap contract:
 
 ```ts
 type ClinicDashboardCapability = "clinic-profile:view" | "clinic-profile:edit"
@@ -157,8 +165,15 @@ The capability list contains each value exactly once in the order shown. It is a
 editing controls, not a replacement for Payload authorization. Each later read or mutation must still authorize the
 current principal, clinic, document, and fields.
 
-The client rejects a response that does not match the expected DTO. It never forwards raw Payload documents, Supabase
-identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
+The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
+Supabase identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
+
+The patient-inquiry domain uses one private `PatientInquiryProvider` for both `loadQueue()` and
+`changeStatus({ inquiryId, status })`. Its Payload adapter owns the current-record read, transition validation, and
+status write; the browser and Route Handler do not observe that sequence. The adapter validates website responses and
+projects only the approved inquiry fields. Its Controlled implementation is selected by the existing local test mode,
+uses the same provider contract, and is impossible to enable in Preview or Production. No Payload failure selects
+Controlled data.
 
 ## Error and UI State Mapping
 
@@ -188,6 +203,12 @@ Every upstream bootstrap response is private and carries `Cache-Control: private
 
 All protected pages require explicit loading, empty, forbidden, expired-session, and upstream-unavailable states before
 their temporary prototype gate is removed.
+
+Patient-inquiry providers return only closed domain errors. Queue failures map to the existing
+`temporarily-unavailable` UI state. The status route maps `not-found` to `404 INQUIRY_NOT_FOUND`, `conflict` to
+`409 INQUIRY_STATUS_CONFLICT`, and an unavailable or malformed upstream response to
+`503 INQUIRY_SERVICE_UNAVAILABLE`. Existing session, access, origin, CSRF, input, and private-cache responses are
+unchanged.
 
 ## Environment Contract
 
@@ -230,6 +251,12 @@ The architecture remains valid only while the following properties hold:
 - Contract-test that every authenticated state-changing Route Handler composes the central mutation guard and that
   Payload requires no CSRF-specific behavior.
 - Contract-test the bootstrap DTO and every stable error mapping against the synchronized website contract.
+- Run the same patient-inquiry provider contract against Controlled and Payload implementations, including queue shape,
+  allowed changes, unknown IDs, and conflicting transitions.
+- Verify composition selects Controlled only in local test mode, selects Payload otherwise, rejects missing tokens, and
+  fails closed in Preview and Production.
+- Verify architecture process fixtures reject concrete providers, private provider contracts, or mode selection in UI,
+  App Router, Storybook, and unrelated tests.
 - Verify that Client Component bundles and Storybook contain no Supabase client, access token, refresh token, service
   role, or server-only Payload module.
 - Verify through browser network evidence that application data requests stay on the Dashboard origin and no browser
@@ -248,4 +275,4 @@ The architecture remains valid only while the following properties hold:
 - A Dashboard database, durable copy of Payload data, shared authenticated cache, or service-role credential.
 - Stable pull-request-number aliases or a callback relay application.
 - Portal session transfer or a clinic login form in the portal.
-- Capability-specific business features beyond their shared BFF and API boundary.
+- Capability-specific business features beyond the approved patient-inquiry domain.

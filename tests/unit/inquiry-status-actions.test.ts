@@ -1,8 +1,18 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { handlePatientInquiryStatusUpdate } from "@/features/clinic-dashboard/messages/server/public"
+import type { PatientInquiryProviderFactory } from "@/features/clinic-dashboard/messages/server/patient-inquiry-provider"
 import { createCsrfToken } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
+
+const providerMocks = vi.hoisted(() => ({
+  changeStatus: vi.fn(),
+}))
+
+const createProvider = vi.fn((_: string) => ({
+  changeStatus: providerMocks.changeStatus,
+  loadQueue: vi.fn(),
+})) satisfies PatientInquiryProviderFactory
 
 function statusRequest(status: string, session = true, csrf = true) {
   const url = "http://localhost:3000/api/dashboard/inquiries/inquiry-lukas-weber/status"
@@ -47,12 +57,40 @@ describe("Patient inquiry status mutation", () => {
     vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
     vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
+    providerMocks.changeStatus.mockResolvedValue({
+      ok: true,
+      value: {
+        changedAt: "11:08",
+        inquiry: {
+          availableTransitions: ["contacted", "closed", "spam"],
+          contactWindow: "Weekdays after 16:00",
+          createdAt: "2026-07-26T08:54:00.000Z",
+          dateLabel: "26 July 2026",
+          email: "l.weber@example.com",
+          id: "inquiry-lukas-weber",
+          interest: "Hair transplant",
+          message: "I am interested in a hair transplant and would like to know which documents to prepare.",
+          name: "Lukas Weber",
+          phone: "+49 000 0000001",
+          status: "in_review",
+          timeLabel: "10:54",
+          treatmentTimeline: "Within 3–6 months",
+        },
+      },
+    })
   })
 
-  afterEach(() => vi.unstubAllEnvs())
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+  })
 
-  it("accepts an allowed transition for an authenticated clinic session", async () => {
-    const response = await handlePatientInquiryStatusUpdate(statusRequest("in_review"), "inquiry-lukas-weber")
+  it("delegates an allowed transition to the request-scoped provider", async () => {
+    const response = await handlePatientInquiryStatusUpdate(
+      statusRequest("in_review"),
+      "inquiry-lukas-weber",
+      createProvider,
+    )
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
@@ -63,23 +101,39 @@ describe("Patient inquiry status mutation", () => {
         status: "in_review",
       },
     })
+    expect(createProvider).toHaveBeenCalledWith("controlled-access-token")
+    expect(providerMocks.changeStatus).toHaveBeenCalledWith({
+      inquiryId: "inquiry-lukas-weber",
+      status: "in_review",
+    })
     expectPrivate(response)
   })
 
-  it("rejects invalid input and disallowed transitions", async () => {
-    const invalid = await handlePatientInquiryStatusUpdate(statusRequest("unknown"), "inquiry-lukas-weber")
+  it("rejects invalid input and maps provider conflicts", async () => {
+    const invalid = await handlePatientInquiryStatusUpdate(
+      statusRequest("unknown"),
+      "inquiry-lukas-weber",
+      createProvider,
+    )
     expect(invalid.status).toBe(400)
     await expect(invalid.json()).resolves.toEqual({ code: "INVALID_INPUT" })
+    expect(providerMocks.changeStatus).not.toHaveBeenCalled()
 
-    const conflict = await handlePatientInquiryStatusUpdate(statusRequest("submitted"), "inquiry-lukas-weber")
+    providerMocks.changeStatus.mockResolvedValueOnce({ error: "conflict", ok: false })
+    const conflict = await handlePatientInquiryStatusUpdate(
+      statusRequest("submitted"),
+      "inquiry-lukas-weber",
+      createProvider,
+    )
     expect(conflict.status).toBe(409)
     await expect(conflict.json()).resolves.toEqual({ code: "INQUIRY_STATUS_CONFLICT" })
   })
 
-  it("requires CSRF proof and an authenticated clinic session", async () => {
+  it("requires CSRF proof and an authenticated clinic session before composition", async () => {
     const rejected = await handlePatientInquiryStatusUpdate(
       statusRequest("in_review", true, false),
       "inquiry-lukas-weber",
+      createProvider,
     )
     expect(rejected.status).toBe(403)
     await expect(rejected.json()).resolves.toEqual({ code: "REQUEST_REJECTED" })
@@ -87,8 +141,10 @@ describe("Patient inquiry status mutation", () => {
     const unauthenticated = await handlePatientInquiryStatusUpdate(
       statusRequest("in_review", false),
       "inquiry-lukas-weber",
+      createProvider,
     )
     expect(unauthenticated.status).toBe(401)
     await expect(unauthenticated.json()).resolves.toEqual({ code: "INQUIRY_UNAUTHORIZED" })
+    expect(createProvider).not.toHaveBeenCalled()
   })
 })
