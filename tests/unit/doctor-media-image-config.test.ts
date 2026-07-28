@@ -35,15 +35,19 @@ describe("doctor media image configuration", () => {
       dangerouslyAllowLocalIP: false,
       remotePatterns: [],
     })
+    expect(createDoctorMediaImageConfig("")).toEqual({
+      dangerouslyAllowLocalIP: false,
+      remotePatterns: [],
+    })
   })
 
   it("rejects non-HTTP origins and embedded credentials", () => {
     expect(() => createDoctorMediaRemotePatterns("ftp://findmydoc.eu")).toThrow(
       "PAYLOAD_API_URL must use HTTP or HTTPS",
     )
-    expect(() => createDoctorMediaRemotePatterns("https://user:secret@findmydoc.eu")).toThrow(
-      "PAYLOAD_API_URL must not contain credentials",
-    )
+    expect(
+      () => createDoctorMediaRemotePatterns("https://user:secret@findmydoc.eu"), // pragma: allowlist secret
+    ).toThrow("PAYLOAD_API_URL must not contain credentials")
   })
 
   it.each([

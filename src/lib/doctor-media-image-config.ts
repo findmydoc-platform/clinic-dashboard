@@ -45,8 +45,7 @@ export function createDoctorMediaImageConfig(
   const remotePatterns = createDoctorMediaRemotePatterns(payloadApiUrl)
 
   return {
-    dangerouslyAllowLocalIP:
-      payloadApiUrl !== undefined && isLoopbackHostname(new URL(payloadApiUrl).hostname),
+    dangerouslyAllowLocalIP: payloadApiUrl ? isLoopbackHostname(new URL(payloadApiUrl).hostname) : false,
     remotePatterns,
   }
 }
