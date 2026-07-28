@@ -8,7 +8,7 @@ import {
   doctorSpecializationLevelValues,
   doctorTitleValues,
 } from "../model/doctor-profile"
-import type { DoctorProfileCommands } from "../model/doctor-profile-commands"
+import { DoctorProfileCommandError, type DoctorProfileCommands } from "../model/doctor-profile-commands"
 
 const doctorSpecialtySchema = z.object({
   id: z.string(),
@@ -43,19 +43,26 @@ const doctorImageReplaceSchema = z.object({
 
 async function submitJson(endpoint: string, method: "PATCH" | "POST", body: unknown) {
   const csrfToken = readBrowserCsrfToken(document.cookie)
-  if (!csrfToken) throw new Error("Missing request verification.")
+  if (!csrfToken) throw new DoctorProfileCommandError("rejected", "Missing request verification.")
 
-  const response = await fetch(endpoint, {
-    body: JSON.stringify(body),
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      [CLINIC_DASHBOARD_CSRF_HEADER]: csrfToken,
-    },
-    method,
-    redirect: "error",
-  }).catch(() => undefined)
-  if (!response?.ok) throw new Error("Doctor profile update failed.")
+  let response: Response
+  try {
+    response = await fetch(endpoint, {
+      body: JSON.stringify(body),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        [CLINIC_DASHBOARD_CSRF_HEADER]: csrfToken,
+      },
+      method,
+      redirect: "error",
+    })
+  } catch {
+    throw new DoctorProfileCommandError("unknown", "Doctor profile update outcome is unknown.")
+  }
+  if (!response.ok) {
+    throw new DoctorProfileCommandError("rejected", "Doctor profile update failed.")
+  }
 
   return response.json().catch(() => null)
 }
@@ -64,7 +71,9 @@ export function createDoctorProfileApiCommands(): DoctorProfileCommands {
   return {
     async createDoctor(input) {
       const parsed = doctorProfileSchema.safeParse(await submitJson("/api/dashboard/doctors", "POST", input))
-      if (!parsed.success) throw new Error("Doctor profile response was invalid.")
+      if (!parsed.success) {
+        throw new DoctorProfileCommandError("unknown", "Doctor profile response was invalid.")
+      }
       return parsed.data
     },
     async createSpecialty(doctorId, input) {
@@ -76,22 +85,31 @@ export function createDoctorProfileApiCommands(): DoctorProfileCommands {
     },
     async replaceImage(doctorId, input) {
       const csrfToken = readBrowserCsrfToken(document.cookie)
-      if (!csrfToken) throw new Error("Missing request verification.")
+      if (!csrfToken) throw new DoctorProfileCommandError("rejected", "Missing request verification.")
 
       const body = new FormData()
       body.set("alt", input.alt)
       body.set("file", input.file)
-      const response = await fetch(`/api/dashboard/doctors/${encodeURIComponent(doctorId)}/image`, {
-        body,
-        credentials: "same-origin",
-        headers: { [CLINIC_DASHBOARD_CSRF_HEADER]: csrfToken },
-        method: "POST",
-        redirect: "error",
-      }).catch(() => undefined)
-      if (!response?.ok) throw new Error("Doctor image update failed.")
+      let response: Response
+      try {
+        response = await fetch(`/api/dashboard/doctors/${encodeURIComponent(doctorId)}/image`, {
+          body,
+          credentials: "same-origin",
+          headers: { [CLINIC_DASHBOARD_CSRF_HEADER]: csrfToken },
+          method: "POST",
+          redirect: "error",
+        })
+      } catch {
+        throw new DoctorProfileCommandError("unknown", "Doctor image update outcome is unknown.")
+      }
+      if (!response.ok) {
+        throw new DoctorProfileCommandError("rejected", "Doctor image update failed.")
+      }
 
       const parsed = doctorImageReplaceSchema.safeParse(await response.json().catch(() => null))
-      if (!parsed.success) throw new Error("Doctor profile response was invalid.")
+      if (!parsed.success) {
+        throw new DoctorProfileCommandError("unknown", "Doctor profile response was invalid.")
+      }
       return parsed.data
     },
     async updateDoctor(doctorId, input) {

@@ -138,16 +138,21 @@ describe("Doctor profile Payload adapter", () => {
   })
 
   it("creates doctors inactive with the server-derived clinic identity", async () => {
+    const numericDoctor = {
+      ...upstreamDoctor,
+      clinic: 7,
+      id: 14,
+    }
     const fetcher = vi.fn<typeof fetch>(async () =>
       jsonResponse({
         doc: {
-          ...upstreamDoctor,
+          ...numericDoctor,
           active: false,
           profileImage: null,
         },
       }),
     )
-    const provider = createPayloadDoctorProfileProvider("access-token", "clinic-1", fetcher)
+    const provider = createPayloadDoctorProfileProvider("access-token", "7", fetcher)
 
     const result = await provider.createDoctor({
       biography: "Cardiology biography.",
@@ -160,13 +165,13 @@ describe("Doctor profile Payload adapter", () => {
       title: "dr",
     })
 
-    expect(result).toMatchObject({ ok: true, value: { active: false, id: "doctor-1" } })
+    expect(result).toMatchObject({ ok: true, value: { active: false, id: "14" } })
     const [url, init] = fetcher.mock.calls[0] ?? []
     expect(String(url)).toContain("/api/doctors?depth=1")
     expect(JSON.parse(String(init?.body))).toEqual({
       active: false,
       biography: "Cardiology biography.",
-      clinic: "clinic-1",
+      clinic: 7,
       experienceYears: 12,
       firstName: "Amelia",
       gender: "female",
@@ -176,6 +181,34 @@ describe("Doctor profile Payload adapter", () => {
       title: "dr",
     })
   })
+
+  it.each(["clinic-alpha", "001", "9007199254740992"])(
+    "preserves non-numeric Payload relationship id %s",
+    async (clinicId) => {
+      const fetcher = vi.fn<typeof fetch>(async (_input, init) => {
+        expect(JSON.parse(String(init?.body))).toMatchObject({ clinic: clinicId })
+        return jsonResponse({
+          doc: {
+            ...upstreamDoctor,
+            active: false,
+            clinic: clinicId,
+            profileImage: null,
+          },
+        })
+      })
+      const provider = createPayloadDoctorProfileProvider("access-token", clinicId, fetcher)
+
+      await expect(
+        provider.createDoctor({
+          firstName: "Amelia",
+          gender: "female",
+          languages: ["english"],
+          lastName: "Carter",
+          qualifications: ["MD"],
+        }),
+      ).resolves.toMatchObject({ ok: true })
+    },
+  )
 
   it("fails closed before a cross-clinic doctor update", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ docs: [] }))
@@ -189,6 +222,35 @@ describe("Doctor profile Payload adapter", () => {
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(
       "where%5Band%5D%5B0%5D%5Bclinic%5D%5Bequals%5D=clinic-1",
     )
+  })
+
+  it.each([
+    [400, "invalid-input"],
+    [422, "invalid-input"],
+    [409, "conflict"],
+  ] as const)("maps a Payload %i mutation response to %s", async (status, expectedError) => {
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/doctors" && !init?.method) {
+        return jsonResponse({ docs: [upstreamDoctor] })
+      }
+      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+        return jsonResponse({ docs: [upstreamAssignment] })
+      }
+      if (url.pathname === "/api/medical-specialties" && !init?.method) {
+        return jsonResponse({ docs: upstreamSpecialties })
+      }
+      if (url.pathname === "/api/doctors/doctor-1" && init?.method === "PATCH") {
+        return jsonResponse({ error: "rejected" }, status)
+      }
+      return jsonResponse({}, 500)
+    })
+    const provider = createPayloadDoctorProfileProvider("access-token", "clinic-1", fetcher)
+
+    await expect(provider.updateDoctor("doctor-1", { biography: "Updated." })).resolves.toEqual({
+      error: expectedError,
+      ok: false,
+    })
   })
 
   it("accepts only catalogued specialties", async () => {
@@ -217,11 +279,24 @@ describe("Doctor profile Payload adapter", () => {
   })
 
   it("creates a reviewed specialty and maps the successful Payload response", async () => {
+    const numericDoctor = {
+      ...upstreamDoctor,
+      clinic: 7,
+      id: 14,
+    }
+    const numericSpecialties = [
+      { id: 34, name: "Cardiology", parentSpecialty: null },
+      {
+        id: 35,
+        name: "Interventional Cardiology",
+        parentSpecialty: { id: 34, name: "Cardiology" },
+      },
+    ]
     const createdAssignment = {
-      doctor: "doctor-1",
-      id: "assignment-2",
+      doctor: 14,
+      id: 16,
       medicalSpecialty: {
-        id: "specialty-interventional-cardiology",
+        id: 35,
         name: "Interventional Cardiology",
       },
       specializationLevel: "expert",
@@ -229,36 +304,36 @@ describe("Doctor profile Payload adapter", () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
       if (url.pathname === "/api/doctors" && !init?.method) {
-        return jsonResponse({ docs: [upstreamDoctor] })
+        return jsonResponse({ docs: [numericDoctor] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
-        return jsonResponse({ docs: upstreamSpecialties })
+        return jsonResponse({ docs: numericSpecialties })
       }
       if (url.pathname === "/api/doctorspecialties" && !init?.method) {
         return jsonResponse({ docs: [] })
       }
       if (url.pathname === "/api/doctorspecialties" && init?.method === "POST") {
         expect(JSON.parse(String(init.body))).toEqual({
-          doctor: "doctor-1",
-          medicalSpecialty: "specialty-interventional-cardiology",
+          doctor: 14,
+          medicalSpecialty: 35,
           specializationLevel: "expert",
         })
         return jsonResponse({ doc: createdAssignment }, 201)
       }
       return jsonResponse({}, 500)
     })
-    const provider = createPayloadDoctorProfileProvider("access-token", "clinic-1", fetcher)
+    const provider = createPayloadDoctorProfileProvider("access-token", "7", fetcher)
 
     await expect(
-      provider.createSpecialty("doctor-1", {
-        medicalSpecialtyId: "specialty-interventional-cardiology",
+      provider.createSpecialty("14", {
+        medicalSpecialtyId: "35",
         specializationLevel: "expert",
       }),
     ).resolves.toEqual({
       ok: true,
       value: {
-        id: "assignment-2",
-        medicalSpecialtyId: "specialty-interventional-cardiology",
+        id: "16",
+        medicalSpecialtyId: "35",
         medicalSpecialtyName: "Interventional Cardiology",
         specializationLevel: "expert",
       },
@@ -299,29 +374,48 @@ describe("Doctor profile Payload adapter", () => {
   })
 
   it("updates an existing specialty through its doctor-scoped assignment", async () => {
+    const numericDoctor = {
+      ...upstreamDoctor,
+      clinic: 7,
+      id: 14,
+    }
+    const numericSpecialties = [
+      { id: 34, name: "Cardiology", parentSpecialty: null },
+      {
+        id: 35,
+        name: "Interventional Cardiology",
+        parentSpecialty: { id: 34, name: "Cardiology" },
+      },
+    ]
+    const numericAssignment = {
+      doctor: 14,
+      id: 17,
+      medicalSpecialty: { id: 34, name: "Cardiology" },
+      specializationLevel: "specialist",
+    }
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
       if (url.pathname === "/api/doctors" && !init?.method) {
-        return jsonResponse({ docs: [upstreamDoctor] })
+        return jsonResponse({ docs: [numericDoctor] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
-        return jsonResponse({ docs: upstreamSpecialties })
+        return jsonResponse({ docs: numericSpecialties })
       }
       if (url.pathname === "/api/doctorspecialties" && !init?.method) {
-        expect(url.searchParams.get("where[and][0][doctor][equals]")).toBe("doctor-1")
-        expect(url.searchParams.get("where[and][1][id][equals]")).toBe("assignment-1")
-        return jsonResponse({ docs: [upstreamAssignment] })
+        expect(url.searchParams.get("where[and][0][doctor][equals]")).toBe("14")
+        expect(url.searchParams.get("where[and][1][id][equals]")).toBe("17")
+        return jsonResponse({ docs: [numericAssignment] })
       }
-      if (url.pathname === "/api/doctorspecialties/assignment-1" && init?.method === "PATCH") {
+      if (url.pathname === "/api/doctorspecialties/17" && init?.method === "PATCH") {
         expect(JSON.parse(String(init.body))).toEqual({
-          medicalSpecialty: "specialty-interventional-cardiology",
+          medicalSpecialty: 35,
           specializationLevel: "expert",
         })
         return jsonResponse({
           doc: {
-            ...upstreamAssignment,
+            ...numericAssignment,
             medicalSpecialty: {
-              id: "specialty-interventional-cardiology",
+              id: 35,
               name: "Interventional Cardiology",
             },
             specializationLevel: "expert",
@@ -330,18 +424,18 @@ describe("Doctor profile Payload adapter", () => {
       }
       return jsonResponse({}, 500)
     })
-    const provider = createPayloadDoctorProfileProvider("access-token", "clinic-1", fetcher)
+    const provider = createPayloadDoctorProfileProvider("access-token", "7", fetcher)
 
     await expect(
-      provider.updateSpecialty("doctor-1", "assignment-1", {
-        medicalSpecialtyId: "specialty-interventional-cardiology",
+      provider.updateSpecialty("14", "17", {
+        medicalSpecialtyId: "35",
         specializationLevel: "expert",
       }),
     ).resolves.toMatchObject({
       ok: true,
       value: {
-        id: "assignment-1",
-        medicalSpecialtyId: "specialty-interventional-cardiology",
+        id: "17",
+        medicalSpecialtyId: "35",
         specializationLevel: "expert",
       },
     })
@@ -349,62 +443,78 @@ describe("Doctor profile Payload adapter", () => {
 
   it("replaces the doctor image before cleaning up the previous media", async () => {
     const calls: string[] = []
+    const numericDoctor = {
+      ...upstreamDoctor,
+      clinic: 7,
+      id: 14,
+      profileImage: {
+        ...upstreamDoctor.profileImage,
+        id: 22,
+      },
+    }
+    const numericAssignment = {
+      ...upstreamAssignment,
+      doctor: 14,
+      id: 17,
+      medicalSpecialty: { id: 34, name: "Cardiology" },
+    }
+    const numericSpecialties = [{ id: 34, name: "Cardiology", parentSpecialty: null }]
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
       calls.push(`${init?.method ?? "GET"} ${url.pathname}`)
       if (url.pathname === "/api/doctors" && !init?.method) {
-        return jsonResponse({ docs: [upstreamDoctor] })
+        return jsonResponse({ docs: [numericDoctor] })
       }
       if (url.pathname === "/api/doctorspecialties" && !init?.method) {
-        return jsonResponse({ docs: [upstreamAssignment] })
+        return jsonResponse({ docs: [numericAssignment] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
-        return jsonResponse({ docs: upstreamSpecialties })
+        return jsonResponse({ docs: numericSpecialties })
       }
       if (url.pathname === "/api/doctorMedia" && init?.method === "POST") {
         const formData = init.body as FormData
         expect(JSON.parse(String(formData.get("_payload")))).toEqual({
           alt: "Updated portrait",
-          clinic: "clinic-1",
-          doctor: "doctor-1",
+          clinic: 7,
+          doctor: 14,
         })
         return jsonResponse({
           doc: {
             alt: "Updated portrait",
-            clinic: "clinic-1",
-            doctor: "doctor-1",
-            id: "media-new",
+            clinic: 7,
+            doctor: 14,
+            id: 23,
             url: "/api/doctorMedia/file/amelia-new.png",
           },
         })
       }
       if (url.pathname === "/api/doctors" && init?.method === "PATCH") {
-        expect(init.body).toBe('{"profileImage":"media-new"}')
-        expect(url.searchParams.get("where[and][0][clinic][equals]")).toBe("clinic-1")
-        expect(url.searchParams.get("where[and][1][id][equals]")).toBe("doctor-1")
-        expect(url.searchParams.get("where[and][2][profileImage][equals]")).toBe("media-old")
+        expect(init.body).toBe('{"profileImage":23}')
+        expect(url.searchParams.get("where[and][0][clinic][equals]")).toBe("7")
+        expect(url.searchParams.get("where[and][1][id][equals]")).toBe("14")
+        expect(url.searchParams.get("where[and][2][profileImage][equals]")).toBe("22")
         return jsonResponse({
           docs: [
             {
-              ...upstreamDoctor,
+              ...numericDoctor,
               profileImage: {
                 alt: "Updated portrait",
-                id: "media-new",
+                id: 23,
                 url: "/api/doctorMedia/file/amelia-new.png",
               },
             },
           ],
         })
       }
-      if (url.pathname === "/api/doctorMedia/media-old" && init?.method === "DELETE") {
+      if (url.pathname === "/api/doctorMedia/22" && init?.method === "DELETE") {
         return new Response(null, { status: 200 })
       }
       return jsonResponse({}, 500)
     })
-    const provider = createPayloadDoctorProfileProvider("access-token", "clinic-1", fetcher)
+    const provider = createPayloadDoctorProfileProvider("access-token", "7", fetcher)
 
     await expect(
-      provider.replaceImage("doctor-1", {
+      provider.replaceImage("14", {
         alt: "Updated portrait",
         bytes: new Uint8Array([1, 2, 3]),
         fileName: "amelia-new.png",
@@ -415,8 +525,8 @@ describe("Doctor profile Payload adapter", () => {
       value: {
         cleanupPending: false,
         profile: {
-          image: { id: "media-new" },
-          specialties: [{ id: "assignment-1" }],
+          image: { id: "23" },
+          specialties: [{ id: "17" }],
         },
       },
     })
@@ -426,11 +536,12 @@ describe("Doctor profile Payload adapter", () => {
       "GET /api/medical-specialties",
       "POST /api/doctorMedia",
       "PATCH /api/doctors",
-      "DELETE /api/doctorMedia/media-old",
+      "DELETE /api/doctorMedia/22",
     ])
   })
 
   it("returns the active image with a cleanup warning when old media deletion fails", async () => {
+    let cleanupAttempts = 0
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
       if (url.pathname === "/api/doctors" && !init?.method) {
@@ -468,6 +579,7 @@ describe("Doctor profile Payload adapter", () => {
         })
       }
       if (url.pathname === "/api/doctorMedia/media-old" && init?.method === "DELETE") {
+        cleanupAttempts += 1
         return jsonResponse({ code: "UNAVAILABLE" }, 500)
       }
       return jsonResponse({}, 500)
@@ -488,6 +600,75 @@ describe("Doctor profile Payload adapter", () => {
         profile: { image: { id: "media-new" } },
       },
     })
+    expect(cleanupAttempts).toBe(2)
+  })
+
+  it("reconciles an image assignment committed before a lost PATCH response", async () => {
+    let doctorReads = 0
+    const deletedMedia: string[] = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/doctors" && !init?.method) {
+        doctorReads += 1
+        return jsonResponse({
+          docs: [
+            doctorReads === 1
+              ? upstreamDoctor
+              : {
+                  ...upstreamDoctor,
+                  profileImage: {
+                    alt: "Updated portrait",
+                    id: "media-new",
+                    url: "/api/doctorMedia/file/amelia-new.png",
+                  },
+                },
+          ],
+        })
+      }
+      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+        return jsonResponse({ docs: [upstreamAssignment] })
+      }
+      if (url.pathname === "/api/medical-specialties" && !init?.method) {
+        return jsonResponse({ docs: upstreamSpecialties })
+      }
+      if (url.pathname === "/api/doctorMedia" && init?.method === "POST") {
+        return jsonResponse({
+          doc: {
+            alt: "Updated portrait",
+            clinic: "clinic-1",
+            doctor: "doctor-1",
+            id: "media-new",
+            url: "/api/doctorMedia/file/amelia-new.png",
+          },
+        })
+      }
+      if (url.pathname === "/api/doctors" && init?.method === "PATCH") {
+        throw new Error("response lost")
+      }
+      if (url.pathname.startsWith("/api/doctorMedia/") && init?.method === "DELETE") {
+        deletedMedia.push(url.pathname)
+        return new Response(null, { status: 200 })
+      }
+      return jsonResponse({}, 500)
+    })
+    const provider = createPayloadDoctorProfileProvider("access-token", "clinic-1", fetcher)
+
+    await expect(
+      provider.replaceImage("doctor-1", {
+        alt: "Updated portrait",
+        bytes: new Uint8Array([1, 2, 3]),
+        fileName: "amelia-new.png",
+        mimeType: "image/png",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        cleanupPending: false,
+        profile: { image: { id: "media-new" } },
+      },
+    })
+    expect(doctorReads).toBe(2)
+    expect(deletedMedia).toEqual(["/api/doctorMedia/media-old"])
   })
 
   it("rejects a concurrent image replacement and removes its unused upload", async () => {
