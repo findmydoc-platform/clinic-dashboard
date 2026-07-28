@@ -9,7 +9,10 @@ import type {
   DoctorProfile,
   DoctorSpecialtyAssignment,
 } from "@/features/clinic-dashboard/clinic-profile/model/doctor-profile"
-import type { DoctorProfileCommands } from "@/features/clinic-dashboard/clinic-profile/model/doctor-profile-commands"
+import {
+  DoctorProfileCommandError,
+  type DoctorProfileCommands,
+} from "@/features/clinic-dashboard/clinic-profile/model/doctor-profile-commands"
 
 const inactiveDoctor = {
   active: false,
@@ -147,6 +150,7 @@ describe("doctor profile editor", () => {
     expect(result.draft.imageFile).toBeUndefined()
     expect(result.draft.specialties[0]?.assignmentId).toBe("assignment-1")
     expect(result.draft.specialties[1]?.assignmentId).toBeUndefined()
+    expect(result.failedSteps).toEqual([{ clientId: "specialty-row-2", kind: "specialty" }])
     expect(updateDoctor).not.toHaveBeenCalled()
 
     const retryResult = await saveDoctorProfileDraft(commands, result.draft, result.doctor)
@@ -167,14 +171,29 @@ describe("doctor profile editor", () => {
       ...cardiologyAssignment,
       specializationLevel: "expert" as const,
     }))
-    const replaceImage = vi.fn(async () => {
-      throw new Error("image unavailable")
-    })
+    const replaceImage = vi
+      .fn<DoctorProfileCommands["replaceImage"]>()
+      .mockRejectedValueOnce(new Error("image unavailable"))
+      .mockResolvedValueOnce({
+        cleanupPending: false,
+        profile: {
+          ...inactiveDoctor,
+          image: { alt: "Portrait", id: "image-1" },
+        },
+      })
+    const updateDoctor = vi
+      .fn<DoctorProfileCommands["updateDoctor"]>()
+      .mockRejectedValueOnce(new Error("profile unavailable"))
+      .mockImplementation(async (_doctorId, input) => ({
+        ...inactiveDoctor,
+        ...input,
+        biography: input.biography ?? undefined,
+        experienceYears: input.experienceYears ?? undefined,
+        title: input.title ?? undefined,
+      }))
     const commands = commandFixture({
       replaceImage,
-      updateDoctor: vi.fn(async () => {
-        throw new Error("profile unavailable")
-      }),
+      updateDoctor,
       updateSpecialty,
     })
     const draft = {
@@ -182,6 +201,7 @@ describe("doctor profile editor", () => {
         ...inactiveDoctor,
         specialties: [cardiologyAssignment],
       }),
+      biography: "Updated biography",
       imageFile: new File(["portrait"], "portrait.png", { type: "image/png" }),
       specialties: [
         {
@@ -201,8 +221,71 @@ describe("doctor profile editor", () => {
     expect(result.status).toBe("partial")
     expect(updateSpecialty).toHaveBeenCalledOnce()
     expect(replaceImage).toHaveBeenCalledOnce()
+    expect(result.failedSteps).toEqual([{ kind: "profile" }, { kind: "image" }])
     expect(result.doctor?.specialties[0]?.specializationLevel).toBe("expert")
     expect(result.draft.imageFile).toBe(draft.imageFile)
+
+    const retryResult = await saveDoctorProfileDraft(commands, result.draft, result.doctor)
+
+    expect(retryResult.status).toBe("saved")
+    expect(retryResult.doctor).toMatchObject({
+      biography: "Updated biography",
+      image: { id: "image-1" },
+      specialties: [{ id: "assignment-1", specializationLevel: "expert" }],
+    })
+    expect(updateDoctor).toHaveBeenCalledTimes(2)
+    expect(replaceImage).toHaveBeenCalledTimes(2)
+    expect(updateSpecialty).toHaveBeenCalledOnce()
+  })
+
+  it("defers activation of an existing inactive doctor until follow-up changes succeed", async () => {
+    const replaceImage = vi
+      .fn<DoctorProfileCommands["replaceImage"]>()
+      .mockRejectedValueOnce(new Error("image unavailable"))
+      .mockResolvedValueOnce({
+        cleanupPending: false,
+        profile: {
+          ...inactiveDoctor,
+          image: { alt: "Portrait", id: "image-1" },
+        },
+      })
+    let storedDoctor: DoctorProfile = inactiveDoctor
+    const updateDoctor = vi.fn<DoctorProfileCommands["updateDoctor"]>(async (_doctorId, input) => {
+      const updatedDoctor = { ...storedDoctor, ...input }
+      storedDoctor = {
+        ...updatedDoctor,
+        biography: updatedDoctor.biography ?? undefined,
+        experienceYears: updatedDoctor.experienceYears ?? undefined,
+        title: updatedDoctor.title ?? undefined,
+      }
+      return storedDoctor
+    })
+    const commands = commandFixture({ replaceImage, updateDoctor })
+    const draft = {
+      ...createDoctorProfileDraft(inactiveDoctor),
+      active: true,
+      biography: "Ready for publication.",
+      imageFile: new File(["portrait"], "portrait.png", { type: "image/png" }),
+    }
+
+    const firstResult = await saveDoctorProfileDraft(commands, draft, inactiveDoctor)
+
+    expect(firstResult.status).toBe("partial")
+    expect(firstResult.doctor?.active).toBe(false)
+    expect(firstResult.draft.activationPending).toBe(true)
+    expect(updateDoctor).toHaveBeenCalledOnce()
+    expect(updateDoctor).toHaveBeenCalledWith(
+      "doctor-1",
+      expect.objectContaining({ active: false, biography: "Ready for publication." }),
+    )
+
+    const retryResult = await saveDoctorProfileDraft(commands, firstResult.draft, firstResult.doctor)
+
+    expect(retryResult.status).toBe("saved")
+    expect(retryResult.doctor?.active).toBe(true)
+    expect(replaceImage).toHaveBeenCalledTimes(2)
+    expect(updateDoctor).toHaveBeenCalledTimes(2)
+    expect(updateDoctor).toHaveBeenLastCalledWith("doctor-1", { active: true })
   })
 
   it("blocks duplicate specialty assignments", () => {
@@ -228,11 +311,30 @@ describe("doctor profile editor", () => {
 
     expect(firstResult).toMatchObject({
       draft: { creationStatus: "unknown" },
-      failedSteps: ["profile-uncertain"],
+      failedSteps: [{ kind: "profile-uncertain" }],
       status: "failed",
     })
-    expect(retryResult.failedSteps).toEqual(["profile-uncertain"])
+    expect(retryResult.failedSteps).toEqual([{ kind: "profile-uncertain" }])
     expect(createDoctor).toHaveBeenCalledOnce()
+  })
+
+  it("allows retrying a doctor create after a definitive rejection", async () => {
+    const createDoctor = vi
+      .fn<DoctorProfileCommands["createDoctor"]>()
+      .mockRejectedValueOnce(new DoctorProfileCommandError("rejected", "Invalid doctor profile."))
+      .mockResolvedValueOnce(inactiveDoctor)
+    const commands = commandFixture({ createDoctor })
+
+    const firstResult = await saveDoctorProfileDraft(commands, validNewDraft())
+    const retryResult = await saveDoctorProfileDraft(commands, firstResult.draft)
+
+    expect(firstResult).toMatchObject({
+      draft: { creationStatus: "ready" },
+      failedSteps: [{ kind: "profile" }],
+      status: "failed",
+    })
+    expect(retryResult.status).toBe("saved")
+    expect(createDoctor).toHaveBeenCalledTimes(2)
   })
 
   it("reports image cleanup as a partial result without retrying the upload", async () => {
@@ -251,7 +353,7 @@ describe("doctor profile editor", () => {
     const result = await saveDoctorProfileDraft(commandFixture({ replaceImage }), draft, inactiveDoctor)
 
     expect(result.status).toBe("partial")
-    expect(result.failedSteps).toEqual(["image-cleanup"])
+    expect(result.failedSteps).toEqual([{ kind: "image-cleanup" }])
     expect(result.draft.imageFile).toBeUndefined()
     expect(result.doctor?.image?.id).toBe("image-1")
   })

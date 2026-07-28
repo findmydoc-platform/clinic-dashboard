@@ -123,6 +123,7 @@ function providerErrorResponse(error: DoctorProfileChangeError) {
   if (error === "unauthorized") return privateJson({ code: "DOCTOR_UNAUTHORIZED" }, 401)
   if (error === "forbidden") return privateJson({ code: "DOCTOR_ACCESS_DENIED" }, 403)
   if (error === "not-found") return privateJson({ code: "DOCTOR_NOT_FOUND" }, 404)
+  if (error === "invalid-input") return privateJson({ code: "INVALID_INPUT" }, 400)
   if (error === "conflict") return privateJson({ code: "DOCTOR_CONFLICT" }, 409)
   if (error === "invalid-data") return privateJson({ code: "DOCTOR_INVALID_RESPONSE" }, 502)
   return privateJson({ code: "DOCTOR_SERVICE_UNAVAILABLE" }, 503)

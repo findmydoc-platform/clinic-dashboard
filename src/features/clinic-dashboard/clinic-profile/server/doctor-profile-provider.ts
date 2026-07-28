@@ -12,7 +12,8 @@ import type {
 
 export type DoctorProfileReadError = "forbidden" | "temporarily-unavailable" | "unauthorized"
 
-export type DoctorProfileChangeError = DoctorProfileReadError | "conflict" | "invalid-data" | "not-found"
+export type DoctorProfileChangeError =
+  DoctorProfileReadError | "conflict" | "invalid-data" | "invalid-input" | "not-found"
 
 export type DoctorProfileProviderResult<TValue, TError extends string> =
   | Readonly<{

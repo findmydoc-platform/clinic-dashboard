@@ -115,8 +115,16 @@ function changeErrorForStatus(status: number | undefined): DoctorProfileChangeEr
   if (status === 401) return "unauthorized"
   if (status === 403) return "forbidden"
   if (status === 404) return "not-found"
-  if (status === 400 || status === 409 || status === 422) return "conflict"
+  if (status === 400 || status === 422) return "invalid-input"
+  if (status === 409) return "conflict"
   return "temporarily-unavailable"
+}
+
+function payloadRelationshipId(value: string): string | number {
+  if (!/^[1-9]\d*$/u.test(value)) return value
+
+  const numericValue = Number(value)
+  return Number.isSafeInteger(numericValue) ? numericValue : value
 }
 
 async function requestPayloadJson(
@@ -190,6 +198,11 @@ function mapImage(value: z.infer<typeof imageRelationshipSchema> | null | undefi
     id: value.id,
     url: absoluteMediaUrl(value.url),
   }
+}
+
+function imageRelationshipId(value: z.infer<typeof imageRelationshipSchema> | null | undefined) {
+  if (!value) return undefined
+  return typeof value === "string" ? value : value.id
 }
 
 function mapDoctor(
@@ -323,7 +336,7 @@ function doctorSpecialtyEndpoint(doctorId: string, assignmentId: string) {
 function writeDoctorBody(input: Record<string, unknown>, clinicId?: string) {
   return {
     ...input,
-    ...(clinicId ? { clinic: clinicId } : {}),
+    ...(clinicId ? { clinic: payloadRelationshipId(clinicId) } : {}),
   }
 }
 
@@ -420,6 +433,11 @@ export function createPayloadDoctorProfileProvider(
     return result.ok
   }
 
+  async function deleteDoctorMediaWithSingleRetry(mediaId: string) {
+    if (await deleteDoctorMedia(mediaId)) return true
+    return deleteDoctorMedia(mediaId)
+  }
+
   async function findDoctorSpecialty(
     doctorId: string,
     medicalSpecialtyId: string,
@@ -487,8 +505,8 @@ export function createPayloadDoctorProfileProvider(
         const response = await requestPayloadJson(
           endpoint,
           mutationInit(accessToken, "POST", {
-            doctor: doctorId,
-            medicalSpecialty: input.medicalSpecialtyId,
+            doctor: payloadRelationshipId(doctorId),
+            medicalSpecialty: payloadRelationshipId(input.medicalSpecialtyId),
             specializationLevel: input.specializationLevel,
           }),
           fetcher,
@@ -578,18 +596,15 @@ export function createPayloadDoctorProfileProvider(
           return { error: changeErrorForStatus(specialtiesResponse.status), ok: false }
         }
 
-        const previousImage =
-          doctorResponse.value.profileImage && typeof doctorResponse.value.profileImage !== "string"
-            ? doctorResponse.value.profileImage.id
-            : doctorResponse.value.profileImage
+        const previousImage = imageRelationshipId(doctorResponse.value.profileImage)
 
         const upload = new FormData()
         upload.set(
           "_payload",
           JSON.stringify({
             alt: input.alt,
-            clinic: clinicId,
-            doctor: doctorId,
+            clinic: payloadRelationshipId(clinicId),
+            doctor: payloadRelationshipId(doctorId),
           }),
         )
         const fileBytes = new Uint8Array(input.bytes.byteLength)
@@ -630,19 +645,34 @@ export function createPayloadDoctorProfileProvider(
         const doctorEndpoint = conditionalDoctorImageEndpoint(clinicId, doctorId, previousImage || undefined)
         const updateResponse = await requestPayloadJson(
           doctorEndpoint,
-          mutationInit(accessToken, "PATCH", { profileImage: media.id }),
+          mutationInit(accessToken, "PATCH", { profileImage: payloadRelationshipId(media.id) }),
           fetcher,
         )
-        if (!updateResponse.ok) {
+        if (!updateResponse.ok && updateResponse.status !== undefined) {
           await deleteDoctorMedia(media.id)
           return { error: changeErrorForStatus(updateResponse.status), ok: false }
         }
 
-        const parsedDoctor = doctorListSchema.safeParse(updateResponse.value)
-        const updatedRawDoctor = parsedDoctor.success ? parsedDoctor.data.docs[0] : undefined
+        let updatedRawDoctor: z.infer<typeof rawDoctorSchema> | undefined
+        if (updateResponse.ok) {
+          const parsedDoctor = doctorListSchema.safeParse(updateResponse.value)
+          if (parsedDoctor.success && parsedDoctor.data.docs.length === 0) {
+            await deleteDoctorMedia(media.id)
+            return { error: "conflict", ok: false }
+          }
+          updatedRawDoctor = parsedDoctor.success ? parsedDoctor.data.docs[0] : undefined
+        }
+
         if (!updatedRawDoctor) {
-          await deleteDoctorMedia(media.id)
-          return { error: parsedDoctor.success ? "conflict" : "invalid-data", ok: false }
+          const reconciledDoctor = await loadRawDoctor(doctorId)
+          if (!reconciledDoctor.ok) {
+            return { error: "temporarily-unavailable", ok: false }
+          }
+          if (imageRelationshipId(reconciledDoctor.value.profileImage) !== media.id) {
+            await deleteDoctorMedia(media.id)
+            return { error: updateResponse.ok ? "invalid-data" : "temporarily-unavailable", ok: false }
+          }
+          updatedRawDoctor = reconciledDoctor.value
         }
 
         const updatedDoctor = mapDoctor(updatedRawDoctor, clinicId, specialtiesResponse.value)
@@ -652,7 +682,7 @@ export function createPayloadDoctorProfileProvider(
         }
         let cleanupPending = false
         if (previousImage && previousImage !== media.id) {
-          cleanupPending = !(await deleteDoctorMedia(previousImage))
+          cleanupPending = !(await deleteDoctorMediaWithSingleRetry(previousImage))
         }
         return {
           ok: true,
@@ -718,7 +748,7 @@ export function createPayloadDoctorProfileProvider(
         const response = await requestPayloadJson(
           endpoint,
           mutationInit(accessToken, "PATCH", {
-            medicalSpecialty: input.medicalSpecialtyId,
+            medicalSpecialty: payloadRelationshipId(input.medicalSpecialtyId),
             specializationLevel: input.specializationLevel,
           }),
           fetcher,

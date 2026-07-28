@@ -23,6 +23,7 @@ import {
   createDoctorProfileDraft,
   getDoctorProfileDraftErrors,
   type DoctorProfileDraft,
+  type DoctorProfileSaveFailure,
   type DoctorProfileSaveResult,
 } from "../../model/doctor-profile-editor"
 
@@ -122,6 +123,60 @@ function specialtyValidationTarget(draft: DoctorProfileDraft) {
   return undefined
 }
 
+function hasSaveFailure(
+  failures: readonly DoctorProfileSaveFailure[],
+  kind: DoctorProfileSaveFailure["kind"],
+) {
+  return failures.some((failure) => failure.kind === kind)
+}
+
+function formatFailureList(labels: readonly string[]) {
+  if (labels.length <= 1) return labels[0] ?? "The doctor profile"
+  if (labels.length === 2) return labels.join(" and ")
+  return `${labels.slice(0, -1).join(", ")}, and ${labels.at(-1)}`
+}
+
+function saveFailureMessage(
+  result: DoctorProfileSaveResult,
+  medicalSpecialties: readonly MedicalSpecialtyOption[],
+) {
+  if (hasSaveFailure(result.failedSteps, "profile-uncertain")) {
+    return "The create request may have completed. Close this dialog and reload Doctors before trying again."
+  }
+
+  const failureLabels = result.failedSteps.flatMap((failure) => {
+    if (failure.kind === "profile") return ["Profile details"]
+    if (failure.kind === "image") return ["Profile photo"]
+    if (failure.kind === "activation") return ["Profile activation"]
+    if (failure.kind !== "specialty") return []
+
+    const specialtyId = result.draft.specialties.find(
+      ({ clientId }) => clientId === failure.clientId,
+    )?.medicalSpecialtyId
+    const specialtyName = medicalSpecialties.find(({ id }) => id === specialtyId)?.name
+    return [specialtyName ? `Medical specialty “${specialtyName}”` : "Medical specialty"]
+  })
+  const uniqueFailureLabels = [...new Set(failureLabels)]
+  const cleanupPending = hasSaveFailure(result.failedSteps, "image-cleanup")
+
+  if (uniqueFailureLabels.length > 0) {
+    const retryMessage =
+      result.status === "partial"
+        ? "Other changes were saved; save again to retry only these changes."
+        : "Check your connection and try again."
+    const cleanupMessage = cleanupPending
+      ? " The new profile photo is active, but the previous photo could not be removed."
+      : ""
+    return `${formatFailureList(uniqueFailureLabels)} could not be saved. ${retryMessage}${cleanupMessage}`
+  }
+
+  if (cleanupPending) {
+    return "The new profile photo was saved, but the previous photo could not be removed. You can close this dialog safely."
+  }
+
+  return "The doctor could not be saved. Check your connection and try again."
+}
+
 export function DoctorProfileDialog({
   initialDoctor,
   medicalSpecialties,
@@ -163,7 +218,6 @@ export function DoctorProfileDialog({
 
   const updateDraft = (update: Partial<DoctorProfileDraft>) => {
     setDraft((current) => ({ ...current, ...update }))
-    setStatusMessage("")
     setDiscardConfirmation(false)
   }
 
@@ -225,15 +279,7 @@ export function DoctorProfileDialog({
       onOpenChange(false)
       return
     }
-    setStatusMessage(
-      result.failedSteps.includes("profile-uncertain")
-        ? "The create request may have completed. Close this dialog and reload Doctors before trying again."
-        : result.failedSteps.includes("image-cleanup")
-          ? "The new profile photo is active, but cleanup of the previous photo is still pending."
-          : result.status === "partial"
-            ? "Some changes were saved. The remaining changes are still in this form; save again to retry them."
-            : "The doctor could not be saved. Check your connection and try again.",
-    )
+    setStatusMessage(saveFailureMessage(result, medicalSpecialties))
   }
 
   return (
@@ -255,7 +301,7 @@ export function DoctorProfileDialog({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p aria-live="polite" className="text-sm" role="status">
               {statusMessage ||
                 (creationNeedsReload

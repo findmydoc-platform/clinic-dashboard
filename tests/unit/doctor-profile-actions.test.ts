@@ -256,5 +256,14 @@ describe("Doctor profile mutations", () => {
     )
     expect(conflict.status).toBe(409)
     await expect(conflict.json()).resolves.toEqual({ code: "DOCTOR_CONFLICT" })
+
+    providerMocks.updateDoctor.mockResolvedValueOnce({ error: "invalid-input", ok: false })
+    const invalidUpstreamInput = await handleDoctorUpdate(
+      jsonRequest("/api/dashboard/doctors/doctor-1", { active: true }, "PATCH"),
+      "doctor-1",
+      createProvider,
+    )
+    expect(invalidUpstreamInput.status).toBe(400)
+    await expect(invalidUpstreamInput.json()).resolves.toEqual({ code: "INVALID_INPUT" })
   })
 })

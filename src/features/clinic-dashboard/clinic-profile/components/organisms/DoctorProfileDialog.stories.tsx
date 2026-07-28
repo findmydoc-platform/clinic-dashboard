@@ -8,6 +8,94 @@ import {
 import { DoctorProfileDialog } from "./DoctorProfileDialog"
 
 const commands = createDoctorProfileCommandsFixture()
+let partialFailureAttempt = 0
+const partialFailureSave = fn(async (draft: ReturnType<typeof createDoctorProfileDraft>) => {
+  const specialty = draft.specialties[0]
+  if (!specialty) throw new Error("The partial failure story requires a specialty.")
+
+  partialFailureAttempt += 1
+  const savedSpecialty = {
+    id: "assignment-cardiology",
+    medicalSpecialtyId: specialty.medicalSpecialtyId,
+    medicalSpecialtyName: "Cardiology",
+    specializationLevel: specialty.specializationLevel || "specialist",
+  } as const
+  const doctor = {
+    active: partialFailureAttempt > 1,
+    firstName: draft.firstName,
+    gender: draft.gender || "female",
+    id: "doctor-partial",
+    image:
+      partialFailureAttempt > 1
+        ? { alt: `Portrait of ${draft.firstName} ${draft.lastName}`, id: "media-partial" }
+        : undefined,
+    languages: draft.languages,
+    lastName: draft.lastName,
+    qualifications: draft.qualifications.split("\n"),
+    specialties: partialFailureAttempt > 1 ? [savedSpecialty] : [],
+  }
+
+  if (partialFailureAttempt === 1) {
+    return {
+      doctor,
+      draft: {
+        ...draft,
+        activationPending: true,
+        doctorId: doctor.id,
+      },
+      failedSteps: [{ kind: "image" as const }, { clientId: specialty.clientId, kind: "specialty" as const }],
+      status: "partial" as const,
+    }
+  }
+
+  return {
+    doctor,
+    draft: {
+      ...draft,
+      activationPending: false,
+      doctorId: doctor.id,
+      imageFile: undefined,
+      specialties: [{ ...specialty, assignmentId: savedSpecialty.id }],
+    },
+    failedSteps: [],
+    status: "saved" as const,
+  }
+})
+
+async function openPartialFailureState(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  const dialog = canvas.getByRole("dialog", { name: "Add doctor" })
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "First name" }), "Lea")
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "Last name" }), "Fischer")
+  await userEvent.selectOptions(within(dialog).getByRole("combobox", { name: "Gender" }), "female")
+  await userEvent.type(within(dialog).getByRole("combobox", { name: "Qualifications" }), "MD{Enter}")
+  await userEvent.type(within(dialog).getByRole("combobox", { name: "Languages" }), "Eng")
+  await userEvent.click(within(dialog).getByRole("option", { name: "English" }))
+  await userEvent.click(within(dialog).getByRole("textbox", { name: "First name" }))
+  await userEvent.upload(
+    within(dialog).getByLabelText("Profile photo"),
+    new File(["portrait"], "portrait.png", { type: "image/png" }),
+  )
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add specialty" }))
+  await userEvent.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Specialty 1" }),
+    "specialty-cardiology",
+  )
+  await userEvent.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Specialization level 1" }),
+    "specialist",
+  )
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add doctor" }))
+
+  const editDialog = canvas.getByRole("dialog", { name: "Edit doctor" })
+  const partialFailureMessage = within(editDialog).getByText(
+    /Profile photo and Medical specialty “Cardiology” could not be saved. Other changes were saved/,
+  )
+  await expect(partialFailureMessage).toBeVisible()
+  await userEvent.type(within(editDialog).getByRole("textbox", { name: "First name" }), "n")
+  await expect(partialFailureMessage).toBeVisible()
+  return editDialog
+}
 
 const meta = {
   args: {
@@ -85,40 +173,32 @@ export const AddSpecialtyRow: Story = {
 export const PartialFailureKeepsDialogOpen: Story = {
   args: {
     initialDoctor: undefined,
-    onSave: async (draft) => ({
-      doctor: {
-        active: false,
-        firstName: draft.firstName,
-        gender: draft.gender || "female",
-        id: "doctor-partial",
-        languages: draft.languages,
-        lastName: draft.lastName,
-        qualifications: draft.qualifications.split("\n"),
-        specialties: [],
-      },
-      draft: { ...draft, doctorId: "doctor-partial" },
-      failedSteps: ["save"],
-      status: "partial",
-    }),
+    onOpenChange: fn(),
+    onSave: partialFailureSave,
   },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const dialog = canvas.getByRole("dialog", { name: "Add doctor" })
-    await userEvent.type(within(dialog).getByRole("textbox", { name: "First name" }), "Lea")
-    await userEvent.type(within(dialog).getByRole("textbox", { name: "Last name" }), "Fischer")
-    await userEvent.selectOptions(within(dialog).getByRole("combobox", { name: "Gender" }), "female")
-    await userEvent.type(within(dialog).getByRole("combobox", { name: "Qualifications" }), "MD{Enter}")
-    await userEvent.type(within(dialog).getByRole("combobox", { name: "Languages" }), "Eng")
-    await userEvent.click(within(dialog).getByRole("option", { name: "English" }))
-    await expect(within(dialog).getByRole("button", { name: "Remove English" })).toBeVisible()
-    await userEvent.click(within(dialog).getByRole("textbox", { name: "First name" }))
-    await userEvent.click(within(dialog).getByRole("button", { name: "Add doctor" }))
+  play: async ({ args, canvasElement }) => {
+    partialFailureAttempt = 0
+    partialFailureSave.mockClear()
+    args.onOpenChange.mockClear()
+    await openPartialFailureState(canvasElement)
+  },
+}
 
-    await expect(
-      within(canvas.getByRole("dialog", { name: "Edit doctor" })).getByText(
-        /Some changes were saved. The remaining changes/,
-      ),
-    ).toBeVisible()
+export const PartialFailureRetrySucceeds: Story = {
+  args: {
+    initialDoctor: undefined,
+    onOpenChange: fn(),
+    onSave: partialFailureSave,
+  },
+  play: async ({ args, canvasElement }) => {
+    partialFailureAttempt = 0
+    partialFailureSave.mockClear()
+    args.onOpenChange.mockClear()
+    const editDialog = await openPartialFailureState(canvasElement)
+    await userEvent.click(within(editDialog).getByRole("button", { name: "Save doctor" }))
+
+    await waitFor(() => expect(partialFailureSave).toHaveBeenCalledTimes(2))
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
   },
 }
 
