@@ -34,7 +34,7 @@ export function ClinicProfileDetails({
   openingHours,
 }: ClinicProfileDetailsProps) {
   return (
-    <aside aria-label="Clinic profile details" className="space-y-6">
+    <aside aria-label="Clinic profile details" className="min-w-0 space-y-6">
       <Card className="p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-xl font-bold text-[var(--secondary)]">Address</h2>

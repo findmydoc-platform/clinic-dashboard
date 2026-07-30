@@ -72,7 +72,7 @@ describe("Payload clinic bootstrap", () => {
   })
 
   it("fails closed for malformed DTOs, cache headers, and network errors", async () => {
-    const malformed = { ...bootstrap, capabilities: [...bootstrap.capabilities].reverse() }
+    const malformed = { ...bootstrap, capabilities: ["clinic-profile:view", "clinic-profile:view"] }
     await expect(
       fetchClinicDashboardBootstrap("token", vi.fn(async () => jsonResponse(malformed)) as typeof fetch),
     ).resolves.toEqual({ status: "temporarily-unavailable" })
@@ -88,5 +88,17 @@ describe("Payload clinic bootstrap", () => {
         vi.fn(async () => Promise.reject(new Error("redirect"))) as typeof fetch,
       ),
     ).resolves.toEqual({ status: "temporarily-unavailable" })
+  })
+
+  it.each([
+    { capabilities: [] },
+    { capabilities: ["clinic-profile:view"] },
+    { capabilities: ["clinic-profile:edit"] },
+    { capabilities: ["clinic-profile:edit", "clinic-profile:view"] },
+  ] as const)("accepts the independent capability subset %#", async ({ capabilities }) => {
+    const context = { ...bootstrap, capabilities }
+    await expect(
+      fetchClinicDashboardBootstrap("token", vi.fn(async () => jsonResponse(context)) as typeof fetch),
+    ).resolves.toEqual({ context, status: "approved" })
   })
 })

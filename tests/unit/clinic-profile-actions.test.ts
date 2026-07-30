@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ClinicProfileProviderFactory } from "@/features/clinic-dashboard/clinic-profile/server/clinic-profile-provider"
 
 const accessMocks = vi.hoisted(() => ({
-  resolveClinicDashboardMutationAccess: vi.fn(),
+  resolveClinicDashboardRouteAccess: vi.fn(),
 }))
 
 vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
-  resolveClinicDashboardMutationAccess: accessMocks.resolveClinicDashboardMutationAccess,
+  resolveClinicDashboardRouteAccess: accessMocks.resolveClinicDashboardRouteAccess,
 }))
 
 import { handleClinicProfileLoad } from "@/features/clinic-dashboard/clinic-profile/server/public"
@@ -45,7 +45,7 @@ describe("Clinic profile route actions", () => {
   })
 
   it("derives provider scope from authenticated route access, never browser input", async () => {
-    accessMocks.resolveClinicDashboardMutationAccess.mockResolvedValue({
+    accessMocks.resolveClinicDashboardRouteAccess.mockResolvedValue({
       accessToken: "verified-access-token",
       applyToResponse: (response: Response) => response,
       clinicId: "server-derived-clinic",
@@ -60,6 +60,10 @@ describe("Clinic profile route actions", () => {
 
     expect(response.status).toBe(200)
     expect(createProvider).toHaveBeenCalledWith("verified-access-token", "server-derived-clinic")
+    expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      "clinic-profile:view",
+    )
     expect(providerMocks.loadSnapshot).toHaveBeenCalledOnce()
   })
 })

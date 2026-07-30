@@ -98,6 +98,23 @@ describe("Clinic profile browser API", () => {
     ).rejects.toMatchObject({ outcome: "conflict" })
   })
 
+  it("treats mutation 5xx responses as unknown outcomes but load failures as rejected", async () => {
+    setCsrfCookie("csrf-token")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ code: "OUTAGE" }), { status: 503 })),
+    )
+    const commands = createClinicProfileSourceApiCommands()
+
+    await expect(
+      commands.publishDraft({
+        expectedDraftRevision: 1,
+        expectedPublishedRevision: 4,
+      }),
+    ).rejects.toMatchObject({ outcome: "unknown" })
+    await expect(commands.loadSnapshot()).rejects.toMatchObject({ outcome: "rejected" })
+  })
+
   it("fails closed when a success response contains non-profile private data", async () => {
     vi.stubGlobal(
       "fetch",

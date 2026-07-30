@@ -141,10 +141,17 @@ async function parseSnapshot(response: Response) {
   return parsed.data
 }
 
-function responseError(response: Response) {
-  return response.status === 409
-    ? new ClinicProfileSourceCommandError("conflict", "The clinic profile changed while it was being edited.")
-    : new ClinicProfileSourceCommandError("rejected", "Clinic profile operation failed.")
+function responseError(response: Response, isMutation = false) {
+  if (response.status === 409) {
+    return new ClinicProfileSourceCommandError(
+      "conflict",
+      "The clinic profile changed while it was being edited.",
+    )
+  }
+  return new ClinicProfileSourceCommandError(
+    isMutation && response.status >= 500 ? "unknown" : "rejected",
+    "Clinic profile operation failed.",
+  )
 }
 
 async function loadSnapshot() {
@@ -186,7 +193,7 @@ async function submitJson(endpoint: string, method: "POST" | "PUT", body: unknow
     throw new ClinicProfileSourceCommandError("unknown", "Clinic profile operation outcome is unknown.")
   }
 
-  if (!response.ok) throw responseError(response)
+  if (!response.ok) throw responseError(response, true)
   return parseSnapshot(response)
 }
 

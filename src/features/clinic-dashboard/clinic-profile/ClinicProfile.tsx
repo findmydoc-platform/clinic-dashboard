@@ -39,6 +39,7 @@ export type ClinicProfileProps = Readonly<{
   onProfileSaved?: (profile: ClinicProfileDraft) => void
   onTreatmentMissing?: () => void
   profileManagement: ClinicProfileManagementAccess
+  sourceProfileManagement: ClinicProfileManagementAccess
   sourceCommands: ClinicProfileSourceCommands
   sourceSnapshot?: ClinicProfileSnapshot
   treatmentCatalogue: readonly MasterTreatment[]
@@ -57,6 +58,7 @@ export function ClinicProfile({
   onProfileSaved,
   onTreatmentMissing,
   profileManagement,
+  sourceProfileManagement,
   sourceCommands,
   sourceSnapshot,
   treatmentCatalogue,
@@ -123,6 +125,7 @@ export function ClinicProfile({
           legacySaveState: legacyModel.saveState,
           legacyStatusMessage: legacyModel.statusMessage,
           profileManagement,
+          sourceProfileManagement,
           source: {
             changeSet: sourceModel.changeSet,
             displayFields: sourceDisplayFields,
@@ -190,10 +193,13 @@ export function ClinicProfile({
         <PublishReviewDialog
           changeSet={sourceModel.changeSet}
           errors={sourceModel.validationErrors}
+          isResolvingOutcome={sourceModel.operation === "loading"}
           isPublishing={sourceModel.operation === "publishing"}
           onBack={() => sourceActions.setMode("edit")}
           onPublish={sourceActions.publishDraft}
+          onResolveOutcome={sourceActions.resolvePublishOutcome}
           open
+          outcomeUnresolved={sourceModel.publishOutcomeUnresolved}
           statusMessage={sourceModel.statusMessage}
         />
       ) : null}

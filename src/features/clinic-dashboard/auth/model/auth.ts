@@ -1,9 +1,15 @@
 import { z } from "zod"
 
 const clinicDashboardCapabilitySchema = z.enum(["clinic-profile:view", "clinic-profile:edit"])
+const clinicDashboardCapabilitiesSchema = z
+  .array(clinicDashboardCapabilitySchema)
+  .max(clinicDashboardCapabilitySchema.options.length)
+  .refine((capabilities) => new Set(capabilities).size === capabilities.length, {
+    message: "Capabilities must be unique.",
+  })
 
 export const authenticatedClinicContextSchema = z.object({
-  capabilities: z.tuple([z.literal("clinic-profile:view"), z.literal("clinic-profile:edit")]).readonly(),
+  capabilities: clinicDashboardCapabilitiesSchema.readonly(),
   clinic: z.object({
     id: z.string().min(1),
     name: z.string().min(1),

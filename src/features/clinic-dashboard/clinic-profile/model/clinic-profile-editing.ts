@@ -102,6 +102,33 @@ export function clinicProfileDraftHasPublishedChanges(
   return !areClinicProfileDraftInputsEqual(draft, createClinicProfileDraftInput(published))
 }
 
+export type ClinicProfilePublishReconciliation = "conflict" | "not-published" | "published"
+
+export function classifyClinicProfilePublishReconciliation(
+  latest: ClinicProfileSnapshot,
+  attemptedDraft: ClinicProfileDraftInput,
+  expectedDraftRevision: number,
+  expectedPublishedRevision: number,
+): ClinicProfilePublishReconciliation {
+  if (
+    !latest.draft &&
+    latest.published.revision !== expectedPublishedRevision &&
+    areClinicProfileDraftInputsEqual(createClinicProfileDraftInput(latest.published), attemptedDraft)
+  ) {
+    return "published"
+  }
+
+  if (
+    latest.draft?.revision === expectedDraftRevision &&
+    latest.published.revision === expectedPublishedRevision &&
+    areClinicProfileDraftInputsEqual(createClinicProfileDraftInput(latest.draft), attemptedDraft)
+  ) {
+    return "not-published"
+  }
+
+  return "conflict"
+}
+
 export function resolveClinicProfileDraftInput(
   input: ClinicProfileDraftInput,
   cities: readonly ClinicProfileCity[],
@@ -225,6 +252,7 @@ export function validateClinicProfileForPublish(
   const errors: Partial<Record<ClinicProfileEditableField, string>> = {}
 
   if (!input.name.trim()) errors.name = "Enter the clinic name."
+  if (!input.descriptionText.trim()) errors.descriptionText = "Enter the clinic description."
   if (!input.address.street.trim()) errors["address.street"] = "Enter the street."
   if (!input.address.houseNumber.trim()) {
     errors["address.houseNumber"] = "Enter the house number."

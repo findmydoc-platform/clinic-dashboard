@@ -1,7 +1,7 @@
 import "server-only"
 
 import { NextResponse, type NextRequest } from "next/server"
-import { resolveClinicDashboardMutationAccess } from "@/features/clinic-dashboard/auth/server/public"
+import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/auth/server/public"
 import { validateMutationRequest } from "@/lib/security/csrf"
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
 import {
@@ -37,8 +37,32 @@ async function readJson(request: NextRequest) {
     }
   }
 
-  const body = await request.text().catch(() => "")
-  if (!body || Buffer.byteLength(body, "utf8") > MAX_PROFILE_REQUEST_BODY_BYTES) return null
+  if (!request.body) return null
+
+  const reader = request.body.getReader()
+  const decoder = new TextDecoder("utf-8", { fatal: true })
+  let body = ""
+  let byteLength = 0
+
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      byteLength += chunk.value.byteLength
+      if (byteLength > MAX_PROFILE_REQUEST_BODY_BYTES) {
+        await reader.cancel()
+        return null
+      }
+      body += decoder.decode(chunk.value, { stream: true })
+    }
+    body += decoder.decode()
+  } catch {
+    return null
+  } finally {
+    reader.releaseLock()
+  }
+
+  if (!body) return null
 
   try {
     return JSON.parse(body) as unknown
@@ -48,7 +72,7 @@ async function readJson(request: NextRequest) {
 }
 
 function accessErrorResponse(
-  status: Exclude<Awaited<ReturnType<typeof resolveClinicDashboardMutationAccess>>["status"], "approved">,
+  status: Exclude<Awaited<ReturnType<typeof resolveClinicDashboardRouteAccess>>["status"], "approved">,
 ) {
   if (status === "denied") return privateJson({ code: "CLINIC_PROFILE_ACCESS_DENIED" }, 403)
   if (status === "temporarily-unavailable") {
@@ -75,7 +99,7 @@ export async function handleClinicProfileLoad(
   request: NextRequest,
   createProvider: ClinicProfileProviderFactory,
 ) {
-  const authorization = await resolveClinicDashboardMutationAccess(request)
+  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:view")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
   }
@@ -95,12 +119,14 @@ export async function handleClinicProfileDraftSave(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const input = clinicProfileDraftSaveInputSchema.safeParse(await readJson(request))
-  if (!input.success) return privateJson({ code: "INVALID_INPUT" }, 400)
-
-  const authorization = await resolveClinicDashboardMutationAccess(request)
+  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
+  }
+
+  const input = clinicProfileDraftSaveInputSchema.safeParse(await readJson(request))
+  if (!input.success) {
+    return authorization.applyToResponse(privateJson({ code: "INVALID_INPUT" }, 400))
   }
 
   try {
@@ -120,12 +146,14 @@ export async function handleClinicProfileDraftDiscard(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const input = clinicProfileDraftDiscardInputSchema.safeParse(await readJson(request))
-  if (!input.success) return privateJson({ code: "INVALID_INPUT" }, 400)
-
-  const authorization = await resolveClinicDashboardMutationAccess(request)
+  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
+  }
+
+  const input = clinicProfileDraftDiscardInputSchema.safeParse(await readJson(request))
+  if (!input.success) {
+    return authorization.applyToResponse(privateJson({ code: "INVALID_INPUT" }, 400))
   }
 
   try {
@@ -145,12 +173,14 @@ export async function handleClinicProfilePublish(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const input = clinicProfilePublishInputSchema.safeParse(await readJson(request))
-  if (!input.success) return privateJson({ code: "INVALID_INPUT" }, 400)
-
-  const authorization = await resolveClinicDashboardMutationAccess(request)
+  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
+  }
+
+  const input = clinicProfilePublishInputSchema.safeParse(await readJson(request))
+  if (!input.success) {
+    return authorization.applyToResponse(privateJson({ code: "INVALID_INPUT" }, 400))
   }
 
   try {

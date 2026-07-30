@@ -105,10 +105,11 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
   }
 
   const providers = composeClinicDashboardDataProviders(accessToken, access.context.clinic.id)
+  const canViewProfile = access.context.capabilities.includes("clinic-profile:view")
   const [doctorResult, inquiryResult, profileResult] = await Promise.allSettled([
     providers.doctors.loadDirectory(),
     providers.inquiries.loadQueue(),
-    providers.profile.loadSnapshot(),
+    canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
   ])
 
   return {
@@ -126,6 +127,6 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
         ? inquiryResult.value.value
         : { inquiries: [], status: "temporarily-unavailable" },
     profileSourceSnapshot:
-      profileResult.status === "fulfilled" && profileResult.value.ok ? profileResult.value.value : undefined,
+      profileResult.status === "fulfilled" && profileResult.value?.ok ? profileResult.value.value : undefined,
   }
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import {
   areClinicProfileDraftInputsEqual,
+  classifyClinicProfilePublishReconciliation,
   clinicProfileDraftHasPublishedChanges,
   createClinicProfileChangeSet,
   validateClinicProfileForPublish,
@@ -30,6 +31,12 @@ type UseClinicProfileSourceControllerOptions = Readonly<{
   initialSnapshot?: ClinicProfileSnapshot
 }>
 
+type UnresolvedPublish = Readonly<{
+  attemptedDraft: ClinicProfileDraftInput
+  expectedDraftRevision: number
+  expectedPublishedRevision: number
+}>
+
 function errorOutcome(error: unknown) {
   return error instanceof ClinicProfileSourceCommandError ? error.outcome : "unknown"
 }
@@ -49,6 +56,7 @@ export function useClinicProfileSourceController({
   )
   const [statusMessage, setStatusMessage] = useState("")
   const [validationErrors, setValidationErrors] = useState<ClinicProfileValidationErrors>({})
+  const [unresolvedPublish, setUnresolvedPublish] = useState<UnresolvedPublish>()
 
   const isDirty = Boolean(
     workingDraft && savedBaseline && !areClinicProfileDraftInputsEqual(workingDraft, savedBaseline),
@@ -66,12 +74,13 @@ export function useClinicProfileSourceController({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [isDirty])
 
-  const enterConflict = useCallback(() => {
+  const enterConflict = useCallback((message?: string) => {
     setDialog(null)
     setConfirmation(null)
+    setUnresolvedPublish(undefined)
     setMode("conflict")
     setStatusMessage(
-      "The published profile or draft changed elsewhere. Your local values are preserved below.",
+      message ?? "The published profile or draft changed elsewhere. Your local values are preserved below.",
     )
   }, [])
 
@@ -81,6 +90,7 @@ export function useClinicProfileSourceController({
     setWorkingDraft(nextDraft)
     setSavedBaseline(nextDraft)
     setValidationErrors({})
+    setUnresolvedPublish(undefined)
     setStatusMessage(snapshot.draft ? "Continue the saved draft." : "")
     setMode("edit")
   }, [snapshot])
@@ -89,6 +99,7 @@ export function useClinicProfileSourceController({
     setWorkingDraft((current) => (current ? update(current) : current))
     setStatusMessage("")
     setValidationErrors({})
+    setUnresolvedPublish(undefined)
   }, [])
 
   const changeName = useCallback(
@@ -115,7 +126,7 @@ export function useClinicProfileSourceController({
   )
 
   const reconcileUnknownSave = useCallback(
-    async (localDraft: ClinicProfileDraftInput) => {
+    async (localDraft: ClinicProfileDraftInput, leaveAfterSave: boolean) => {
       try {
         const latest = await commands.loadSnapshot()
         setSnapshot(latest)
@@ -126,6 +137,8 @@ export function useClinicProfileSourceController({
           const saved = createClinicProfileDraftInput(latest.draft)
           setWorkingDraft(saved)
           setSavedBaseline(saved)
+          setConfirmation(null)
+          setMode(leaveAfterSave ? "view" : "edit")
           setStatusMessage("Draft saved.")
           return true
         }
@@ -162,7 +175,7 @@ export function useClinicProfileSourceController({
         if (outcome === "conflict") {
           enterConflict()
         } else if (outcome === "unknown") {
-          await reconcileUnknownSave(workingDraft)
+          return await reconcileUnknownSave(workingDraft, leaveAfterSave)
         } else {
           setStatusMessage("The draft could not be saved. Your local changes are still here.")
         }
@@ -201,26 +214,62 @@ export function useClinicProfileSourceController({
       return
     }
     setMode("review")
+    setUnresolvedPublish(undefined)
     setStatusMessage("")
   }, [hasSavedChanges, isDirty, snapshot?.draft, workingDraft])
 
+  const finishPublished = useCallback((nextSnapshot: ClinicProfileSnapshot) => {
+    setSnapshot(nextSnapshot)
+    setWorkingDraft(undefined)
+    setSavedBaseline(undefined)
+    setUnresolvedPublish(undefined)
+    setMode("view")
+    setValidationErrors({})
+    setStatusMessage("")
+    toast.success("Clinic profile published.")
+  }, [])
+
+  const applyPublishReconciliation = useCallback(
+    (latest: ClinicProfileSnapshot, attempt: UnresolvedPublish) => {
+      setSnapshot(latest)
+      const result = classifyClinicProfilePublishReconciliation(
+        latest,
+        attempt.attemptedDraft,
+        attempt.expectedDraftRevision,
+        attempt.expectedPublishedRevision,
+      )
+      if (result === "published") {
+        finishPublished(latest)
+        return
+      }
+      if (result === "not-published" && latest.draft) {
+        const saved = createClinicProfileDraftInput(latest.draft)
+        setWorkingDraft(saved)
+        setSavedBaseline(saved)
+        setUnresolvedPublish(undefined)
+        setStatusMessage("Publishing was not completed. Review the draft and try again.")
+        return
+      }
+      enterConflict()
+    },
+    [enterConflict, finishPublished],
+  )
+
   const publishDraft = useCallback(async () => {
-    if (!snapshot?.draft || operation !== "idle") return
+    if (!snapshot?.draft || operation !== "idle" || unresolvedPublish) return
     setOperation("publishing")
     setStatusMessage("")
-    const expectedDraftRevision = snapshot.draft.revision
-    const expectedPublishedRevision = snapshot.published.revision
+    const attempt = {
+      attemptedDraft: createClinicProfileDraftInput(snapshot.draft),
+      expectedDraftRevision: snapshot.draft.revision,
+      expectedPublishedRevision: snapshot.published.revision,
+    } satisfies UnresolvedPublish
     try {
       const nextSnapshot = await commands.publishDraft({
-        expectedDraftRevision,
-        expectedPublishedRevision,
+        expectedDraftRevision: attempt.expectedDraftRevision,
+        expectedPublishedRevision: attempt.expectedPublishedRevision,
       })
-      setSnapshot(nextSnapshot)
-      setWorkingDraft(undefined)
-      setSavedBaseline(undefined)
-      setMode("view")
-      setValidationErrors({})
-      toast.success("Clinic profile published.")
+      finishPublished(nextSnapshot)
     } catch (error) {
       const outcome = errorOutcome(error)
       if (outcome === "conflict") {
@@ -228,24 +277,10 @@ export function useClinicProfileSourceController({
       } else if (outcome === "unknown") {
         try {
           const latest = await commands.loadSnapshot()
-          setSnapshot(latest)
-          if (!latest.draft && latest.published.revision !== expectedPublishedRevision) {
-            setWorkingDraft(undefined)
-            setSavedBaseline(undefined)
-            setMode("view")
-            toast.success("Clinic profile published.")
-          } else if (
-            latest.draft?.revision === expectedDraftRevision &&
-            latest.published.revision === expectedPublishedRevision
-          ) {
-            setStatusMessage("Publishing could not be confirmed. Review the draft and try again.")
-          } else {
-            enterConflict()
-          }
+          applyPublishReconciliation(latest, attempt)
         } catch {
-          setStatusMessage(
-            "Publishing could not be confirmed. Your draft is preserved; reload before trying again.",
-          )
+          setUnresolvedPublish(attempt)
+          setStatusMessage("Publishing could not be confirmed. Reload the current status before continuing.")
         }
       } else {
         setStatusMessage("The profile could not be published. The draft is preserved.")
@@ -253,14 +288,39 @@ export function useClinicProfileSourceController({
     } finally {
       setOperation("idle")
     }
-  }, [commands, enterConflict, operation, snapshot])
+  }, [
+    applyPublishReconciliation,
+    commands,
+    enterConflict,
+    finishPublished,
+    operation,
+    snapshot,
+    unresolvedPublish,
+  ])
+
+  const resolvePublishOutcome = useCallback(async () => {
+    if (!unresolvedPublish || operation !== "idle") return
+    setOperation("loading")
+    setStatusMessage("")
+    try {
+      const latest = await commands.loadSnapshot()
+      applyPublishReconciliation(latest, unresolvedPublish)
+    } catch {
+      setStatusMessage("Publishing still cannot be confirmed. Reload the current status to try again.")
+    } finally {
+      setOperation("idle")
+    }
+  }, [applyPublishReconciliation, commands, operation, unresolvedPublish])
 
   const discardDraft = useCallback(async () => {
     if (!snapshot?.draft || operation !== "idle") return
+    const expectedDraft = createClinicProfileDraftInput(snapshot.draft)
+    const expectedDraftRevision = snapshot.draft.revision
+    const expectedPublishedRevision = snapshot.published.revision
     setOperation("discarding")
     try {
       const nextSnapshot = await commands.discardDraft({
-        expectedDraftRevision: snapshot.draft.revision,
+        expectedDraftRevision,
       })
       setSnapshot(nextSnapshot)
       setWorkingDraft(undefined)
@@ -269,11 +329,37 @@ export function useClinicProfileSourceController({
       setMode("view")
       setStatusMessage("Draft discarded.")
     } catch (error) {
-      if (errorOutcome(error) === "conflict") {
+      const outcome = errorOutcome(error)
+      if (outcome === "conflict") {
         enterConflict()
+      } else if (outcome === "unknown") {
+        try {
+          const latest = await commands.loadSnapshot()
+          setSnapshot(latest)
+          if (!latest.draft) {
+            setWorkingDraft(undefined)
+            setSavedBaseline(undefined)
+            setConfirmation(null)
+            setMode("view")
+            setStatusMessage("Draft discarded.")
+          } else if (
+            latest.draft.revision === expectedDraftRevision &&
+            latest.published.revision === expectedPublishedRevision &&
+            areClinicProfileDraftInputsEqual(createClinicProfileDraftInput(latest.draft), expectedDraft)
+          ) {
+            setConfirmation(null)
+            setStatusMessage("The draft was not discarded. It is still available.")
+          } else {
+            enterConflict()
+          }
+        } catch {
+          enterConflict(
+            "Discarding could not be confirmed. Your local values remain visible; reload latest before continuing.",
+          )
+        }
       } else {
         setConfirmation(null)
-        setStatusMessage("The draft could not be discarded. It is still preserved.")
+        setStatusMessage("The draft was not discarded. It is still available.")
       }
     } finally {
       setOperation("idle")
@@ -291,6 +377,7 @@ export function useClinicProfileSourceController({
       setConfirmation(null)
       setMode("view")
       setValidationErrors({})
+      setUnresolvedPublish(undefined)
       setStatusMessage("Latest profile loaded.")
     } catch {
       setConfirmation(null)
@@ -308,6 +395,7 @@ export function useClinicProfileSourceController({
       discardDraft,
       leaveWithoutSaving,
       publishDraft,
+      resolvePublishOutcome,
       reloadLatest,
       requestCancel,
       requestReview,
@@ -328,6 +416,7 @@ export function useClinicProfileSourceController({
       isUnavailable: !snapshot,
       mode,
       operation,
+      publishOutcomeUnresolved: Boolean(unresolvedPublish),
       published: snapshot?.published,
       snapshot,
       statusMessage,

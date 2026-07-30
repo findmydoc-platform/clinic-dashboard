@@ -14,9 +14,12 @@ type PublishReviewDialogProps = Readonly<{
   changeSet: ClinicProfileChangeSet
   errors: ClinicProfileValidationErrors
   isPublishing: boolean
+  isResolvingOutcome: boolean
   onBack: () => void
   onPublish: () => void
+  onResolveOutcome: () => void
   open: boolean
+  outcomeUnresolved: boolean
   statusMessage: string
 }>
 
@@ -45,9 +48,12 @@ export function PublishReviewDialog({
   changeSet,
   errors,
   isPublishing,
+  isResolvingOutcome,
   onBack,
   onPublish,
+  onResolveOutcome,
   open,
+  outcomeUnresolved,
   statusMessage,
 }: PublishReviewDialogProps) {
   const hasErrors = Object.keys(errors).length > 0
@@ -68,10 +74,22 @@ export function PublishReviewDialog({
             Changes will be public immediately.
           </p>
           <div className="flex justify-end gap-2">
-            <Button disabled={isPublishing} onClick={onBack} variant="outline">
+            {outcomeUnresolved ? (
+              <Button disabled={isResolvingOutcome} onClick={onResolveOutcome} variant="outline">
+                {isResolvingOutcome ? "Reloading…" : "Reload status"}
+              </Button>
+            ) : null}
+            <Button
+              disabled={isPublishing || isResolvingOutcome || outcomeUnresolved}
+              onClick={onBack}
+              variant="outline"
+            >
               Back to editing
             </Button>
-            <Button disabled={hasErrors || isPublishing} onClick={onPublish}>
+            <Button
+              disabled={hasErrors || isPublishing || isResolvingOutcome || outcomeUnresolved}
+              onClick={onPublish}
+            >
               {isPublishing ? "Publishing…" : "Publish changes"}
             </Button>
           </div>
@@ -85,7 +103,7 @@ export function PublishReviewDialog({
         </span>
       }
       onOpenChange={(nextOpen) => {
-        if (!nextOpen && !isPublishing) onBack()
+        if (!nextOpen && !isPublishing && !isResolvingOutcome && !outcomeUnresolved) onBack()
       }}
       open={open}
       panelClassName="max-w-3xl"

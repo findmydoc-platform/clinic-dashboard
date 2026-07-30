@@ -43,6 +43,7 @@ export type ClinicProfileScreenModel = Readonly<{
   legacySaveState: "idle" | "saved" | "saving"
   legacyStatusMessage: string
   profileManagement: ClinicProfileManagementAccess
+  sourceProfileManagement: ClinicProfileManagementAccess
   source: Readonly<{
     changeSet?: ClinicProfileChangeSet
     displayFields?: ClinicProfileSourceFields
@@ -91,7 +92,8 @@ type ClinicProfileScreenProps = Readonly<{
 export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps) {
   const galleryRef = useRef<HTMLElement>(null)
   const doctorsRef = useRef<HTMLElement>(null)
-  const canManageProfile = isClinicProfileManagementInteractive(model.profileManagement)
+  const canManageProfile = isClinicProfileManagementInteractive(model.sourceProfileManagement)
+  const canManageLegacyProfile = isClinicProfileManagementInteractive(model.profileManagement)
   const canManageDoctors = isClinicProfileManagementInteractive(model.doctorManagement)
   const sourceBusy = model.source.operation !== "idle"
   const legacyBusy = model.legacySaveState === "saving"
@@ -209,8 +211,8 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
         ref={galleryRef}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,0.8fr)]">
-        <div className="space-y-6">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,0.8fr)]">
+        <div className="min-w-0 space-y-6">
           {model.source.displayFields ? (
             <ClinicProfileBasics
               description={model.source.displayFields.descriptionText}
@@ -244,10 +246,10 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             onRemove={actions.onTreatmentRemove}
             onTreatmentOpen={actions.onTreatmentOpen}
             onUndo={actions.onRemovalUndo}
-            showCreateAction={canManageProfile}
-            showTreatmentActions={canManageProfile}
+            showCreateAction={canManageLegacyProfile}
+            showTreatmentActions={canManageLegacyProfile}
             showTreatmentViewAction={
-              isClinicProfileManagementVisible(model.profileManagement) && !canManageProfile
+              isClinicProfileManagementVisible(model.profileManagement) && !canManageLegacyProfile
             }
             treatments={model.treatments}
             undoMessage={model.undoKind === "treatment" ? model.undoMessage : undefined}

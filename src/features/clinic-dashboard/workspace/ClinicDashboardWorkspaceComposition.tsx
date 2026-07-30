@@ -124,6 +124,11 @@ export function ClinicDashboardWorkspaceComposition({
   })
   const { actions, model } = controller
   const capabilities = getClinicDashboardDemoInteractionPolicy(model.activePrototypeMode)
+  const sourceProfileManagement = authenticatedContext.capabilities.includes("clinic-profile:view")
+    ? authenticatedContext.capabilities.includes("clinic-profile:edit")
+      ? "interactive"
+      : "read-only"
+    : "hidden"
   const navigationItems = selectClinicDashboardNavigationItems({
     showCertificatesAccreditationsPlaceholder: capabilities.showCertificatesAccreditationsPlaceholder,
     showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
@@ -332,6 +337,7 @@ export function ClinicDashboardWorkspaceComposition({
           }
           onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
           profileManagement={capabilities.profileManagement}
+          sourceProfileManagement={sourceProfileManagement}
           sourceCommands={clinicProfileSourceCommands}
           sourceSnapshot={workspaceInput.profileSourceSnapshot}
           treatmentCatalogue={workspaceInput.treatmentCatalogue}

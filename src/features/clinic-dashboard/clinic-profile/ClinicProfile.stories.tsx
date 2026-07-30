@@ -56,6 +56,7 @@ const meta = {
     onFocusHandled: fn(),
     onTreatmentMissing: fn(),
     profileManagement: "interactive",
+    sourceProfileManagement: "interactive",
     sourceCommands: createClinicProfileSourceCommandsFixture(),
     sourceSnapshot: clinicProfileSourceFixture,
     treatmentCatalogue: clinicTreatmentCatalogueFixture,
@@ -121,8 +122,12 @@ export const AddressEditing: Story = {
     await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
     const address = page.getByRole("heading", { name: "Address" }).closest("section")
     if (!address) throw new Error("Address section is required.")
-    await userEvent.click(within(address).getByRole("button", { name: "Edit" }))
+    const trigger = within(address).getByRole("button", { name: "Edit" })
+    await userEvent.click(trigger)
     await expect(page.getByRole("dialog", { name: "Edit address" })).toBeVisible()
+    await userEvent.keyboard("{Escape}")
+    await expect(page.queryByRole("dialog", { name: "Edit address" })).not.toBeInTheDocument()
+    await expect(trigger).toHaveFocus()
   },
 }
 
@@ -144,10 +149,47 @@ export const UnsavedChangesGuard: Story = {
     await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
     await userEvent.type(page.getByRole("textbox", { name: "Clinic name" }), " updated")
     await expect(page.getAllByRole("button", { name: "Cancel editing" })).toHaveLength(1)
-    await userEvent.click(page.getByRole("button", { name: "Cancel editing" }))
+    const trigger = page.getByRole("button", { name: "Cancel editing" })
+    await userEvent.click(trigger)
     await waitFor(() =>
       expect(documentPage.getByRole("alertdialog", { name: "Leave profile editing?" })).toBeVisible(),
     )
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() =>
+      expect(
+        documentPage.queryByRole("alertdialog", { name: "Leave profile editing?" }),
+      ).not.toBeInTheDocument(),
+    )
+    await waitFor(() => expect(trigger).toHaveFocus())
+  },
+}
+
+const invalidHoursDraftSnapshot = {
+  ...clinicProfileSourceDraftFixture,
+  draft: {
+    ...clinicProfileSourceDraftFixture.draft!,
+    openingHours: {
+      ...clinicProfileSourceDraftFixture.draft!.openingHours!,
+      monday: { closesAt: "08:00", isClosed: false, opensAt: "09:00" },
+    },
+  },
+}
+
+export const OpeningHoursValidationLinksInputs: Story = {
+  args: { sourceSnapshot: invalidHoursDraftSnapshot },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    await userEvent.click(page.getByRole("button", { name: "Continue editing" }))
+    await userEvent.click(page.getByRole("button", { name: "Review & publish" }))
+    const hours = page.getByRole("heading", { name: "Opening hours" }).closest("section")
+    if (!hours) throw new Error("Opening-hours section is required.")
+    await userEvent.click(within(hours).getByRole("button", { name: "Edit" }))
+
+    const opens = page.getByLabelText("Opens for Monday")
+    const closes = page.getByLabelText("Closes for Monday")
+    const error = page.getByText("Closing time must be after opening time.")
+    await expect(opens).toHaveAttribute("aria-errormessage", error.id)
+    await expect(closes).toHaveAttribute("aria-errormessage", error.id)
   },
 }
 
@@ -216,6 +258,38 @@ export const PublishFailurePreservesReview: Story = {
     await expect(
       within(dialog).getByText("The profile could not be published. The draft is preserved."),
     ).toBeVisible()
+  },
+}
+
+const unresolvedPublishCommands = {
+  ...createClinicProfileSourceCommandsFixture(clinicProfileSourceDraftFixture),
+  loadSnapshot: async () => {
+    throw new ClinicProfileSourceCommandError("unknown", "Snapshot unavailable.")
+  },
+  publishDraft: async () => {
+    throw new ClinicProfileSourceCommandError("unknown", "Publish outcome unknown.")
+  },
+} satisfies ClinicProfileSourceCommands
+
+export const PublishOutcomeUnresolved: Story = {
+  args: { sourceSnapshot: clinicProfileSourceDraftFixture },
+  render: (args) => (
+    <ClinicProfile
+      {...args}
+      commands={createClinicProfileCommandsFixture()}
+      doctorCommands={createDoctorProfileCommandsFixture()}
+      sourceCommands={unresolvedPublishCommands}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    await userEvent.click(page.getByRole("button", { name: "Continue editing" }))
+    await userEvent.click(page.getByRole("button", { name: "Review & publish" }))
+    const dialog = page.getByRole("dialog", { name: "Review and publish" })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Publish changes" }))
+    await expect(within(dialog).getByRole("button", { name: "Reload status" })).toBeEnabled()
+    await expect(within(dialog).getByRole("button", { name: "Back to editing" })).toBeDisabled()
+    await expect(within(dialog).getByRole("button", { name: "Publish changes" })).toBeDisabled()
   },
 }
 

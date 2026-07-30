@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   areClinicProfileDraftInputsEqual,
+  classifyClinicProfilePublishReconciliation,
   createClinicProfileChangeSet,
   createEmptyClinicProfileOpeningHours,
   formatClinicProfileOpeningHoursDay,
@@ -65,5 +66,44 @@ describe("clinic profile editing", () => {
       "openingHours.monday": "Enter a complete opening and closing time.",
       supportedLanguages: "Select at least one language.",
     })
+  })
+
+  it("requires a description before publishing", () => {
+    const input = createClinicProfileDraftInput(clinicProfileSourceFixture.published)
+    expect(validateClinicProfileForPublish({ ...input, descriptionText: "   " })).toMatchObject({
+      descriptionText: "Enter the clinic description.",
+    })
+  })
+
+  it("accepts an unknown publish as successful only when the published fields match the attempt", () => {
+    const attemptedDraft = createClinicProfileDraftInput(clinicProfileSourceDraftFixture.draft!)
+    const {
+      basePublishedRevision: _basePublishedRevision,
+      revision: _draftRevision,
+      ...publishedFields
+    } = clinicProfileSourceDraftFixture.draft!
+    const publishedAttempt = {
+      ...clinicProfileSourceDraftFixture,
+      draft: undefined,
+      published: { ...publishedFields, revision: 5 },
+    }
+
+    expect(classifyClinicProfilePublishReconciliation(publishedAttempt, attemptedDraft, 2, 4)).toBe(
+      "published",
+    )
+    expect(
+      classifyClinicProfilePublishReconciliation(
+        {
+          ...publishedAttempt,
+          published: { ...publishedAttempt.published, name: "Another clinic" },
+        },
+        attemptedDraft,
+        2,
+        4,
+      ),
+    ).toBe("conflict")
+    expect(
+      classifyClinicProfilePublishReconciliation(clinicProfileSourceDraftFixture, attemptedDraft, 2, 4),
+    ).toBe("not-published")
   })
 })

@@ -49,6 +49,7 @@ const publishedModel = {
   legacySaveState: "idle",
   legacyStatusMessage: "",
   profileManagement: "interactive",
+  sourceProfileManagement: "interactive",
   source: {
     displayFields: clinicProfileSourceFixture.published,
     hasSavedChanges: false,
@@ -133,5 +134,19 @@ export const ProfileUnavailable: Story = {
         validationErrors: {},
       },
     },
+  },
+}
+
+export const SourceProfileReadOnlyKeepsLegacyControls: Story = {
+  args: {
+    model: {
+      ...publishedModel,
+      sourceProfileManagement: "read-only",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByRole("button", { name: "Edit profile" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "New treatment" })).toBeVisible()
   },
 }

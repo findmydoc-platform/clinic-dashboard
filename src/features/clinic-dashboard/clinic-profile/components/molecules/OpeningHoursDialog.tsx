@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useId, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Modal } from "@/components/ui/modal"
@@ -21,6 +21,7 @@ type OpeningHoursDialogProps = Readonly<{
 }>
 
 export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open }: OpeningHoursDialogProps) {
+  const errorIdPrefix = useId()
   const [isConfigured, setIsConfigured] = useState(Boolean(entries))
   const [draft, setDraft] = useState<ClinicProfileOpeningHours>(
     entries ?? createEmptyClinicProfileOpeningHours(),
@@ -73,6 +74,7 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
           {clinicProfileWeekdayValues.map((weekday, index) => {
             const entry = draft[weekday]
             const error = errors[`openingHours.${weekday}`]
+            const errorId = `${errorIdPrefix}-${weekday}-error`
             return (
               <div
                 className={`grid gap-3 p-3 sm:grid-cols-[8rem_8rem_1fr_1fr] sm:items-center sm:gap-4 sm:border-t sm:border-[var(--border)] sm:px-4 sm:py-1.5 ${
@@ -104,6 +106,8 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
                   <span className="sm:sr-only">Opens</span>
                   <Input
                     aria-label={`Opens for ${clinicProfileWeekdayLabels[weekday]}`}
+                    aria-describedby={error ? errorId : undefined}
+                    aria-errormessage={error ? errorId : undefined}
                     aria-invalid={error ? true : undefined}
                     disabled={entry.isClosed}
                     onValueChange={(opensAt) =>
@@ -120,6 +124,8 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
                   <span className="sm:sr-only">Closes</span>
                   <Input
                     aria-label={`Closes for ${clinicProfileWeekdayLabels[weekday]}`}
+                    aria-describedby={error ? errorId : undefined}
+                    aria-errormessage={error ? errorId : undefined}
                     aria-invalid={error ? true : undefined}
                     disabled={entry.isClosed}
                     onValueChange={(closesAt) =>
@@ -135,6 +141,7 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
                 {error ? (
                   <p
                     className="text-sm font-bold text-[var(--destructive)] sm:col-start-3 sm:col-end-5"
+                    id={errorId}
                     role="alert"
                   >
                     {error}
