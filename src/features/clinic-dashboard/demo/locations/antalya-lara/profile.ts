@@ -62,9 +62,5 @@ export const antalyaLaraProfile = {
       specialty: "General dermatology",
     },
   ],
-  treatments: [
-    { masterTreatmentId: "master-skin-analysis", price: "€95" },
-    { masterTreatmentId: "master-dermatology-consultation", price: "€110" },
-  ],
   updatedAt: "2026-07-19T08:10:00.000Z",
 } satisfies ClinicProfileDraft

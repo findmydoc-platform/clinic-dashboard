@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fetchClinicDashboardBootstrap } from "@/features/clinic-dashboard/auth/server/payload-bootstrap"
 
 const bootstrap = {
-  capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+  capabilities: [
+    "clinic-profile:view",
+    "clinic-profile:edit",
+    "clinic-treatments:view",
+    "clinic-treatments:edit",
+  ],
   clinic: { id: "clinic-1", name: "Clinic One" },
   principal: { displayName: "Alex Morgan", email: "alex@example.com", id: "staff-1" },
   status: "approved",
@@ -45,6 +50,40 @@ describe("Payload clinic bootstrap", () => {
       cache: "no-store",
       headers: { Accept: "application/json", Authorization: "Bearer access-token" },
       redirect: "error",
+    })
+  })
+
+  it("inherits treatment access from the legacy profile capability contract", async () => {
+    const legacyBootstrap = {
+      ...bootstrap,
+      capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+    }
+
+    await expect(
+      fetchClinicDashboardBootstrap(
+        "access-token",
+        vi.fn(async () => jsonResponse(legacyBootstrap)) as typeof fetch,
+      ),
+    ).resolves.toEqual({
+      context: bootstrap,
+      status: "approved",
+    })
+  })
+
+  it("preserves an explicit read-only treatment capability", async () => {
+    const readOnlyTreatmentsBootstrap = {
+      ...bootstrap,
+      capabilities: ["clinic-profile:view", "clinic-profile:edit", "clinic-treatments:view"],
+    }
+
+    await expect(
+      fetchClinicDashboardBootstrap(
+        "access-token",
+        vi.fn(async () => jsonResponse(readOnlyTreatmentsBootstrap)) as typeof fetch,
+      ),
+    ).resolves.toEqual({
+      context: readOnlyTreatmentsBootstrap,
+      status: "approved",
     })
   })
 

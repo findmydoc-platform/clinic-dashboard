@@ -1,9 +1,50 @@
 import { z } from "zod"
 
-const clinicDashboardCapabilitySchema = z.enum(["clinic-profile:view", "clinic-profile:edit"])
+const clinicDashboardCapabilityValues = [
+  "clinic-profile:view",
+  "clinic-profile:edit",
+  "clinic-treatments:view",
+  "clinic-treatments:edit",
+] as const
+
+const clinicDashboardCapabilitySchema = z.enum(clinicDashboardCapabilityValues)
+
+const capabilityListSchema = z
+  .array(clinicDashboardCapabilitySchema)
+  .min(1)
+  .max(clinicDashboardCapabilityValues.length)
+  .superRefine((capabilities, context) => {
+    const unique = new Set(capabilities)
+    const ordered = clinicDashboardCapabilityValues.filter((capability) => unique.has(capability))
+    if (
+      unique.size !== capabilities.length ||
+      ordered.some((capability, index) => capability !== capabilities[index])
+    ) {
+      context.addIssue({ code: "custom", message: "Capabilities must be unique and canonically ordered." })
+    }
+    if (
+      !unique.has("clinic-profile:view") ||
+      (unique.has("clinic-profile:edit") && !unique.has("clinic-profile:view")) ||
+      (unique.has("clinic-treatments:edit") && !unique.has("clinic-treatments:view"))
+    ) {
+      context.addIssue({ code: "custom", message: "Capability dependencies are invalid." })
+    }
+  })
+  .transform((capabilities) => {
+    const inherited = new Set(capabilities)
+    const hasExplicitTreatmentAccess = capabilities.some((capability) =>
+      capability.startsWith("clinic-treatments:"),
+    )
+    if (!hasExplicitTreatmentAccess) {
+      if (inherited.has("clinic-profile:view")) inherited.add("clinic-treatments:view")
+      if (inherited.has("clinic-profile:edit")) inherited.add("clinic-treatments:edit")
+    }
+    return clinicDashboardCapabilityValues.filter((capability) => inherited.has(capability))
+  })
+  .readonly()
 
 export const authenticatedClinicContextSchema = z.object({
-  capabilities: z.tuple([z.literal("clinic-profile:view"), z.literal("clinic-profile:edit")]).readonly(),
+  capabilities: capabilityListSchema,
   clinic: z.object({
     id: z.string().min(1),
     name: z.string().min(1),

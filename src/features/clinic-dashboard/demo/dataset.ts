@@ -85,7 +85,30 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
     },
     notifications: clinicDashboardDemoNotifications,
     organization: clinicDashboardDemoOrganization,
-    treatmentCatalogue: clinicDashboardDemoTreatmentCatalogue,
+    treatmentSnapshot: {
+      catalogue: clinicDashboardDemoTreatmentCatalogue,
+      offerings: [
+        {
+          active: true,
+          id: "demo-offering-hair-transplant",
+          price: 3900,
+          treatment: clinicDashboardDemoTreatmentCatalogue[3],
+        },
+        {
+          active: false,
+          id: "demo-offering-dermatology-consultation",
+          price: 150,
+          treatment: clinicDashboardDemoTreatmentCatalogue[4],
+        },
+        {
+          active: true,
+          id: "demo-offering-skin-analysis",
+          price: 0,
+          treatment: clinicDashboardDemoTreatmentCatalogue[2],
+        },
+      ],
+      status: "ready",
+    },
   }
 
   assertClinicDashboardNotificationTargets(

@@ -5,6 +5,7 @@ const serverMocks = vi.hoisted(() => ({
   getClinicDashboardAccess: vi.fn(),
   getClinicDashboardAccessToken: vi.fn(),
   loadDirectory: vi.fn(),
+  loadTreatments: vi.fn(),
   loadWorkspace: vi.fn(),
   loadQueue: vi.fn(),
 }))
@@ -40,7 +41,7 @@ const workspace = {
   locations: [],
   notifications: [],
   organization: { id: "clinic-1", name: "Clinic One" },
-  treatmentCatalogue: [],
+  treatmentSnapshot: { catalogue: [], offerings: [], status: "temporarily-unavailable" },
 } as const
 
 describe("Patient inquiry queue server loading", () => {
@@ -49,6 +50,12 @@ describe("Patient inquiry queue server loading", () => {
     serverMocks.loadWorkspace.mockResolvedValue(workspace)
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
+        capabilities: [
+          "clinic-profile:view",
+          "clinic-profile:edit",
+          "clinic-treatments:view",
+          "clinic-treatments:edit",
+        ],
         clinic: { id: "clinic-1", name: "Clinic One" },
       },
       status: "approved",
@@ -65,6 +72,15 @@ describe("Patient inquiry queue server loading", () => {
         changeStatus: vi.fn(),
         loadQueue: serverMocks.loadQueue,
       },
+      treatments: {
+        createTreatment: vi.fn(),
+        loadTreatments: serverMocks.loadTreatments,
+        updateTreatment: vi.fn(),
+      },
+    })
+    serverMocks.loadTreatments.mockResolvedValue({
+      ok: true,
+      value: { catalogue: [], offerings: [], status: "ready" },
     })
   })
 
@@ -145,5 +161,25 @@ describe("Patient inquiry queue server loading", () => {
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({ doctorDirectory })
     expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("access-token", "clinic-1")
     expect(serverMocks.loadDirectory).toHaveBeenCalledOnce()
+  })
+
+  it("does not load or serialize treatments without the view capability", async () => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: [],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+      },
+      status: "approved",
+    })
+    serverMocks.loadQueue.mockResolvedValue({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+
+    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+      treatmentSnapshot: { catalogue: [], offerings: [], status: "forbidden" },
+    })
+    expect(serverMocks.loadTreatments).not.toHaveBeenCalled()
   })
 })

@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, waitFor, within } from "storybook/test"
-import { selectClinicTreatmentViews } from "../../model/clinic-treatments"
-import { clinicProfileFixture, clinicTreatmentCatalogueFixture } from "../../testing/clinic-profile.fixtures"
+import { clinicProfileFixture, clinicTreatmentSnapshotFixture } from "../../testing/clinic-profile.fixtures"
 import {
   createDoctorProfileCommandsFixture,
   doctorDirectoryFixture,
@@ -22,18 +21,12 @@ const actions = {
   onOpeningHoursEdit: fn(),
   onProfileCancel: fn(),
   onProfileSave: fn(),
-  onRemovalUndo: fn(),
   onSpecialtyDialogOpen: fn(),
   onSpecialtyRemove: fn(),
   onTreatmentCreate: fn(),
   onTreatmentOpen: fn(),
-  onTreatmentRemove: fn(),
+  onTreatmentRetry: fn(),
 } satisfies ClinicProfileScreenActions
-
-const treatmentViews = selectClinicTreatmentViews(
-  clinicTreatmentCatalogueFixture,
-  clinicProfileFixture.treatments,
-)
 
 const readOnlyModel = {
   doctorCommands: createDoctorProfileCommandsFixture(),
@@ -44,7 +37,10 @@ const readOnlyModel = {
   profileManagement: "hidden",
   saveState: "idle",
   statusMessage: "",
-  treatments: treatmentViews,
+  treatmentManagement: "hidden",
+  treatmentSnapshot: clinicTreatmentSnapshotFixture,
+  treatmentStatusMessage: "",
+  treatmentsBusy: false,
 } satisfies ClinicProfileScreenModel
 
 const meta = {
@@ -78,16 +74,14 @@ export const EditableWithUndo: Story = {
       doctorManagement: "interactive",
       isDirty: true,
       profileManagement: "interactive",
-      statusMessage: "Treatment removed.",
-      undoKind: "treatment",
-      undoMessage: "FUE hair transplant removed. Undo restores this item.",
+      statusMessage: "Profile changes staged.",
     },
   },
-  play: async ({ args, canvasElement }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole("button", { name: "Add doctor" })).toBeEnabled()
-    await userEvent.click(canvas.getByRole("button", { name: "Undo removal" }))
-    await expect(args.actions.onRemovalUndo).toHaveBeenCalledOnce()
+    const profileActions = canvas.getByRole("group", { name: "Profile page actions" })
+    await expect(within(profileActions).getByRole("button", { name: "Save changes" })).toBeEnabled()
   },
 }
 

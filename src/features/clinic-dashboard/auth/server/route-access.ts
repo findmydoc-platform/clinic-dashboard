@@ -3,6 +3,7 @@ import "server-only"
 import type { NextRequest, NextResponse } from "next/server"
 import { isControlledAuthTestMode } from "@/lib/env"
 import type { ClinicDashboardAccessResult } from "../model/auth"
+import type { ClinicDashboardCapability } from "../model/auth"
 import { resolveAccessForSession, resolveMutableClinicDashboardAccess } from "./access"
 import { getClinicDashboardSession, readVerifiedSupabaseSession } from "./session"
 import { createRouteSupabaseClient } from "./supabase-client"
@@ -11,6 +12,7 @@ type ClinicDashboardMutationAccess =
   | Readonly<{
       accessToken: string
       applyToResponse: (response: NextResponse) => NextResponse
+      capabilities: readonly ClinicDashboardCapability[]
       clinicId: string
       status: "approved"
     }>
@@ -32,6 +34,7 @@ export async function resolveClinicDashboardMutationAccess(
         ? {
             accessToken: session.accessToken,
             applyToResponse,
+            capabilities: access.context.capabilities,
             clinicId: access.context.clinic.id,
             status: "approved",
           }
@@ -52,6 +55,7 @@ export async function resolveClinicDashboardMutationAccess(
     ? {
         accessToken: session.accessToken,
         applyToResponse: routeClient.applyToResponse,
+        capabilities: access.context.capabilities,
         clinicId: access.context.clinic.id,
         status: "approved",
       }
