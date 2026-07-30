@@ -6,20 +6,30 @@ import { ClinicProfile } from "./ClinicProfile"
 import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
 import {
   clinicProfileFixture,
-  clinicTreatmentCatalogueFixture,
+  clinicTreatmentSnapshotFixture,
   createClinicProfileCommandsFixture,
+  createClinicTreatmentCommandsFixture,
 } from "./testing/clinic-profile.fixtures"
 import { createDoctorProfileCommandsFixture, doctorDirectoryFixture } from "./testing/doctor-profile.fixtures"
 
 function ClinicProfileStoryFixture({
   commands: _commands,
   doctorCommands: _doctorCommands,
+  treatmentCommands: _treatmentCommands,
   ...props
 }: ComponentProps<typeof ClinicProfile>) {
   const [commands] = useState<ClinicProfileCommands>(() => createClinicProfileCommandsFixture())
   const [doctorCommands] = useState(() => createDoctorProfileCommandsFixture())
+  const [treatmentCommands] = useState(() => createClinicTreatmentCommandsFixture())
 
-  return <ClinicProfile {...props} commands={commands} doctorCommands={doctorCommands} />
+  return (
+    <ClinicProfile
+      {...props}
+      commands={commands}
+      doctorCommands={doctorCommands}
+      treatmentCommands={treatmentCommands}
+    />
+  )
 }
 
 const renderOwnedClinicProfileCommands = {
@@ -37,7 +47,9 @@ const meta = {
     onFocusHandled: fn(),
     onTreatmentMissing: fn(),
     profileManagement: "interactive",
-    treatmentCatalogue: clinicTreatmentCatalogueFixture,
+    treatmentCommands: createClinicTreatmentCommandsFixture(),
+    treatmentManagement: "interactive",
+    treatmentSnapshot: clinicTreatmentSnapshotFixture,
   },
   component: ClinicProfile,
   parameters: { layout: "fullscreen" },
@@ -52,12 +64,14 @@ type Story = StoryObj<typeof meta>
 function CapabilityToggleClinicProfile({
   commands: _commands,
   doctorCommands: _doctorCommands,
+  treatmentCommands: _treatmentCommands,
   ...props
 }: ComponentProps<typeof ClinicProfile>) {
   const [managementAccess, setManagementAccess] =
     useState<ComponentProps<typeof ClinicProfile>["profileManagement"]>("interactive")
   const [commands] = useState<ClinicProfileCommands>(() => createClinicProfileCommandsFixture())
   const [doctorCommands] = useState(() => createDoctorProfileCommandsFixture())
+  const [treatmentCommands] = useState(() => createClinicTreatmentCommandsFixture())
 
   return (
     <>
@@ -74,6 +88,8 @@ function CapabilityToggleClinicProfile({
         doctorCommands={doctorCommands}
         doctorManagement={managementAccess}
         profileManagement={managementAccess}
+        treatmentCommands={treatmentCommands}
+        treatmentManagement={managementAccess}
       />
     </>
   )
@@ -139,7 +155,7 @@ export const TreatmentRelationshipLifecycle: Story = {
       within(dialog).getByRole("combobox", { name: "Treatment" }),
       "master-hair-transplant",
     )
-    await userEvent.type(within(dialog).getByRole("textbox", { name: "Price" }), "€2,400")
+    await userEvent.type(within(dialog).getByRole("spinbutton", { name: "Price (EUR)" }), "2400")
     await userEvent.click(within(dialog).getByRole("button", { name: "Add treatment" }))
     await expect(page.getByText("Hair transplant")).toBeInTheDocument()
   },

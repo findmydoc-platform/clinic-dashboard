@@ -3,8 +3,9 @@
 import { useState } from "react"
 import {
   clinicProfileFixture,
-  clinicTreatmentCatalogueFixture,
+  clinicTreatmentSnapshotFixture,
   createClinicProfileCommandsFixture,
+  createClinicTreatmentCommandsFixture,
   createDoctorProfileCommandsFixture,
   doctorDirectoryFixture,
 } from "@/features/clinic-dashboard/clinic-profile/testing/public"
@@ -394,7 +395,7 @@ export const clinicDashboardWorkspaceFixture = {
   },
   notifications: notificationsFixture,
   organization: workspaceOrganizationFixture,
-  treatmentCatalogue: clinicTreatmentCatalogueFixture,
+  treatmentSnapshot: clinicTreatmentSnapshotFixture,
 } satisfies ClinicDashboardWorkspaceInput
 
 export function ClinicDashboardWorkspaceHarness({
@@ -406,12 +407,14 @@ export function ClinicDashboardWorkspaceHarness({
   start,
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
+  const [clinicTreatmentCommands] = useState(() => createClinicTreatmentCommandsFixture())
   const [doctorProfileCommands] = useState(() => createDoctorProfileCommandsFixture())
   const [reviewCommands] = useState(() => createReviewCommandsFixture())
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedClinicContextFixture}
       clinicProfileCommands={clinicProfileCommands}
+      clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
       initialNotificationReadIds={notificationState?.readIds}
       initialNotificationsOpen={notificationState?.isOpen}

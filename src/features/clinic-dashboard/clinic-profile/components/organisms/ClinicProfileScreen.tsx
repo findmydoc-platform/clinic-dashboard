@@ -3,11 +3,8 @@
 import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeading } from "@/components/ui/page-heading"
-import type {
-  ClinicProfileDraft,
-  ClinicProfileFocusTarget,
-  ClinicTreatmentView,
-} from "../../model/clinic-profile"
+import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "../../model/clinic-profile"
+import type { ClinicTreatmentOffering, ClinicTreatmentsSnapshot } from "../../model/clinic-treatment"
 import type { DoctorDirectorySnapshot } from "../../model/doctor-profile"
 import type { DoctorProfileCommands } from "../../model/doctor-profile-commands"
 import {
@@ -31,8 +28,11 @@ export type ClinicProfileScreenModel = Readonly<{
   profileManagement: ClinicProfileManagementAccess
   saveState: "idle" | "saved" | "saving"
   statusMessage: string
-  treatments: readonly ClinicTreatmentView[]
-  undoKind?: "team" | "treatment"
+  treatmentManagement: ClinicProfileManagementAccess
+  treatmentSnapshot: ClinicTreatmentsSnapshot
+  treatmentStatusMessage: string
+  treatmentsBusy: boolean
+  undoKind?: "team"
   undoMessage?: string
 }>
 
@@ -46,12 +46,11 @@ export type ClinicProfileScreenActions = Readonly<{
   onOpeningHoursEdit: () => void
   onProfileCancel: () => void
   onProfileSave: () => void
-  onRemovalUndo: () => void
   onSpecialtyDialogOpen: () => void
   onSpecialtyRemove: (specialty: string) => void
   onTreatmentCreate: () => void
-  onTreatmentOpen: (treatment: ClinicTreatmentView) => void
-  onTreatmentRemove: (id: string) => void
+  onTreatmentOpen: (treatment: ClinicTreatmentOffering) => void
+  onTreatmentRetry: () => void
 }>
 
 type ClinicProfileScreenProps = Readonly<{
@@ -64,6 +63,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
   const doctorsRef = useRef<HTMLElement>(null)
   const canManageProfile = isClinicProfileManagementInteractive(model.profileManagement)
   const canManageDoctors = isClinicProfileManagementInteractive(model.doctorManagement)
+  const canManageTreatments = isClinicProfileManagementInteractive(model.treatmentManagement)
   const canSaveProfile = canManageProfile
   const isBusy = model.saveState === "saving"
   const isEditingDisabled = !canManageProfile || isBusy
@@ -147,20 +147,20 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             ref={doctorsRef}
             snapshot={model.doctorDirectory}
           />
-          <ClinicProfileTreatments
-            isBusy={isBusy}
-            onCreate={actions.onTreatmentCreate}
-            onRemove={actions.onTreatmentRemove}
-            onTreatmentOpen={actions.onTreatmentOpen}
-            onUndo={actions.onRemovalUndo}
-            showCreateAction={canManageProfile}
-            showTreatmentActions={canManageProfile}
-            showTreatmentViewAction={
-              isClinicProfileManagementVisible(model.profileManagement) && !canManageProfile
-            }
-            treatments={model.treatments}
-            undoMessage={model.undoKind === "treatment" ? model.undoMessage : undefined}
-          />
+          {isClinicProfileManagementVisible(model.treatmentManagement) ? (
+            <ClinicProfileTreatments
+              isBusy={model.treatmentsBusy}
+              onCreate={actions.onTreatmentCreate}
+              onRetry={actions.onTreatmentRetry}
+              onTreatmentOpen={actions.onTreatmentOpen}
+              showCreateAction={canManageTreatments}
+              showTreatmentActions={canManageTreatments}
+              showTreatmentViewAction={!canManageTreatments}
+              status={model.treatmentSnapshot.status}
+              statusMessage={model.treatmentStatusMessage}
+              treatments={model.treatmentSnapshot.status === "ready" ? model.treatmentSnapshot.offerings : []}
+            />
+          ) : null}
         </div>
 
         <ClinicProfileDetails

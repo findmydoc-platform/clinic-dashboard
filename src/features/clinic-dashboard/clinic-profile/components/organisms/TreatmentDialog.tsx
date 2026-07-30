@@ -6,14 +6,21 @@ import { Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Modal } from "@/components/ui/modal"
 import { Select } from "@/components/ui/select"
-import type { ClinicTreatmentInput, ClinicTreatmentView, MasterTreatment } from "../../model/clinic-profile"
+import type {
+  ClinicTreatmentCreateInput,
+  ClinicTreatmentOffering,
+  MasterTreatment,
+} from "../../model/clinic-treatment"
+import { isValidClinicTreatmentPrice } from "../../model/clinic-treatments"
 
 type TreatmentDialogProps = Readonly<{
   availableTreatments: readonly MasterTreatment[]
-  initialTreatment?: ClinicTreatmentView
+  initialTreatment?: ClinicTreatmentOffering
+  isBusy: boolean
   isReadOnly: boolean
+  message?: string
   onOpenChange: (open: boolean) => void
-  onSave: (input: ClinicTreatmentInput) => boolean
+  onSave: (input: ClinicTreatmentCreateInput) => Promise<boolean>
   onTreatmentMissing?: () => void
   open: boolean
 }>
@@ -21,23 +28,35 @@ type TreatmentDialogProps = Readonly<{
 export function TreatmentDialog({
   availableTreatments,
   initialTreatment,
+  isBusy,
   isReadOnly,
+  message,
   onOpenChange,
   onSave,
   onTreatmentMissing,
   open,
 }: TreatmentDialogProps) {
-  const [masterTreatmentId, setMasterTreatmentId] = useState(initialTreatment?.masterTreatmentId ?? "")
-  const [price, setPrice] = useState(initialTreatment?.price ?? "")
+  const [treatmentId, setTreatmentId] = useState(initialTreatment?.treatment.id ?? "")
+  const [price, setPrice] = useState(initialTreatment ? String(initialTreatment.price) : "")
+  const [priceTouched, setPriceTouched] = useState(false)
+  const [active, setActive] = useState(initialTreatment?.active ?? false)
   const isCreating = !initialTreatment
-  const normalizedPrice = price.trim()
-  const hasPriceChanged = isCreating || normalizedPrice !== initialTreatment.price.trim()
-  const canSave = Boolean(masterTreatmentId && normalizedPrice && hasPriceChanged)
+  const parsedPrice = Number(price)
+  const selectedMasterTreatment =
+    initialTreatment?.treatment ?? availableTreatments.find((treatment) => treatment.id === treatmentId)
+  const hasChanged =
+    isCreating || parsedPrice !== initialTreatment.price || active !== initialTreatment.active
+  const priceError =
+    priceTouched && (!price.trim() || !isValidClinicTreatmentPrice(parsedPrice))
+      ? "Enter a non-negative EUR price with at most two decimal places."
+      : undefined
+  const canSave = Boolean(
+    treatmentId && price.trim() && isValidClinicTreatmentPrice(parsedPrice) && hasChanged && !isBusy,
+  )
 
-  const save = () => {
+  const save = async () => {
     if (!canSave) return
-    const accepted = onSave({ masterTreatmentId, price: normalizedPrice })
-    if (accepted) onOpenChange(false)
+    await onSave({ active, price: parsedPrice, treatmentId })
   }
 
   const openSupport = () => {
@@ -49,10 +68,10 @@ export function TreatmentDialog({
     <Modal
       description={
         isReadOnly
-          ? "View the platform treatment and this clinic's public price."
+          ? "View the central treatment details and this clinic's EUR price."
           : initialTreatment
-            ? "Update this clinic's public price for the platform treatment."
-            : "Choose a platform treatment and set this clinic's public price."
+            ? "Update this clinic's EUR price and public status."
+            : "Choose a central treatment and set this clinic's EUR price and public status."
       }
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -68,12 +87,12 @@ export function TreatmentDialog({
             <span aria-hidden="true" />
           )}
           <div className="flex flex-wrap justify-end gap-2">
-            <Button onClick={() => onOpenChange(false)} variant="outline">
+            <Button disabled={isBusy} onClick={() => onOpenChange(false)} variant="outline">
               {isReadOnly ? "Done" : "Cancel"}
             </Button>
             {!isReadOnly ? (
               <Button disabled={!canSave} onClick={save}>
-                {initialTreatment ? "Save price" : "Add treatment"}
+                {isBusy ? "Saving…" : initialTreatment ? "Save changes" : "Add treatment"}
               </Button>
             ) : null}
           </div>
@@ -81,21 +100,26 @@ export function TreatmentDialog({
       }
       onOpenChange={onOpenChange}
       open={open}
-      title={isReadOnly ? "Treatment details" : initialTreatment ? "Edit clinic price" : "Add treatment"}
+      title={isReadOnly ? "Treatment details" : initialTreatment ? "Edit treatment" : "Add treatment"}
     >
       <div className="grid gap-5">
+        {message ? (
+          <p className="text-sm font-bold text-[var(--destructive)]" role="alert">
+            {message}
+          </p>
+        ) : null}
         {isCreating ? (
           <Field
-            description="Treatment names are maintained in the findmydoc platform catalogue."
+            description="Treatment names and descriptions are maintained centrally by findmydoc."
             isRequired
             label="Treatment"
           >
             {(controlProps) => (
               <Select
                 {...controlProps}
-                disabled={isReadOnly}
-                onValueChange={setMasterTreatmentId}
-                value={masterTreatmentId}
+                disabled={isReadOnly || isBusy}
+                onValueChange={setTreatmentId}
+                value={treatmentId}
               >
                 <option value="">Select a treatment…</option>
                 {availableTreatments.map((treatment) => (
@@ -108,29 +132,59 @@ export function TreatmentDialog({
           </Field>
         ) : (
           <Field label="Treatment">
-            {(controlProps) => <Input {...controlProps} readOnly value={initialTreatment.name} />}
+            {(controlProps) => <Input {...controlProps} readOnly value={initialTreatment.treatment.name} />}
           </Field>
         )}
 
+        {selectedMasterTreatment ? (
+          <div className="grid gap-2">
+            <h3 className="text-sm font-bold text-[var(--foreground)]">Central description</h3>
+            <p className="text-sm leading-6 whitespace-pre-line text-[var(--foreground)]">
+              {selectedMasterTreatment.descriptionText || "No description available."}
+            </p>
+          </div>
+        ) : null}
+
         <Field
-          description={
-            isReadOnly
-              ? "This is the clinic-specific public price."
-              : "Only the clinic-specific public price can be changed here."
-          }
+          description="Fixed currency: EUR. Enter zero or a positive amount with up to two decimal places."
+          error={priceError}
+          isInvalid={Boolean(priceError)}
           isRequired={!isReadOnly}
-          label="Price"
+          label="Price (EUR)"
         >
           {(controlProps) => (
             <Input
               {...controlProps}
-              onValueChange={isReadOnly ? undefined : setPrice}
-              placeholder="e.g. €250"
+              disabled={isBusy}
+              inputMode="decimal"
+              min="0"
+              onValueChange={
+                isReadOnly
+                  ? undefined
+                  : (value) => {
+                      setPriceTouched(true)
+                      setPrice(value)
+                    }
+              }
+              placeholder="250.00"
               readOnly={isReadOnly}
+              step="0.01"
+              type="number"
               value={price}
             />
           )}
         </Field>
+
+        <label className="flex min-h-11 items-center gap-3 text-sm font-bold text-[var(--foreground)]">
+          <input
+            checked={active}
+            className="size-5 accent-[var(--primary)]"
+            disabled={isReadOnly || isBusy}
+            onChange={(event) => setActive(event.currentTarget.checked)}
+            type="checkbox"
+          />
+          Publicly active
+        </label>
       </div>
     </Modal>
   )

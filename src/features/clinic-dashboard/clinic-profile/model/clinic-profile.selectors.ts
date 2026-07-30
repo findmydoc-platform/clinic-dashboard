@@ -10,7 +10,7 @@ type ClinicProfileEditorProjection = Readonly<{
   profile: ClinicProfileDraft
   saveState: ClinicProfileEditorState["saveState"]
   statusMessage: string
-  undoKind?: "team" | "treatment"
+  undoKind?: "team"
   undoMessage?: string
 }>
 
@@ -30,13 +30,8 @@ export function selectClinicProfileEditorProjection(
     ? { ...profileSource, team: editor.draft.team }
     : { ...profileSource, team: editor.saved.team }
   const canManageProjectedProfile = canManageProfile || canManageTeam
-  const canUndo =
-    editor.undo?.kind === "team" ? canManageTeam : editor.undo?.kind === "treatment" && canManageProfile
-  const undoTreatmentId = editor.undo?.kind === "treatment" ? editor.undo.item.masterTreatmentId : undefined
-  const undoName =
-    editor.undo?.kind === "team"
-      ? editor.undo.item.name
-      : editor.treatmentCatalogue.find((treatment) => treatment.id === undoTreatmentId)?.name
+  const canUndo = editor.undo?.kind === "team" && canManageTeam
+  const undoName = editor.undo?.item.name
 
   return {
     isDirty: canManageProjectedProfile && isClinicProfileDirty(editor.saved, profile),

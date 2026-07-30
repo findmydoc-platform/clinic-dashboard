@@ -10,8 +10,11 @@ import {
 } from "./components/organisms/ClinicProfileScreen"
 import { TreatmentDialog } from "./components/organisms/TreatmentDialog"
 import { useClinicProfileController } from "./hooks/useClinicProfileController"
+import { useClinicTreatmentsController } from "./hooks/useClinicTreatmentsController"
 import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
-import type { ClinicProfileDraft, ClinicProfileFocusTarget, MasterTreatment } from "./model/clinic-profile"
+import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "./model/clinic-profile"
+import type { ClinicTreatmentCommands } from "./model/clinic-treatment-commands"
+import type { ClinicTreatmentsSnapshot } from "./model/clinic-treatment"
 import type { DoctorDirectorySnapshot, DoctorProfile } from "./model/doctor-profile"
 import type { DoctorProfileCommands } from "./model/doctor-profile-commands"
 import {
@@ -33,7 +36,9 @@ export type ClinicProfileProps = Readonly<{
   onProfileSaved?: (profile: ClinicProfileDraft) => void
   onTreatmentMissing?: () => void
   profileManagement: ClinicProfileManagementAccess
-  treatmentCatalogue: readonly MasterTreatment[]
+  treatmentCommands: ClinicTreatmentCommands
+  treatmentManagement: ClinicProfileManagementAccess
+  treatmentSnapshot: ClinicTreatmentsSnapshot
 }>
 
 export function ClinicProfile({
@@ -49,7 +54,9 @@ export function ClinicProfile({
   onProfileSaved,
   onTreatmentMissing,
   profileManagement,
-  treatmentCatalogue,
+  treatmentCommands,
+  treatmentManagement,
+  treatmentSnapshot,
 }: ClinicProfileProps) {
   const controller = useClinicProfileController({
     commands,
@@ -57,12 +64,17 @@ export function ClinicProfile({
       profileManagement,
       teamManagement: "hidden",
     },
-    initialDialog,
     initialProfile,
     onProfileSaved,
-    treatmentCatalogue,
+  })
+  const treatmentController = useClinicTreatmentsController({
+    commands: treatmentCommands,
+    initialDialog,
+    initialSnapshot: treatmentSnapshot,
+    management: treatmentManagement,
   })
   const { actions, dialog, model } = controller
+  const treatments = treatmentController.model
 
   const screenActions: ClinicProfileScreenActions = {
     onAddressEdit: () => actions.openDialog("address"),
@@ -74,12 +86,11 @@ export function ClinicProfile({
     onOpeningHoursEdit: () => actions.openDialog("hours"),
     onProfileCancel: actions.cancelChanges,
     onProfileSave: actions.saveChanges,
-    onRemovalUndo: actions.undoRemoval,
     onSpecialtyDialogOpen: () => actions.openDialog("specialty"),
     onSpecialtyRemove: actions.removeSpecialty,
-    onTreatmentCreate: () => actions.openTreatmentDialog(),
-    onTreatmentOpen: actions.openTreatmentDialog,
-    onTreatmentRemove: actions.removeTreatment,
+    onTreatmentCreate: treatmentController.actions.openCreate,
+    onTreatmentOpen: treatmentController.actions.openOffering,
+    onTreatmentRetry: treatmentController.actions.reload,
   }
 
   return (
@@ -92,7 +103,10 @@ export function ClinicProfile({
           doctorDirectory,
           doctorManagement,
           profileManagement,
-          treatments: model.treatmentViews,
+          treatmentManagement,
+          treatmentSnapshot: treatments.snapshot,
+          treatmentStatusMessage: treatments.statusMessage,
+          treatmentsBusy: treatments.isBusy,
           ...model,
         }}
       />
@@ -129,16 +143,18 @@ export function ClinicProfile({
           open
         />
       ) : null}
-      {dialog === "treatment" &&
-      isClinicProfileManagementVisible(profileManagement) &&
-      (model.selectedTreatment || isClinicProfileManagementInteractive(profileManagement)) ? (
+      {treatments.dialogOpen &&
+      isClinicProfileManagementVisible(treatmentManagement) &&
+      (treatments.selectedOffering || isClinicProfileManagementInteractive(treatmentManagement)) ? (
         <TreatmentDialog
-          availableTreatments={model.availableMasterTreatments}
-          initialTreatment={model.selectedTreatment}
-          isReadOnly={!isClinicProfileManagementInteractive(profileManagement)}
-          key={model.selectedTreatment?.masterTreatmentId ?? "new-treatment"}
-          onOpenChange={(open) => actions.setDialogOpen("treatment", open)}
-          onSave={actions.saveTreatment}
+          availableTreatments={treatments.availableTreatments}
+          initialTreatment={treatments.selectedOffering}
+          isBusy={treatments.isBusy}
+          isReadOnly={!isClinicProfileManagementInteractive(treatmentManagement)}
+          key={treatments.selectedOffering?.id ?? "new-treatment"}
+          message={treatments.dialogMessage}
+          onOpenChange={treatmentController.actions.setDialogOpen}
+          onSave={treatmentController.actions.save}
           onTreatmentMissing={onTreatmentMissing}
           open
         />

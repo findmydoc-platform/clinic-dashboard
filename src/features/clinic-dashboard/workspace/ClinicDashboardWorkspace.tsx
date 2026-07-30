@@ -3,7 +3,10 @@
 import { useMemo } from "react"
 import { createClinicDashboardDemoClientAdapter } from "@/features/clinic-dashboard/demo/commands"
 import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
-import { createDoctorProfileApiCommands } from "@/features/clinic-dashboard/clinic-profile/public"
+import {
+  createClinicTreatmentApiCommands,
+  createDoctorProfileApiCommands,
+} from "@/features/clinic-dashboard/clinic-profile/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceComposition"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
@@ -28,11 +31,13 @@ export function ClinicDashboardWorkspace({
     [workspaceInput],
   )
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
+  const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
 
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedContext}
       clinicProfileCommands={demoClientAdapter.clinicProfileCommands}
+      clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
       projectDashboardAfterProfileSave={demoClientAdapter.projectDashboardAfterProfileSave}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}
