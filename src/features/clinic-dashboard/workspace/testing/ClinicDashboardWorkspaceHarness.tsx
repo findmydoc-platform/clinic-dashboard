@@ -3,8 +3,10 @@
 import { useState } from "react"
 import {
   clinicProfileFixture,
+  clinicProfileSourceFixture,
   clinicTreatmentCatalogueFixture,
   createClinicProfileCommandsFixture,
+  createClinicProfileSourceCommandsFixture,
   createDoctorProfileCommandsFixture,
   doctorDirectoryFixture,
 } from "@/features/clinic-dashboard/clinic-profile/testing/public"
@@ -287,6 +289,7 @@ export const clinicDashboardWorkspaceFixture = {
     ],
     status: "ready",
   },
+  profileSourceSnapshot: clinicProfileSourceFixture,
   locations: workspaceLocationFixtures,
   locationSnapshots: {
     "berlin-charlottenburg": {
@@ -406,12 +409,14 @@ export function ClinicDashboardWorkspaceHarness({
   start,
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
+  const [clinicProfileSourceCommands] = useState(() => createClinicProfileSourceCommandsFixture())
   const [doctorProfileCommands] = useState(() => createDoctorProfileCommandsFixture())
   const [reviewCommands] = useState(() => createReviewCommandsFixture())
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedClinicContextFixture}
       clinicProfileCommands={clinicProfileCommands}
+      clinicProfileSourceCommands={clinicProfileSourceCommands}
       doctorProfileCommands={doctorProfileCommands}
       initialNotificationReadIds={notificationState?.readIds}
       initialNotificationsOpen={notificationState?.isOpen}

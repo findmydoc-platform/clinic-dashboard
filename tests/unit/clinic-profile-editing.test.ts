@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest"
+import {
+  areClinicProfileDraftInputsEqual,
+  createClinicProfileChangeSet,
+  createEmptyClinicProfileOpeningHours,
+  formatClinicProfileOpeningHoursDay,
+  validateClinicProfileForPublish,
+} from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-editing"
+import { createClinicProfileDraftInput } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source"
+import {
+  clinicProfileSourceDraftFixture,
+  clinicProfileSourceFixture,
+} from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile-source.fixtures"
+
+describe("clinic profile editing", () => {
+  it("ignores language order while keeping partial field changes detectable", () => {
+    const input = createClinicProfileDraftInput(clinicProfileSourceFixture.published)
+    expect(
+      areClinicProfileDraftInputsEqual(input, {
+        ...input,
+        supportedLanguages: [...input.supportedLanguages].reverse(),
+      }),
+    ).toBe(true)
+    expect(
+      areClinicProfileDraftInputsEqual(input, {
+        ...input,
+        address: { ...input.address, houseNumber: "199" },
+      }),
+    ).toBe(false)
+  })
+
+  it("counts every changed address component and weekday as one field", () => {
+    const changeSet = createClinicProfileChangeSet(clinicProfileSourceDraftFixture)
+
+    expect(changeSet.fieldCount).toBe(4)
+    expect(changeSet.sectionCount).toBe(3)
+    expect(changeSet.changes.map((change) => change.field)).toEqual([
+      "descriptionText",
+      "supportedLanguages",
+      "address.houseNumber",
+      "openingHours.saturday",
+    ])
+  })
+
+  it("keeps not configured distinct from a fully closed week", () => {
+    expect(formatClinicProfileOpeningHoursDay(undefined)).toBe("Not configured")
+    expect(formatClinicProfileOpeningHoursDay(createEmptyClinicProfileOpeningHours().monday)).toBe("Closed")
+  })
+
+  it("allows incomplete drafts but maps known publish errors to exact fields", () => {
+    const input = createClinicProfileDraftInput(clinicProfileSourceFixture.published)
+    const errors = validateClinicProfileForPublish({
+      ...input,
+      address: { ...input.address, cityId: undefined, zipCode: "" },
+      openingHours: {
+        ...input.openingHours!,
+        monday: { closesAt: "", isClosed: false, opensAt: "09:00" },
+      },
+      supportedLanguages: [],
+    })
+
+    expect(errors).toEqual({
+      "address.cityId": "Select a city.",
+      "address.zipCode": "Enter the postal code.",
+      "openingHours.monday": "Enter a complete opening and closing time.",
+      supportedLanguages: "Select at least one language.",
+    })
+  })
+})

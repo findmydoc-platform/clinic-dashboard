@@ -5,6 +5,7 @@ const serverMocks = vi.hoisted(() => ({
   getClinicDashboardAccess: vi.fn(),
   getClinicDashboardAccessToken: vi.fn(),
   loadDirectory: vi.fn(),
+  loadProfile: vi.fn(),
   loadWorkspace: vi.fn(),
   loadQueue: vi.fn(),
 }))
@@ -57,6 +58,10 @@ describe("Patient inquiry queue server loading", () => {
       error: "temporarily-unavailable",
       ok: false,
     })
+    serverMocks.loadProfile.mockResolvedValue({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
     serverMocks.composeDataProviders.mockReturnValue({
       doctors: {
         loadDirectory: serverMocks.loadDirectory,
@@ -64,6 +69,9 @@ describe("Patient inquiry queue server loading", () => {
       inquiries: {
         changeStatus: vi.fn(),
         loadQueue: serverMocks.loadQueue,
+      },
+      profile: {
+        loadSnapshot: serverMocks.loadProfile,
       },
     })
   })

@@ -96,16 +96,12 @@ export const ProfileSaveProjectsIntoDashboard: Story = {
     await userEvent.click(within(galleryDialog).getAllByRole("button", { name: "Set cover" })[0]!)
     await userEvent.click(within(galleryDialog).getByRole("button", { name: "Done" }))
 
-    const clinicName = canvas.getByRole("textbox", { name: "Clinic name" })
-    await userEvent.clear(clinicName)
-    await userEvent.type(clinicName, "Berlin Health Clinic — Mitte Demo")
-    const profileActions = within(canvas.getByRole("group", { name: "Profile page actions" }))
-    await userEvent.click(profileActions.getByRole("button", { name: "Save changes" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Save changes" }))
     await expect(await canvas.findByText("Profile saved as revision 2.")).toBeVisible()
 
     await userEvent.click(canvas.getByRole("button", { name: "Dashboard" }))
     const preview = canvas.getByRole("region", { name: "Dashboard clinic location summary" })
-    await expect(within(preview).getByText("Berlin Health Clinic — Mitte Demo")).toBeVisible()
+    await expect(within(preview).getByText("Berlin Health Clinic — Mitte")).toBeVisible()
     await expect(within(preview).getByRole("img", { name: "Berlin Health Clinic exterior" })).toBeVisible()
     await expect(canvas.getAllByText("86%")[0]).toBeVisible()
     await expect(canvas.queryByRole("button", { name: "Review images" })).not.toBeInTheDocument()

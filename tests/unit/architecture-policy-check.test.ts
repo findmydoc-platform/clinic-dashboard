@@ -1674,6 +1674,53 @@ describe("architecture policy checker process fixtures", () => {
     expect(result.status, combinedOutput(result)).toBe(0)
   })
 
+  it("allows exact clinic profile BFF routes and their contract test to use the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/app/api/dashboard/profile/draft/discard/route.ts": `
+        import { handleClinicProfileDraftDiscard } from "../../../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleClinicProfileDraftDiscard(request)
+        }
+      `,
+      "src/app/api/dashboard/profile/draft/route.ts": `
+        import { handleClinicProfileDraftSave } from "../../../../../features/clinic-dashboard/server"
+        export function PUT(request: Request) {
+          return handleClinicProfileDraftSave(request)
+        }
+      `,
+      "src/app/api/dashboard/profile/publish/route.ts": `
+        import { handleClinicProfilePublish } from "../../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleClinicProfilePublish(request)
+        }
+      `,
+      "src/app/api/dashboard/profile/route.ts": `
+        import { handleClinicProfileLoad } from "../../../../features/clinic-dashboard/server"
+        export function GET(request: Request) {
+          return handleClinicProfileLoad(request)
+        }
+      `,
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function handleClinicProfileDraftDiscard() { return new Response() }
+        export function handleClinicProfileDraftSave() { return new Response() }
+        export function handleClinicProfileLoad() { return new Response() }
+        export function handleClinicProfilePublish() { return new Response() }
+      `,
+      "tests/integration/clinic-profile-routes.test.ts": `
+        import {
+          handleClinicProfileDraftSave,
+          handleClinicProfileLoad,
+        } from "../../src/features/clinic-dashboard/server"
+        export const handlers = [handleClinicProfileDraftSave, handleClinicProfileLoad]
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
+  })
+
   it("allows the exact inquiry queue loading contract test to use the private server entry", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/server.ts": `

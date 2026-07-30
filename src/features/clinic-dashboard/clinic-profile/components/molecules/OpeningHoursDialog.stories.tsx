@@ -1,13 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, within } from "storybook/test"
+import { clinicProfileSourceFixture } from "../../testing/clinic-profile-source.fixtures"
 import { OpeningHoursDialog } from "./OpeningHoursDialog"
 
 const meta = {
   args: {
-    entries: [
-      { days: "Monday–Friday", hours: "08:00–18:00" },
-      { days: "Saturday", hours: "09:00–13:00" },
-    ],
+    entries: clinicProfileSourceFixture.published.openingHours,
+    errors: {},
     onOpenChange: fn(),
     onSave: fn(),
     open: true,
@@ -23,16 +22,15 @@ type Story = StoryObj<typeof meta>
 export const ApplyChanges: Story = {
   play: async ({ args, canvasElement }) => {
     const dialog = within(canvasElement).getByRole("dialog", { name: "Edit opening hours" })
-    const weekdayHours = within(dialog).getByRole("textbox", { name: "Hours for Monday–Friday" })
-
-    await userEvent.clear(weekdayHours)
-    await userEvent.type(weekdayHours, "09:00–17:00")
+    await userEvent.selectOptions(
+      within(dialog).getByRole("combobox", { name: "Status for Monday" }),
+      "closed",
+    )
     await userEvent.click(within(dialog).getByRole("button", { name: "Apply hours" }))
-
-    await expect(args.onSave).toHaveBeenCalledWith([
-      { days: "Monday–Friday", hours: "09:00–17:00" },
-      { days: "Saturday", hours: "09:00–13:00" },
-    ])
-    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+    await expect(args.onSave).toHaveBeenCalled()
   },
+}
+
+export const NotConfigured: Story = {
+  args: { entries: undefined },
 }

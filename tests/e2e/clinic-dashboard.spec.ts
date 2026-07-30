@@ -103,28 +103,22 @@ test("switches complete location snapshots and resets local demo changes", async
   await page.getByRole("button", { name: "Reviews" }).click()
   await expect(page.getByText("Melis Güneş")).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByLabel("Clinic name")).toHaveValue("Avenora Clinic — Antalya")
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveCount(0)
 
   await locationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  const clinicName = page.getByLabel("Clinic name")
-  await expect(clinicName).toHaveValue("Avenora Clinic — İzmir")
-  await clinicName.fill("Locally edited İzmir clinic")
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
   await locationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
-  await expect(clinicName).toHaveValue("Avenora Clinic — Antalya")
-  await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await expect(clinicName).toHaveValue("Avenora Clinic — İzmir")
-  await expect(page.getByText("Locally edited İzmir clinic")).toHaveCount(0)
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
   await page.getByRole("button", { name: "Clinic profile" }).click()
-  await page.getByLabel("Clinic name").fill("Active local clinic name before reload")
-  await expect(page.getByLabel("Clinic name")).toHaveValue("Active local clinic name before reload")
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
 
   await page.reload()
 
@@ -148,8 +142,7 @@ test("switches complete location snapshots and resets local demo changes", async
   ).toBeVisible()
   await expect(page.getByText("Status changed from Submitted to In review · 11:08")).toHaveCount(0)
   await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByLabel("Clinic name")).toHaveValue("Avenora Clinic — İzmir")
-  await expect(page.getByText("Active local clinic name before reload")).toHaveCount(0)
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
 })
 
 test("deep-links across locations and projects a saved profile until reload", async ({ page }) => {
@@ -165,23 +158,18 @@ test("deep-links across locations and projects a saved profile until reload", as
   await expect(page.getByText("Opened messages at Avenora Clinic — İzmir.")).toBeVisible()
 
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  const clinicName = page.getByRole("textbox", { name: "Clinic name" })
-  await clinicName.fill("Avenora Clinic — İzmir Presentation")
 
   const gallery = page.getByRole("region", { name: "Clinic image gallery" })
   await gallery.getByRole("button", { name: "View all images" }).click()
   const galleryDialog = page.getByRole("dialog", { name: "Edit clinic images" })
   await galleryDialog.getByRole("button", { name: "Set cover" }).first().click()
   await galleryDialog.getByRole("button", { name: "Done" }).click()
-  await page
-    .getByRole("group", { name: "Profile page actions" })
-    .getByRole("button", { name: "Save changes" })
-    .click()
+  await page.getByRole("button", { name: "Save changes" }).click()
   await expect(page.getByText("Profile saved as revision 2.")).toBeVisible()
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })
-  await expect(clinicPreview.getByText("Avenora Clinic — İzmir Presentation")).toBeVisible()
+  await expect(clinicPreview.getByText("Avenora Clinic — İzmir")).toBeVisible()
   await expect(clinicPreview.getByRole("img", { name: "Reception at Avenora Clinic — İzmir" })).toBeVisible()
   await expect(page.getByText("94%", { exact: true }).first()).toBeVisible()
   await expect(page.getByRole("button", { name: "Review images" })).toHaveCount(0)
@@ -196,7 +184,65 @@ test("deep-links across locations and projects a saved profile until reload", as
   await reloadedLocationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveValue("Avenora Clinic — İzmir")
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+})
+
+test("saves, resumes, reviews and publishes the authenticated clinic profile draft", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveCount(0)
+  await page.getByRole("button", { name: "Edit profile" }).click()
+
+  const clinicName = page.getByRole("textbox", { name: "Clinic name" })
+  await clinicName.fill("Bosphorus International Clinic")
+  await page.getByRole("button", { name: "Save draft" }).first().click()
+  await expect(page.getByText("Draft saved.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Review & publish" })).toBeEnabled()
+
+  await page.reload()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await expect(page.getByText("Published profile is shown.")).toBeVisible()
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await page.getByRole("button", { name: "Continue editing" }).click()
+  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveValue(
+    "Bosphorus International Clinic",
+  )
+
+  await page.getByRole("button", { name: "Review & publish" }).click()
+  const review = page.getByRole("dialog", { name: "Review and publish" })
+  await expect(review.getByText("1 changed field across 1 section")).toBeVisible()
+  await review.getByRole("button", { name: "Publish changes" }).click()
+
+  await expect(page.getByText("Bosphorus International Clinic")).toBeVisible()
+  await expect(page.getByText("Clinic profile published.")).toBeVisible()
+  await expect(page.getByText("Published profile is shown.")).toHaveCount(0)
+})
+
+test("guards local profile edits and confirms persistent draft deletion separately", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await page.getByRole("button", { name: /^(?:Edit profile|Continue editing)$/ }).click()
+
+  const description = page.getByRole("textbox", { name: "Description" })
+  await description.fill("A locally edited clinic description.")
+  await page.getByRole("button", { name: "Cancel editing" }).first().click()
+  const leaveDialog = page.getByRole("alertdialog", { name: "Leave profile editing?" })
+  await expect(leaveDialog.getByRole("button", { name: "Leave without saving" })).toBeVisible()
+  await leaveDialog.getByRole("button", { name: "Keep editing" }).click()
+  await expect(description).toHaveValue("A locally edited clinic description.")
+
+  await page.getByRole("button", { name: "Save draft" }).first().click()
+  await expect(page.getByText("Draft saved.")).toBeVisible()
+  await page.getByRole("button", { name: "Discard draft" }).click()
+  const discardDialog = page.getByRole("alertdialog", { name: "Discard saved draft?" })
+  await discardDialog.getByRole("button", { name: "Discard draft" }).click()
+
+  await expect(page.getByText("Draft discarded.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Edit profile" })).toBeVisible()
 })
 
 test("routes dashboard tasks into their owning workspace sections", async ({ page }) => {
