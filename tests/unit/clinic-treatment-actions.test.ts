@@ -52,7 +52,7 @@ describe("Clinic treatment BFF", () => {
   beforeEach(() => {
     vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
     vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")
-    vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
+    vi.stubEnv("CSRF_SIGNING_SECRET", "test-only-csrf-signing-secret-value")
     vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
     vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
     vi.stubEnv("NODE_ENV", "test")
