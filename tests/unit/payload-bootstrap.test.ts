@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fetchClinicDashboardBootstrap } from "@/features/clinic-dashboard/auth/server/payload-bootstrap"
 
 const bootstrap = {
-  capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+  capabilities: [
+    "clinic-profile:view",
+    "clinic-profile:edit",
+    "clinic-treatments:view",
+    "clinic-treatments:edit",
+  ],
   clinic: { id: "clinic-1", name: "Clinic One" },
   principal: { displayName: "Alex Morgan", email: "alex@example.com", id: "staff-1" },
   status: "approved",
@@ -94,7 +99,17 @@ describe("Payload clinic bootstrap", () => {
     { capabilities: [] },
     { capabilities: ["clinic-profile:view"] },
     { capabilities: ["clinic-profile:edit"] },
+    { capabilities: ["clinic-treatments:view"] },
+    { capabilities: ["clinic-treatments:edit"] },
     { capabilities: ["clinic-profile:edit", "clinic-profile:view"] },
+    {
+      capabilities: [
+        "clinic-profile:view",
+        "clinic-profile:edit",
+        "clinic-treatments:view",
+        "clinic-treatments:edit",
+      ],
+    },
   ] as const)("accepts the independent capability subset %#", async ({ capabilities }) => {
     const context = { ...bootstrap, capabilities }
     await expect(

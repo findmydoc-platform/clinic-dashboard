@@ -1,6 +1,11 @@
 import { z } from "zod"
 
-const clinicDashboardCapabilitySchema = z.enum(["clinic-profile:view", "clinic-profile:edit"])
+const clinicDashboardCapabilitySchema = z.enum([
+  "clinic-profile:view",
+  "clinic-profile:edit",
+  "clinic-treatments:view",
+  "clinic-treatments:edit",
+])
 const clinicDashboardCapabilitiesSchema = z
   .array(clinicDashboardCapabilitySchema)
   .max(clinicDashboardCapabilitySchema.options.length)
