@@ -115,6 +115,21 @@ describe("Clinic treatment Payload adapter", () => {
     ).resolves.toEqual({ error: "conflict", ok: false })
   })
 
+  it("maps a concurrent unique constraint failure to a duplicate conflict", async () => {
+    let readCount = 0
+    const fetcher = vi.fn<typeof fetch>(async (_input, init) => {
+      if (init?.method === "POST") return jsonResponse({}, 400)
+      readCount += 1
+      return jsonResponse({ docs: readCount === 1 ? [] : [offering] })
+    })
+    const provider = createPayloadClinicTreatmentProvider("access-token", "clinic-1", fetcher)
+
+    await expect(
+      provider.createTreatment({ active: false, price: 0, treatmentId: "treatment-1" }),
+    ).resolves.toEqual({ error: "conflict", ok: false })
+    expect(fetcher).toHaveBeenCalledTimes(3)
+  })
+
   it("fails closed when Payload returns another clinic", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input))

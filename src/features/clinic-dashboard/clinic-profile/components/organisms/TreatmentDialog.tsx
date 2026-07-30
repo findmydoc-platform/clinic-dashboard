@@ -18,6 +18,7 @@ type TreatmentDialogProps = Readonly<{
   initialTreatment?: ClinicTreatmentOffering
   isBusy: boolean
   isReadOnly: boolean
+  message?: string
   onOpenChange: (open: boolean) => void
   onSave: (input: ClinicTreatmentCreateInput) => Promise<boolean>
   onTreatmentMissing?: () => void
@@ -29,6 +30,7 @@ export function TreatmentDialog({
   initialTreatment,
   isBusy,
   isReadOnly,
+  message,
   onOpenChange,
   onSave,
   onTreatmentMissing,
@@ -36,6 +38,7 @@ export function TreatmentDialog({
 }: TreatmentDialogProps) {
   const [treatmentId, setTreatmentId] = useState(initialTreatment?.treatment.id ?? "")
   const [price, setPrice] = useState(initialTreatment ? String(initialTreatment.price) : "")
+  const [priceTouched, setPriceTouched] = useState(false)
   const [active, setActive] = useState(initialTreatment?.active ?? false)
   const isCreating = !initialTreatment
   const parsedPrice = Number(price)
@@ -43,6 +46,10 @@ export function TreatmentDialog({
     initialTreatment?.treatment ?? availableTreatments.find((treatment) => treatment.id === treatmentId)
   const hasChanged =
     isCreating || parsedPrice !== initialTreatment.price || active !== initialTreatment.active
+  const priceError =
+    priceTouched && (!price.trim() || !isValidClinicTreatmentPrice(parsedPrice))
+      ? "Enter a non-negative EUR price with at most two decimal places."
+      : undefined
   const canSave = Boolean(
     treatmentId && price.trim() && isValidClinicTreatmentPrice(parsedPrice) && hasChanged && !isBusy,
   )
@@ -96,6 +103,11 @@ export function TreatmentDialog({
       title={isReadOnly ? "Treatment details" : initialTreatment ? "Edit treatment" : "Add treatment"}
     >
       <div className="grid gap-5">
+        {message ? (
+          <p className="text-sm font-bold text-[var(--destructive)]" role="alert">
+            {message}
+          </p>
+        ) : null}
         {isCreating ? (
           <Field
             description="Treatment names and descriptions are maintained centrally by findmydoc."
@@ -135,6 +147,8 @@ export function TreatmentDialog({
 
         <Field
           description="Fixed currency: EUR. Enter zero or a positive amount with up to two decimal places."
+          error={priceError}
+          isInvalid={Boolean(priceError)}
           isRequired={!isReadOnly}
           label="Price (EUR)"
         >
@@ -144,7 +158,14 @@ export function TreatmentDialog({
               disabled={isBusy}
               inputMode="decimal"
               min="0"
-              onValueChange={isReadOnly ? undefined : setPrice}
+              onValueChange={
+                isReadOnly
+                  ? undefined
+                  : (value) => {
+                      setPriceTouched(true)
+                      setPrice(value)
+                    }
+              }
               placeholder="250.00"
               readOnly={isReadOnly}
               step="0.01"

@@ -50,9 +50,73 @@ describe("clinic treatments controller", () => {
     expect(saved).toBe(false)
     expect(commands.loadTreatments).toHaveBeenCalledOnce()
     expect(hook.result.current.model.snapshot).toEqual(refreshedSnapshot)
+    expect(hook.result.current.model.dialogOpen).toBe(false)
     expect(hook.result.current.model.statusMessage).toBe(
       "This treatment was already changed. The list was reloaded.",
     )
+  })
+
+  it("does not claim a conflict reload succeeded when loading fails", async () => {
+    const commands = {
+      createTreatment: vi.fn(async () => {
+        throw new ClinicTreatmentCommandError("conflict", "Duplicate treatment")
+      }),
+      loadTreatments: vi.fn(async () => {
+        throw new Error("Network unavailable")
+      }),
+      updateTreatment: vi.fn(),
+    }
+    const hook = renderHook(() =>
+      useClinicTreatmentsController({
+        commands,
+        initialSnapshot: clinicTreatmentSnapshotFixture,
+        management: "interactive",
+      }),
+    )
+
+    act(() => hook.result.current.actions.openCreate())
+    await act(async () => {
+      await hook.result.current.actions.save({
+        active: false,
+        price: 2400,
+        treatmentId: "master-hair-transplant",
+      })
+    })
+
+    expect(hook.result.current.model.dialogOpen).toBe(false)
+    expect(hook.result.current.model.snapshot.status).toBe("temporarily-unavailable")
+    expect(hook.result.current.model.statusMessage).toBe(
+      "This treatment was already changed, but the list could not be reloaded.",
+    )
+  })
+
+  it("keeps save failures visible inside the open dialog", async () => {
+    const commands = {
+      createTreatment: vi.fn(async () => {
+        throw new ClinicTreatmentCommandError("unknown", "Save failed")
+      }),
+      loadTreatments: vi.fn(),
+      updateTreatment: vi.fn(),
+    }
+    const hook = renderHook(() =>
+      useClinicTreatmentsController({
+        commands,
+        initialSnapshot: clinicTreatmentSnapshotFixture,
+        management: "interactive",
+      }),
+    )
+
+    act(() => hook.result.current.actions.openCreate())
+    await act(async () => {
+      await hook.result.current.actions.save({
+        active: false,
+        price: 2400,
+        treatmentId: "master-hair-transplant",
+      })
+    })
+
+    expect(hook.result.current.model.dialogOpen).toBe(true)
+    expect(hook.result.current.model.dialogMessage).toBe("Treatment changes could not be saved. Try again.")
   })
 
   it("does not open creation for read-only treatment access", () => {
