@@ -49,7 +49,9 @@ const sharedComponentLayers = new Map([
   ["src/components/ui/theme-toggle.tsx", "atom"],
 ])
 const featureRootComponentLayers = new Map([
+  ["src/features/clinic-dashboard/auth/ClinicDashboardAuthScreen.tsx", "page"],
   ["src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx", "organism"],
+  ["src/features/clinic-dashboard/messages/InquiryQueueController.tsx", "organism"],
   ["src/features/clinic-dashboard/messages/Messages.tsx", "organism"],
   ["src/features/clinic-dashboard/reviews/Reviews.tsx", "organism"],
   ["src/features/clinic-dashboard/workspace/ClinicDashboardShell.tsx", "template"],

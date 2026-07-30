@@ -4,14 +4,14 @@
 
 Read `.codex/project-profile.toml` before implementation work. Bootstrap decisions are complete.
 
-The current application is a data-less foundation preview with a temporary password guard. Supabase authentication and authorized Payload API access are planned but not implemented. Payload remains the future source of truth; do not add direct database access or service-role credentials to this application.
+The current application uses server-side Supabase sessions and the authorized Payload bootstrap for clinic identity. Dashboard business content remains fixture-backed demo data. Payload is the source of truth for identity and authorization; do not add direct database access or service-role credentials to this application.
 
 ## Fixed Standards
 
 - Use Next.js, React, TypeScript, Node 24, pnpm 10, Tailwind 4, Atomic Design, shadcn/ui, Storybook, Vitest, and Playwright.
-- Keep the current unauthenticated surface limited to `/login`, `/api/auth/login`, `/api/health`, and `/robots.txt`; document any change in `src/lib/security/public-routes.ts` and its tests.
+- Keep the unauthenticated surface limited to the routes registered in `src/lib/security/public-routes.ts`; update the registry, project profile, and contract tests together.
 - Use the canonical company logo assets from `public/brand` through `BrandMark`.
-- Keep clinic data, Supabase authentication, and Payload integration out until their dedicated work is approved. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
+- Keep clinic business data out until its dedicated work is approved. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
 - Write code, code comments, repository documentation, and user-facing UI copy in English.
 - Use package scripts for validation and run format, checks, relevant tests, Storybook, and build after code changes.
 - Treat GitHub checks as advisory while the repository remains private on the current Free plan.
@@ -34,7 +34,24 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 ## Codex Reviewers
 
-Recommend matching read-only reviewers before handoff and ask for confirmation before running them. Present all findings before applying reviewer-driven fixes.
+- Before handoff, run `pnpm review:route --base origin/main --format json` after local validation and use the `$review-gate` skill to recommend the exact risk-based reviewer set.
+- State every recommended and omitted reviewer with its routing reason. Ask for one explicit confirmation before any reviewer run.
+- Treat route output as temporary current-task context. Do not persist route manifests, normalized finding files, or reviewer transcripts.
+- Treat each reviewer's `sandbox_mode = "read-only"` configuration as the technical write boundary. Do not ask the user to change the parent task permission; the coordinator must perform no repository or external writes while the approved reviewer run is active.
+- Run `planning_reviewer` separately and early when routed; run up to four implementation reviewers in parallel after implementation.
+- Present all deduplicated findings before applying reviewer-driven fixes. Severity 7-10 blocks handoff and merge; severity 4-6 requires an explicit fix or deferral decision; severity 1-3 remains visible and advisory.
+- A failed or incomplete reviewer blocks the gate until retry or an explicit documented exception. Do not routinely rerun reviewers after approved fixes; a material scope expansion starts a new approved review cycle.
+- CI validates deterministic reviewer contracts only. It must not start AI reviewers.
+
+## Pull Request Metadata Rules
+
+- Title format: `<type>(optional-scope)?: short summary`; use only the types/scopes accepted by `.github/workflows/pr-gates.yml`; summary starts lowercase, imperative, and <= 72 chars.
+- Use `.github/pull_request_template.md` and start with a bilingual `Management summary`: one non-technical German paragraph followed by the same non-technical English paragraph, release-note quality, focused on visible product, operator, or business value.
+- Keep implementation detail in `## What changed`; include architectural or module-level context, link files only when useful for review, and do not paste code snippets into the PR body.
+- In `## Points to review`, name only concrete focus areas from the current change, including exact paths, why they matter, what reviewers should verify, and existing evidence. Use `None beyond standard review.` when no special focus exists.
+- In `## Validation`, check every relevant item and explain every unchecked, skipped, or not-applicable item directly in the section.
+- In `## Development`, use `Closes` for every linked Issue, one line per Issue. Use `Closes #123` for same-repository Issues and `Closes findmydoc-platform/management#123` for trusted cross-repository Issues.
+- Build PR descriptions in a temporary Markdown file or heredoc, pass them with `gh pr create --body-file` or `gh pr edit --body-file`, never inline multiline bodies through shell quoting, and verify the rendered body with `gh pr view --json body`.
 
 ## Vercel Production Delivery
 

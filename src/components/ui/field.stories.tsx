@@ -26,6 +26,19 @@ export const WithDescription: Story = {
   },
 }
 
+export const WithDescriptionBeforeControl: Story = {
+  args: {
+    children: (controlProps) => <Input {...controlProps} />,
+    description: "Choose every relevant option.",
+    descriptionPlacement: "before-control",
+    label: "Languages",
+  },
+  play: async ({ canvasElement }) => {
+    const input = within(canvasElement).getByRole("textbox", { name: "Languages" })
+    await expect(input).toHaveAccessibleDescription("Choose every relevant option.")
+  },
+}
+
 export const WithError: Story = {
   args: {
     children: (controlProps) => <Input {...controlProps} />,

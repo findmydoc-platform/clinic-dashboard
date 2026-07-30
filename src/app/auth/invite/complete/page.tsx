@@ -1,0 +1,22 @@
+import type { Metadata } from "next"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+import { ClinicDashboardAuthScreen } from "@/features/clinic-dashboard/public"
+import { getCompletionAccess } from "@/features/clinic-dashboard/auth/server/public"
+
+export const metadata: Metadata = {
+  robots: { follow: false, index: false },
+  title: "Complete invitation | Clinic Dashboard",
+}
+
+export default async function CompleteInvitePage() {
+  const access = await getCompletionAccess(await cookies(), "invite")
+  if (access.status === "unauthenticated" || access.status === "unauthorized") {
+    redirect("/login?error=invalid-or-expired-link")
+  }
+  if (access.status === "temporarily-unavailable") {
+    return <ClinicDashboardAuthScreen mode="access" state="temporarily-unavailable" />
+  }
+
+  return <ClinicDashboardAuthScreen flow="invite" mode="complete-password" />
+}

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useState, useSyncExternalStore } from "react"
 import type { ClinicProfileFocusTarget } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardProfileTask } from "@/features/clinic-dashboard/dashboard/public"
-import type { MessageFocusTarget } from "@/features/clinic-dashboard/messages/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import type { ReviewFocusTarget } from "@/features/clinic-dashboard/reviews/public"
 import { clinicDashboardLocationSelectionReducer, type ClinicDashboardLocationId } from "./model/locations"
@@ -56,7 +55,7 @@ export function useClinicDashboardController({
   const [selectedProfileTask, setSelectedProfileTask] = useState(initialProfileTask)
   const [profileTaskOpen, setProfileTaskOpen] = useState(false)
   const [profileFocusTarget, setProfileFocusTarget] = useState<ClinicProfileFocusTarget>()
-  const [messageFocusTarget, setMessageFocusTarget] = useState<MessageFocusTarget>()
+  const [messageFocusTarget, setMessageFocusTarget] = useState<"heading">()
   const [reviewFocusTarget, setReviewFocusTarget] = useState<ReviewFocusTarget>()
   const [supportOpen, setSupportOpen] = useState(false)
 
@@ -160,11 +159,11 @@ export function useClinicDashboardController({
       setProfileFocusTarget(undefined)
       setSupportOpen(false)
 
-      if (notification.target.kind === "conversation") {
-        setMessageFocusTarget({ conversationId: notification.target.conversationId })
+      if (notification.target.kind === "messages") {
+        setMessageFocusTarget("heading")
         setReviewFocusTarget(undefined)
         setActiveSection("messages")
-        setLocationAnnouncement(`Opened conversation at ${locationName}.`)
+        setLocationAnnouncement(`Opened messages at ${locationName}.`)
         return
       }
 

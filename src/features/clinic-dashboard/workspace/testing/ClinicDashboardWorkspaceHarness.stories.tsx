@@ -30,7 +30,9 @@ export const VisualReferenceLocationSwitching: Story = {
     )
     const locationSelector = header.getByRole("button", { name: /Switch clinic location/ })
 
-    await expect(locationSelector).toHaveAccessibleName(/Current location: Berlin Health Clinic — Mitte/)
+    await expect(locationSelector).toHaveAccessibleName(
+      /Current location: Demo data · Berlin Health Clinic — Mitte/,
+    )
     await expect(header.getByText("Berlin Health Group")).toBeInTheDocument()
     await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
 
@@ -40,7 +42,7 @@ export const VisualReferenceLocationSwitching: Story = {
     )
 
     await expect(locationSelector).toHaveAccessibleName(
-      /Current location: Berlin Health Clinic — Charlottenburg/,
+      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
     )
     await expect(dashboardLocation.getByText("Charlottenburg, Berlin")).toBeInTheDocument()
     await expect(canvas.getByRole("status")).toHaveTextContent(
@@ -49,7 +51,7 @@ export const VisualReferenceLocationSwitching: Story = {
     await expect(canvas.getAllByText("91%")[0]).toBeInTheDocument()
 
     await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
-    await expect(canvas.getAllByText("Lina Fixture")[0]).toBeInTheDocument()
+    await expect(canvas.getByRole("heading", { name: "Lukas Weber" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
     await expect(canvas.getByText("Eva Fixture")).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
@@ -71,7 +73,9 @@ export const PresentationLocationSwitching: Story = {
     )
     const locationSelector = header.getByRole("button", { name: /Switch clinic location/ })
 
-    await expect(locationSelector).toHaveAccessibleName(/Current location: Berlin Health Clinic — Mitte/)
+    await expect(locationSelector).toHaveAccessibleName(
+      /Current location: Demo data · Berlin Health Clinic — Mitte/,
+    )
     await expect(dashboardLocation.getByText("Mitte, Berlin")).toBeInTheDocument()
 
     await userEvent.click(locationSelector)
@@ -79,7 +83,7 @@ export const PresentationLocationSwitching: Story = {
       await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
     )
     await expect(locationSelector).toHaveAccessibleName(
-      /Current location: Berlin Health Clinic — Charlottenburg/,
+      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
     )
   },
 }
@@ -97,7 +101,7 @@ export const LocationSwitchingAt320: Story = {
       await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
     )
     await expect(locationSelector).toHaveAccessibleName(
-      /Current location: Berlin Health Clinic — Charlottenburg/,
+      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
     )
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
@@ -292,7 +296,7 @@ export const PotsdamWorkspaceContent: Story = {
     await expect(canvas.getAllByText("64%")[0]).toBeInTheDocument()
 
     await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
-    await expect(canvas.getAllByText("Mila Fixture")[0]).toBeInTheDocument()
+    await expect(canvas.getByRole("heading", { name: "Lukas Weber" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
     await expect(canvas.getByText("Greta Fixture")).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
@@ -319,7 +323,7 @@ export const DemoBadgeAndFourImageGallery: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getAllByText("Demo")[0]).toBeVisible()
+    await expect(canvas.getAllByText("Mixed data")[0]).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
     await expect(canvas.getByRole("button", { name: "View all images" })).toBeInTheDocument()
   },

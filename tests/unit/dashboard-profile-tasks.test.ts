@@ -19,6 +19,6 @@ describe("dashboard profile task fixtures", () => {
 
   it("maps profile destinations to existing read-only sections", () => {
     expect(tasks.find(({ id }) => id === "missing-images")?.destination).toBe("gallery")
-    expect(tasks.find(({ id }) => id === "open-doctor-profiles")?.destination).toBe("team")
+    expect(tasks.find(({ id }) => id === "open-doctor-profiles")?.destination).toBe("doctors")
   })
 })

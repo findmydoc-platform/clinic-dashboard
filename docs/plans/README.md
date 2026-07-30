@@ -16,6 +16,7 @@ Read .codex/project-profile.toml before creating the document. Do not repeat com
 
 ## Current Plans
 
+- [Dashboard Domain Provider Composition Plan](./dashboard-domain-provider-composition.md)
 - [Clinic Dashboard Demo Experience And Transient Flows](./clinic-dashboard-demo-experience-and-transient-flows.md)
 - [Clinic Dashboard Demo Mode and Multi-Location Data](./clinic-dashboard-demo-mode-and-multi-location-data.md)
 - [Clinic Dashboard Meeting Improvements Plan](./clinic-dashboard-meeting-improvements.md)

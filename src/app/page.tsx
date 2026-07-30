@@ -1,19 +1,23 @@
-import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { ClinicDashboardWorkspace } from "@/features/clinic-dashboard/public"
-import { loadClinicDashboardWorkspaceInput } from "@/features/clinic-dashboard/server"
-import { DASHBOARD_AUTH_COOKIE, isValidDashboardSessionToken } from "@/lib/security/dashboard-auth"
+import {
+  getClinicDashboardAccess,
+  loadClinicDashboardWorkspaceInput,
+} from "@/features/clinic-dashboard/server"
 
 export default async function HomePage() {
-  const cookieStore = await cookies()
-  if (!isValidDashboardSessionToken(cookieStore.get(DASHBOARD_AUTH_COOKIE)?.value)) {
-    redirect("/login")
-  }
+  const access = await getClinicDashboardAccess()
+  if (access.status === "unauthenticated") redirect("/login")
+  if (access.status === "unauthorized") redirect("/access?state=account-unavailable")
+  if (access.status === "denied") redirect("/access")
+  if (access.status === "temporarily-unavailable") redirect("/access?state=temporarily-unavailable")
+  if (access.status !== "approved") redirect("/login")
 
   const workspaceInput = await loadClinicDashboardWorkspaceInput()
 
   return (
     <ClinicDashboardWorkspace
+      authenticatedContext={access.context}
       persistNotificationReadStateInSession
       prototypeMode="presentation"
       workspaceInput={workspaceInput}

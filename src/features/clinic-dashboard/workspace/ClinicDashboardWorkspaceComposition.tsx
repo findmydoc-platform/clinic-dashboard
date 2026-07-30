@@ -2,10 +2,16 @@
 
 import { useState } from "react"
 import {
+  submitClinicDashboardAuthAction,
+  type AuthenticatedClinicContext,
+} from "@/features/clinic-dashboard/auth/public"
+import {
   ClinicProfile,
   type ClinicProfileCommands,
   type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
+  type DoctorDirectorySnapshot,
+  type DoctorProfileCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
   DashboardPeriodControl,
@@ -15,7 +21,7 @@ import {
   type DashboardSnapshot,
   useDashboardController,
 } from "@/features/clinic-dashboard/dashboard/public"
-import { Messages, type MessageCommands } from "@/features/clinic-dashboard/messages/public"
+import { InquiryQueue } from "@/features/clinic-dashboard/messages/public"
 import {
   getClinicDashboardDemoInteractionPolicy,
   isClinicDashboardPrototypeMode,
@@ -48,16 +54,17 @@ export type ClinicDashboardWorkspaceStartState =
       section: Extract<ClinicDashboardSection, "messages">
     }>
   | Readonly<{
-      dialog: Extract<ClinicDashboardDialog, "team-member" | "treatment">
+      dialog: Extract<ClinicDashboardDialog, "treatment">
       section: Extract<ClinicDashboardSection, "profile">
     }>
 
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
+  authenticatedContext: AuthenticatedClinicContext
   clinicProfileCommands: ClinicProfileCommands
+  doctorProfileCommands: DoctorProfileCommands
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
   initialReportingPeriod?: DashboardReportingPeriod
-  messageCommands: MessageCommands
   persistNotificationReadStateInSession: boolean
   prototypeMode: ClinicDashboardPrototypeMode
   projectDashboardAfterProfileSave: (
@@ -75,11 +82,12 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
 }>
 
 export function ClinicDashboardWorkspaceComposition({
+  authenticatedContext,
   clinicProfileCommands,
+  doctorProfileCommands,
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
   initialReportingPeriod = "30 days",
-  messageCommands,
   persistNotificationReadStateInSession,
   prototypeMode,
   projectDashboardAfterProfileSave,
@@ -91,6 +99,7 @@ export function ClinicDashboardWorkspaceComposition({
   const [savedProfileProjection, setSavedProfileProjection] = useState<
     Readonly<{ locationId: string; profile: ClinicProfileDraft }> | undefined
   >()
+  const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
@@ -150,6 +159,22 @@ export function ClinicDashboardWorkspaceComposition({
     snapshot: projectedDashboardSnapshot,
   })
 
+  const accountInitials = authenticatedContext.principal.displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
+
+  const signOut = async () => {
+    const result = await submitClinicDashboardAuthAction("/api/auth/logout", {})
+    if (result.ok && result.body.redirectTo === "/login") {
+      window.location.assign("/login")
+      return { ok: true }
+    }
+    return { message: "Sign out failed. Please try again.", ok: false }
+  }
+
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
     const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
     const nextSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, locationId)
@@ -168,23 +193,25 @@ export function ClinicDashboardWorkspaceComposition({
     <ClinicDashboardShell
       accountMenu={
         <AccountMenu
-          avatar={workspaceInput.account.avatar}
-          initials={workspaceInput.account.initials}
-          name={workspaceInput.account.name}
-          role={workspaceInput.account.role}
+          email={authenticatedContext.principal.email}
+          initials={accountInitials || "CS"}
+          name={authenticatedContext.principal.displayName}
+          onSignOut={signOut}
+          role="Clinic staff"
         />
       }
       activeSection={activeSection}
       clinicIdentity={
         <ClinicLocationSelector
           canSwitchLocations={capabilities.canSwitchLocations}
+          isDemoData
           locations={workspaceInput.locations}
           onValueChange={selectLocation}
-          organizationName={workspaceInput.organization.name}
+          organizationName={authenticatedContext.clinic.name}
           value={selectedLocation.id}
         />
       }
-      environmentBadge="Demo"
+      environmentBadge="Mixed data"
       headerActions={
         activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
           <DashboardPeriodControl
@@ -244,6 +271,11 @@ export function ClinicDashboardWorkspaceComposition({
         {model.locationAnnouncement}
       </p>
 
+      <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
+        <strong className="text-[var(--secondary)]">Mixed data.</strong> Doctors and patient inquiries are
+        live. Dashboard cards, charts, reviews and the remaining profile details are local examples.
+      </div>
+
       {activeSection === "dashboard" ? (
         <DashboardScreen
           actions={{
@@ -258,15 +290,10 @@ export function ClinicDashboardWorkspaceComposition({
         />
       ) : null}
       <div hidden={activeSection !== "messages"}>
-        <Messages
-          focusTarget={model.messageFocusTarget}
-          initialInquiryOpen={model.locationChangeCount === 0 && start.dialog === "patient-inquiry"}
-          inquiry={selectedSnapshot.patientInquiry}
-          isInteractive={capabilities.canUseMessaging}
-          key={selectedLocation.id}
-          messageCommands={messageCommands}
+        <InquiryQueue
+          focusHeading={model.messageFocusTarget === "heading"}
           onFocusHandled={actions.clearMessageFocusRequest}
-          snapshot={selectedSnapshot.messages}
+          snapshot={workspaceInput.inquiryQueue}
         />
       </div>
       <div hidden={activeSection !== "reviews"}>
@@ -282,22 +309,26 @@ export function ClinicDashboardWorkspaceComposition({
       <div hidden={activeSection !== "profile"}>
         <ClinicProfile
           commands={clinicProfileCommands}
+          doctorCommands={doctorProfileCommands}
+          doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
+          doctorManagement={capabilities.teamManagement}
           focusTarget={model.profileFocusTarget}
           initialDialog={
-            model.locationChangeCount === 0 &&
-            (start.dialog === "team-member" || start.dialog === "treatment")
-              ? start.dialog
-              : undefined
+            model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined
           }
           initialProfile={selectedProfile}
           key={selectedLocation.id}
           onFocusHandled={actions.clearProfileFocusRequest}
+          onDoctorsChange={(doctors) => {
+            const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
+            if (source.status !== "ready") return
+            setDoctorDirectoryProjection({ ...source, doctors })
+          }}
           onProfileSaved={(profile) =>
             setSavedProfileProjection({ locationId: selectedLocation.id, profile })
           }
           onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
           profileManagement={capabilities.profileManagement}
-          teamManagement={capabilities.teamManagement}
           treatmentCatalogue={workspaceInput.treatmentCatalogue}
         />
       </div>

@@ -5,17 +5,19 @@ export const accountMenuActions = {
 } as const
 
 type WorkspaceAccountIdentity = Readonly<{
+  email?: string
   initials: string
   name: string
   role: string
 }>
 
 export type StaffProfile = Readonly<{
+  email?: string
   initials: string
   name: string
   role: string
 }>
 
-export function createStaffProfile({ initials, name, role }: WorkspaceAccountIdentity): StaffProfile {
-  return { initials, name, role }
+export function createStaffProfile({ email, initials, name, role }: WorkspaceAccountIdentity): StaffProfile {
+  return { email, initials, name, role }
 }

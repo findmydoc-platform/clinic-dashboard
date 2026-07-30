@@ -13,8 +13,10 @@ type FieldProps = Readonly<{
   children: (controlProps: FieldControlProps) => ReactNode
   className?: string
   description?: ReactNode
+  descriptionPlacement?: "after-control" | "before-control"
   error?: ReactNode
   id?: string
+  isInvalid?: boolean
   isRequired?: boolean
   label: ReactNode
 }>
@@ -23,8 +25,10 @@ export function Field({
   children,
   className,
   description,
+  descriptionPlacement = "after-control",
   error,
   id,
+  isInvalid = false,
   isRequired = false,
   label,
 }: FieldProps) {
@@ -46,14 +50,19 @@ export function Field({
           </span>
         ) : null}
       </div>
+      {description && descriptionPlacement === "before-control" ? (
+        <p className="text-xs font-normal text-[var(--foreground)]" id={descriptionId}>
+          {description}
+        </p>
+      ) : null}
       {children({
         "aria-describedby": describedBy,
         "aria-errormessage": errorId,
-        "aria-invalid": error ? true : undefined,
+        "aria-invalid": error || isInvalid ? true : undefined,
         id: controlId,
         required: isRequired ? true : undefined,
       })}
-      {description ? (
+      {description && descriptionPlacement === "after-control" ? (
         <p className="text-xs font-normal text-[var(--foreground)]" id={descriptionId}>
           {description}
         </p>

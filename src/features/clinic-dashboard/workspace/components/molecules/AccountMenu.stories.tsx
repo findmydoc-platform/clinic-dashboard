@@ -20,8 +20,10 @@ type Story = StoryObj<typeof meta>
 const account = workspaceAccountFixture
 const defaultArgs = {
   avatar: account.avatar,
+  email: account.email,
   initials: account.initials,
   name: account.name,
+  onSignOut: fn(async () => ({ ok: true })),
   role: account.role,
 } satisfies Story["args"]
 
@@ -79,12 +81,10 @@ export const Open: Story = {
     const signOut = within(menu).getByRole("menuitem", { name: "Sign out" })
 
     await expect(within(menu).getByText(account.name)).toBeInTheDocument()
-    await expect(within(menu).getByText(account.role)).toBeInTheDocument()
+    await expect(within(menu).getByText(account.email)).toBeInTheDocument()
     await expect(within(menu).getByRole("menuitem", { name: "Account profile" })).toBeInTheDocument()
     await expect(within(menu).getByRole("menuitemcheckbox", { name: "Dark mode" })).not.toBeChecked()
-    await expect(signOut).toHaveAttribute("type", "submit")
-    await expect(signOut.closest("form")).toHaveAttribute("action", "/api/auth/logout")
-    await expect(signOut.closest("form")).toHaveAttribute("method", "post")
+    await expect(signOut).toHaveAttribute("type", "button")
     await userEvent.keyboard("{Escape}")
     await waitFor(() =>
       expect(canvas.getByRole("button", { name: `Open account menu for ${account.name}` })).toHaveFocus(),
@@ -108,10 +108,11 @@ export const ProfileDialog: Story = {
     await waitFor(() => expect(closeButton).toHaveFocus())
     await expect(within(dialog).getByText(account.name)).toBeInTheDocument()
     await expect(within(dialog).getByText(account.role)).toBeInTheDocument()
+    await expect(within(dialog).getByText(account.email)).toBeInTheDocument()
     await expect(dialog.querySelector("img")).toHaveAttribute("alt", "")
     await expect(within(dialog).getAllByRole("button")).toHaveLength(1)
     await expect(dialog).not.toHaveTextContent(
-      /authenticated|authentication|email|password|phone|signed-in|two-factor/i,
+      /authenticated|authentication|password|phone|signed-in|two-factor/i,
     )
 
     await userEvent.keyboard("{Escape}")
@@ -124,26 +125,28 @@ export const ProfileDialog: Story = {
 }
 
 export const SignOutSubmits: Story = {
-  args: { ...defaultArgs, initialOpen: true },
-  play: async ({ canvasElement }) => {
+  args: { ...defaultArgs, initialOpen: true, onSignOut: fn(async () => ({ ok: true })) },
+  play: async ({ args, canvasElement }) => {
     const menu = within(canvasElement.ownerDocument.body).getByRole("menu")
     const signOut = within(menu).getByRole("menuitem", { name: "Sign out" })
-    const form = signOut.closest("form")
-    const onSubmit = fn()
-
-    if (!form) throw new Error("The sign-out menu item must belong to a form.")
-
-    form.addEventListener(
-      "submit",
-      (event) => {
-        event.preventDefault()
-        onSubmit()
-      },
-      { once: true },
-    )
 
     await userEvent.click(signOut)
-    await expect(onSubmit).toHaveBeenCalledOnce()
+    await expect(args.onSignOut).toHaveBeenCalledOnce()
+  },
+}
+
+export const SignOutFailure: Story = {
+  args: {
+    ...defaultArgs,
+    initialOpen: true,
+    onSignOut: fn(async () => ({ message: "Sign out failed. Please try again.", ok: false })),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("menuitem", { name: "Sign out" }))
+    const alert = await page.findByRole("alert")
+    await expect(alert).toHaveTextContent("Sign out failed")
+    await waitFor(() => expect(alert).toHaveFocus())
   },
 }
 
@@ -162,6 +165,7 @@ export const ProfileDialogDark: Story = {
     const dialog = page.getByRole("dialog", { name: "Staff profile" })
     await expect(within(dialog).getByText(account.name)).toBeInTheDocument()
     await expect(within(dialog).getByText(account.role)).toBeInTheDocument()
+    await expect(within(dialog).getByText(account.email)).toBeInTheDocument()
     await expect(within(dialog).getAllByRole("button")).toHaveLength(1)
   },
 }

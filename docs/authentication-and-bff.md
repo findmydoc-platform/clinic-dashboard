@@ -6,7 +6,10 @@
 > **Paired website architecture:**
 > [Clinic Dashboard application and API architecture](https://github.com/findmydoc-platform/website/blob/main/docs/integrations/clinic-dashboard-api.md)
 >
-> **Repository responsibility:** This repository owns the Dashboard BFF, session cookies, PKCE login and callback,
+> **Dashboard live-domain composition:**
+> [ADR 0003: Domain Data Provider Composition](adr/0003-domain-data-provider-composition.md)
+>
+> **Repository responsibility:** This repository owns the Dashboard BFF, session cookies, password login, explicitly confirmed TokenHash callbacks,
 > refresh and logout, server-only Payload client, capability-specific Route Handlers, environment validation, and
 > user-facing auth and upstream-error states. The website repository owns Payload authentication, authorization,
 > business endpoints, and DTO contracts.
@@ -17,10 +20,9 @@
 
 ## Runtime Status and Scope
 
-> **Temporary runtime notice:** The application remains fixture-backed and protected by its temporary password
-> guard. The website now exposes the Payload bootstrap contract described below, but Supabase session handling and the
-> Dashboard BFF are not active in this application yet. This notice must be removed when the Dashboard architecture is
-> implemented.
+The Supabase session boundary, Payload bootstrap, and patient-inquiry domain are implemented. Authenticated staff,
+clinic identity, inquiry reads, and inquiry status changes are live in normal mode. The remaining Dashboard business
+content stays fixture-backed and visibly marked as demo data.
 
 This document records the durable authentication and Backend for Frontend architecture of the stateless Next.js
 application. It is not an execution plan. The Dashboard owns no database, durable business cache, Supabase service-role
@@ -31,7 +33,9 @@ key, browser-readable auth token, or generic Payload proxy.
 ```text
 Dashboard Browser
   -> React Server Component or same-origin Route Handler
-  -> server-only Payload client with current Supabase access token
+  -> root server composition with current Supabase access token
+  -> domain-specific server-only provider
+  -> exact Payload request sequence
   -> Payload REST or focused custom endpoint
   -> current clinicStaff authorization and purpose-specific DTO
 ```
@@ -44,14 +48,16 @@ Payload path, collection, query, actor, clinic, or authorization scope.
 
 The architecture keeps these responsibilities separate:
 
-| Module                     | Responsibility                                                                                                                 | Prohibited responsibility                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Environment contract       | Validate Dashboard origin, Supabase URL, publishable key, Payload API URL, and environment pairing at startup.                 | Deriving trust from an unchecked request `Host` header.                                    |
-| Server Supabase factory    | Create one cookie-aware client per request and expose login, callback, refresh, logout, and current-session operations.        | Global clients, browser clients, service-role operations, or shared user state.            |
-| Session cookie adapter     | Read request cookies and apply every returned cookie and cache header to the final response.                                   | Exposing access or refresh tokens to Client Components.                                    |
-| Server-only Payload client | Send the current access token as a Bearer token and map upstream failures.                                                     | Direct database access or accepting browser-provided Payload paths.                        |
-| Dashboard data layer       | Fetch typed capability DTOs for React Server Components and request-local deduplication.                                       | Persistent caching or internal HTTP calls to Route Handlers.                               |
-| Route Handlers             | Compose one shared mutation guard for session, input, exact origin, session-bound HMAC-CSRF, and capability-specific commands. | Reimplementing Payload tenant or permission decisions or duplicating CSRF logic per route. |
+| Module                       | Responsibility                                                                                                                 | Prohibited responsibility                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Environment contract         | Validate Dashboard origin, exact Supabase project URL, publishable key, Payload API URL, and environment pairing at startup.   | Deriving trust from an unchecked request `Host` header.                                  |
+| Server Supabase factory      | Create one cookie-aware client per request and expose login, callback, refresh, logout, and current-session operations.        | Global clients, browser clients, service-role operations, or shared user state.          |
+| Session cookie adapter       | Read request cookies and apply every returned cookie and cache header to the final response.                                   | Exposing access or refresh tokens to Client Components.                                  |
+| Domain provider composition  | Bind a verified token request-locally and select each approved domain's Controlled or Payload provider in one place.           | Dynamic registration, route logic, automatic fallback, or Controlled data when deployed. |
+| Domain provider contract     | Expose meaningful typed reads and changes with closed sanitized results for one live domain.                                   | Transport sequences, UI state, raw upstream documents, or broad repository operations.   |
+| Server-only provider adapter | Send the current access token to exact Payload resources, validate responses, minimize DTOs, and map upstream failures.        | Direct database access or accepting browser-provided Payload paths.                      |
+| Dashboard server composition | Combine the remaining fixture workspace with approved live-domain results for React Server Components.                         | Persistent caching or internal HTTP calls to Route Handlers.                             |
+| Route Handlers               | Compose one shared mutation guard for session, input, exact origin, session-bound HMAC-CSRF, and capability-specific commands. | Reimplementing Payload tenant or permission decisions or duplicating provider logic.     |
 
 Server-only modules must use the framework's server-only boundary and must never be imported by Client Components or
 Storybook.
@@ -60,7 +66,7 @@ Storybook.
 
 - Supabase owns the access and refresh session.
 - The Dashboard stores session material only in host-bound cookies with `HttpOnly`, `Path=/`, and no `Domain`
-  attribute. Deployed environments require `Secure`; `SameSite=Lax` supports the top-level PKCE callback.
+  attribute. Deployed environments require `Secure`; `SameSite=Lax` supports top-level email callbacks.
 - Authentication and refresh responses copy every cookie mutation and cache-control header returned by the Supabase
   server client.
 - Any response that reads, refreshes, establishes, or clears a session uses `Cache-Control: private, no-store`, with
@@ -74,38 +80,52 @@ Storybook.
 
 The Dashboard owns these same-origin contracts:
 
-| Route                      | Method | Contract                                                                                                                                                                                       |
-| -------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/login`          | `POST` | Validate input and internal destination, initialize PKCE, and start the Supabase authentication flow.                                                                                          |
-| `/auth/callback`           | `GET`  | Validate the callback environment and state, exchange the authorization code, establish cookies, verify the current clinic principal, and redirect only to an allowed relative Dashboard path. |
-| `/api/auth/logout`         | `POST` | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                    |
-| `/api/dashboard/bootstrap` | `GET`  | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                               |
+| Route                      | Method | Contract                                                                                                                                                                                                                |
+| -------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/login`          | `POST` | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                               |
+| `/auth/callback`           | `GET`  | Validate TokenHash, flow type, and exact destination without consuming the token; redirect only to the configured Dashboard origin and confirmation page.                                                               |
+| `/api/auth/callback`       | `POST` | Validate CSRF and exact origin, call `verifyOtp` once, establish cookies, verify clinic account eligibility, issue a short-lived flow-and-subject-bound completion grant, and return only the allowed completion route. |
+| `/api/auth/password/reset` | `POST` | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                                                                              |
+| Invite/reset completion    | `POST` | Require the verified session and matching one-use completion grant, enforce the eight-character matching password rule, clear the grant, update the password, sign out, and return to normal login.                     |
+| `/api/auth/logout`         | `POST` | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                             |
+| `/api/dashboard/bootstrap` | `GET`  | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                        |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
 is unnecessary unless a later UI flow demonstrates the need. Callback and login failures return sanitized error codes;
-they never return Supabase response bodies or authorization codes to application UI.
+they never return Supabase response bodies, token hashes, or provider details to application UI.
+
+The Vercel project applies fixed-window, IP-keyed WAF limits before the application: 20 login requests per minute and
+five password-reset requests per hour. Route handlers additionally reject authentication request bodies larger than
+8 KiB before JSON parsing. The WAF limits are project configuration, not an application-memory counter.
 
 ## CSRF and Origin Contract
 
 Every authenticated state-changing Route Handler composes one central mutation guard. Route implementations cannot
 replace or partially reproduce the guard. The guard:
 
-1. requires the exact configured Dashboard origin in `Origin`;
-2. rejects missing or mismatched browser origins;
+1. requires the browser `Origin` to equal the request URL origin and belong to the environment-scoped trusted Dashboard
+   origin set;
+2. rejects missing, malformed, cross-host, or untrusted browser origins;
 3. validates a stateless HMAC-signed CSRF token from a host-bound cookie against the request header using timing-safe
    comparisons;
 4. binds the HMAC to the current validated Supabase session plus a random nonce, so a token from another session is
    rejected;
-5. in Staging and Production requires a `__Host-` cookie with `Secure`, `Path=/`, and no `Domain` attribute;
+5. in deployed environments requires `Secure`, `Path=/`, and no `Domain` attribute;
 6. validates content type and request schema before any upstream call; and
 7. derives principal, clinic, and actor from the authenticated Payload result.
+
+Local development and Production each trust only their configured exact origin. Preview additionally trusts the
+validated current Vercel deployment URL and exact `https://clinics.preview.findmydoc.eu`. Preview deployment
+metadata must match `clinic-dashboard-*-findmydoc.vercel.app`; the application does not accept a generic Vercel
+wildcard. Host-only cookies intentionally prevent sessions and completion state from moving between preview hosts.
 
 The CSRF token contains no access token, refresh token, Supabase identifier, or clinic data. Its session binding is
 derived server-side and is not emitted as cleartext. The CSRF cookie is intentionally readable by same-origin browser
 code so the value can be sent in the header; session cookies remain `HttpOnly`. The server-only
-`CSRF_SIGNING_SECRET` signs tokens and must contain at least 32 cryptographically random bytes. Login and callback are
-pre-session exceptions to the mutation guard and instead validate exact origin where applicable, PKCE state, and known
-relative destinations. Logout and every authenticated capability mutation use the shared guard.
+`CSRF_SIGNING_SECRET` signs tokens and must contain at least 32 cryptographically random bytes. A public page receives
+an anonymous pre-session token before login, reset, or email-link confirmation. After a session is established, the
+token is reissued against the session cookie fingerprint. Login, callback confirmation, logout, password completion,
+and every later authenticated capability mutation use the shared guard.
 
 A contract test inventories state-changing Route Handlers and fails when an authenticated mutation is not wrapped by
 the central guard. Fetch Metadata headers may provide defense in depth but do not replace explicit origin and CSRF
@@ -113,14 +133,15 @@ validation. Payload receives only the authorized business request and requires n
 
 ## Payload Client and DTO Contract
 
-The Payload client receives an access token only from the current server session. It uses REST resources and focused
-custom endpoints from the paired website architecture. The first custom contract is the self-and-capability bootstrap.
+Payload provider adapters receive an access token only from the current server session. They use REST resources and
+focused custom endpoints from the paired website architecture. The first custom contract is the self-and-capability
+bootstrap.
 
 For each environment, the client accepts one exact HTTPS Payload origin and configures authenticated fetches to reject
 redirects. An origin mismatch, non-HTTPS target, or cross-environment URL fails before the first token-bearing request.
 A redirect response fails without sending the Bearer token to the redirect target.
 
-The Dashboard consumes this synchronized initial contract:
+The Dashboard consumes this synchronized bootstrap contract:
 
 ```ts
 type ClinicDashboardCapability = "clinic-profile:view" | "clinic-profile:edit"
@@ -144,8 +165,15 @@ The capability list contains each value exactly once in the order shown. It is a
 editing controls, not a replacement for Payload authorization. Each later read or mutation must still authorize the
 current principal, clinic, document, and fields.
 
-The client rejects a response that does not match the expected DTO. It never forwards raw Payload documents, Supabase
-identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
+The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
+Supabase identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
+
+The patient-inquiry domain uses one private `PatientInquiryProvider` for both `loadQueue()` and
+`changeStatus({ inquiryId, status })`. Its Payload adapter owns the current-record read, transition validation, and
+status write; the browser and Route Handler do not observe that sequence. The adapter validates website responses and
+projects only the approved inquiry fields. Its Controlled implementation is selected by the existing local test mode,
+uses the same provider contract, and is impossible to enable in Preview or Production. No Payload failure selects
+Controlled data.
 
 ## Error and UI State Mapping
 
@@ -166,7 +194,7 @@ Every upstream bootstrap response is private and carries `Cache-Control: private
 | No session or invalid session after one refresh                    | Return `401`, clear invalid cookies.                                       | Login required; preserve only a validated relative destination. |
 | Valid identity without a matching clinic principal                 | Return `401`; do not provision staff.                                      | Account unavailable without exposing internal identity details. |
 | Pending or rejected staff, missing clinic, or forbidden capability | Return `403`; preserve session.                                            | Access pending, denied, or unavailable as a controlled state.   |
-| Invalid callback code or state                                     | Clear incomplete auth state and return a sanitized auth error.             | Login screen with a retry action.                               |
+| Invalid or expired TokenHash link                                  | Clear incomplete auth state and return a sanitized auth error.             | Login screen with a retry action.                               |
 | Invalid input                                                      | Return `400` with a stable safe error code.                                | Field or command error without raw upstream details.            |
 | Business conflict                                                  | Return `409` with a stable safe error code.                                | Refresh or resolve the changed state.                           |
 | Payload unavailable or timed out                                   | Return `502` or `504`; preserve session.                                   | Temporary service error with retry.                             |
@@ -176,19 +204,29 @@ Every upstream bootstrap response is private and carries `Cache-Control: private
 All protected pages require explicit loading, empty, forbidden, expired-session, and upstream-unavailable states before
 their temporary prototype gate is removed.
 
+Patient-inquiry providers return only closed domain errors. Queue failures map to the existing
+`temporarily-unavailable` UI state. The status route maps `not-found` to `404 INQUIRY_NOT_FOUND`, `conflict` to
+`409 INQUIRY_STATUS_CONFLICT`, and an unavailable or malformed upstream response to
+`503 INQUIRY_SERVICE_UNAVAILABLE`. Existing session, access, origin, CSRF, input, and private-cache responses are
+unchanged.
+
 ## Environment Contract
 
-| Environment          | Expected origin                       | Supabase   | Payload API                          | Allowed callback                                                |
-| -------------------- | ------------------------------------- | ---------- | ------------------------------------ | --------------------------------------------------------------- |
-| Local                | `http://localhost:3000`               | Staging    | Exact `https://preview.findmydoc.eu` | Exact `http://localhost:3000/auth/callback`                     |
-| Pull-request preview | Current trusted Vercel deployment URL | Staging    | Exact `https://preview.findmydoc.eu` | `https://clinic-dashboard-*-findmydoc.vercel.app/auth/callback` |
-| Production           | `https://clinics.findmydoc.eu`        | Production | Exact `https://findmydoc.eu`         | Exact `https://clinics.findmydoc.eu/auth/callback`              |
+| Environment          | Trusted Dashboard origins                                                       | Supabase   | Payload API                          | Allowed callback origins                                       |
+| -------------------- | ------------------------------------------------------------------------------- | ---------- | ------------------------------------ | -------------------------------------------------------------- |
+| Local                | Exact `http://localhost:3000`                                                   | Staging    | Exact `https://preview.findmydoc.eu` | Exact local callback                                           |
+| Pull-request preview | Exact validated current `VERCEL_URL` and configured stable origin               | Staging    | Exact `https://preview.findmydoc.eu` | Generated Vercel Preview host and stable callback              |
+| Main preview         | Exact `https://clinics.preview.findmydoc.eu` and validated current `VERCEL_URL` | Staging    | Exact `https://preview.findmydoc.eu` | Stable Main Preview callback and generated deployment callback |
+| Production           | Exact `https://clinics.findmydoc.eu`                                            | Production | Exact `https://findmydoc.eu`         | Exact Production callback                                      |
 
-The environment contract validates `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, the expected Dashboard
-origin, and the server-only `CSRF_SIGNING_SECRET` as one bundle. No service-role key is accepted. `PAYLOAD_API_URL` must
-equal the exact environment origin in the table; HTTPS and redirect rejection are mandatory. Preview origin derivation
-may use trusted Vercel metadata only after validating HTTPS and the expected project suffix. The existing random Vercel
-deployment URLs remain unchanged.
+The environment contract validates `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`,
+`PAYLOAD_API_URL`, the expected Dashboard origin, and the server-only `CSRF_SIGNING_SECRET` as one bundle. `SUPABASE_URL`
+must equal `https://<EXPECTED_SUPABASE_PROJECT_REF>.supabase.co` with no alternate host, path, credentials, query, or
+fragment. No service-role key is accepted. `PAYLOAD_API_URL` must equal the exact environment origin in the table; HTTPS
+and redirect rejection are mandatory. `VERCEL_URL` is optional server-only deployment metadata. When present in
+Preview, it must contain only a deployment hostname matching the expected project and team shape; missing or invalid
+metadata never broadens the trusted set. The stable Preview origin remains valid only for deployments built with the
+matching Preview environment bundle.
 
 ## Cache Contract
 
@@ -207,19 +245,25 @@ must be discarded or reconciled after mutations, permission changes, or session 
 
 The architecture remains valid only while the following properties hold:
 
-- Unit-test environment pairing, exact Payload origins, redirect rejection, callback-origin validation,
+- Unit-test environment pairing, exact Payload origins, redirect rejection, TokenHash callback validation,
   internal-destination validation, cookie attributes, cookie propagation, one-refresh retry, session clearing, origin
-  checks, CSRF signature validation, session binding, and `__Host-` requirements.
+  checks, CSRF signature validation, session binding, and host-only cookie requirements.
 - Contract-test that every authenticated state-changing Route Handler composes the central mutation guard and that
   Payload requires no CSRF-specific behavior.
 - Contract-test the bootstrap DTO and every stable error mapping against the synchronized website contract.
+- Run the same patient-inquiry provider contract against Controlled and Payload implementations, including queue shape,
+  allowed changes, unknown IDs, and conflicting transitions.
+- Verify composition selects Controlled only in local test mode, selects Payload otherwise, rejects missing tokens, and
+  fails closed in Preview and Production.
+- Verify architecture process fixtures reject concrete providers, private provider contracts, or mode selection in UI,
+  App Router, Storybook, and unrelated tests.
 - Verify that Client Component bundles and Storybook contain no Supabase client, access token, refresh token, service
   role, or server-only Payload module.
 - Verify through browser network evidence that application data requests stay on the Dashboard origin and no browser
   request reaches Payload.
 - Verify server-rendered pages do not make internal HTTP requests to Dashboard Route Handlers.
-- Verify local and trusted Vercel previews against Staging Supabase and the website Preview API, including successful
-  PKCE return to the original deployment URL.
+- Verify local and trusted Vercel previews against Staging Supabase and the website Preview API, including password
+  login plus explicitly confirmed invite and recovery TokenHash links.
 - Verify `401`, `403`, invalid callback, invalid origin, invalid CSRF, Payload outage, Supabase outage, and retry behavior.
 - Verify authenticated responses are private and not present in shared or durable caches.
 - Verify public-impacting Payload mutations retain their existing website revalidation behavior.
@@ -231,4 +275,4 @@ The architecture remains valid only while the following properties hold:
 - A Dashboard database, durable copy of Payload data, shared authenticated cache, or service-role credential.
 - Stable pull-request-number aliases or a callback relay application.
 - Portal session transfer or a clinic login form in the portal.
-- Capability-specific business features beyond their shared BFF and API boundary.
+- Capability-specific business features beyond the approved patient-inquiry domain.

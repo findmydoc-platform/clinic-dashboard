@@ -1,5 +1,5 @@
 export type ClinicDashboardNotificationTarget =
-  Readonly<{ conversationId: string; kind: "conversation" }> | Readonly<{ kind: "review"; reviewId: string }>
+  Readonly<{ kind: "messages" }> | Readonly<{ kind: "review"; reviewId: string }>
 
 export type ClinicDashboardNotification = Readonly<{
   createdAt: string
@@ -18,7 +18,6 @@ export type ClinicDashboardNotificationTargetIndex = Readonly<
   Record<
     string,
     Readonly<{
-      conversationIds: readonly string[]
       reviewIds: readonly string[]
     }>
   >
@@ -65,8 +64,8 @@ export function assertClinicDashboardNotificationTargets(
     }
 
     const targetExists =
-      notification.target.kind === "conversation"
-        ? locationTargets.conversationIds.includes(notification.target.conversationId)
+      notification.target.kind === "messages"
+        ? true
         : locationTargets.reviewIds.includes(notification.target.reviewId)
 
     if (!targetExists) {

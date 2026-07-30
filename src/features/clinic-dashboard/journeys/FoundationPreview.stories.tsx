@@ -45,7 +45,7 @@ export const PresentationSupportFlowIsAvailable: Story = {
   },
 }
 
-export const NotificationOpensConversationAtItsLocation: Story = {
+export const NotificationOpensMessagesAtItsLocation: Story = {
   args: { prototypeMode: "presentation" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -53,13 +53,11 @@ export const NotificationOpensConversationAtItsLocation: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Notifications, 2 new notifications" }))
     await userEvent.click(canvas.getByRole("button", { name: /New message from Lukas Weber/ }))
 
-    await expect(canvas.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
+    await waitFor(() => expect(canvas.getByRole("heading", { level: 1, name: "Messages" })).toHaveFocus())
     await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-      /Current location: Berlin Health Clinic — Mitte/,
+      /Current location: Demo data · Berlin Health Clinic — Mitte/,
     )
-    const conversationHeading = canvas.getByRole("heading", { name: "Lukas Fixture" })
-    await waitFor(() => expect(conversationHeading).toHaveFocus())
-    await expect(canvas.getByText("Opened conversation at Berlin Health Clinic — Mitte.")).toBeVisible()
+    await expect(canvas.getByText("Opened messages at Berlin Health Clinic — Mitte.")).toBeVisible()
   },
 }
 
@@ -73,7 +71,7 @@ export const NotificationOpensReviewAtItsLocation: Story = {
 
     await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
     await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-      /Current location: Berlin Health Clinic — Charlottenburg/,
+      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
     )
     const review = canvas.getByRole("region", { name: "Review by Eva Fixture" })
     await waitFor(() => expect(review).toHaveFocus())
@@ -111,7 +109,7 @@ export const ProfileSaveProjectsIntoDashboard: Story = {
     await expect(within(preview).getByRole("img", { name: "Berlin Health Clinic exterior" })).toBeVisible()
     await expect(canvas.getAllByText("86%")[0]).toBeVisible()
     await expect(canvas.queryByRole("button", { name: "Review images" })).not.toBeInTheDocument()
-    await expect(canvas.getByRole("button", { name: "Review team" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Review doctors" })).toBeInTheDocument()
   },
 }
 

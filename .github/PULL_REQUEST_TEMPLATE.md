@@ -1,31 +1,82 @@
-## Outcome
+## Management summary
 
-<!-- State the user or engineering outcome. Link the issue with Closes, Fixes, or Resolves #123. -->
+### Deutsch
 
-## Changes
+<!-- Write one non-technical paragraph in German. Focus on what improves for users, operators, or the business. Keep it useful as release/changelog source material. Do not mention implementation details, files, commits, tools, tests, issue numbers, or code snippets. -->
 
-<!-- Summarize the smallest meaningful change set. -->
+### English
+
+<!-- Write the same non-technical summary in English. Focus on stakeholder-visible value, not implementation detail. Do not mention implementation details, files, commits, tools, tests, issue numbers, or code snippets. -->
+
+## What changed
+
+<!-- Technical and architectural overview. Explain affected flows, modules, behavior changes, and review-relevant context. Link files only when they materially help review. Do not paste code snippets. -->
+
+-
+
+## Points to review
+
+<!--
+Help reviewers spend attention where human judgment matters most.
+
+Include only concrete focus areas from this PR. Do not list every generic review category.
+Prefer 1-5 rows. If there is nothing special beyond normal review, write:
+`None beyond standard review.`
+Replace the placeholder row below; do not leave `path/to/file.ts` in the final PR.
+This section guides review attention, but it does not replace normal review of all changed code.
+
+Each row must name:
+- exact files, folders, or diff regions
+- why this area is review-relevant
+- what the reviewer should verify
+- what evidence already exists, or `Not yet covered`
+
+Priority guide:
+- P1: could affect security, privacy, data integrity, CI gates, migrations, production deploys, or primary user flows
+- P2: could affect maintainability, UX quality, accessibility, performance, or important edge cases
+- P3: useful reviewer context, but unlikely to block merge alone
+
+Use this section especially for changes touching auth, access control, privacy, secrets, logging,
+API/server trust boundaries, Payload schema/migrations, existing-data compatibility,
+CI/workflow/build/test/coverage gates, dependencies, lockfiles, external integrations,
+user-facing UI, mobile behavior, accessibility, SEO, web vitals, or complex business logic.
+-->
+
+| Priority | Files / paths     | Why focus here                               | Reviewer should verify          | Evidence                                     |
+| -------- | ----------------- | -------------------------------------------- | ------------------------------- | -------------------------------------------- |
+| P1/P2/P3 | `path/to/file.ts` | Short concrete risk, not a generic category. | Specific question for reviewer. | Test, screenshot, log, or `Not yet covered`. |
+
+## Reviewer gate
+
+<!--
+Record only the compact gate status and decisions, never full reviewer transcripts.
+If the gate was not run, state why.
+-->
+
+- Reviewed diff:
+- Reviewer set:
+- Result:
+- Open, fixed, deferred, or excepted decisions:
 
 ## Validation
 
-Checks are advisory on the current GitHub plan. Do not merge while any applicable check is failing.
+<!-- Check every relevant item. If an item was not run or is not applicable, leave it unchecked and explain why after the colon. -->
 
-- [ ] `pnpm format:check`
-- [ ] `pnpm check`
-- [ ] Relevant unit, Storybook, or E2E tests
-- [ ] `pnpm build-storybook` when UI-relevant
-- [ ] `pnpm build` when build-relevant
+- [ ] `pnpm format`:
+- [ ] `pnpm check`:
+- [ ] `pnpm build`:
+- [ ] Focused tests:
+- [ ] UI/mobile QA:
+- [ ] Security/privacy review:
+- [ ] Migration/schema check:
+- [ ] Documentation/instructions check:
 
-## Access and data
+## Risk and rollout
 
-- Public/private decision: <!-- current foundation routes are public and data-less -->
-- Data classification: <!-- none, internal, personal, sensitive -->
-- Auth or permission impact: <!-- none or describe -->
+<!-- State user-facing risks, data/config/env changes, migration requirements, rollback notes, or `None known`. -->
 
-## Risks and rollback
+## Development
 
-<!-- Describe the main risk, monitoring signal, and rollback path. -->
+<!-- Required. Use `Closes` for every linked issue so GitHub shows this pull request in the issue Development section and closes the issue when this pull request merges into the default branch. Same repo: `Closes #123`. Cross repo: `Closes findmydoc-platform/management#123`. Repeat `Closes` once per issue. Do not use plain issue links here. -->
 
-## Out of scope
-
-<!-- Record intentionally excluded work. -->
+Closes #

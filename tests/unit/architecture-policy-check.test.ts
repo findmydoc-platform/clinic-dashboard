@@ -1386,6 +1386,187 @@ describe("architecture policy checker process fixtures", () => {
     expect(output.match(/ERROR clinic-dashboard-workspace-provider-boundary/gu)).toHaveLength(2)
   })
 
+  it("allows the server root and exact tests to use the domain provider composition", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/data-provider-composition.ts": `
+        import "server-only"
+        import { isControlledAuthTestMode } from "../../lib/env"
+        import { createControlledPatientInquiryProvider } from "./messages/server/controlled-inquiries"
+        import { createPayloadPatientInquiryProvider } from "./messages/server/payload-inquiries"
+        import type { PatientInquiryProvider } from "./messages/server/patient-inquiry-provider"
+        export type ClinicDashboardDataProviders = Readonly<{ inquiries: PatientInquiryProvider }>
+        export function composeClinicDashboardDataProviders(): ClinicDashboardDataProviders {
+          return {
+            inquiries: isControlledAuthTestMode()
+              ? createControlledPatientInquiryProvider()
+              : createPayloadPatientInquiryProvider("token"),
+          }
+        }
+      `,
+      "src/features/clinic-dashboard/messages/server/controlled-inquiries.ts": `
+        import "server-only"
+        import type { PatientInquiryProvider } from "./patient-inquiry-provider"
+        export function createControlledPatientInquiryProvider(): PatientInquiryProvider {
+          return {} as PatientInquiryProvider
+        }
+      `,
+      "src/features/clinic-dashboard/messages/server/patient-inquiry-provider.ts": `
+        import "server-only"
+        export type PatientInquiryProvider = Readonly<{ loadQueue: () => Promise<unknown> }>
+      `,
+      "src/features/clinic-dashboard/messages/server/payload-inquiries.ts": `
+        import "server-only"
+        import type { PatientInquiryProvider } from "./patient-inquiry-provider"
+        export function createPayloadPatientInquiryProvider(): PatientInquiryProvider {
+          return {} as PatientInquiryProvider
+        }
+      `,
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        import { composeClinicDashboardDataProviders } from "./data-provider-composition"
+        export function loadClinicDashboardWorkspaceInput() {
+          return composeClinicDashboardDataProviders().inquiries.loadQueue()
+        }
+      `,
+      "src/lib/env.ts": `
+        export function isControlledAuthTestMode() { return false }
+      `,
+      "tests/unit/data-provider-composition.test.ts": `
+        import { composeClinicDashboardDataProviders } from "../../src/features/clinic-dashboard/data-provider-composition"
+        export const providers = composeClinicDashboardDataProviders()
+      `,
+      "tests/unit/patient-inquiry-provider-contract.test.ts": `
+        import { createControlledPatientInquiryProvider } from "../../src/features/clinic-dashboard/messages/server/controlled-inquiries"
+        import type { PatientInquiryProvider } from "../../src/features/clinic-dashboard/messages/server/patient-inquiry-provider"
+        import { createPayloadPatientInquiryProvider } from "../../src/features/clinic-dashboard/messages/server/payload-inquiries"
+        export const providers: PatientInquiryProvider[] = [
+          createControlledPatientInquiryProvider(),
+          createPayloadPatientInquiryProvider(),
+        ]
+      `,
+      "tests/unit/patient-inquiry-payload.test.ts": `
+        import { createPayloadPatientInquiryProvider } from "../../src/features/clinic-dashboard/messages/server/payload-inquiries"
+        export const provider = createPayloadPatientInquiryProvider()
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
+    expect(result.stderr).toBe("")
+    expect(result.stdout).toContain("architecture governance: 0 findings")
+  })
+
+  it("rejects provider composition and implementations in UI, routes, stories, and unrelated tests", () => {
+    const fixtureRoot = createFixture({
+      "src/app/api/dashboard/provider/route.ts": `
+        import { composeClinicDashboardDataProviders } from "../../../../features/clinic-dashboard/data-provider-composition"
+        export function GET() { return Response.json(composeClinicDashboardDataProviders()) }
+      `,
+      "src/features/clinic-dashboard/data-provider-composition.ts": `
+        import "server-only"
+        export function composeClinicDashboardDataProviders() { return {} }
+      `,
+      "src/features/clinic-dashboard/messages/Messages.stories.tsx": `
+        import type { PatientInquiryProvider } from "./server/public"
+        export const Default = { args: { provider: {} as PatientInquiryProvider } }
+      `,
+      "src/features/clinic-dashboard/messages/components/organisms/MessagesScreen.tsx": `
+        import type { PatientInquiryProvider } from "../../server/patient-inquiry-provider"
+        export function MessagesScreen(_props: { provider: PatientInquiryProvider }) { return null }
+      `,
+      "src/features/clinic-dashboard/messages/server/patient-inquiry-provider.ts": `
+        import "server-only"
+        export type PatientInquiryProvider = Readonly<{ loadQueue: () => Promise<unknown> }>
+      `,
+      "src/features/clinic-dashboard/messages/server/public.ts": `
+        import "server-only"
+        export type { PatientInquiryProvider } from "./patient-inquiry-provider"
+      `,
+      "src/features/clinic-dashboard/messages/server/payload-inquiries.ts": `
+        import "server-only"
+        export function createPayloadPatientInquiryProvider() { return {} }
+      `,
+      "tests/unit/unrelated-provider.test.ts": `
+        import { createPayloadPatientInquiryProvider } from "../../src/features/clinic-dashboard/messages/server/payload-inquiries"
+        export const provider = createPayloadPatientInquiryProvider()
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR clinic-dashboard-data-provider-composition-boundary src/app/api/dashboard/provider/route.ts",
+    )
+    expect(output).toContain(
+      "ERROR patient-inquiry-provider-contract-boundary src/features/clinic-dashboard/messages/components/organisms/MessagesScreen.tsx",
+    )
+    expect(output).toContain(
+      "ERROR patient-inquiry-provider-contract-boundary src/features/clinic-dashboard/messages/Messages.stories.tsx",
+    )
+    expect(output).toContain(
+      "ERROR patient-inquiry-provider-adapter-boundary tests/unit/unrelated-provider.test.ts",
+    )
+  })
+
+  it("rejects controlled data-source selection outside the central composition", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/server/actions.ts": `
+        import { isControlledAuthTestMode } from "../../../../lib/env"
+        export const dataSource = isControlledAuthTestMode() ? "controlled" : "payload"
+      `,
+      "src/lib/env.ts": `
+        export function isControlledAuthTestMode() { return false }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR clinic-dashboard-controlled-mode-selection src/features/clinic-dashboard/messages/server/actions.ts",
+    )
+    expect(output.match(/ERROR clinic-dashboard-controlled-mode-selection/gu)).toHaveLength(1)
+  })
+
+  it("rejects namespace and transitive re-export bypasses of controlled mode selection", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/server/actions.ts": `
+        import * as environment from "../../../../lib/env"
+        export const dataSource = environment.isControlledAuthTestMode() ? "controlled" : "payload"
+      `,
+      "src/features/clinic-dashboard/messages/server/controlled-mode.ts": `
+        export { isControlledAuthTestMode as selectControlledDataSource } from "../../../../lib/env"
+      `,
+      "src/features/clinic-dashboard/messages/server/consumer.ts": `
+        import { selectControlledDataSource } from "./controlled-mode"
+        export const dataSource = selectControlledDataSource() ? "controlled" : "payload"
+      `,
+      "src/lib/env.ts": `
+        export function isControlledAuthTestMode() { return false }
+        export function validateEnvironment() { return {} }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR clinic-dashboard-controlled-mode-selection src/features/clinic-dashboard/messages/server/actions.ts",
+    )
+    expect(output).toContain(
+      "ERROR clinic-dashboard-controlled-mode-selection src/features/clinic-dashboard/messages/server/consumer.ts",
+    )
+    expect(output).toContain(
+      "ERROR clinic-dashboard-controlled-mode-selection src/features/clinic-dashboard/messages/server/controlled-mode.ts",
+    )
+    expect(output.match(/ERROR clinic-dashboard-controlled-mode-selection/gu)).toHaveLength(3)
+  })
+
   it("rejects client, story, and unrelated test imports of the private server entry", () => {
     const fixtureRoot = createFixture({
       "src/app/page.tsx": `
@@ -1425,6 +1606,89 @@ describe("architecture policy checker process fixtures", () => {
       "ERROR clinic-dashboard-server-boundary tests/unit/unrelated-server-import.test.ts",
     )
     expect(output.match(/ERROR clinic-dashboard-server-boundary/gu)).toHaveLength(3)
+  })
+
+  it("allows the exact inquiry status route to use the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/app/api/dashboard/inquiries/[inquiryId]/status/route.ts": `
+        import { handlePatientInquiryStatusUpdate } from "../../../../../../features/clinic-dashboard/server"
+        export function PATCH(request: Request) {
+          return handlePatientInquiryStatusUpdate(request, "inquiry-1")
+        }
+      `,
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function handlePatientInquiryStatusUpdate() { return new Response() }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
+  })
+
+  it("allows exact doctor BFF routes to use the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/app/api/dashboard/doctors/[doctorId]/image/route.ts": `
+        import { handleDoctorImageReplace } from "../../../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleDoctorImageReplace(request, "doctor-1")
+        }
+      `,
+      "src/app/api/dashboard/doctors/[doctorId]/route.ts": `
+        import { handleDoctorUpdate } from "../../../../../features/clinic-dashboard/server"
+        export function PATCH(request: Request) {
+          return handleDoctorUpdate(request, "doctor-1")
+        }
+      `,
+      "src/app/api/dashboard/doctors/[doctorId]/specialties/[assignmentId]/route.ts": `
+        import { handleDoctorSpecialtyUpdate } from "../../../../../../../features/clinic-dashboard/server"
+        export function PATCH(request: Request) {
+          return handleDoctorSpecialtyUpdate(request, "doctor-1", "assignment-1")
+        }
+      `,
+      "src/app/api/dashboard/doctors/[doctorId]/specialties/route.ts": `
+        import { handleDoctorSpecialtyCreate } from "../../../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleDoctorSpecialtyCreate(request, "doctor-1")
+        }
+      `,
+      "src/app/api/dashboard/doctors/route.ts": `
+        import { handleDoctorCreate } from "../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleDoctorCreate(request)
+        }
+      `,
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function handleDoctorCreate() { return new Response() }
+        export function handleDoctorImageReplace() { return new Response() }
+        export function handleDoctorSpecialtyCreate() { return new Response() }
+        export function handleDoctorSpecialtyUpdate() { return new Response() }
+        export function handleDoctorUpdate() { return new Response() }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
+  })
+
+  it("allows the exact inquiry queue loading contract test to use the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function loadClinicDashboardWorkspaceInput() { return { inquiryQueue: [] } }
+      `,
+      "tests/integration/patient-inquiry-queue-loading.test.ts": `
+        import { loadClinicDashboardWorkspaceInput } from "../../src/features/clinic-dashboard/server"
+        export const source = loadClinicDashboardWorkspaceInput
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
   })
 
   it("requires the private server entry to declare its server-only boundary", () => {
