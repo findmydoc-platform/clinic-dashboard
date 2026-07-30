@@ -7,7 +7,7 @@ import type {
   DoctorSpecializationLevel,
   DoctorTitle,
 } from "./doctor-profile"
-import type { DoctorProfileCommands } from "./doctor-profile-commands"
+import { DoctorProfileCommandError, type DoctorProfileCommands } from "./doctor-profile-commands"
 
 export type DoctorSpecialtyDraft = Readonly<{
   assignmentId?: string
@@ -36,9 +36,18 @@ export type DoctorProfileDraft = Readonly<{
 export type DoctorProfileSaveResult = Readonly<{
   doctor?: DoctorProfile
   draft: DoctorProfileDraft
-  failedSteps: readonly string[]
+  failedSteps: readonly DoctorProfileSaveFailure[]
   status: "failed" | "partial" | "saved"
 }>
+
+export type DoctorProfileSaveFailure =
+  | Readonly<{
+      kind: "activation" | "image" | "image-cleanup" | "profile" | "profile-uncertain" | "validation"
+    }>
+  | Readonly<{
+      clientId: string
+      kind: "specialty"
+    }>
 
 export type DoctorProfileDraftErrors = Readonly<
   Partial<
@@ -188,10 +197,10 @@ export async function saveDoctorProfileDraft(
   initialDoctor?: DoctorProfile,
 ): Promise<DoctorProfileSaveResult> {
   if (getDoctorProfileDraftError(draft)) {
-    return { draft, failedSteps: ["validation"], status: "failed" }
+    return { draft, failedSteps: [{ kind: "validation" }], status: "failed" }
   }
   if (draft.creationStatus === "unknown") {
-    return { draft, failedSteps: ["profile-uncertain"], status: "failed" }
+    return { draft, failedSteps: [{ kind: "profile-uncertain" }], status: "failed" }
   }
 
   const fields = profileFieldsFromDraft(draft)
@@ -200,10 +209,17 @@ export async function saveDoctorProfileDraft(
   if (!draft.doctorId) {
     try {
       doctor = await commands.createDoctor(fields)
-    } catch {
+    } catch (error) {
+      if (error instanceof DoctorProfileCommandError && error.outcome === "rejected") {
+        return {
+          draft,
+          failedSteps: [{ kind: "profile" }],
+          status: "failed",
+        }
+      }
       return {
         draft: { ...draft, creationStatus: "unknown" },
-        failedSteps: ["profile-uncertain"],
+        failedSteps: [{ kind: "profile-uncertain" }],
         status: "failed",
       }
     }
@@ -211,37 +227,41 @@ export async function saveDoctorProfileDraft(
 
   const doctorId = draft.doctorId ?? doctor?.id
   if (!doctorId || !doctor) {
-    return { draft, failedSteps: ["profile"], status: "failed" }
+    return { draft, failedSteps: [{ kind: "profile" }], status: "failed" }
   }
 
   const nextDraft: DoctorProfileDraft = {
     ...draft,
-    activationPending: draft.activationPending || (!draft.doctorId && draft.active),
+    activationPending: draft.activationPending || (draft.active && !doctor.active),
     creationStatus: "ready",
     doctorId,
   }
   const operations: Array<
-    Promise<
-      | Readonly<{
-          cleanupPending: boolean
-          kind: "image"
-          profile: DoctorProfile
-        }>
-      | Readonly<{
-          assignment: DoctorProfile["specialties"][number]
-          clientId: string
-          kind: "specialty"
-        }>
-      | Readonly<{ kind: "profile"; profile: DoctorProfile }>
-    >
+    Readonly<{
+      failure: DoctorProfileSaveFailure
+      request: Promise<
+        | Readonly<{
+            cleanupPending: boolean
+            kind: "image"
+            profile: DoctorProfile
+          }>
+        | Readonly<{
+            assignment: DoctorProfile["specialties"][number]
+            clientId: string
+            kind: "specialty"
+          }>
+        | Readonly<{ kind: "profile"; profile: DoctorProfile }>
+      >
+    }>
   > = []
 
   const shouldDeferActivation = nextDraft.activationPending && draft.active
   const targetActive = shouldDeferActivation ? false : draft.active
 
   if (draft.doctorId && !profileMatchesDraft(doctor, fields, targetActive)) {
-    operations.push(
-      commands
+    operations.push({
+      failure: { kind: "profile" },
+      request: commands
         .updateDoctor(doctorId, {
           ...fields,
           active: targetActive,
@@ -250,11 +270,12 @@ export async function saveDoctorProfileDraft(
           title: fields.title ?? null,
         })
         .then((profile) => ({ kind: "profile" as const, profile })),
-    )
+    })
   }
   if (draft.imageFile) {
-    operations.push(
-      commands
+    operations.push({
+      failure: { kind: "image" },
+      request: commands
         .replaceImage(doctorId, {
           alt: `Portrait of ${fields.firstName} ${fields.lastName}`,
           file: draft.imageFile,
@@ -264,7 +285,7 @@ export async function saveDoctorProfileDraft(
           kind: "image" as const,
           profile,
         })),
-    )
+    })
   }
   for (const specialty of draft.specialties) {
     if (!specialty.medicalSpecialtyId || !specialty.specializationLevel) continue
@@ -284,22 +305,24 @@ export async function saveDoctorProfileDraft(
     const request = specialty.assignmentId
       ? commands.updateSpecialty(doctorId, specialty.assignmentId, input)
       : commands.createSpecialty(doctorId, input)
-    operations.push(
-      request.then((assignment) => ({
+    operations.push({
+      failure: { clientId: specialty.clientId, kind: "specialty" },
+      request: request.then((assignment) => ({
         assignment,
         clientId: specialty.clientId,
         kind: "specialty" as const,
       })),
-    )
+    })
   }
 
-  const results = await Promise.allSettled(operations)
-  const failedSteps: string[] = []
+  const results = await Promise.allSettled(operations.map(({ request }) => request))
+  const failedSteps: DoctorProfileSaveFailure[] = []
   let updatedDraft = nextDraft
 
-  for (const result of results) {
+  for (const [index, result] of results.entries()) {
     if (result.status === "rejected") {
-      failedSteps.push("save")
+      const operation = operations[index]
+      if (operation) failedSteps.push(operation.failure)
       continue
     }
     if (result.value.kind === "profile") {
@@ -312,7 +335,7 @@ export async function saveDoctorProfileDraft(
     if (result.value.kind === "image") {
       doctor = { ...doctor, image: result.value.profile.image }
       updatedDraft = { ...updatedDraft, imageFile: undefined }
-      if (result.value.cleanupPending) failedSteps.push("image-cleanup")
+      if (result.value.cleanupPending) failedSteps.push({ kind: "image-cleanup" })
       continue
     }
     const specialtyResult = result.value
@@ -331,7 +354,7 @@ export async function saveDoctorProfileDraft(
     }
   }
 
-  const hasBlockingFollowUpFailure = failedSteps.some((step) => step !== "image-cleanup")
+  const hasBlockingFollowUpFailure = failedSteps.some(({ kind }) => kind !== "image-cleanup")
   if (updatedDraft.activationPending && !updatedDraft.active) {
     updatedDraft = { ...updatedDraft, activationPending: false }
   } else if (updatedDraft.activationPending && updatedDraft.active && !hasBlockingFollowUpFailure) {
@@ -344,7 +367,7 @@ export async function saveDoctorProfileDraft(
       }
       updatedDraft = { ...updatedDraft, activationPending: false }
     } catch {
-      failedSteps.push("activation")
+      failedSteps.push({ kind: "activation" })
     }
   }
 

@@ -12,6 +12,16 @@ export type DoctorProfileImageInput = Readonly<{
   file: File
 }>
 
+export class DoctorProfileCommandError extends Error {
+  readonly outcome: "rejected" | "unknown"
+
+  constructor(outcome: "rejected" | "unknown", message: string) {
+    super(message)
+    this.name = "DoctorProfileCommandError"
+    this.outcome = outcome
+  }
+}
+
 export type DoctorProfileCommands = Readonly<{
   createDoctor: (input: DoctorProfileFields) => Promise<DoctorProfile>
   createSpecialty: (doctorId: string, input: DoctorSpecialtyInput) => Promise<DoctorSpecialtyAssignment>
