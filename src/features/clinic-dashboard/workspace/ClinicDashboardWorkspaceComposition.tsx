@@ -11,6 +11,7 @@ import {
   type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
   type ClinicProfileSourceCommands,
+  type ClinicTreatmentCommands,
   type DoctorDirectorySnapshot,
   type DoctorProfileCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
@@ -63,6 +64,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
   clinicProfileCommands: ClinicProfileCommands
   clinicProfileSourceCommands: ClinicProfileSourceCommands
+  clinicTreatmentCommands: ClinicTreatmentCommands
   doctorProfileCommands: DoctorProfileCommands
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
@@ -87,6 +89,7 @@ export function ClinicDashboardWorkspaceComposition({
   authenticatedContext,
   clinicProfileCommands,
   clinicProfileSourceCommands,
+  clinicTreatmentCommands,
   doctorProfileCommands,
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
@@ -129,6 +132,9 @@ export function ClinicDashboardWorkspaceComposition({
       ? "interactive"
       : "read-only"
     : "hidden"
+  const canViewTreatments = authenticatedContext.capabilities.includes("clinic-treatments:view")
+  const canEditTreatments = authenticatedContext.capabilities.includes("clinic-treatments:edit")
+  const treatmentManagement = canViewTreatments ? (canEditTreatments ? "interactive" : "read-only") : "hidden"
   const navigationItems = selectClinicDashboardNavigationItems({
     showCertificatesAccreditationsPlaceholder: capabilities.showCertificatesAccreditationsPlaceholder,
     showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
@@ -280,8 +286,9 @@ export function ClinicDashboardWorkspaceComposition({
       </p>
 
       <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
-        <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, doctors, patient
-        inquiries and reviews are live. Dashboard cards, charts, gallery and treatments are local examples.
+        <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, doctors, clinic
+        treatments, patient inquiries and reviews are live. Dashboard cards, charts and gallery are local
+        examples.
       </div>
 
       {activeSection === "dashboard" ? (
@@ -339,7 +346,9 @@ export function ClinicDashboardWorkspaceComposition({
           sourceProfileManagement={sourceProfileManagement}
           sourceCommands={clinicProfileSourceCommands}
           sourceSnapshot={workspaceInput.profileSourceSnapshot}
-          treatmentCatalogue={workspaceInput.treatmentCatalogue}
+          treatmentCommands={clinicTreatmentCommands}
+          treatmentManagement={treatmentManagement}
+          treatmentSnapshot={workspaceInput.treatmentSnapshot}
         />
       </div>
       {activeSection === "subscriptions" && capabilities.showSubscriptionsPlaceholder ? (

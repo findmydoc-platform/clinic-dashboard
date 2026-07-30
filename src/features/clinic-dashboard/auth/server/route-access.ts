@@ -11,6 +11,7 @@ type ClinicDashboardRouteAccess =
   | Readonly<{
       accessToken: string
       applyToResponse: (response: NextResponse) => NextResponse
+      capabilities: readonly ClinicDashboardCapability[]
       clinicId: string
       status: "approved"
     }>
@@ -36,6 +37,7 @@ export async function resolveClinicDashboardRouteAccess(
         ? {
             accessToken: session.accessToken,
             applyToResponse,
+            capabilities: access.context.capabilities,
             clinicId: access.context.clinic.id,
             status: "approved",
           }
@@ -59,6 +61,7 @@ export async function resolveClinicDashboardRouteAccess(
     ? {
         accessToken: session.accessToken,
         applyToResponse: routeClient.applyToResponse,
+        capabilities: access.context.capabilities,
         clinicId: access.context.clinic.id,
         status: "approved",
       }

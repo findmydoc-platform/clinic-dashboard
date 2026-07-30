@@ -5,11 +5,7 @@ import { AlertTriangle, FilePenLine } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageHeading } from "@/components/ui/page-heading"
-import type {
-  ClinicProfileDraft,
-  ClinicProfileFocusTarget,
-  ClinicTreatmentView,
-} from "../../model/clinic-profile"
+import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "../../model/clinic-profile"
 import type {
   ClinicProfileChangeSet,
   ClinicProfileValidationErrors,
@@ -19,6 +15,7 @@ import type {
   ClinicProfileSnapshot,
   ClinicProfileSourceFields,
 } from "../../model/clinic-profile-source"
+import type { ClinicTreatmentOffering, ClinicTreatmentsSnapshot } from "../../model/clinic-treatment"
 import type { DoctorDirectorySnapshot } from "../../model/doctor-profile"
 import type { DoctorProfileCommands } from "../../model/doctor-profile-commands"
 import {
@@ -57,9 +54,10 @@ export type ClinicProfileScreenModel = Readonly<{
     validationErrors: ClinicProfileValidationErrors
     workingDraft?: ClinicProfileDraftInput
   }>
-  treatments: readonly ClinicTreatmentView[]
-  undoKind?: "team" | "treatment"
-  undoMessage?: string
+  treatmentManagement: ClinicProfileManagementAccess
+  treatmentSnapshot: ClinicTreatmentsSnapshot
+  treatmentStatusMessage: string
+  treatmentsBusy: boolean
 }>
 
 export type ClinicProfileScreenActions = Readonly<{
@@ -77,11 +75,10 @@ export type ClinicProfileScreenActions = Readonly<{
   onProfileEdit: () => void
   onProfileReview: () => void
   onProfileSave: () => void
-  onRemovalUndo: () => void
   onSourceDiscard: () => void
   onTreatmentCreate: () => void
-  onTreatmentOpen: (treatment: ClinicTreatmentView) => void
-  onTreatmentRemove: (id: string) => void
+  onTreatmentOpen: (treatment: ClinicTreatmentOffering) => void
+  onTreatmentRetry: () => void
 }>
 
 type ClinicProfileScreenProps = Readonly<{
@@ -95,8 +92,8 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
   const reviewReturnFocusRef = useRef<HTMLButtonElement>(null)
   const previousSourceModeRef = useRef(model.source.mode)
   const canManageProfile = isClinicProfileManagementInteractive(model.sourceProfileManagement)
-  const canManageLegacyProfile = isClinicProfileManagementInteractive(model.profileManagement)
   const canManageDoctors = isClinicProfileManagementInteractive(model.doctorManagement)
+  const canManageTreatments = isClinicProfileManagementInteractive(model.treatmentManagement)
   const sourceBusy = model.source.operation !== "idle"
   const legacyBusy = model.legacySaveState === "saving"
   const { onFocusHandled } = actions
@@ -270,20 +267,20 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             ref={doctorsRef}
             snapshot={model.doctorDirectory}
           />
-          <ClinicProfileTreatments
-            isBusy={legacyBusy}
-            onCreate={actions.onTreatmentCreate}
-            onRemove={actions.onTreatmentRemove}
-            onTreatmentOpen={actions.onTreatmentOpen}
-            onUndo={actions.onRemovalUndo}
-            showCreateAction={canManageLegacyProfile}
-            showTreatmentActions={canManageLegacyProfile}
-            showTreatmentViewAction={
-              isClinicProfileManagementVisible(model.profileManagement) && !canManageLegacyProfile
-            }
-            treatments={model.treatments}
-            undoMessage={model.undoKind === "treatment" ? model.undoMessage : undefined}
-          />
+          {isClinicProfileManagementVisible(model.treatmentManagement) ? (
+            <ClinicProfileTreatments
+              isBusy={model.treatmentsBusy}
+              onCreate={actions.onTreatmentCreate}
+              onRetry={actions.onTreatmentRetry}
+              onTreatmentOpen={actions.onTreatmentOpen}
+              showCreateAction={canManageTreatments}
+              showTreatmentActions={canManageTreatments}
+              showTreatmentViewAction={!canManageTreatments}
+              status={model.treatmentSnapshot.status}
+              statusMessage={model.treatmentStatusMessage}
+              treatments={model.treatmentSnapshot.status === "ready" ? model.treatmentSnapshot.offerings : []}
+            />
+          ) : null}
         </div>
 
         {model.source.displayFields ? (
@@ -301,9 +298,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
       {model.legacyIsDirty && model.source.mode === "view" ? (
         <div className="fixed right-0 bottom-0 left-0 z-30 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] px-4 py-3 shadow-2xl backdrop-blur md:left-64">
           <div className="mx-auto flex max-w-[100rem] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm font-bold text-[var(--secondary)]">
-              Gallery or treatment changes not saved
-            </span>
+            <span className="text-sm font-bold text-[var(--secondary)]">Gallery changes not saved</span>
             <div className="flex justify-end gap-2">
               <Button disabled={legacyBusy} onClick={actions.onLegacyCancel} variant="outline">
                 Cancel

@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, within } from "storybook/test"
-import { selectClinicTreatmentViews } from "../../model/clinic-treatments"
-import { clinicProfileFixture, clinicTreatmentCatalogueFixture } from "../../testing/clinic-profile.fixtures"
+import { clinicProfileFixture, clinicTreatmentSnapshotFixture } from "../../testing/clinic-profile.fixtures"
 import { clinicProfileSourceFixture } from "../../testing/clinic-profile-source.fixtures"
 import {
   createDoctorProfileCommandsFixture,
@@ -28,17 +27,11 @@ const actions = {
   onProfileEdit: fn(),
   onProfileReview: fn(),
   onProfileSave: fn(),
-  onRemovalUndo: fn(),
   onSourceDiscard: fn(),
   onTreatmentCreate: fn(),
   onTreatmentOpen: fn(),
-  onTreatmentRemove: fn(),
+  onTreatmentRetry: fn(),
 } satisfies ClinicProfileScreenActions
-
-const treatmentViews = selectClinicTreatmentViews(
-  clinicTreatmentCatalogueFixture,
-  clinicProfileFixture.treatments,
-)
 
 const publishedModel = {
   doctorCommands: createDoctorProfileCommandsFixture(),
@@ -61,7 +54,10 @@ const publishedModel = {
     statusMessage: "",
     validationErrors: {},
   },
-  treatments: treatmentViews,
+  treatmentManagement: "interactive",
+  treatmentSnapshot: clinicTreatmentSnapshotFixture,
+  treatmentStatusMessage: "",
+  treatmentsBusy: false,
 } satisfies ClinicProfileScreenModel
 
 const meta = {

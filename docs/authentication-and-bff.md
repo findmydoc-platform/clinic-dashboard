@@ -80,15 +80,16 @@ Storybook.
 
 The Dashboard owns these same-origin contracts:
 
-| Route                      | Method | Contract                                                                                                                                                                                                                |
-| -------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/login`          | `POST` | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                               |
-| `/auth/callback`           | `GET`  | Validate TokenHash, flow type, and exact destination without consuming the token; redirect only to the configured Dashboard origin and confirmation page.                                                               |
-| `/api/auth/callback`       | `POST` | Validate CSRF and exact origin, call `verifyOtp` once, establish cookies, verify clinic account eligibility, issue a short-lived flow-and-subject-bound completion grant, and return only the allowed completion route. |
-| `/api/auth/password/reset` | `POST` | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                                                                              |
-| Invite/reset completion    | `POST` | Require the verified session and matching one-use completion grant, enforce the eight-character matching password rule, clear the grant, update the password, sign out, and return to normal login.                     |
-| `/api/auth/logout`         | `POST` | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                             |
-| `/api/dashboard/bootstrap` | `GET`  | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                        |
+| Route                              | Method                   | Contract                                                                                                                                                                                                                |
+| ---------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/login`                  | `POST`                   | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                               |
+| `/auth/callback`                   | `GET`                    | Validate TokenHash, flow type, and exact destination without consuming the token; redirect only to the configured Dashboard origin and confirmation page.                                                               |
+| `/api/auth/callback`               | `POST`                   | Validate CSRF and exact origin, call `verifyOtp` once, establish cookies, verify clinic account eligibility, issue a short-lived flow-and-subject-bound completion grant, and return only the allowed completion route. |
+| `/api/auth/password/reset`         | `POST`                   | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                                                                              |
+| Invite/reset completion            | `POST`                   | Require the verified session and matching one-use completion grant, enforce the eight-character matching password rule, clear the grant, update the password, sign out, and return to normal login.                     |
+| `/api/auth/logout`                 | `POST`                   | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                             |
+| `/api/dashboard/bootstrap`         | `GET`                    | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                        |
+| `/api/dashboard/clinic-treatments` | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                   |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
 is unnecessary unless a later UI flow demonstrates the need. Callback and login failures return sanitized error codes;
@@ -176,6 +177,11 @@ status write; the browser and Route Handler do not observe that sequence. The ad
 projects only the approved inquiry fields. Its Controlled implementation is selected by the existing local test mode,
 uses the same provider contract, and is impossible to enable in Preview or Production. No Payload failure selects
 Controlled data.
+
+The clinic-treatment domain uses one private `ClinicTreatmentProvider` for `loadTreatments()`, `createTreatment()`, and
+`updateTreatment()`. The Payload adapter queries only the server-derived clinic, returns plain-text central treatment
+descriptions, adds the clinic identity itself during creation, and permits updates only to the EUR price and active
+status. Browser code uses the same-origin BFF with private no-store responses and never sends a clinic identifier.
 
 ## Error and UI State Mapping
 

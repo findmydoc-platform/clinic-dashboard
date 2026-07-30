@@ -28,7 +28,7 @@ Payload CORS expansion.
 2. Implement server-side password login, explicit TokenHash invite/recovery confirmation, refresh, logout, cookie
    propagation, environment-scoped trusted-origin validation, and the central HMAC-CSRF guard.
 3. Implement the server-only Payload client against `GET /api/clinic-dashboard/bootstrap`. Validate the exact DTO with
-   `clinic-profile:view` and `clinic-profile:edit`, classify the three stable `CLINIC_DASHBOARD_*` error codes, and
+   profile and treatment view/edit capabilities, classify the three stable `CLINIC_DASHBOARD_*` error codes, and
    preserve private no-store semantics.
 4. Add the server data layer and bootstrap Route Handler while keeping React Server Components on direct function
    calls.
@@ -49,7 +49,8 @@ Payload CORS expansion.
 
 - Browser application data requests stay on the Dashboard origin and no browser request reaches Payload.
 - Browser JavaScript receives no Supabase access or refresh token.
-- The server-only client accepts only the exact bootstrap DTO and the two initial profile capability values.
+- The server-only client accepts the previous two-capability bootstrap during rollout and the exact four-capability
+  profile-and-treatment contract.
 - `CLINIC_DASHBOARD_UNAUTHORIZED`, `CLINIC_DASHBOARD_ACCESS_DENIED`, and
   `CLINIC_DASHBOARD_TEMPORARILY_UNAVAILABLE` produce the synchronized controlled states without exposing upstream
   details.

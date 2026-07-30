@@ -1,14 +1,7 @@
 "use client"
 
 import { useCallback, useReducer, useState } from "react"
-import type {
-  ClinicProfileDraft,
-  ClinicTeamMember,
-  ClinicTeamMemberInput,
-  ClinicTreatmentInput,
-  ClinicTreatmentView,
-  MasterTreatment,
-} from "../model/clinic-profile"
+import type { ClinicProfileDraft, ClinicTeamMember, ClinicTeamMemberInput } from "../model/clinic-profile"
 import type { ClinicProfileCommands } from "../model/clinic-profile-commands"
 import {
   isClinicProfileDialogAvailable,
@@ -20,26 +13,19 @@ import {
 import { clinicProfileEditorReducer, createClinicProfileEditorState } from "../model/clinic-profile.reducer"
 import { isClinicProfileManagementInteractive } from "../model/clinic-profile-management"
 import { selectClinicProfileEditorProjection } from "../model/clinic-profile.selectors"
-import {
-  getClinicTreatmentSaveError,
-  selectAvailableMasterTreatments,
-  selectClinicTreatmentViews,
-} from "../model/clinic-treatments"
 
 type UseClinicProfileControllerOptions = Readonly<{
   commands: ClinicProfileCommands
   dialogAvailability: ClinicProfileDialogAvailability
-  initialDialog?: Extract<ClinicProfileDialogId, "team-member" | "treatment">
+  initialDialog?: Extract<ClinicProfileDialogId, "team-member">
   initialProfile: ClinicProfileDraft
   onProfileSaved?: (profile: ClinicProfileDraft) => void
-  treatmentCatalogue: readonly MasterTreatment[]
 }>
 
 type ClinicProfileDialogState = Readonly<{
   availability: ClinicProfileDialogAvailability
   requestedDialog?: ClinicProfileDialogId
   selectedTeamMemberId?: string
-  selectedTreatmentMasterId?: string
 }>
 
 export function useClinicProfileController({
@@ -48,16 +34,11 @@ export function useClinicProfileController({
   initialDialog,
   initialProfile,
   onProfileSaved,
-  treatmentCatalogue,
 }: UseClinicProfileControllerOptions) {
   const [editor, dispatch] = useReducer(
     clinicProfileEditorReducer,
-    {
-      initialProfile,
-      treatmentCatalogue,
-    },
-    ({ initialProfile: profile, treatmentCatalogue: catalogue }) =>
-      createClinicProfileEditorState(profile, catalogue),
+    initialProfile,
+    createClinicProfileEditorState,
   )
   const [dialogState, setDialogState] = useState<ClinicProfileDialogState>(() => ({
     availability: dialogAvailability,
@@ -81,20 +62,8 @@ export function useClinicProfileController({
   const selectedTeamMember = projection.profile.team.find(
     (member) => member.id === activeDialogState.selectedTeamMemberId,
   )
-  const treatmentViews = selectClinicTreatmentViews(editor.treatmentCatalogue, projection.profile.treatments)
-  const availableMasterTreatments = selectAvailableMasterTreatments(
-    editor.treatmentCatalogue,
-    projection.profile.treatments,
-  )
-  const selectedTreatment = treatmentViews.find(
-    (treatment) => treatment.masterTreatmentId === activeDialogState.selectedTreatmentMasterId,
-  )
   const hasSelectedDialogEntity =
-    activeDialogState.requestedDialog === "team-member"
-      ? Boolean(selectedTeamMember)
-      : activeDialogState.requestedDialog === "treatment"
-        ? Boolean(selectedTreatment)
-        : false
+    activeDialogState.requestedDialog === "team-member" && Boolean(selectedTeamMember)
   const dialog = selectAvailableClinicProfileDialog(
     activeDialogState.requestedDialog,
     dialogAvailability,
@@ -165,33 +134,6 @@ export function useClinicProfileController({
     [activeDialogState.selectedTeamMemberId, canManageTeam, commands],
   )
 
-  const saveTreatment = useCallback(
-    (input: ClinicTreatmentInput) => {
-      if (!canManageProfile) return false
-      const editingMasterTreatmentId = activeDialogState.selectedTreatmentMasterId
-      const saveError = getClinicTreatmentSaveError(
-        editor.treatmentCatalogue,
-        editor.draft.treatments,
-        input,
-        editingMasterTreatmentId,
-      )
-      dispatch({
-        editingMasterTreatmentId,
-        treatment: input,
-        type: "treatmentSaved",
-      })
-      if (saveError) return false
-      setDialogState((current) => ({ ...current, selectedTreatmentMasterId: undefined }))
-      return true
-    },
-    [
-      activeDialogState.selectedTreatmentMasterId,
-      canManageProfile,
-      editor.draft.treatments,
-      editor.treatmentCatalogue,
-    ],
-  )
-
   const isDialogAvailable = useCallback(
     (dialogId: ClinicProfileDialogId, hasSelectedEntity = false) =>
       isClinicProfileDialogAvailable(dialogId, dialogAvailability, hasSelectedEntity),
@@ -211,32 +153,10 @@ export function useClinicProfileController({
     [dialogAvailability, isDialogAvailable, projection.profile.team],
   )
 
-  const openTreatmentDialog = useCallback(
-    (treatment?: ClinicTreatmentView) => {
-      const selectedTreatment = treatment
-        ? projection.profile.treatments.find(
-            ({ masterTreatmentId }) => masterTreatmentId === treatment.masterTreatmentId,
-          )
-        : undefined
-      if (!isDialogAvailable("treatment", Boolean(selectedTreatment))) return
-      setDialogState({
-        availability: dialogAvailability,
-        requestedDialog: "treatment",
-        selectedTreatmentMasterId: selectedTreatment?.masterTreatmentId,
-      })
-    },
-    [dialogAvailability, isDialogAvailable, projection.profile.treatments],
-  )
-
   const setDialogOpen = useCallback(
     (dialogId: ClinicProfileDialogId, open: boolean) => {
       if (open) {
-        const hasSelectedEntity =
-          dialogId === "team-member"
-            ? Boolean(selectedTeamMember)
-            : dialogId === "treatment"
-              ? Boolean(selectedTreatment)
-              : false
+        const hasSelectedEntity = dialogId === "team-member" && Boolean(selectedTeamMember)
         if (isDialogAvailable(dialogId, hasSelectedEntity)) {
           setDialogState({ availability: dialogAvailability, requestedDialog: dialogId })
         }
@@ -247,11 +167,11 @@ export function useClinicProfileController({
         current.requestedDialog === dialogId ? { availability: dialogAvailability } : current,
       )
     },
-    [dialogAvailability, isDialogAvailable, selectedTeamMember, selectedTreatment],
+    [dialogAvailability, isDialogAvailable, selectedTeamMember],
   )
 
   const openDialog = useCallback(
-    (dialogId: Exclude<ClinicProfileDialogId, "team-member" | "treatment">) => {
+    (dialogId: Exclude<ClinicProfileDialogId, "team-member">) => {
       if (isDialogAvailable(dialogId)) {
         setDialogState({ availability: dialogAvailability, requestedDialog: dialogId })
       }
@@ -267,18 +187,10 @@ export function useClinicProfileController({
     [canManageTeam],
   )
 
-  const removeTreatment = useCallback(
-    (id: string) => {
-      if (!canManageProfile) return
-      dispatch({ id, type: "treatmentRemoved" })
-    },
-    [canManageProfile],
-  )
-
   const undoRemoval = useCallback(() => {
-    if (editor.undo?.kind === "team" ? !canManageTeam : !canManageProfile) return
+    if (!canManageTeam) return
     dispatch({ type: "removalUndone" })
-  }, [canManageProfile, canManageTeam, editor.undo?.kind])
+  }, [canManageTeam])
 
   const addSpecialty = useCallback(
     (specialty: string) => {
@@ -326,15 +238,12 @@ export function useClinicProfileController({
       changeName,
       openDialog,
       openTeamMemberDialog,
-      openTreatmentDialog,
       removeSpecialty,
       removeTeamMember,
-      removeTreatment,
       saveAddress,
       saveChanges,
       saveOpeningHours,
       saveTeamMember,
-      saveTreatment,
       selectGalleryCover,
       setDialogOpen,
       undoRemoval,
@@ -342,10 +251,7 @@ export function useClinicProfileController({
     dialog,
     model: {
       ...projection,
-      availableMasterTreatments,
       selectedTeamMember,
-      selectedTreatment,
-      treatmentViews,
     },
   } as const
 }

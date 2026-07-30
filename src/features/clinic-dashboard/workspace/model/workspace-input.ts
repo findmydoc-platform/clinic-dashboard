@@ -1,8 +1,8 @@
 import type {
   ClinicProfileDraft,
   ClinicProfileSnapshot,
+  ClinicTreatmentsSnapshot,
   DoctorDirectorySnapshot,
-  MasterTreatment,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardSnapshot } from "@/features/clinic-dashboard/dashboard/public"
 import type {
@@ -59,7 +59,7 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
     id: string
     name: string
   }>
-  treatmentCatalogue: readonly MasterTreatment[]
+  treatmentSnapshot: ClinicTreatmentsSnapshot
 }>
 
 export function getClinicDashboardLocationSnapshot(

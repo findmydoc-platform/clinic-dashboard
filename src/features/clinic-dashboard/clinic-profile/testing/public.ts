@@ -1,7 +1,8 @@
 export {
   clinicProfileFixture,
-  clinicTreatmentCatalogueFixture,
+  clinicTreatmentSnapshotFixture,
   createClinicProfileCommandsFixture,
+  createClinicTreatmentCommandsFixture,
 } from "./clinic-profile.fixtures"
 export {
   clinicProfileSourceFixture,
