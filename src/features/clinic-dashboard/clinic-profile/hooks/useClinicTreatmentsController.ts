@@ -34,6 +34,7 @@ export function useClinicTreatmentsController({
     initialDialog === "treatment" && isClinicProfileManagementInteractive(management),
   )
   const [isBusy, setIsBusy] = useState(false)
+  const [dialogMessage, setDialogMessage] = useState("")
   const [statusMessage, setStatusMessage] = useState("")
   const selectedOffering =
     snapshot.status === "ready"
@@ -61,6 +62,7 @@ export function useClinicTreatmentsController({
   const openCreate = useCallback(() => {
     if (!isClinicProfileManagementInteractive(management)) return
     setSelectedOfferingId(undefined)
+    setDialogMessage("")
     setStatusMessage("")
     setDialogOpen(true)
   }, [management])
@@ -69,6 +71,7 @@ export function useClinicTreatmentsController({
     (offering: ClinicTreatmentOffering) => {
       if (management === "hidden") return
       setSelectedOfferingId(offering.id)
+      setDialogMessage("")
       setStatusMessage("")
       setDialogOpen(true)
     },
@@ -87,10 +90,11 @@ export function useClinicTreatmentsController({
           : "Enter a non-negative EUR price with at most two decimal places."
         : getClinicTreatmentInputError(snapshot.catalogue, snapshot.offerings, input)
       if (inputError) {
-        setStatusMessage(inputError)
+        setDialogMessage(inputError)
         return false
       }
 
+      setDialogMessage("")
       setIsBusy(true)
       try {
         const offering = selectedOffering
@@ -111,12 +115,21 @@ export function useClinicTreatmentsController({
         return true
       } catch (error) {
         if (error instanceof ClinicTreatmentCommandError && error.code === "conflict") {
-          const refreshed = await commands.loadTreatments().catch(() => undefined)
-          if (refreshed) setSnapshot(refreshed)
-          setStatusMessage("This treatment was already changed. The list was reloaded.")
+          const refreshed = await commands
+            .loadTreatments()
+            .catch(() => ({ catalogue: [], offerings: [], status: "temporarily-unavailable" }) as const)
+          setSnapshot(refreshed)
+          setStatusMessage(
+            refreshed.status === "ready"
+              ? "This treatment was already changed. The list was reloaded."
+              : "This treatment was already changed, but the list could not be reloaded.",
+          )
+          setDialogMessage("")
+          setDialogOpen(false)
+          setSelectedOfferingId(undefined)
           return false
         }
-        setStatusMessage(
+        setDialogMessage(
           error instanceof ClinicTreatmentCommandError && error.code === "forbidden"
             ? "You no longer have permission to edit treatments."
             : "Treatment changes could not be saved. Try again.",
@@ -139,6 +152,7 @@ export function useClinicTreatmentsController({
     },
     model: {
       availableTreatments,
+      dialogMessage,
       dialogOpen,
       isBusy,
       selectedOffering,

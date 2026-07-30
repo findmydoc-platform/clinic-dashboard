@@ -30,17 +30,6 @@ const capabilityListSchema = z
       context.addIssue({ code: "custom", message: "Capability dependencies are invalid." })
     }
   })
-  .transform((capabilities) => {
-    const inherited = new Set(capabilities)
-    const hasExplicitTreatmentAccess = capabilities.some((capability) =>
-      capability.startsWith("clinic-treatments:"),
-    )
-    if (!hasExplicitTreatmentAccess) {
-      if (inherited.has("clinic-profile:view")) inherited.add("clinic-treatments:view")
-      if (inherited.has("clinic-profile:edit")) inherited.add("clinic-treatments:edit")
-    }
-    return clinicDashboardCapabilityValues.filter((capability) => inherited.has(capability))
-  })
   .readonly()
 
 export const authenticatedClinicContextSchema = z.object({

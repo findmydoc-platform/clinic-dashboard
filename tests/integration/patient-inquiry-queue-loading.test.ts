@@ -167,7 +167,7 @@ describe("Patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: [],
+        capabilities: ["clinic-profile:view"],
         clinic: { id: "clinic-1", name: "Clinic One" },
       },
       status: "approved",

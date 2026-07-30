@@ -91,7 +91,7 @@ export function ClinicProfileTreatments({
                 <span
                   className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${
                     treatment.active
-                      ? "bg-[color-mix(in_srgb,var(--success)_18%,var(--background))] text-[var(--success)]"
+                      ? "bg-[var(--accent-soft)] text-[var(--foreground)]"
                       : "bg-[var(--surface)] text-[var(--foreground)]"
                   }`}
                 >
@@ -101,7 +101,7 @@ export function ClinicProfileTreatments({
               {showTreatmentActions || showTreatmentViewAction ? (
                 <Button
                   aria-label={`${showTreatmentActions ? "Edit" : "View"} ${treatment.treatment.name}`}
-                  className="justify-self-start"
+                  className="min-h-11 justify-self-start"
                   disabled={isBusy}
                   onClick={() => onTreatmentOpen(treatment)}
                   size={showTreatmentActions ? "icon" : "small"}

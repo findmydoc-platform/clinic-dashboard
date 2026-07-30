@@ -207,7 +207,22 @@ export function createPayloadClinicTreatmentProvider(
         }),
         fetcher,
       )
-      if (!response.ok) return { error: changeErrorForStatus(response.status), ok: false }
+      if (!response.ok) {
+        if (response.status === 400 || response.status === 422) {
+          const concurrentDuplicate = await requestPayloadJson(
+            existingEndpoint,
+            readInit(accessToken),
+            fetcher,
+          )
+          const concurrentDuplicateParsed = concurrentDuplicate.ok
+            ? offeringListSchema.safeParse(concurrentDuplicate.value)
+            : undefined
+          if (concurrentDuplicateParsed?.success && concurrentDuplicateParsed.data.docs.length > 0) {
+            return { error: "conflict", ok: false }
+          }
+        }
+        return { error: changeErrorForStatus(response.status), ok: false }
+      }
       const parsed = offeringResponseSchema.safeParse(response.value)
       if (!parsed.success) return { error: "invalid-data", ok: false }
 

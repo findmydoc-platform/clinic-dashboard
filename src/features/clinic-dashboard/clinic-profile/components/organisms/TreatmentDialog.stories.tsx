@@ -12,6 +12,7 @@ const meta = {
     initialTreatment: treatment,
     isBusy: false,
     isReadOnly: false,
+    message: "",
     onOpenChange: fn(),
     onSave: fn(async () => true),
     onTreatmentMissing: fn(),
@@ -75,6 +76,31 @@ export const ReadOnly: Story = {
     await expect(within(dialog).getByRole("spinbutton", { name: "Price (EUR)" })).toHaveAttribute("readonly")
     await expect(within(dialog).getByRole("checkbox", { name: "Publicly active" })).toBeDisabled()
     await expect(within(dialog).getByRole("button", { name: "Done" })).toBeEnabled()
+  },
+}
+
+export const SaveFailure: Story = {
+  args: {
+    message: "Treatment changes could not be saved. Try again.",
+  },
+  play: async ({ canvasElement }) => {
+    const dialog = within(canvasElement).getByRole("dialog", { name: "Edit treatment" })
+    await expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Treatment changes could not be saved. Try again.",
+    )
+  },
+}
+
+export const InvalidPrice: Story = {
+  play: async ({ canvasElement }) => {
+    const dialog = within(canvasElement).getByRole("dialog", { name: "Edit treatment" })
+    const price = within(dialog).getByRole("spinbutton", { name: "Price (EUR)" })
+    await userEvent.clear(price)
+    await userEvent.type(price, "12.345")
+    await expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Enter a non-negative EUR price with at most two decimal places.",
+    )
+    await expect(price).toHaveAttribute("aria-invalid", "true")
   },
 }
 

@@ -53,8 +53,8 @@ describe("Payload clinic bootstrap", () => {
     })
   })
 
-  it("inherits treatment access from the legacy profile capability contract", async () => {
-    const legacyBootstrap = {
+  it("does not infer treatment access from profile capabilities", async () => {
+    const profileOnlyBootstrap = {
       ...bootstrap,
       capabilities: ["clinic-profile:view", "clinic-profile:edit"],
     }
@@ -62,10 +62,10 @@ describe("Payload clinic bootstrap", () => {
     await expect(
       fetchClinicDashboardBootstrap(
         "access-token",
-        vi.fn(async () => jsonResponse(legacyBootstrap)) as typeof fetch,
+        vi.fn(async () => jsonResponse(profileOnlyBootstrap)) as typeof fetch,
       ),
     ).resolves.toEqual({
-      context: bootstrap,
+      context: profileOnlyBootstrap,
       status: "approved",
     })
   })
