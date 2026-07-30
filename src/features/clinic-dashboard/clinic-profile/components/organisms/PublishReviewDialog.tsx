@@ -29,8 +29,12 @@ const sectionLabels = {
 function StructuredDiff({ change }: Readonly<{ change: ClinicProfileChange }>) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-      <del className="text-[var(--destructive)] decoration-2">{change.before || "Not provided"}</del>
-      <ins className="bg-[var(--accent-soft)] font-bold text-[var(--secondary)] underline decoration-2 underline-offset-4">
+      <del className="rounded-sm bg-[var(--surface)] px-0.5 text-[color-mix(in_srgb,var(--foreground)_52%,var(--muted-foreground))] decoration-2">
+        <span className="sr-only">Removed: </span>
+        {change.before || "Not provided"}
+      </del>
+      <ins className="rounded-sm bg-[var(--accent-soft)] px-0.5 font-bold text-[color-mix(in_srgb,var(--accent)_48%,var(--secondary))] underline decoration-2 underline-offset-4">
+        <span className="sr-only">Added: </span>
         {change.after || "Not provided"}
       </ins>
     </div>
@@ -87,19 +91,6 @@ export function PublishReviewDialog({
       panelClassName="max-w-3xl"
       title="Review and publish"
     >
-      <div className="mb-5 flex flex-wrap gap-4 text-xs font-bold">
-        <span>
-          <del className="rounded-sm bg-[color-mix(in_srgb,var(--destructive)_13%,transparent)] px-1.5 py-1 text-[var(--destructive)]">
-            Removed
-          </del>
-        </span>
-        <span>
-          <ins className="rounded-sm bg-[var(--accent-soft)] px-1.5 py-1 text-[var(--secondary)] no-underline">
-            Added
-          </ins>
-        </span>
-      </div>
-
       {statusMessage ? (
         <p
           className="mb-5 rounded-lg border border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_25%,var(--background))] p-3 text-sm"

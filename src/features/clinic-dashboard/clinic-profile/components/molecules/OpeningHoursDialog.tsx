@@ -44,12 +44,13 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
           </Button>
         </div>
       }
+      contentClassName="sm:py-5"
       onOpenChange={onOpenChange}
       open={open}
       panelClassName="max-w-3xl"
       title="Edit opening hours"
     >
-      <label className="mb-5 flex items-center gap-3 text-sm font-bold">
+      <label className="mb-3 flex items-center gap-3 text-sm font-bold">
         <input
           checked={isConfigured}
           className="size-4 accent-[var(--primary)]"
@@ -59,16 +60,27 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
         Opening hours are configured
       </label>
       {isConfigured ? (
-        <div className="grid gap-3">
-          {clinicProfileWeekdayValues.map((weekday) => {
+        <div className="overflow-hidden rounded-lg border border-[var(--border)]">
+          <div
+            aria-hidden="true"
+            className="hidden grid-cols-[8rem_8rem_1fr_1fr] gap-4 bg-[var(--surface)] px-4 py-2 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase sm:grid"
+          >
+            <span>Day</span>
+            <span>Status</span>
+            <span>Opens</span>
+            <span>Closes</span>
+          </div>
+          {clinicProfileWeekdayValues.map((weekday, index) => {
             const entry = draft[weekday]
             const error = errors[`openingHours.${weekday}`]
             return (
               <div
-                className="grid gap-3 rounded-lg border border-[var(--border)] p-3 sm:grid-cols-[8rem_8rem_1fr_1fr] sm:items-start"
+                className={`grid gap-3 p-3 sm:grid-cols-[8rem_8rem_1fr_1fr] sm:items-center sm:gap-4 sm:border-t sm:border-[var(--border)] sm:px-4 sm:py-1.5 ${
+                  index === 0 ? "" : "border-t border-[var(--border)]"
+                }`}
                 key={weekday}
               >
-                <strong className="pt-3">{clinicProfileWeekdayLabels[weekday]}</strong>
+                <strong>{clinicProfileWeekdayLabels[weekday]}</strong>
                 <label className="grid gap-1 text-sm font-bold">
                   <span className="sr-only">Status for {clinicProfileWeekdayLabels[weekday]}</span>
                   <Select
@@ -89,7 +101,7 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
                   </Select>
                 </label>
                 <label className="grid gap-1 text-xs font-bold uppercase">
-                  Opens
+                  <span className="sm:sr-only">Opens</span>
                   <Input
                     aria-label={`Opens for ${clinicProfileWeekdayLabels[weekday]}`}
                     aria-invalid={error ? true : undefined}
@@ -105,7 +117,7 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
                   />
                 </label>
                 <label className="grid gap-1 text-xs font-bold uppercase">
-                  Closes
+                  <span className="sm:sr-only">Closes</span>
                   <Input
                     aria-label={`Closes for ${clinicProfileWeekdayLabels[weekday]}`}
                     aria-invalid={error ? true : undefined}

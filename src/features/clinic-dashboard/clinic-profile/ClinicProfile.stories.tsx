@@ -85,7 +85,8 @@ export const EditAndSaveDraft: Story = {
     const name = page.getByRole("textbox", { name: "Clinic name" })
     await userEvent.clear(name)
     await userEvent.type(name, "Medicana Istanbul International")
-    await userEvent.click(page.getAllByRole("button", { name: "Save draft" })[0]!)
+    await expect(page.getAllByRole("button", { name: "Save draft" })).toHaveLength(1)
+    await userEvent.click(page.getByRole("button", { name: "Save draft" }))
     await expect(await page.findByText("Draft saved.")).toBeVisible()
     await expect(page.getByRole("button", { name: "Review & publish" })).toBeEnabled()
   },
@@ -108,6 +109,8 @@ export const PublishReview: Story = {
     await userEvent.click(page.getByRole("button", { name: "Review & publish" }))
     const dialog = page.getByRole("dialog", { name: "Review and publish" })
     await expect(within(dialog).getByText("4 changed fields across 3 sections")).toBeVisible()
+    await expect(within(dialog).queryByText("Removed", { exact: true })).not.toBeInTheDocument()
+    await expect(within(dialog).queryByText("Added", { exact: true })).not.toBeInTheDocument()
     await expect(within(dialog).getByRole("button", { name: "Publish changes" })).toBeEnabled()
   },
 }
@@ -140,7 +143,8 @@ export const UnsavedChangesGuard: Story = {
     const documentPage = within(canvasElement.ownerDocument.body)
     await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
     await userEvent.type(page.getByRole("textbox", { name: "Clinic name" }), " updated")
-    await userEvent.click(page.getAllByRole("button", { name: "Cancel editing" })[0]!)
+    await expect(page.getAllByRole("button", { name: "Cancel editing" })).toHaveLength(1)
+    await userEvent.click(page.getByRole("button", { name: "Cancel editing" }))
     await waitFor(() =>
       expect(documentPage.getByRole("alertdialog", { name: "Leave profile editing?" })).toBeVisible(),
     )
@@ -180,7 +184,7 @@ export const SaveConflict: Story = {
     const page = within(canvasElement)
     await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
     await userEvent.type(page.getByRole("textbox", { name: "Clinic name" }), " updated")
-    await userEvent.click(page.getAllByRole("button", { name: "Save draft" })[0]!)
+    await userEvent.click(page.getByRole("button", { name: "Save draft" }))
     await expect(page.getByText("Profile changed elsewhere")).toBeVisible()
     await expect(page.getByRole("button", { name: "Reload latest" })).toBeVisible()
   },

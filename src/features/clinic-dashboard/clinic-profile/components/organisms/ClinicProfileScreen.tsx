@@ -160,7 +160,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
           </p>
           <PageHeading>Clinic profile</PageHeading>
         </div>
-        {sourceActions ? (
+        {sourceActions && !(model.source.mode === "edit" && model.source.isDirty) ? (
           <div aria-label="Profile page actions" className="flex flex-wrap items-center gap-2" role="group">
             {sourceActions}
           </div>

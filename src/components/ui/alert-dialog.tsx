@@ -24,7 +24,7 @@ export function AlertDialog({
   return (
     <AlertDialogPrimitive.Root onOpenChange={onOpenChange} open={open}>
       <AlertDialogPrimitive.Portal>
-        <AlertDialogPrimitive.Backdrop className="fixed inset-0 z-50 min-h-dvh bg-[color-mix(in_srgb,var(--backdrop)_58%,transparent)] transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 supports-[-webkit-touch-callout:none]:absolute" />
+        <AlertDialogPrimitive.Backdrop className="fixed inset-0 z-50 min-h-dvh bg-[rgb(0_0_0_/_0.68)] backdrop-blur-[3px] transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 supports-[-webkit-touch-callout:none]:absolute" />
         <AlertDialogPrimitive.Viewport className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center p-4">
           <AlertDialogPrimitive.Popup
             className={cn(
