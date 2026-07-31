@@ -23,6 +23,7 @@ type AuthAction = (
 ) => Promise<ClinicDashboardAuthApiResult>
 
 type NavigateAction = (path: string) => void
+type LoginSubmissionState = "idle" | "submitting" | "redirecting"
 
 type SharedBasicScreenProps = Readonly<{
   initialError?: ClinicDashboardAuthErrorCode
@@ -151,8 +152,12 @@ function useStatusFocus(active: unknown) {
   return statusRef
 }
 
-function redirectFromResult(result: ClinicDashboardAuthApiResult, navigateAction: NavigateAction) {
-  if (!result.ok) return result.code
+function getRedirectTarget(
+  result: ClinicDashboardAuthApiResult,
+):
+  | Readonly<{ path: string; status: "redirect" }>
+  | Readonly<{ code: ClinicDashboardAuthErrorCode; status: "error" }> {
+  if (!result.ok) return { code: result.code, status: "error" }
   const redirectTo = result.body.redirectTo
   if (
     typeof redirectTo !== "string" ||
@@ -160,9 +165,15 @@ function redirectFromResult(result: ClinicDashboardAuthApiResult, navigateAction
     redirectTo.startsWith("//") ||
     redirectTo.includes("\\")
   ) {
-    return "REQUEST_REJECTED"
+    return { code: "REQUEST_REJECTED", status: "error" }
   }
-  navigateAction(redirectTo)
+  return { path: redirectTo, status: "redirect" }
+}
+
+function redirectFromResult(result: ClinicDashboardAuthApiResult, navigateAction: NavigateAction) {
+  const redirect = getRedirectTarget(result)
+  if (redirect.status === "error") return redirect.code
+  navigateAction(redirect.path)
   return undefined
 }
 
@@ -175,21 +186,29 @@ function LoginScreen({
   submitAction = submitClinicDashboardAuthAction,
 }: LoginScreenProps) {
   const [error, setError] = useState<ClinicDashboardAuthErrorCode | undefined>(initialError)
-  const [pending, setPending] = useState(false)
+  const [submissionState, setSubmissionState] = useState<LoginSubmissionState>("idle")
+  const pending = submissionState !== "idle"
   const statusRef = useStatusFocus(error ?? initialStatus)
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(undefined)
-    setPending(true)
+    setSubmissionState("submitting")
     const form = new FormData(event.currentTarget)
     const result = await submitAction("/api/auth/login", {
       email: String(form.get("email") ?? ""),
       next: "/",
       password: String(form.get("password") ?? ""),
     })
-    setError(redirectFromResult(result, navigateAction))
-    setPending(false)
+    const redirect = getRedirectTarget(result)
+    if (redirect.status === "error") {
+      setError(redirect.code)
+      setSubmissionState("idle")
+      return
+    }
+
+    setSubmissionState("redirecting")
+    navigateAction(redirect.path)
   }
 
   return (
@@ -213,21 +232,37 @@ function LoginScreen({
           </StatusMessage>
         </div>
       ) : null}
-      <form aria-busy={pending} className="space-y-5" onSubmit={submit}>
-        <Field isRequired label="Email address">
-          {(props) => <Input {...props} autoComplete="email" name="email" type="email" />}
-        </Field>
-        <Field isRequired label="Password">
-          {(props) => <Input {...props} autoComplete="current-password" name="password" type="password" />}
-        </Field>
-        <Button className="w-full" disabled={pending} type="submit">
-          {pending ? "Signing in…" : "Sign in"}
-        </Button>
-        <PendingStatus pending={pending}>Signing in.</PendingStatus>
+      <form aria-busy={pending} onSubmit={submit}>
+        <fieldset className="space-y-5" disabled={pending}>
+          <Field isRequired label="Email address">
+            {(props) => <Input {...props} autoComplete="email" name="email" type="email" />}
+          </Field>
+          <Field isRequired label="Password">
+            {(props) => <Input {...props} autoComplete="current-password" name="password" type="password" />}
+          </Field>
+          <Button className="w-full gap-2" disabled={pending} type="submit">
+            {submissionState === "idle" ? (
+              "Sign in"
+            ) : (
+              <>
+                <RefreshCw aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+                {submissionState === "redirecting" ? "Opening dashboard…" : "Signing in…"}
+              </>
+            )}
+          </Button>
+        </fieldset>
+        <PendingStatus pending={pending}>
+          {submissionState === "redirecting" ? "Signed in. Opening your dashboard." : "Signing in."}
+        </PendingStatus>
       </form>
       <Link
-        className="mt-5 inline-flex text-sm font-bold text-[var(--primary)] hover:underline"
+        aria-disabled={pending}
+        className={cn(
+          "mt-5 inline-flex text-sm font-bold text-[var(--primary)] hover:underline",
+          pending && "pointer-events-none opacity-50",
+        )}
         href="/auth/password/reset"
+        tabIndex={pending ? -1 : undefined}
       >
         Forgot your password?
       </Link>
