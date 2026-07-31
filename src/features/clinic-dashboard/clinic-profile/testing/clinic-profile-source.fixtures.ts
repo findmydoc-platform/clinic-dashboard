@@ -87,6 +87,21 @@ export function createClinicProfileSourceCommandsFixture(
     latencyMs > 0 ? new Promise((resolve) => setTimeout(resolve, latencyMs)) : Promise.resolve()
 
   return {
+    async createDraft(input) {
+      await wait()
+      if (snapshot.draft || snapshot.published.revision !== input.expectedPublishedRevision) {
+        throw new ClinicProfileSourceCommandError("conflict", "Profile revision changed.")
+      }
+      snapshot = {
+        ...snapshot,
+        draft: {
+          ...snapshot.published,
+          basePublishedRevision: snapshot.published.revision,
+          revision: 1,
+        },
+      }
+      return cloneClinicProfileSourceSnapshot(snapshot)
+    },
     async discardDraft(input) {
       await wait()
       if (!snapshot.draft || snapshot.draft.revision !== input.expectedDraftRevision) {
@@ -119,8 +134,10 @@ export function createClinicProfileSourceCommandsFixture(
     async saveDraft(input) {
       await wait()
       if (
+        !snapshot.draft ||
         snapshot.published.revision !== input.expectedPublishedRevision ||
-        (snapshot.draft?.revision ?? null) !== input.expectedDraftRevision
+        snapshot.draft.basePublishedRevision !== input.expectedPublishedRevision ||
+        snapshot.draft.revision !== input.expectedDraftRevision
       ) {
         throw new ClinicProfileSourceCommandError("conflict", "Profile revision changed.")
       }
@@ -128,8 +145,8 @@ export function createClinicProfileSourceCommandsFixture(
         ...snapshot,
         draft: {
           ...fieldsFromInput(input.draft, snapshot),
-          basePublishedRevision: snapshot.published.revision,
-          revision: (snapshot.draft?.revision ?? 0) + 1,
+          basePublishedRevision: snapshot.draft.basePublishedRevision,
+          revision: snapshot.draft.revision + 1,
         },
       }
       return cloneClinicProfileSourceSnapshot(snapshot)

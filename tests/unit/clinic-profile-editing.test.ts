@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   areClinicProfileDraftInputsEqual,
+  classifyClinicProfileDraftCreateReconciliation,
+  classifyClinicProfileDraftSaveReconciliation,
   classifyClinicProfilePublishReconciliation,
   createClinicProfileChangeSet,
   createEmptyClinicProfileOpeningHours,
@@ -105,5 +107,44 @@ describe("clinic profile editing", () => {
     expect(
       classifyClinicProfilePublishReconciliation(clinicProfileSourceDraftFixture, attemptedDraft, 2, 4),
     ).toBe("not-published")
+  })
+
+  it("reconciles draft creation and save outcomes only at the expected revisions", () => {
+    const publishedBaseline = createClinicProfileDraftInput(clinicProfileSourceFixture.published)
+    const createdSnapshot = {
+      ...clinicProfileSourceFixture,
+      draft: {
+        ...clinicProfileSourceFixture.published,
+        basePublishedRevision: 4,
+        revision: 1,
+      },
+    }
+    const attemptedDraft = { ...publishedBaseline, name: "Updated clinic" }
+    const savedSnapshot = {
+      ...createdSnapshot,
+      draft: { ...createdSnapshot.draft, name: attemptedDraft.name, revision: 2 },
+    }
+
+    expect(classifyClinicProfileDraftCreateReconciliation(createdSnapshot, publishedBaseline, 4)).toBe(
+      "created",
+    )
+    expect(
+      classifyClinicProfileDraftCreateReconciliation(clinicProfileSourceFixture, publishedBaseline, 4),
+    ).toBe("not-created")
+    expect(
+      classifyClinicProfileDraftSaveReconciliation(savedSnapshot, attemptedDraft, publishedBaseline, 1, 4),
+    ).toBe("saved")
+    expect(
+      classifyClinicProfileDraftSaveReconciliation(createdSnapshot, attemptedDraft, publishedBaseline, 1, 4),
+    ).toBe("not-saved")
+    expect(
+      classifyClinicProfileDraftSaveReconciliation(
+        { ...savedSnapshot, draft: { ...savedSnapshot.draft, revision: 3 } },
+        attemptedDraft,
+        publishedBaseline,
+        1,
+        4,
+      ),
+    ).toBe("conflict")
   })
 })

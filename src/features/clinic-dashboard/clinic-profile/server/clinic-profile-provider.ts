@@ -1,6 +1,7 @@
 import "server-only"
 
 import type {
+  ClinicProfileDraftCreateInput,
   ClinicProfileDraftDiscardInput,
   ClinicProfileDraftSaveInput,
   ClinicProfilePublishInput,
@@ -22,6 +23,9 @@ export type ClinicProfileProviderResult<TValue, TError extends string> =
     }>
 
 export type ClinicProfileProvider = Readonly<{
+  createDraft: (
+    input: ClinicProfileDraftCreateInput,
+  ) => Promise<ClinicProfileProviderResult<ClinicProfileSnapshot, ClinicProfileChangeError>>
   discardDraft: (
     input: ClinicProfileDraftDiscardInput,
   ) => Promise<ClinicProfileProviderResult<ClinicProfileSnapshot, ClinicProfileChangeError>>

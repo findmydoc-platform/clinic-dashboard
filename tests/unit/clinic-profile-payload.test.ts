@@ -74,7 +74,7 @@ describe("Clinic profile Payload provider", () => {
         draft: {
           ...sourceSnapshot.published,
           basePublishedRevision: 4,
-          revision: 1,
+          revision: 2,
         },
       }),
     )
@@ -91,13 +91,13 @@ describe("Clinic profile Payload provider", () => {
         name: "Clinic One",
         supportedLanguages: ["english", "turkish"],
       },
-      expectedDraftRevision: null,
+      expectedDraftRevision: 1,
       expectedPublishedRevision: 4,
     } as const
 
     await expect(provider.saveDraft(input)).resolves.toMatchObject({
       ok: true,
-      value: { draft: { revision: 1 } },
+      value: { draft: { revision: 2 } },
     })
 
     const [endpoint, init] = fetcher.mock.calls[0] ?? []
@@ -106,6 +106,30 @@ describe("Clinic profile Payload provider", () => {
     const body = JSON.parse(String(init?.body))
     expect(body).toEqual(input)
     expect(JSON.stringify(body)).not.toMatch(/clinicId|country|coordinates/u)
+  })
+
+  it("creates a draft with only the expected published revision", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      privateJsonResponse({
+        ...sourceSnapshot,
+        draft: {
+          ...sourceSnapshot.published,
+          basePublishedRevision: 4,
+          revision: 1,
+        },
+      }),
+    )
+    const provider = createPayloadClinicProfileProvider("access-token", "server-clinic", fetcher)
+
+    await expect(provider.createDraft({ expectedPublishedRevision: 4 })).resolves.toMatchObject({
+      ok: true,
+      value: { draft: { revision: 1 } },
+    })
+
+    const [endpoint, init] = fetcher.mock.calls[0] ?? []
+    expect(String(endpoint)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/profile/draft")
+    expect(init).toMatchObject({ cache: "no-store", method: "POST", redirect: "error" })
+    expect(JSON.parse(String(init?.body))).toEqual({ expectedPublishedRevision: 4 })
   })
 
   it("fails closed on broadened or non-private success responses", async () => {

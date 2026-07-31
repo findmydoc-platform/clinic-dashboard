@@ -14,6 +14,7 @@ vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
 }))
 
 import {
+  handleClinicProfileDraftCreate,
   handleClinicProfileDraftDiscard,
   handleClinicProfileDraftSave,
   handleClinicProfileLoad,
@@ -83,6 +84,15 @@ const protectedRouteCases: ReadonlyArray<Readonly<{ invoke: () => Promise<Respon
   },
   {
     invoke: () =>
+      handleClinicProfileDraftCreate(
+        mutationRequest("/api/dashboard/profile/draft", {
+          expectedPublishedRevision: 4,
+        }),
+      ),
+    routeName: "create",
+  },
+  {
+    invoke: () =>
       handleClinicProfileDraftSave(
         mutationRequest(
           "/api/dashboard/profile/draft",
@@ -98,7 +108,7 @@ const protectedRouteCases: ReadonlyArray<Readonly<{ invoke: () => Promise<Respon
               name: "Clinic One",
               supportedLanguages: ["english"],
             },
-            expectedDraftRevision: null,
+            expectedDraftRevision: 1,
             expectedPublishedRevision: 4,
           },
           "PUT",
@@ -204,7 +214,7 @@ describe("Clinic profile BFF routes", () => {
         draft: {
           ...sourceSnapshot.published,
           basePublishedRevision: 4,
-          revision: 1,
+          revision: 2,
         },
       }),
     )
@@ -221,7 +231,7 @@ describe("Clinic profile BFF routes", () => {
         name: "Clinic One",
         supportedLanguages: ["english", "turkish"],
       },
-      expectedDraftRevision: null,
+      expectedDraftRevision: 1,
       expectedPublishedRevision: 4,
     }
 
@@ -239,6 +249,51 @@ describe("Clinic profile BFF routes", () => {
       expect.any(NextRequest),
       "clinic-profile:edit",
     )
+    expectPrivate(response)
+  })
+
+  it("creates a draft from the published revision without accepting profile fields", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      privatePayloadResponse({
+        ...sourceSnapshot,
+        draft: {
+          ...sourceSnapshot.published,
+          basePublishedRevision: 4,
+          revision: 1,
+        },
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    const response = await handleClinicProfileDraftCreate(
+      mutationRequest("/api/dashboard/profile/draft", { expectedPublishedRevision: 4 }),
+    )
+
+    expect(response.status).toBe(200)
+    const [, upstreamInit] = fetcher.mock.calls[0] ?? []
+    expect(upstreamInit).toMatchObject({ method: "POST" })
+    expect(JSON.parse(String(upstreamInit?.body))).toEqual({ expectedPublishedRevision: 4 })
+    expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      "clinic-profile:edit",
+    )
+    expectPrivate(response)
+  })
+
+  it("rejects profile fields during draft creation before provider access", async () => {
+    const fetcher = vi.fn()
+    vi.stubGlobal("fetch", fetcher)
+
+    const response = await handleClinicProfileDraftCreate(
+      mutationRequest("/api/dashboard/profile/draft", {
+        draft: { name: "Browser supplied" },
+        expectedPublishedRevision: 4,
+      }),
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ code: "INVALID_INPUT" })
+    expect(fetcher).not.toHaveBeenCalled()
     expectPrivate(response)
   })
 
@@ -306,7 +361,7 @@ describe("Clinic profile BFF routes", () => {
             name: "Clinic One",
             supportedLanguages: ["english"],
           },
-          expectedDraftRevision: null,
+          expectedDraftRevision: 1,
           expectedPublishedRevision: 4,
         },
         "PUT",

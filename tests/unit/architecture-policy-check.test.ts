@@ -1683,7 +1683,13 @@ describe("architecture policy checker process fixtures", () => {
         }
       `,
       "src/app/api/dashboard/profile/draft/route.ts": `
-        import { handleClinicProfileDraftSave } from "../../../../../features/clinic-dashboard/server"
+        import {
+          handleClinicProfileDraftCreate,
+          handleClinicProfileDraftSave,
+        } from "../../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleClinicProfileDraftCreate(request)
+        }
         export function PUT(request: Request) {
           return handleClinicProfileDraftSave(request)
         }
@@ -1702,6 +1708,7 @@ describe("architecture policy checker process fixtures", () => {
       `,
       "src/features/clinic-dashboard/server.ts": `
         import "server-only"
+        export function handleClinicProfileDraftCreate() { return new Response() }
         export function handleClinicProfileDraftDiscard() { return new Response() }
         export function handleClinicProfileDraftSave() { return new Response() }
         export function handleClinicProfileLoad() { return new Response() }
@@ -1709,10 +1716,15 @@ describe("architecture policy checker process fixtures", () => {
       `,
       "tests/integration/clinic-profile-routes.test.ts": `
         import {
+          handleClinicProfileDraftCreate,
           handleClinicProfileDraftSave,
           handleClinicProfileLoad,
         } from "../../src/features/clinic-dashboard/server"
-        export const handlers = [handleClinicProfileDraftSave, handleClinicProfileLoad]
+        export const handlers = [
+          handleClinicProfileDraftCreate,
+          handleClinicProfileDraftSave,
+          handleClinicProfileLoad,
+        ]
       `,
     })
 

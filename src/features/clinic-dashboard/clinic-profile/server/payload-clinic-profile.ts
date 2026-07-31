@@ -2,6 +2,7 @@ import "server-only"
 
 import { validateEnvironment } from "@/lib/env"
 import type {
+  ClinicProfileDraftCreateInput,
   ClinicProfileDraftDiscardInput,
   ClinicProfileDraftSaveInput,
   ClinicProfilePublishInput,
@@ -16,6 +17,7 @@ import type {
 } from "./clinic-profile-provider"
 
 const payloadClinicProfilePaths = {
+  createDraft: "/api/clinic-dashboard/profile/draft",
   discardDraft: "/api/clinic-dashboard/profile/draft/discard",
   loadProfile: "/api/clinic-dashboard/profile",
   publishDraft: "/api/clinic-dashboard/profile/publish",
@@ -93,7 +95,11 @@ function readInit(accessToken: string): RequestInit {
 function mutationInit(
   accessToken: string,
   method: "POST" | "PUT",
-  body: ClinicProfileDraftDiscardInput | ClinicProfileDraftSaveInput | ClinicProfilePublishInput,
+  body:
+    | ClinicProfileDraftCreateInput
+    | ClinicProfileDraftDiscardInput
+    | ClinicProfileDraftSaveInput
+    | ClinicProfilePublishInput,
 ): RequestInit {
   return {
     body: JSON.stringify(body),
@@ -128,6 +134,12 @@ export function createPayloadClinicProfileProvider(
   }
 
   return {
+    createDraft: (input) =>
+      requestSnapshot(
+        payloadClinicProfilePaths.createDraft,
+        mutationInit(accessToken, "POST", input),
+        changeErrorForStatus,
+      ),
     discardDraft: (input) =>
       requestSnapshot(
         payloadClinicProfilePaths.discardDraft,

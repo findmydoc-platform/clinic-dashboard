@@ -13,6 +13,7 @@ vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
 import { handleClinicProfileLoad } from "@/features/clinic-dashboard/clinic-profile/server/public"
 
 const providerMocks = {
+  createDraft: vi.fn(),
   discardDraft: vi.fn(),
   loadSnapshot: vi.fn(),
   publishDraft: vi.fn(),

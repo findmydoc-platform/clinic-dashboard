@@ -35,7 +35,7 @@ describe("Clinic profile browser API", () => {
     vi.unstubAllGlobals()
   })
 
-  it("uses the four same-origin routes and sends only editable draft data", async () => {
+  it("uses the five same-origin operations and sends only editable draft data", async () => {
     setCsrfCookie("csrf-token")
     const fetcher = vi.fn<typeof fetch>(
       async () =>
@@ -57,11 +57,12 @@ describe("Clinic profile browser API", () => {
         name: "Clinic One",
         supportedLanguages: ["english", "turkish"],
       },
-      expectedDraftRevision: null,
+      expectedDraftRevision: 1,
       expectedPublishedRevision: 4,
     } as const
 
     await commands.loadSnapshot()
+    await commands.createDraft({ expectedPublishedRevision: 4 })
     await commands.saveDraft(draftInput)
     await commands.discardDraft({ expectedDraftRevision: 1 })
     await commands.publishDraft({ expectedDraftRevision: 1, expectedPublishedRevision: 4 })
@@ -69,16 +70,26 @@ describe("Clinic profile browser API", () => {
     expect(fetcher.mock.calls.map(([endpoint]) => endpoint)).toEqual([
       "/api/dashboard/profile",
       "/api/dashboard/profile/draft",
+      "/api/dashboard/profile/draft",
       "/api/dashboard/profile/draft/discard",
       "/api/dashboard/profile/publish",
     ])
-    expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual([undefined, "PUT", "POST", "POST"])
+    expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual([
+      undefined,
+      "POST",
+      "PUT",
+      "POST",
+      "POST",
+    ])
     expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
       cache: "no-store",
       credentials: "same-origin",
       redirect: "error",
     })
-    const saveBody = JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))
+    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
+      expectedPublishedRevision: 4,
+    })
+    const saveBody = JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))
     expect(saveBody).toEqual(draftInput)
     expect(JSON.stringify(saveBody)).not.toMatch(/clinicId|country|coordinates/u)
   })

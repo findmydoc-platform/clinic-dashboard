@@ -4,6 +4,7 @@ export { createDoctorProfileApiCommands } from "./browser/doctor-profile-api"
 export type { ClinicProfileCommands } from "./model/clinic-profile-commands"
 export type {
   ClinicProfileCity,
+  ClinicProfileDraftCreateInput,
   ClinicProfileDraftDiscardInput,
   ClinicProfileDraftInput,
   ClinicProfileDraftSaveInput,

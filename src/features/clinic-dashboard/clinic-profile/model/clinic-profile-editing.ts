@@ -102,6 +102,57 @@ export function clinicProfileDraftHasPublishedChanges(
   return !areClinicProfileDraftInputsEqual(draft, createClinicProfileDraftInput(published))
 }
 
+export type ClinicProfileDraftCreateReconciliation = "conflict" | "created" | "not-created"
+
+export function classifyClinicProfileDraftCreateReconciliation(
+  latest: ClinicProfileSnapshot,
+  publishedBaseline: ClinicProfileDraftInput,
+  expectedPublishedRevision: number,
+): ClinicProfileDraftCreateReconciliation {
+  if (latest.published.revision !== expectedPublishedRevision) return "conflict"
+  if (!latest.draft) return "not-created"
+  if (
+    latest.draft.basePublishedRevision === expectedPublishedRevision &&
+    latest.draft.revision === 1 &&
+    areClinicProfileDraftInputsEqual(createClinicProfileDraftInput(latest.draft), publishedBaseline)
+  ) {
+    return "created"
+  }
+  return "conflict"
+}
+
+export type ClinicProfileDraftSaveReconciliation = "conflict" | "not-saved" | "saved"
+
+export function classifyClinicProfileDraftSaveReconciliation(
+  latest: ClinicProfileSnapshot,
+  attemptedDraft: ClinicProfileDraftInput,
+  savedBaseline: ClinicProfileDraftInput,
+  expectedDraftRevision: number,
+  expectedPublishedRevision: number,
+): ClinicProfileDraftSaveReconciliation {
+  if (
+    !latest.draft ||
+    latest.published.revision !== expectedPublishedRevision ||
+    latest.draft.basePublishedRevision !== expectedPublishedRevision
+  ) {
+    return "conflict"
+  }
+  const latestDraft = createClinicProfileDraftInput(latest.draft)
+  if (
+    latest.draft.revision === expectedDraftRevision + 1 &&
+    areClinicProfileDraftInputsEqual(latestDraft, attemptedDraft)
+  ) {
+    return "saved"
+  }
+  if (
+    latest.draft.revision === expectedDraftRevision &&
+    areClinicProfileDraftInputsEqual(latestDraft, savedBaseline)
+  ) {
+    return "not-saved"
+  }
+  return "conflict"
+}
+
 export type ClinicProfilePublishReconciliation = "conflict" | "not-published" | "published"
 
 export function classifyClinicProfilePublishReconciliation(

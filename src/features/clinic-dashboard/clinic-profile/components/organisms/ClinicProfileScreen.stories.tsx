@@ -90,6 +90,11 @@ export const DraftAvailable: Story = {
       source: { ...publishedModel.source, hasSavedChanges: true, hasSavedDraft: true },
     },
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Continue editing" })).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Review & publish" })).toBeEnabled()
+  },
 }
 
 export const EditingDirty: Story = {

@@ -80,6 +80,7 @@ export function ClinicProfile({
   })
   const { actions: legacyActions, dialog: legacyDialog, model: legacyModel } = legacy
   const { actions: sourceActions, model: sourceModel } = source
+  const isSavingFromLeaveDialog = sourceModel.confirmation === "leave" && sourceModel.operation === "saving"
 
   const sourceDisplayFields =
     (sourceModel.mode === "edit" || sourceModel.mode === "conflict") &&
@@ -207,18 +208,40 @@ export function ClinicProfile({
       <AlertDialog
         actions={
           <>
-            <Button onClick={() => sourceActions.setConfirmation(null)} variant="outline">
+            <Button
+              disabled={isSavingFromLeaveDialog}
+              onClick={() => sourceActions.setConfirmation(null)}
+              variant="outline"
+            >
               Keep editing
             </Button>
-            <Button onClick={sourceActions.leaveWithoutSaving} variant="destructive">
+            <Button
+              disabled={isSavingFromLeaveDialog}
+              onClick={sourceActions.leaveWithoutSaving}
+              variant="destructive"
+            >
               Leave without saving
             </Button>
-            <Button onClick={() => void sourceActions.saveDraft(true)}>Save draft and leave</Button>
+            <Button disabled={isSavingFromLeaveDialog} onClick={() => void sourceActions.saveDraft(true)}>
+              {isSavingFromLeaveDialog ? "Saving…" : "Save draft and leave"}
+            </Button>
           </>
         }
-        description="You have local changes that have not been saved as a draft."
+        description={
+          <span className="grid gap-3">
+            <span>You have local changes that have not been saved as a draft.</span>
+            {sourceModel.confirmation === "leave" && sourceModel.statusMessage ? (
+              <span
+                className="border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_28%,var(--background))] px-3 py-2 text-[var(--secondary)]"
+                role="alert"
+              >
+                {sourceModel.statusMessage}
+              </span>
+            ) : null}
+          </span>
+        }
         onOpenChange={(open) => {
-          if (!open) sourceActions.setConfirmation(null)
+          if (!open && !isSavingFromLeaveDialog) sourceActions.setConfirmation(null)
         }}
         open={sourceModel.confirmation === "leave"}
         title="Leave profile editing?"

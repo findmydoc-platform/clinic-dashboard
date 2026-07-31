@@ -101,9 +101,13 @@ export type ClinicProfileDraftInput = Readonly<{
   supportedLanguages: readonly ClinicProfileSupportedLanguage[]
 }>
 
+export type ClinicProfileDraftCreateInput = Readonly<{
+  expectedPublishedRevision: number
+}>
+
 export type ClinicProfileDraftSaveInput = Readonly<{
   draft: ClinicProfileDraftInput
-  expectedDraftRevision: number | null
+  expectedDraftRevision: number
   expectedPublishedRevision: number
 }>
 

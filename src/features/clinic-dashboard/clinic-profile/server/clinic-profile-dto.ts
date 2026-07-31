@@ -148,10 +148,16 @@ export const clinicProfileSourceSnapshotSchema = z
     }
   })
 
+export const clinicProfileDraftCreateInputSchema = z
+  .object({
+    expectedPublishedRevision: revisionSchema,
+  })
+  .strict()
+
 export const clinicProfileDraftSaveInputSchema = z
   .object({
     draft: draftInputSchema,
-    expectedDraftRevision: revisionSchema.nullable(),
+    expectedDraftRevision: revisionSchema,
     expectedPublishedRevision: revisionSchema,
   })
   .strict()

@@ -199,6 +199,7 @@ async function submitJson(endpoint: string, method: "POST" | "PUT", body: unknow
 
 export function createClinicProfileSourceApiCommands(): ClinicProfileSourceCommands {
   return {
+    createDraft: (input) => submitJson("/api/dashboard/profile/draft", "POST", input),
     discardDraft: (input) => submitJson("/api/dashboard/profile/draft/discard", "POST", input),
     loadSnapshot,
     publishDraft: (input) => submitJson("/api/dashboard/profile/publish", "POST", input),

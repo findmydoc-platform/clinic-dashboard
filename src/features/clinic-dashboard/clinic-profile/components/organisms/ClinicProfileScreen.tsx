@@ -118,9 +118,20 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
   const sourceActions = canManageProfile ? (
     model.source.mode === "view" ? (
       model.source.hasSavedDraft ? (
-        <Button disabled={sourceBusy} onClick={actions.onProfileEdit}>
-          Continue editing
-        </Button>
+        <>
+          <Button
+            disabled={sourceBusy}
+            onClick={actions.onProfileEdit}
+            variant={model.source.hasSavedChanges ? "outline" : "primary"}
+          >
+            Continue editing
+          </Button>
+          {model.source.hasSavedChanges ? (
+            <Button disabled={sourceBusy} onClick={actions.onProfileReview}>
+              Review &amp; publish
+            </Button>
+          ) : null}
+        </>
       ) : (
         <Button disabled={sourceBusy || !model.source.snapshot} onClick={actions.onProfileEdit}>
           Edit profile

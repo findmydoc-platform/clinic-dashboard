@@ -8,6 +8,7 @@ export {
   handleDoctorUpdate,
 } from "./actions"
 export {
+  handleClinicProfileDraftCreate,
   handleClinicProfileDraftDiscard,
   handleClinicProfileDraftSave,
   handleClinicProfileLoad,

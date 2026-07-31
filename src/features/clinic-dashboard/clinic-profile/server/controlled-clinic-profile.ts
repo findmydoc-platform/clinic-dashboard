@@ -127,6 +127,20 @@ export function resetControlledClinicProfileProvider() {
 
 export function createControlledClinicProfileProvider(): ClinicProfileProvider {
   return {
+    async createDraft(input) {
+      const state = controlledState()
+      if (state.publishedProfile.revision !== input.expectedPublishedRevision || state.persistentDraft) {
+        return { error: "conflict", ok: false }
+      }
+
+      const { revision: _publishedRevision, ...publishedFields } = state.publishedProfile
+      state.persistentDraft = {
+        ...publishedFields,
+        basePublishedRevision: state.publishedProfile.revision,
+        revision: 1,
+      }
+      return { ok: true, value: currentSnapshot() }
+    },
     async discardDraft(input) {
       const state = controlledState()
       if (!state.persistentDraft) return { error: "not-found", ok: false }
@@ -166,9 +180,11 @@ export function createControlledClinicProfileProvider(): ClinicProfileProvider {
     },
     async saveDraft(input) {
       const state = controlledState()
+      if (!state.persistentDraft) return { error: "not-found", ok: false }
       if (
         state.publishedProfile.revision !== input.expectedPublishedRevision ||
-        (state.persistentDraft?.revision ?? null) !== input.expectedDraftRevision
+        state.persistentDraft.basePublishedRevision !== input.expectedPublishedRevision ||
+        state.persistentDraft.revision !== input.expectedDraftRevision
       ) {
         return { error: "conflict", ok: false }
       }
@@ -178,8 +194,8 @@ export function createControlledClinicProfileProvider(): ClinicProfileProvider {
 
       state.persistentDraft = {
         ...fields,
-        basePublishedRevision: input.expectedPublishedRevision,
-        revision: (state.persistentDraft?.revision ?? 0) + 1,
+        basePublishedRevision: state.persistentDraft.basePublishedRevision,
+        revision: state.persistentDraft.revision + 1,
       }
       return { ok: true, value: currentSnapshot() }
     },

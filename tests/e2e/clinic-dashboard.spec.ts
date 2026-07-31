@@ -206,11 +206,8 @@ test("saves, resumes, reviews and publishes the authenticated clinic profile dra
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await expect(page.getByText("Published profile is shown.")).toBeVisible()
   await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
-  await page.getByRole("button", { name: "Continue editing" }).click()
-  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveValue(
-    "Bosphorus International Clinic",
-  )
-
+  await expect(page.getByRole("button", { name: "Continue editing" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Review & publish" })).toBeEnabled()
   await page.getByRole("button", { name: "Review & publish" }).click()
   const review = page.getByRole("dialog", { name: "Review and publish" })
   await expect(review.getByText("1 changed field across 1 section")).toBeVisible()
@@ -235,8 +232,13 @@ test("guards local profile edits and confirms persistent draft deletion separate
   await leaveDialog.getByRole("button", { name: "Keep editing" }).click()
   await expect(description).toHaveValue("A locally edited clinic description.")
 
-  await page.getByRole("button", { name: "Save draft" }).first().click()
-  await expect(page.getByText("Draft saved.")).toBeVisible()
+  await page.getByRole("button", { name: "Cancel editing" }).first().click()
+  const saveAndLeaveDialog = page.getByRole("alertdialog", { name: "Leave profile editing?" })
+  await saveAndLeaveDialog.getByRole("button", { name: "Save draft and leave" }).click()
+  await expect(saveAndLeaveDialog).toHaveCount(0)
+  await expect(page.getByText("Published profile is shown.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Review & publish" })).toBeEnabled()
+  await page.getByRole("button", { name: "Continue editing" }).click()
   await page.getByRole("button", { name: "Discard draft" }).click()
   const discardDialog = page.getByRole("alertdialog", { name: "Discard saved draft?" })
   await discardDialog.getByRole("button", { name: "Discard draft" }).click()

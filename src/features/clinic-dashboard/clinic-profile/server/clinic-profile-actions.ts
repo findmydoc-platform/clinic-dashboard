@@ -5,6 +5,7 @@ import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/a
 import { validateMutationRequest } from "@/lib/security/csrf"
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
 import {
+  clinicProfileDraftCreateInputSchema,
   clinicProfileDraftDiscardInputSchema,
   clinicProfileDraftSaveInputSchema,
   clinicProfilePublishInputSchema,
@@ -131,6 +132,33 @@ export async function handleClinicProfileDraftSave(
 
   try {
     const result = await createProvider(authorization.accessToken, authorization.clinicId).saveDraft(
+      input.data,
+    )
+    const response = result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
+    return authorization.applyToResponse(response)
+  } catch {
+    return authorization.applyToResponse(privateJson({ code: "CLINIC_PROFILE_SERVICE_UNAVAILABLE" }, 503))
+  }
+}
+
+export async function handleClinicProfileDraftCreate(
+  request: NextRequest,
+  createProvider: ClinicProfileProviderFactory,
+) {
+  if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
+
+  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")
+  if (authorization.status !== "approved") {
+    return authorization.applyToResponse(accessErrorResponse(authorization.status))
+  }
+
+  const input = clinicProfileDraftCreateInputSchema.safeParse(await readJson(request))
+  if (!input.success) {
+    return authorization.applyToResponse(privateJson({ code: "INVALID_INPUT" }, 400))
+  }
+
+  try {
+    const result = await createProvider(authorization.accessToken, authorization.clinicId).createDraft(
       input.data,
     )
     const response = result.ok ? privateJson(result.value) : changeErrorResponse(result.error)

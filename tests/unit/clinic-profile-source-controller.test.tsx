@@ -14,7 +14,10 @@ describe("clinic profile source controller", () => {
   afterEach(cleanup)
 
   it("guards local edits and saves them independently as a persistent draft", async () => {
-    const commands = createClinicProfileSourceCommandsFixture()
+    const persistedCommands = createClinicProfileSourceCommandsFixture()
+    const createDraft = vi.fn(persistedCommands.createDraft)
+    const saveDraft = vi.fn(persistedCommands.saveDraft)
+    const commands = { ...persistedCommands, createDraft, saveDraft }
     const { result } = renderHook(() =>
       useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceFixture }),
     )
@@ -32,6 +35,64 @@ describe("clinic profile source controller", () => {
     expect(result.current.model.isDirty).toBe(false)
     expect(result.current.model.hasSavedChanges).toBe(true)
     expect(result.current.model.snapshot?.draft?.name).toBe("Medicana Istanbul International")
+    expect(createDraft).toHaveBeenCalledWith({ expectedPublishedRevision: 4 })
+    expect(saveDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedDraftRevision: 1, expectedPublishedRevision: 4 }),
+    )
+  })
+
+  it("updates an existing draft without trying to create another one", async () => {
+    const persistedCommands = createClinicProfileSourceCommandsFixture(clinicProfileSourceDraftFixture)
+    const createDraft = vi.fn(persistedCommands.createDraft)
+    const saveDraft = vi.fn(persistedCommands.saveDraft)
+    const commands = { ...persistedCommands, createDraft, saveDraft }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceDraftFixture }),
+    )
+
+    act(() => result.current.actions.startEditing())
+    act(() => result.current.actions.changeName("Updated saved draft"))
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(createDraft).not.toHaveBeenCalled()
+    expect(saveDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedDraftRevision: 2, expectedPublishedRevision: 4 }),
+    )
+    expect(result.current.model.snapshot?.draft?.revision).toBe(3)
+  })
+
+  it("keeps a created baseline and retries only the update after a partial save failure", async () => {
+    const persistedCommands = createClinicProfileSourceCommandsFixture()
+    const createDraft = vi.fn(persistedCommands.createDraft)
+    const saveDraft = vi
+      .fn<typeof persistedCommands.saveDraft>()
+      .mockRejectedValueOnce(new ClinicProfileSourceCommandError("rejected", "Save rejected."))
+      .mockImplementation(persistedCommands.saveDraft)
+    const commands = { ...persistedCommands, createDraft, saveDraft }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceFixture }),
+    )
+
+    act(() => result.current.actions.startEditing())
+    act(() => result.current.actions.changeName("Local clinic name"))
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(result.current.model.snapshot?.draft?.revision).toBe(1)
+    expect(result.current.model.isDirty).toBe(true)
+    expect(result.current.model.statusMessage).toContain("draft was created")
+
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(createDraft).toHaveBeenCalledOnce()
+    expect(saveDraft).toHaveBeenCalledTimes(2)
+    expect(result.current.model.snapshot?.draft?.name).toBe("Local clinic name")
+    expect(result.current.model.isDirty).toBe(false)
   })
 
   it("preserves local values and locks the editor on revision conflict", async () => {
@@ -78,6 +139,143 @@ describe("clinic profile source controller", () => {
     expect(result.current.model.mode).toBe("view")
     expect(result.current.model.confirmation).toBeNull()
     expect(result.current.model.snapshot?.draft?.name).toBe("Saved after timeout")
+  })
+
+  it("continues the first save after an unknown draft creation is reconciled", async () => {
+    const persistedCommands = createClinicProfileSourceCommandsFixture()
+    const commands = {
+      ...persistedCommands,
+      createDraft: async (input: Parameters<typeof persistedCommands.createDraft>[0]) => {
+        await persistedCommands.createDraft(input)
+        throw new ClinicProfileSourceCommandError("unknown", "Response lost.")
+      },
+    }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceFixture }),
+    )
+
+    act(() => result.current.actions.startEditing())
+    act(() => result.current.actions.changeName("Saved after create timeout"))
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(result.current.model.snapshot?.draft?.name).toBe("Saved after create timeout")
+    expect(result.current.model.snapshot?.draft?.revision).toBe(2)
+    expect(result.current.model.isDirty).toBe(false)
+  })
+
+  it("keeps local values retryable when an unknown creation did not persist", async () => {
+    const persistedCommands = createClinicProfileSourceCommandsFixture()
+    const saveDraft = vi.fn(persistedCommands.saveDraft)
+    const commands = {
+      ...persistedCommands,
+      createDraft: async () => {
+        throw new ClinicProfileSourceCommandError("unknown", "Request failed before persistence.")
+      },
+      saveDraft,
+    }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceFixture }),
+    )
+
+    act(() => result.current.actions.startEditing())
+    act(() => result.current.actions.changeName("Still local"))
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(result.current.model.mode).toBe("edit")
+    expect(result.current.model.snapshot?.draft).toBeUndefined()
+    expect(result.current.model.workingDraft?.name).toBe("Still local")
+    expect(result.current.model.isDirty).toBe(true)
+    expect(result.current.model.statusMessage).toContain("not created")
+    expect(saveDraft).not.toHaveBeenCalled()
+  })
+
+  it("locks saving without losing local values when an unknown creation cannot be reconciled", async () => {
+    const commands = {
+      ...createClinicProfileSourceCommandsFixture(),
+      createDraft: async () => {
+        throw new ClinicProfileSourceCommandError("unknown", "Creation outcome unknown.")
+      },
+      loadSnapshot: async () => {
+        throw new ClinicProfileSourceCommandError("unknown", "Snapshot unavailable.")
+      },
+    }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceFixture }),
+    )
+
+    act(() => result.current.actions.startEditing())
+    act(() => result.current.actions.changeName("Copyable local value"))
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(result.current.model.mode).toBe("conflict")
+    expect(result.current.model.workingDraft?.name).toBe("Copyable local value")
+    expect(result.current.model.statusMessage).toContain("could not be confirmed")
+  })
+
+  it("keeps an unchanged server baseline retryable when an unknown update did not persist", async () => {
+    const persistedCommands = createClinicProfileSourceCommandsFixture()
+    const commands = {
+      ...persistedCommands,
+      saveDraft: async () => {
+        throw new ClinicProfileSourceCommandError("unknown", "Update outcome unknown.")
+      },
+    }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceFixture }),
+    )
+
+    act(() => result.current.actions.startEditing())
+    act(() => result.current.actions.changeName("Still dirty"))
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(result.current.model.mode).toBe("edit")
+    expect(result.current.model.snapshot?.draft?.revision).toBe(1)
+    expect(result.current.model.workingDraft?.name).toBe("Still dirty")
+    expect(result.current.model.isDirty).toBe(true)
+    expect(result.current.model.statusMessage).toContain("not completed")
+  })
+
+  it("opens review directly from a changed saved draft in read mode", () => {
+    const commands = createClinicProfileSourceCommandsFixture(clinicProfileSourceDraftFixture)
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceDraftFixture }),
+    )
+
+    act(() => result.current.actions.requestReview())
+
+    expect(result.current.model.mode).toBe("review")
+    expect(result.current.model.workingDraft?.descriptionText).toBe(
+      clinicProfileSourceDraftFixture.draft?.descriptionText,
+    )
+  })
+
+  it("moves an invalid saved draft into editing with field errors", () => {
+    const invalidSnapshot = {
+      ...clinicProfileSourceDraftFixture,
+      draft: {
+        ...clinicProfileSourceDraftFixture.draft!,
+        address: { ...clinicProfileSourceDraftFixture.draft!.address, city: undefined },
+      },
+    }
+    const commands = createClinicProfileSourceCommandsFixture(invalidSnapshot)
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: invalidSnapshot }),
+    )
+
+    act(() => result.current.actions.requestReview())
+
+    expect(result.current.model.mode).toBe("edit")
+    expect(result.current.model.validationErrors).toMatchObject({
+      "address.cityId": "Select a city.",
+    })
   })
 
   it("reconciles an unknown publish only when the published fields match the reviewed draft", async () => {

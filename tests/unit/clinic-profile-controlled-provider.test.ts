@@ -14,6 +14,10 @@ describe("Controlled clinic profile provider", () => {
     const provider = createControlledClinicProfileProvider()
     const loaded = await provider.loadSnapshot()
     if (!loaded.ok) throw new Error("Expected controlled profile")
+    const created = await provider.createDraft({
+      expectedPublishedRevision: loaded.value.published.revision,
+    })
+    if (!created.ok || !created.value.draft) throw new Error("Expected controlled draft")
 
     const result = await provider.saveDraft({
       draft: {
@@ -28,7 +32,7 @@ describe("Controlled clinic profile provider", () => {
         name: "",
         supportedLanguages: [],
       },
-      expectedDraftRevision: null,
+      expectedDraftRevision: created.value.draft.revision,
       expectedPublishedRevision: loaded.value.published.revision,
     })
 
@@ -39,14 +43,14 @@ describe("Controlled clinic profile provider", () => {
           address: { city: undefined, country: { code: "TR", name: "Türkiye" }, zipCode: "00123" },
           basePublishedRevision: 1,
           name: "",
-          revision: 1,
+          revision: 2,
         },
         published: { name: "Controlled Bosphorus Clinic", revision: 1 },
       },
     })
 
     const resumed = await createControlledClinicProfileProvider().loadSnapshot()
-    expect(resumed).toMatchObject({ ok: true, value: { draft: { revision: 1 } } })
+    expect(resumed).toMatchObject({ ok: true, value: { draft: { revision: 2 } } })
   })
 
   it("rejects stale draft saves and publishes only a complete current draft", async () => {
@@ -55,24 +59,26 @@ describe("Controlled clinic profile provider", () => {
     if (!loaded.ok) throw new Error("Expected controlled profile")
 
     const draft = createClinicProfileDraftInput(loaded.value.published)
+    const created = await provider.createDraft({ expectedPublishedRevision: 1 })
+    if (!created.ok || !created.value.draft) throw new Error("Expected controlled draft")
     const firstSave = await provider.saveDraft({
       draft,
-      expectedDraftRevision: null,
+      expectedDraftRevision: created.value.draft.revision,
       expectedPublishedRevision: 1,
     })
-    expect(firstSave).toMatchObject({ ok: true, value: { draft: { revision: 1 } } })
+    expect(firstSave).toMatchObject({ ok: true, value: { draft: { revision: 2 } } })
 
     await expect(
       provider.saveDraft({
         draft: { ...draft, name: "Stale overwrite" },
-        expectedDraftRevision: null,
+        expectedDraftRevision: 1,
         expectedPublishedRevision: 1,
       }),
     ).resolves.toEqual({ error: "conflict", ok: false })
 
     await expect(
       provider.publishDraft({
-        expectedDraftRevision: 1,
+        expectedDraftRevision: 2,
         expectedPublishedRevision: 1,
       }),
     ).resolves.toMatchObject({
@@ -88,6 +94,8 @@ describe("Controlled clinic profile provider", () => {
     const provider = createControlledClinicProfileProvider()
     const loaded = await provider.loadSnapshot()
     if (!loaded.ok) throw new Error("Expected controlled profile")
+    const created = await provider.createDraft({ expectedPublishedRevision: 1 })
+    if (!created.ok || !created.value.draft) throw new Error("Expected controlled draft")
 
     const saved = await provider.saveDraft({
       draft: {
@@ -100,22 +108,22 @@ describe("Controlled clinic profile provider", () => {
         },
         name: "",
       },
-      expectedDraftRevision: null,
+      expectedDraftRevision: created.value.draft.revision,
       expectedPublishedRevision: 1,
     })
-    expect(saved).toMatchObject({ ok: true, value: { draft: { revision: 1 } } })
+    expect(saved).toMatchObject({ ok: true, value: { draft: { revision: 2 } } })
 
     await expect(
       provider.publishDraft({
-        expectedDraftRevision: 1,
+        expectedDraftRevision: 2,
         expectedPublishedRevision: 1,
       }),
     ).resolves.toEqual({ error: "invalid-input", ok: false })
-    await expect(provider.discardDraft({ expectedDraftRevision: 2 })).resolves.toEqual({
+    await expect(provider.discardDraft({ expectedDraftRevision: 3 })).resolves.toEqual({
       error: "conflict",
       ok: false,
     })
-    await expect(provider.discardDraft({ expectedDraftRevision: 1 })).resolves.toMatchObject({
+    await expect(provider.discardDraft({ expectedDraftRevision: 2 })).resolves.toMatchObject({
       ok: true,
       value: { draft: undefined, published: { revision: 1 } },
     })

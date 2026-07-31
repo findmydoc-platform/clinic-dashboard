@@ -99,6 +99,7 @@ export const DraftAvailable: Story = {
     const page = within(canvasElement)
     await expect(page.getByText("Published profile is shown.")).toBeVisible()
     await expect(page.getByRole("button", { name: "Continue editing" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Review & publish" })).toBeEnabled()
   },
 }
 
@@ -106,7 +107,6 @@ export const PublishReview: Story = {
   args: { sourceSnapshot: clinicProfileSourceDraftFixture },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement)
-    await userEvent.click(page.getByRole("button", { name: "Continue editing" }))
     await userEvent.click(page.getByRole("button", { name: "Review & publish" }))
     const dialog = page.getByRole("dialog", { name: "Review and publish" })
     await expect(within(dialog).getByText("4 changed fields across 3 sections")).toBeVisible()
@@ -161,6 +161,49 @@ export const UnsavedChangesGuard: Story = {
       ).not.toBeInTheDocument(),
     )
     await waitFor(() => expect(trigger).toHaveFocus())
+  },
+}
+
+function SaveFailureStoryFixture(props: ComponentProps<typeof ClinicProfile>) {
+  const [sourceCommands] = useState<ClinicProfileSourceCommands>(() => {
+    const persistedCommands = createClinicProfileSourceCommandsFixture()
+    return {
+      ...persistedCommands,
+      saveDraft: async () => {
+        throw new ClinicProfileSourceCommandError("rejected", "Save failed.")
+      },
+    }
+  })
+
+  return (
+    <ClinicProfile
+      {...props}
+      commands={createClinicProfileCommandsFixture()}
+      doctorCommands={createDoctorProfileCommandsFixture()}
+      sourceCommands={sourceCommands}
+    />
+  )
+}
+
+export const SaveFailurePreservesLeaveGuard: Story = {
+  render: (args) => <SaveFailureStoryFixture {...args} />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    const documentPage = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
+    await userEvent.type(page.getByRole("textbox", { name: "Clinic name" }), " updated")
+    await userEvent.click(page.getByRole("button", { name: "Cancel editing" }))
+    const dialog = await documentPage.findByRole("alertdialog", { name: "Leave profile editing?" })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save draft and leave" }))
+
+    await waitFor(() =>
+      expect(
+        within(documentPage.getByRole("alertdialog", { name: "Leave profile editing?" })).getByRole("alert"),
+      ).toHaveTextContent("The draft was created, but your changes could not be saved."),
+    )
+    const openDialog = documentPage.getByRole("alertdialog", { name: "Leave profile editing?" })
+    await expect(openDialog).toBeVisible()
+    await expect(within(openDialog).getByRole("button", { name: "Save draft and leave" })).toBeEnabled()
   },
 }
 

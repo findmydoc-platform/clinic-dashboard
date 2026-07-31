@@ -5,6 +5,7 @@ import { composeClinicDashboardDataProviders } from "./data-provider-composition
 import { clinicDashboardDemoWorkspaceProvider } from "./demo/loader"
 import { getClinicDashboardAccess, getClinicDashboardAccessToken } from "./auth/server/public"
 import {
+  handleClinicProfileDraftCreate as handleClinicProfileDraftCreateWithProvider,
   handleClinicProfileDraftDiscard as handleClinicProfileDraftDiscardWithProvider,
   handleClinicProfileDraftSave as handleClinicProfileDraftSaveWithProvider,
   handleClinicProfileLoad as handleClinicProfileLoadWithProvider,
@@ -40,6 +41,10 @@ export function handleClinicProfileLoad(request: NextRequest) {
 
 export function handleClinicProfileDraftSave(request: NextRequest) {
   return handleClinicProfileDraftSaveWithProvider(request, createClinicProfileProvider)
+}
+
+export function handleClinicProfileDraftCreate(request: NextRequest) {
+  return handleClinicProfileDraftCreateWithProvider(request, createClinicProfileProvider)
 }
 
 export function handleClinicProfileDraftDiscard(request: NextRequest) {

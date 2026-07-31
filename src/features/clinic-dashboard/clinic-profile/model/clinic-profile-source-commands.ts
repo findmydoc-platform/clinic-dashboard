@@ -1,4 +1,5 @@
 import type {
+  ClinicProfileDraftCreateInput,
   ClinicProfileDraftDiscardInput,
   ClinicProfileDraftSaveInput,
   ClinicProfilePublishInput,
@@ -18,6 +19,7 @@ export class ClinicProfileSourceCommandError extends Error {
 }
 
 export type ClinicProfileSourceCommands = Readonly<{
+  createDraft: (input: ClinicProfileDraftCreateInput) => Promise<ClinicProfileSnapshot>
   discardDraft: (input: ClinicProfileDraftDiscardInput) => Promise<ClinicProfileSnapshot>
   loadSnapshot: () => Promise<ClinicProfileSnapshot>
   publishDraft: (input: ClinicProfilePublishInput) => Promise<ClinicProfileSnapshot>

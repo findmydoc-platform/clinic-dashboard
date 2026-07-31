@@ -45,28 +45,33 @@ days contain no times.
 `ClinicProfileSnapshot` contains the published editable values and revision, an optional active
 draft with its revision and published base revision, and safe Turkish city options.
 
-The server provider owns `loadSnapshot`, `saveDraft`, `discardDraft`, and `publishDraft`. Initial
-page loading and the same-origin BFF use the same composed provider. The browser uses:
+The server provider owns `loadSnapshot`, `createDraft`, `saveDraft`, `discardDraft`, and
+`publishDraft`. Initial page loading and the same-origin BFF use the same composed provider. The
+browser uses:
 
 - `GET /api/dashboard/profile`
+- `POST /api/dashboard/profile/draft`
 - `PUT /api/dashboard/profile/draft`
 - `POST /api/dashboard/profile/draft/discard`
 - `POST /api/dashboard/profile/publish`
 
 Mutations validate CSRF, derive authorization and clinic identity server-side, send expected
 revision values, and return private non-cacheable responses. Conflicts return `409` and never
-overwrite newer data.
+overwrite newer data. Entering edit mode remains local-only. The first save creates the Website
+draft from the current published revision and then replaces it with the local values using the
+returned numeric draft revision; later saves replace the existing draft directly.
 
 ## Interaction Contract
 
 - Read mode uses normal typography and information groups, never disabled form controls.
 - Without a draft, `Edit profile` starts a local working copy.
-- With a draft, published values remain visible with `Draft available`, `Published profile is
-shown`, and `Continue editing`.
+- With a changed draft, published values remain visible with `Draft available`, `Published profile
+is shown`, `Continue editing`, and a direct `Review & publish` action.
 - Dirty edit mode offers `Cancel editing` and `Save draft`.
 - A clean persisted draft offers `Discard draft` and `Review & publish`.
 - Leaving dirty edit mode requires an alert dialog with `Keep editing`, `Leave without saving`, and
-  `Save draft and leave`.
+  `Save draft and leave`. Save progress and failures are announced inside the open dialog, and a
+  failed save never dismisses it or loses local values.
 - Discard and destructive conflict reload use alert dialogs without a close icon or backdrop
   dismissal.
 - The address dialog edits street, house number, Turkish city, and postal code. Türkiye is visible
@@ -100,6 +105,12 @@ and returns to the edit conflict state.
 
 - An unavailable authoritative profile never falls back to fixture profile values. Gallery,
   doctors, and treatments remain usable.
+- If draft creation succeeds but the following replacement fails, the created server draft becomes
+  the saved baseline while the intended local values remain dirty; retry uses only the replacement
+  operation.
+- An unknown save outcome reloads the snapshot before another mutation. Matching local values count
+  as saved, an unchanged known baseline remains safely retryable, and unexpected revisions or values
+  enter the conflict state.
 - Conflict state keeps local values visible and copyable while save and publish are blocked.
 - Validation uses a summary plus field-associated errors and never relies on color alone.
 - Dialogs restore focus. Async save, publish, conflict, and failure states are announced.
