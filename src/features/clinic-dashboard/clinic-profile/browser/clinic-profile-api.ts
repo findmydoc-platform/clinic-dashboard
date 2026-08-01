@@ -148,6 +148,9 @@ function responseError(response: Response, isMutation = false) {
       "The clinic profile changed while it was being edited.",
     )
   }
+  if (isMutation && response.status === 404) {
+    return new ClinicProfileSourceCommandError("not-found", "The clinic profile draft no longer exists.")
+  }
   return new ClinicProfileSourceCommandError(
     isMutation && response.status >= 500 ? "unknown" : "rejected",
     "Clinic profile operation failed.",

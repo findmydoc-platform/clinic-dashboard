@@ -40,7 +40,7 @@ export function AlertDialog({
                 {description}
               </AlertDialogPrimitive.Description>
             </div>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">{actions}</div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">{actions}</div>
           </AlertDialogPrimitive.Popup>
         </AlertDialogPrimitive.Viewport>
       </AlertDialogPrimitive.Portal>

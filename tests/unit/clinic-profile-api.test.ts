@@ -109,6 +109,34 @@ describe("Clinic profile browser API", () => {
     ).rejects.toMatchObject({ outcome: "conflict" })
   })
 
+  it("surfaces a missing mutation draft as a distinct not-found outcome", async () => {
+    setCsrfCookie("csrf-token")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () => new Response(JSON.stringify({ code: "CLINIC_PROFILE_DRAFT_NOT_FOUND" }), { status: 404 }),
+      ),
+    )
+
+    await expect(
+      createClinicProfileSourceApiCommands().saveDraft({
+        draft: {
+          address: {
+            cityId: "city-istanbul",
+            houseNumber: "12",
+            street: "Bağdat Avenue",
+            zipCode: "00123",
+          },
+          descriptionText: "Clinic overview.",
+          name: "Clinic One",
+          supportedLanguages: ["english", "turkish"],
+        },
+        expectedDraftRevision: 1,
+        expectedPublishedRevision: 4,
+      }),
+    ).rejects.toMatchObject({ outcome: "not-found" })
+  })
+
   it("treats mutation 5xx responses as unknown outcomes but load failures as rejected", async () => {
     setCsrfCookie("csrf-token")
     vi.stubGlobal(

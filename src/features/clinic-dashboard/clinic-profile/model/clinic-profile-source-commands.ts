@@ -6,7 +6,7 @@ import type {
   ClinicProfileSnapshot,
 } from "./clinic-profile-source"
 
-export type ClinicProfileSourceCommandOutcome = "conflict" | "rejected" | "unknown"
+export type ClinicProfileSourceCommandOutcome = "conflict" | "not-found" | "rejected" | "unknown"
 
 export class ClinicProfileSourceCommandError extends Error {
   readonly outcome: ClinicProfileSourceCommandOutcome

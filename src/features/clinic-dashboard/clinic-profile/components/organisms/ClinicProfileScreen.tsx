@@ -92,6 +92,8 @@ type ClinicProfileScreenProps = Readonly<{
 export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps) {
   const galleryRef = useRef<HTMLElement>(null)
   const doctorsRef = useRef<HTMLElement>(null)
+  const reviewReturnFocusRef = useRef<HTMLButtonElement>(null)
+  const previousSourceModeRef = useRef(model.source.mode)
   const canManageProfile = isClinicProfileManagementInteractive(model.sourceProfileManagement)
   const canManageLegacyProfile = isClinicProfileManagementInteractive(model.profileManagement)
   const canManageDoctors = isClinicProfileManagementInteractive(model.doctorManagement)
@@ -115,6 +117,15 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
     return () => cancelAnimationFrame(frame)
   }, [model.focusTarget, onFocusHandled])
 
+  useEffect(() => {
+    const previousMode = previousSourceModeRef.current
+    previousSourceModeRef.current = model.source.mode
+    if (previousMode !== "review" || model.source.mode === "review") return
+
+    const frame = requestAnimationFrame(() => reviewReturnFocusRef.current?.focus({ preventScroll: true }))
+    return () => cancelAnimationFrame(frame)
+  }, [model.source.mode])
+
   const sourceActions = canManageProfile ? (
     model.source.mode === "view" ? (
       model.source.hasSavedDraft ? (
@@ -127,13 +138,17 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             Continue editing
           </Button>
           {model.source.hasSavedChanges ? (
-            <Button disabled={sourceBusy} onClick={actions.onProfileReview}>
+            <Button disabled={sourceBusy} onClick={actions.onProfileReview} ref={reviewReturnFocusRef}>
               Review &amp; publish
             </Button>
           ) : null}
         </>
       ) : (
-        <Button disabled={sourceBusy || !model.source.snapshot} onClick={actions.onProfileEdit}>
+        <Button
+          disabled={sourceBusy || !model.source.snapshot}
+          onClick={actions.onProfileEdit}
+          ref={reviewReturnFocusRef}
+        >
           Edit profile
         </Button>
       )
@@ -152,7 +167,11 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
           <Button disabled={sourceBusy} onClick={actions.onSourceDiscard} variant="ghost">
             Discard draft
           </Button>
-          <Button disabled={sourceBusy || !model.source.hasSavedChanges} onClick={actions.onProfileReview}>
+          <Button
+            disabled={sourceBusy || !model.source.hasSavedChanges}
+            onClick={actions.onProfileReview}
+            ref={reviewReturnFocusRef}
+          >
             Review &amp; publish
           </Button>
         </>
@@ -205,7 +224,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
               </p>
             </div>
           </div>
-          <Button onClick={actions.onSourceDiscard} variant="destructive">
+          <Button onClick={actions.onSourceDiscard} ref={reviewReturnFocusRef} variant="destructive">
             Reload latest
           </Button>
         </div>

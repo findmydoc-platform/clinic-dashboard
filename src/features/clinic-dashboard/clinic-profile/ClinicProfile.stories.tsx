@@ -116,6 +116,20 @@ export const PublishReview: Story = {
   },
 }
 
+export const PublishReviewReturnsFocus: Story = {
+  args: { sourceSnapshot: clinicProfileSourceDraftFixture },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    await userEvent.click(page.getByRole("button", { name: "Review & publish" }))
+    await expect(page.getByRole("dialog", { name: "Review and publish" })).toBeVisible()
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() =>
+      expect(page.queryByRole("dialog", { name: "Review and publish" })).not.toBeInTheDocument(),
+    )
+    await waitFor(() => expect(page.getByRole("button", { name: "Review & publish" })).toHaveFocus())
+  },
+}
+
 export const AddressEditing: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement)
@@ -161,6 +175,33 @@ export const UnsavedChangesGuard: Story = {
       ).not.toBeInTheDocument(),
     )
     await waitFor(() => expect(trigger).toHaveFocus())
+  },
+}
+
+export const MobileLeaveGuardActionsFollowFocusOrder: Story = {
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    const documentPage = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
+    await userEvent.type(page.getByRole("textbox", { name: "Clinic name" }), " updated")
+    await userEvent.click(page.getByRole("button", { name: "Cancel editing" }))
+    const dialog = await documentPage.findByRole("alertdialog", { name: "Leave profile editing?" })
+    const keepEditing = within(dialog).getByRole("button", { name: "Keep editing" })
+    const leaveWithoutSaving = within(dialog).getByRole("button", { name: "Leave without saving" })
+    const saveAndLeave = within(dialog).getByRole("button", { name: "Save draft and leave" })
+
+    expect(keepEditing.getBoundingClientRect().top).toBeLessThan(
+      leaveWithoutSaving.getBoundingClientRect().top,
+    )
+    expect(leaveWithoutSaving.getBoundingClientRect().top).toBeLessThan(
+      saveAndLeave.getBoundingClientRect().top,
+    )
+    keepEditing.focus()
+    await userEvent.tab()
+    await expect(leaveWithoutSaving).toHaveFocus()
+    await userEvent.tab()
+    await expect(saveAndLeave).toHaveFocus()
   },
 }
 

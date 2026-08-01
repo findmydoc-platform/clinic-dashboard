@@ -224,6 +224,28 @@ export function useClinicProfileSourceController({
     [commands, enterConflict],
   )
 
+  const reconcileMissingDraft = useCallback(
+    async (expectedPublishedRevision: number) => {
+      try {
+        const latest = await commands.loadSnapshot()
+        setSnapshot(latest)
+        if (!latest.draft && latest.published.revision === expectedPublishedRevision) {
+          setSavedBaseline(createClinicProfileDraftInput(latest.published))
+          setStatusMessage(
+            "The saved draft no longer exists. Your local changes are still here. Save again to create a new draft.",
+          )
+          return
+        }
+        enterConflict()
+      } catch {
+        enterConflict(
+          "The missing draft could not be reconciled because the latest profile is unavailable. Your local values are preserved below.",
+        )
+      }
+    },
+    [commands, enterConflict],
+  )
+
   const saveDraft = useCallback(
     async (leaveAfterSave = false) => {
       if (!snapshot || !workingDraft || operation !== "idle") return false
@@ -297,6 +319,8 @@ export function useClinicProfileSourceController({
           const outcome = errorOutcome(error)
           if (outcome === "conflict") {
             enterConflict()
+          } else if (outcome === "not-found") {
+            await reconcileMissingDraft(expectedPublishedRevision)
           } else if (outcome === "unknown") {
             return await reconcileUnknownSave(
               workingDraft,
@@ -324,6 +348,7 @@ export function useClinicProfileSourceController({
       finishDraftSaved,
       operation,
       reconcileUnknownCreate,
+      reconcileMissingDraft,
       reconcileUnknownSave,
       savedBaseline,
       snapshot,
@@ -422,7 +447,7 @@ export function useClinicProfileSourceController({
       const outcome = errorOutcome(error)
       if (outcome === "conflict") {
         enterConflict()
-      } else if (outcome === "unknown") {
+      } else if (outcome === "unknown" || outcome === "not-found") {
         try {
           const latest = await commands.loadSnapshot()
           applyPublishReconciliation(latest, attempt)
@@ -480,18 +505,18 @@ export function useClinicProfileSourceController({
       const outcome = errorOutcome(error)
       if (outcome === "conflict") {
         enterConflict()
-      } else if (outcome === "unknown") {
+      } else if (outcome === "unknown" || outcome === "not-found") {
         try {
           const latest = await commands.loadSnapshot()
           setSnapshot(latest)
-          if (!latest.draft) {
+          if (!latest.draft && latest.published.revision === expectedPublishedRevision) {
             setWorkingDraft(undefined)
             setSavedBaseline(undefined)
             setConfirmation(null)
             setMode("view")
             setStatusMessage("Draft discarded.")
           } else if (
-            latest.draft.revision === expectedDraftRevision &&
+            latest.draft?.revision === expectedDraftRevision &&
             latest.published.revision === expectedPublishedRevision &&
             areClinicProfileDraftInputsEqual(createClinicProfileDraftInput(latest.draft), expectedDraft)
           ) {

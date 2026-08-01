@@ -63,6 +63,41 @@ describe("clinic profile source controller", () => {
     expect(result.current.model.snapshot?.draft?.revision).toBe(3)
   })
 
+  it("reloads a missing draft and recreates it safely on the next save", async () => {
+    const persistedCommands = createClinicProfileSourceCommandsFixture()
+    const createDraft = vi.fn(persistedCommands.createDraft)
+    const saveDraft = vi
+      .fn<typeof persistedCommands.saveDraft>()
+      .mockRejectedValueOnce(new ClinicProfileSourceCommandError("not-found", "Draft removed elsewhere."))
+      .mockImplementation(persistedCommands.saveDraft)
+    const commands = { ...persistedCommands, createDraft, saveDraft }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceDraftFixture }),
+    )
+
+    act(() => result.current.actions.startEditing())
+    act(() => result.current.actions.changeName("Locally preserved clinic name"))
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(result.current.model.mode).toBe("edit")
+    expect(result.current.model.snapshot?.draft).toBeUndefined()
+    expect(result.current.model.workingDraft?.name).toBe("Locally preserved clinic name")
+    expect(result.current.model.isDirty).toBe(true)
+    expect(result.current.model.statusMessage).toContain("no longer exists")
+    expect(createDraft).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await result.current.actions.saveDraft()
+    })
+
+    expect(createDraft).toHaveBeenCalledWith({ expectedPublishedRevision: 4 })
+    expect(saveDraft).toHaveBeenCalledTimes(2)
+    expect(result.current.model.snapshot?.draft?.name).toBe("Locally preserved clinic name")
+    expect(result.current.model.isDirty).toBe(false)
+  })
+
   it("keeps a created baseline and retries only the update after a partial save failure", async () => {
     const persistedCommands = createClinicProfileSourceCommandsFixture()
     const createDraft = vi.fn(persistedCommands.createDraft)
@@ -337,6 +372,29 @@ describe("clinic profile source controller", () => {
     )
   })
 
+  it("reloads a missing publish draft and preserves the reviewed values in conflict", async () => {
+    const commands = {
+      ...createClinicProfileSourceCommandsFixture(),
+      publishDraft: async () => {
+        throw new ClinicProfileSourceCommandError("not-found", "Draft removed elsewhere.")
+      },
+    }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceDraftFixture }),
+    )
+
+    act(() => result.current.actions.requestReview())
+    await act(async () => {
+      await result.current.actions.publishDraft()
+    })
+
+    expect(result.current.model.mode).toBe("conflict")
+    expect(result.current.model.snapshot?.draft).toBeUndefined()
+    expect(result.current.model.workingDraft?.descriptionText).toBe(
+      clinicProfileSourceDraftFixture.draft?.descriptionText,
+    )
+  })
+
   it("blocks repeat publishing until an unresolved outcome is reloaded", async () => {
     const loadSnapshot = vi
       .fn()
@@ -382,6 +440,27 @@ describe("clinic profile source controller", () => {
       discardDraft: async (input: Parameters<typeof persistedCommands.discardDraft>[0]) => {
         await persistedCommands.discardDraft(input)
         throw new ClinicProfileSourceCommandError("unknown", "Response lost.")
+      },
+    }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceDraftFixture }),
+    )
+
+    act(() => result.current.actions.startEditing())
+    await act(async () => {
+      await result.current.actions.discardDraft()
+    })
+
+    expect(result.current.model.mode).toBe("view")
+    expect(result.current.model.snapshot?.draft).toBeUndefined()
+    expect(result.current.model.statusMessage).toBe("Draft discarded.")
+  })
+
+  it("reconciles a draft that was already discarded elsewhere", async () => {
+    const commands = {
+      ...createClinicProfileSourceCommandsFixture(),
+      discardDraft: async () => {
+        throw new ClinicProfileSourceCommandError("not-found", "Draft removed elsewhere.")
       },
     }
     const { result } = renderHook(() =>
