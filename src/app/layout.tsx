@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import type { ReactNode } from "react"
+import { Toaster } from "@/components/ui/sonner"
 import { ThemeProvider } from "@/providers/ThemeProvider"
 import "./globals.css"
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem>
           {children}
+          <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>
     </html>

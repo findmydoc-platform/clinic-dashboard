@@ -18,6 +18,23 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+const clinicProfileSnapshot = {
+  availableCities: [{ id: "city-istanbul", name: "Istanbul" }],
+  published: {
+    address: {
+      city: { id: "city-istanbul", name: "Istanbul" },
+      country: { code: "TR", name: "Türkiye" },
+      houseNumber: "12",
+      street: "Bağdat Avenue",
+      zipCode: "00123",
+    },
+    descriptionText: "Clinic overview.",
+    name: "Clinic One",
+    revision: 1,
+    supportedLanguages: ["english"],
+  },
+} as const
+
 describe("Clinic Dashboard data provider composition", () => {
   beforeEach(() => {
     for (const [key, value] of Object.entries(localEnvironment)) {
@@ -63,6 +80,48 @@ describe("Clinic Dashboard data provider composition", () => {
     })
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(
       "https://preview.findmydoc.eu/api/patientClinicInquiries",
+    )
+  })
+
+  it("selects the deterministic source-backed clinic profile in controlled mode", async () => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password") // pragma: allowlist secret
+    const fetcher = vi.fn()
+    vi.stubGlobal("fetch", fetcher)
+
+    const result = await composeClinicDashboardDataProviders(
+      "controlled-access-token",
+      "controlled-clinic",
+    ).profile.loadSnapshot()
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        draft: undefined,
+        published: { name: "Controlled Bosphorus Clinic", revision: 1 },
+      },
+    })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it("selects the Payload clinic profile adapter outside controlled mode", async () => {
+    const fetcher = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify(clinicProfileSnapshot), {
+          headers: {
+            "cache-control": "private, no-store",
+            "content-type": "application/json",
+            vary: "Authorization",
+          },
+        }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    await expect(
+      composeClinicDashboardDataProviders("access-token", "clinic-1").profile.loadSnapshot(),
+    ).resolves.toEqual({ ok: true, value: clinicProfileSnapshot })
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe(
+      "https://preview.findmydoc.eu/api/clinic-dashboard/profile",
     )
   })
 

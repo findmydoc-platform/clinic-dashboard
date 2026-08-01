@@ -5,11 +5,17 @@ import { composeClinicDashboardDataProviders } from "./data-provider-composition
 import { clinicDashboardDemoWorkspaceProvider } from "./demo/loader"
 import { getClinicDashboardAccess, getClinicDashboardAccessToken } from "./auth/server/public"
 import {
+  handleClinicProfileDraftCreate as handleClinicProfileDraftCreateWithProvider,
+  handleClinicProfileDraftDiscard as handleClinicProfileDraftDiscardWithProvider,
+  handleClinicProfileDraftSave as handleClinicProfileDraftSaveWithProvider,
+  handleClinicProfileLoad as handleClinicProfileLoadWithProvider,
+  handleClinicProfilePublish as handleClinicProfilePublishWithProvider,
   handleDoctorCreate as handleDoctorCreateWithProvider,
   handleDoctorImageReplace as handleDoctorImageReplaceWithProvider,
   handleDoctorSpecialtyCreate as handleDoctorSpecialtyCreateWithProvider,
   handleDoctorSpecialtyUpdate as handleDoctorSpecialtyUpdateWithProvider,
   handleDoctorUpdate as handleDoctorUpdateWithProvider,
+  type ClinicProfileProviderFactory,
   type DoctorProfileProviderFactory,
 } from "./clinic-profile/server/public"
 import {
@@ -25,6 +31,29 @@ const createPatientInquiryProvider: PatientInquiryProviderFactory = (accessToken
 
 const createDoctorProfileProvider: DoctorProfileProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).doctors
+
+const createClinicProfileProvider: ClinicProfileProviderFactory = (accessToken, clinicId) =>
+  composeClinicDashboardDataProviders(accessToken, clinicId).profile
+
+export function handleClinicProfileLoad(request: NextRequest) {
+  return handleClinicProfileLoadWithProvider(request, createClinicProfileProvider)
+}
+
+export function handleClinicProfileDraftSave(request: NextRequest) {
+  return handleClinicProfileDraftSaveWithProvider(request, createClinicProfileProvider)
+}
+
+export function handleClinicProfileDraftCreate(request: NextRequest) {
+  return handleClinicProfileDraftCreateWithProvider(request, createClinicProfileProvider)
+}
+
+export function handleClinicProfileDraftDiscard(request: NextRequest) {
+  return handleClinicProfileDraftDiscardWithProvider(request, createClinicProfileProvider)
+}
+
+export function handleClinicProfilePublish(request: NextRequest) {
+  return handleClinicProfilePublishWithProvider(request, createClinicProfileProvider)
+}
 
 export function handleDoctorCreate(request: NextRequest) {
   return handleDoctorCreateWithProvider(request, createDoctorProfileProvider)
@@ -81,9 +110,11 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
   }
 
   const providers = composeClinicDashboardDataProviders(accessToken, access.context.clinic.id)
-  const [doctorResult, inquiryResult] = await Promise.allSettled([
+  const canViewProfile = access.context.capabilities.includes("clinic-profile:view")
+  const [doctorResult, inquiryResult, profileResult] = await Promise.allSettled([
     providers.doctors.loadDirectory(),
     providers.inquiries.loadQueue(),
+    canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
   ])
 
   return {
@@ -100,5 +131,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
       inquiryResult.status === "fulfilled" && inquiryResult.value.ok
         ? inquiryResult.value.value
         : { inquiries: [], status: "temporarily-unavailable" },
+    profileSourceSnapshot:
+      profileResult.status === "fulfilled" && profileResult.value?.ok ? profileResult.value.value : undefined,
   }
 }

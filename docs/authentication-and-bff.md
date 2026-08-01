@@ -144,7 +144,8 @@ A redirect response fails without sending the Bearer token to the redirect targe
 The Dashboard consumes this synchronized bootstrap contract:
 
 ```ts
-type ClinicDashboardCapability = "clinic-profile:view" | "clinic-profile:edit"
+type ClinicDashboardCapability =
+  "clinic-profile:view" | "clinic-profile:edit" | "clinic-treatments:view" | "clinic-treatments:edit"
 
 type ClinicDashboardBootstrapDTO = {
   principal: {
@@ -161,9 +162,10 @@ type ClinicDashboardBootstrapDTO = {
 }
 ```
 
-The capability list contains each value exactly once in the order shown. It is a UI projection for profile display and
-editing controls, not a replacement for Payload authorization. Each later read or mutation must still authorize the
-current principal, clinic, document, and fields.
+The capability list accepts independent subsets and contains each included value exactly once. The current Website
+bootstrap returns all four values in the order shown. It is a UI projection for feature controls, not a replacement for
+Payload authorization. Each later read or mutation must still authorize the current principal, clinic, document, and
+fields.
 
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
 Supabase identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.

@@ -1,17 +1,23 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
+import { AlertDialog } from "@/components/ui/alert-dialog"
 import { AddressDialog } from "./components/molecules/AddressDialog"
 import { GalleryDialog } from "./components/molecules/GalleryDialog"
 import { OpeningHoursDialog } from "./components/molecules/OpeningHoursDialog"
-import { SpecialtyDialog } from "./components/molecules/SpecialtyDialog"
 import {
   ClinicProfileScreen,
   type ClinicProfileScreenActions,
 } from "./components/organisms/ClinicProfileScreen"
+import { PublishReviewDialog } from "./components/organisms/PublishReviewDialog"
 import { TreatmentDialog } from "./components/organisms/TreatmentDialog"
 import { useClinicProfileController } from "./hooks/useClinicProfileController"
+import { useClinicProfileSourceController } from "./hooks/useClinicProfileSourceController"
 import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
 import type { ClinicProfileDraft, ClinicProfileFocusTarget, MasterTreatment } from "./model/clinic-profile"
+import { resolveClinicProfileDraftInput } from "./model/clinic-profile-editing"
+import type { ClinicProfileSnapshot } from "./model/clinic-profile-source"
+import type { ClinicProfileSourceCommands } from "./model/clinic-profile-source-commands"
 import type { DoctorDirectorySnapshot, DoctorProfile } from "./model/doctor-profile"
 import type { DoctorProfileCommands } from "./model/doctor-profile-commands"
 import {
@@ -33,6 +39,9 @@ export type ClinicProfileProps = Readonly<{
   onProfileSaved?: (profile: ClinicProfileDraft) => void
   onTreatmentMissing?: () => void
   profileManagement: ClinicProfileManagementAccess
+  sourceProfileManagement: ClinicProfileManagementAccess
+  sourceCommands: ClinicProfileSourceCommands
+  sourceSnapshot?: ClinicProfileSnapshot
   treatmentCatalogue: readonly MasterTreatment[]
 }>
 
@@ -49,9 +58,12 @@ export function ClinicProfile({
   onProfileSaved,
   onTreatmentMissing,
   profileManagement,
+  sourceProfileManagement,
+  sourceCommands,
+  sourceSnapshot,
   treatmentCatalogue,
 }: ClinicProfileProps) {
-  const controller = useClinicProfileController({
+  const legacy = useClinicProfileController({
     commands,
     dialogAvailability: {
       profileManagement,
@@ -62,24 +74,42 @@ export function ClinicProfile({
     onProfileSaved,
     treatmentCatalogue,
   })
-  const { actions, dialog, model } = controller
+  const source = useClinicProfileSourceController({
+    commands: sourceCommands,
+    initialSnapshot: sourceSnapshot,
+  })
+  const { actions: legacyActions, dialog: legacyDialog, model: legacyModel } = legacy
+  const { actions: sourceActions, model: sourceModel } = source
+  const isSavingFromLeaveDialog = sourceModel.confirmation === "leave" && sourceModel.operation === "saving"
+
+  const sourceDisplayFields =
+    (sourceModel.mode === "edit" || sourceModel.mode === "conflict") &&
+    sourceModel.workingDraft &&
+    sourceModel.snapshot
+      ? resolveClinicProfileDraftInput(sourceModel.workingDraft, sourceModel.snapshot.availableCities)
+      : sourceModel.published
 
   const screenActions: ClinicProfileScreenActions = {
-    onAddressEdit: () => actions.openDialog("address"),
-    onDescriptionChange: actions.changeDescription,
+    onAddressEdit: () => sourceActions.setDialog("address"),
+    onDescriptionChange: sourceActions.changeDescription,
     onDoctorsChange: (doctors) => onDoctorsChange?.(doctors),
     onFocusHandled,
-    onGalleryOpen: () => actions.openDialog("gallery"),
-    onNameChange: actions.changeName,
-    onOpeningHoursEdit: () => actions.openDialog("hours"),
-    onProfileCancel: actions.cancelChanges,
-    onProfileSave: actions.saveChanges,
-    onRemovalUndo: actions.undoRemoval,
-    onSpecialtyDialogOpen: () => actions.openDialog("specialty"),
-    onSpecialtyRemove: actions.removeSpecialty,
-    onTreatmentCreate: () => actions.openTreatmentDialog(),
-    onTreatmentOpen: actions.openTreatmentDialog,
-    onTreatmentRemove: actions.removeTreatment,
+    onGalleryOpen: () => legacyActions.openDialog("gallery"),
+    onLanguagesChange: sourceActions.changeLanguages,
+    onLegacyCancel: legacyActions.cancelChanges,
+    onLegacySave: legacyActions.saveChanges,
+    onNameChange: sourceActions.changeName,
+    onOpeningHoursEdit: () => sourceActions.setDialog("hours"),
+    onProfileCancel: sourceActions.requestCancel,
+    onProfileEdit: sourceActions.startEditing,
+    onProfileReview: sourceActions.requestReview,
+    onProfileSave: () => void sourceActions.saveDraft(),
+    onRemovalUndo: legacyActions.undoRemoval,
+    onSourceDiscard: () =>
+      sourceActions.setConfirmation(sourceModel.mode === "conflict" ? "reload" : "discard"),
+    onTreatmentCreate: () => legacyActions.openTreatmentDialog(),
+    onTreatmentOpen: legacyActions.openTreatmentDialog,
+    onTreatmentRemove: legacyActions.removeTreatment,
   }
 
   return (
@@ -87,62 +117,171 @@ export function ClinicProfile({
       <ClinicProfileScreen
         actions={screenActions}
         model={{
-          focusTarget,
           doctorCommands,
           doctorDirectory,
           doctorManagement,
+          focusTarget,
+          legacyIsDirty: legacyModel.isDirty,
+          legacyProfile: legacyModel.profile,
+          legacySaveState: legacyModel.saveState,
+          legacyStatusMessage: legacyModel.statusMessage,
           profileManagement,
-          treatments: model.treatmentViews,
-          ...model,
+          sourceProfileManagement,
+          source: {
+            changeSet: sourceModel.changeSet,
+            displayFields: sourceDisplayFields,
+            hasSavedChanges: sourceModel.hasSavedChanges,
+            hasSavedDraft: Boolean(sourceModel.snapshot?.draft),
+            isDirty: sourceModel.isDirty,
+            mode: sourceModel.mode,
+            operation: sourceModel.operation,
+            snapshot: sourceModel.snapshot,
+            statusMessage: sourceModel.statusMessage,
+            validationErrors: sourceModel.validationErrors,
+            workingDraft: sourceModel.workingDraft,
+          },
+          treatments: legacyModel.treatmentViews,
+          undoKind: legacyModel.undoKind,
+          undoMessage: legacyModel.undoMessage,
         }}
       />
-      {dialog === "address" ? (
+
+      {sourceModel.dialog === "address" && sourceModel.workingDraft && sourceModel.snapshot ? (
         <AddressDialog
-          address={model.profile.address}
-          onOpenChange={(open) => actions.setDialogOpen("address", open)}
-          onSave={actions.saveAddress}
+          address={sourceModel.workingDraft.address}
+          cities={sourceModel.snapshot.availableCities}
+          errors={sourceModel.validationErrors}
+          onOpenChange={(open) => sourceActions.setDialog(open ? "address" : null)}
+          onSave={sourceActions.saveAddress}
           open
         />
       ) : null}
-      {dialog === "gallery" ? (
-        <GalleryDialog
-          gallery={model.profile.gallery}
-          isReadOnly={!isClinicProfileManagementInteractive(profileManagement)}
-          onOpenChange={(open) => actions.setDialogOpen("gallery", open)}
-          onSelectCover={actions.selectGalleryCover}
-          open
-        />
-      ) : null}
-      {dialog === "hours" ? (
+      {sourceModel.dialog === "hours" && sourceModel.workingDraft ? (
         <OpeningHoursDialog
-          entries={model.profile.openingHours}
-          onOpenChange={(open) => actions.setDialogOpen("hours", open)}
-          onSave={actions.saveOpeningHours}
+          entries={sourceModel.workingDraft.openingHours}
+          errors={sourceModel.validationErrors}
+          onOpenChange={(open) => sourceActions.setDialog(open ? "hours" : null)}
+          onSave={sourceActions.saveOpeningHours}
           open
         />
       ) : null}
-      {dialog === "specialty" ? (
-        <SpecialtyDialog
-          existing={model.profile.specialties}
-          onAdd={actions.addSpecialty}
-          onOpenChange={(open) => actions.setDialogOpen("specialty", open)}
-          open
-        />
-      ) : null}
-      {dialog === "treatment" &&
-      isClinicProfileManagementVisible(profileManagement) &&
-      (model.selectedTreatment || isClinicProfileManagementInteractive(profileManagement)) ? (
-        <TreatmentDialog
-          availableTreatments={model.availableMasterTreatments}
-          initialTreatment={model.selectedTreatment}
+
+      {legacyDialog === "gallery" ? (
+        <GalleryDialog
+          gallery={legacyModel.profile.gallery}
           isReadOnly={!isClinicProfileManagementInteractive(profileManagement)}
-          key={model.selectedTreatment?.masterTreatmentId ?? "new-treatment"}
-          onOpenChange={(open) => actions.setDialogOpen("treatment", open)}
-          onSave={actions.saveTreatment}
+          onOpenChange={(open) => legacyActions.setDialogOpen("gallery", open)}
+          onSelectCover={legacyActions.selectGalleryCover}
+          open
+        />
+      ) : null}
+      {legacyDialog === "treatment" &&
+      isClinicProfileManagementVisible(profileManagement) &&
+      (legacyModel.selectedTreatment || isClinicProfileManagementInteractive(profileManagement)) ? (
+        <TreatmentDialog
+          availableTreatments={legacyModel.availableMasterTreatments}
+          initialTreatment={legacyModel.selectedTreatment}
+          isReadOnly={!isClinicProfileManagementInteractive(profileManagement)}
+          key={legacyModel.selectedTreatment?.masterTreatmentId ?? "new-treatment"}
+          onOpenChange={(open) => legacyActions.setDialogOpen("treatment", open)}
+          onSave={legacyActions.saveTreatment}
           onTreatmentMissing={onTreatmentMissing}
           open
         />
       ) : null}
+
+      {sourceModel.mode === "review" && sourceModel.changeSet ? (
+        <PublishReviewDialog
+          changeSet={sourceModel.changeSet}
+          errors={sourceModel.validationErrors}
+          isResolvingOutcome={sourceModel.operation === "loading"}
+          isPublishing={sourceModel.operation === "publishing"}
+          onBack={() => sourceActions.setMode("edit")}
+          onPublish={sourceActions.publishDraft}
+          onResolveOutcome={sourceActions.resolvePublishOutcome}
+          open
+          outcomeUnresolved={sourceModel.publishOutcomeUnresolved}
+          statusMessage={sourceModel.statusMessage}
+        />
+      ) : null}
+
+      <AlertDialog
+        actions={
+          <>
+            <Button
+              disabled={isSavingFromLeaveDialog}
+              onClick={() => sourceActions.setConfirmation(null)}
+              variant="outline"
+            >
+              Keep editing
+            </Button>
+            <Button
+              disabled={isSavingFromLeaveDialog}
+              onClick={sourceActions.leaveWithoutSaving}
+              variant="destructive"
+            >
+              Leave without saving
+            </Button>
+            <Button disabled={isSavingFromLeaveDialog} onClick={() => void sourceActions.saveDraft(true)}>
+              {isSavingFromLeaveDialog ? "Saving…" : "Save draft and leave"}
+            </Button>
+          </>
+        }
+        description={
+          <span className="grid gap-3">
+            <span>You have local changes that have not been saved as a draft.</span>
+            {sourceModel.confirmation === "leave" && sourceModel.statusMessage ? (
+              <span
+                className="border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_28%,var(--background))] px-3 py-2 text-[var(--secondary)]"
+                role="alert"
+              >
+                {sourceModel.statusMessage}
+              </span>
+            ) : null}
+          </span>
+        }
+        onOpenChange={(open) => {
+          if (!open && !isSavingFromLeaveDialog) sourceActions.setConfirmation(null)
+        }}
+        open={sourceModel.confirmation === "leave"}
+        title="Leave profile editing?"
+      />
+      <AlertDialog
+        actions={
+          <>
+            <Button onClick={() => sourceActions.setConfirmation(null)} variant="outline">
+              Keep draft
+            </Button>
+            <Button onClick={sourceActions.discardDraft} variant="destructive">
+              Discard draft
+            </Button>
+          </>
+        }
+        description="This permanently removes the saved draft. The published profile remains unchanged."
+        onOpenChange={(open) => {
+          if (!open) sourceActions.setConfirmation(null)
+        }}
+        open={sourceModel.confirmation === "discard"}
+        title="Discard saved draft?"
+      />
+      <AlertDialog
+        actions={
+          <>
+            <Button onClick={() => sourceActions.setConfirmation(null)} variant="outline">
+              Keep local values
+            </Button>
+            <Button onClick={sourceActions.reloadLatest} variant="destructive">
+              Reload latest
+            </Button>
+          </>
+        }
+        description="Reloading replaces the local values shown here with the latest saved profile and draft."
+        onOpenChange={(open) => {
+          if (!open) sourceActions.setConfirmation(null)
+        }}
+        open={sourceModel.confirmation === "reload"}
+        title="Replace local values?"
+      />
     </>
   )
 }

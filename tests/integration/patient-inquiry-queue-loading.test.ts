@@ -5,6 +5,7 @@ const serverMocks = vi.hoisted(() => ({
   getClinicDashboardAccess: vi.fn(),
   getClinicDashboardAccessToken: vi.fn(),
   loadDirectory: vi.fn(),
+  loadProfile: vi.fn(),
   loadWorkspace: vi.fn(),
   loadQueue: vi.fn(),
 }))
@@ -49,11 +50,16 @@ describe("Patient inquiry queue server loading", () => {
     serverMocks.loadWorkspace.mockResolvedValue(workspace)
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
+        capabilities: ["clinic-profile:view", "clinic-profile:edit"],
         clinic: { id: "clinic-1", name: "Clinic One" },
       },
       status: "approved",
     })
     serverMocks.loadDirectory.mockResolvedValue({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+    serverMocks.loadProfile.mockResolvedValue({
       error: "temporarily-unavailable",
       ok: false,
     })
@@ -64,6 +70,9 @@ describe("Patient inquiry queue server loading", () => {
       inquiries: {
         changeStatus: vi.fn(),
         loadQueue: serverMocks.loadQueue,
+      },
+      profile: {
+        loadSnapshot: serverMocks.loadProfile,
       },
     })
   })
@@ -145,5 +154,25 @@ describe("Patient inquiry queue server loading", () => {
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({ doctorDirectory })
     expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("access-token", "clinic-1")
     expect(serverMocks.loadDirectory).toHaveBeenCalledOnce()
+  })
+
+  it("does not load source-backed profile data without the view capability", async () => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: ["clinic-profile:edit"],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+      },
+      status: "approved",
+    })
+    serverMocks.loadQueue.mockResolvedValue({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+
+    const input = await loadClinicDashboardWorkspaceInput()
+
+    expect(input.profileSourceSnapshot).toBeUndefined()
+    expect(serverMocks.loadProfile).not.toHaveBeenCalled()
   })
 })

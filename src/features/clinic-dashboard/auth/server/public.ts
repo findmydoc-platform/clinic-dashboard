@@ -18,5 +18,5 @@ export {
   validateEmailCallbackRequest,
 } from "./callback"
 export { hasControlledSession } from "./session"
-export { resolveClinicDashboardMutationAccess } from "./route-access"
+export { resolveClinicDashboardMutationAccess, resolveClinicDashboardRouteAccess } from "./route-access"
 export { createProxySupabaseClient } from "./supabase-client"

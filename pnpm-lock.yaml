@@ -33,6 +33,9 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
+      diff:
+        specifier: 9.0.0
+        version: 9.0.0
       lucide-react:
         specifier: 1.22.0
         version: 1.22.0(react@19.2.7)
@@ -48,6 +51,9 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+      sonner:
+        specifier: 2.0.7
+        version: 2.0.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       tailwind-merge:
         specifier: 3.6.0
         version: 3.6.0
@@ -4622,6 +4628,13 @@ packages:
       }
     engines: { node: ">=0.3.1" }
 
+  diff@9.0.0:
+    resolution:
+      {
+        integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==,
+      }
+    engines: { node: ">=0.3.1" }
+
   doctrine@2.1.0:
     resolution:
       {
@@ -7543,6 +7556,15 @@ packages:
         integrity: sha512-aqVvWoyO21L23mb+drl4RmMXbf6N7FdHjAhTRA9ZBL7apWBgfWC16KjrASI+1p9GAroljyMHj6fK67i0UiTNvQ==,
       }
     engines: { node: ">= 18" }
+
+  sonner@2.0.7:
+    resolution:
+      {
+        integrity: sha512-W6ZN4p58k8aDKA4XPcx2hpIQXBRAgyiWVkYhT7CvK6D3iAu7xjvVyhQHg2/iaKJZ1XVJ4r7XuwGL+WGEK37i9w==,
+      }
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
 
   source-map-js@1.2.1:
     resolution:
@@ -11038,6 +11060,8 @@ snapshots:
 
   diff@8.0.4: {}
 
+  diff@9.0.0: {}
+
   doctrine@2.1.0:
     dependencies:
       esutils: 2.0.3
@@ -13073,6 +13097,11 @@ snapshots:
   sisteransi@1.0.5: {}
 
   smol-toml@1.7.0: {}
+
+  sonner@2.0.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
+    dependencies:
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
 
   source-map-js@1.2.1: {}
 

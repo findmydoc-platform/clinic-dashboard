@@ -1,5 +1,6 @@
 import type {
   ClinicProfileDraft,
+  ClinicProfileSnapshot,
   DoctorDirectorySnapshot,
   MasterTreatment,
 } from "@/features/clinic-dashboard/clinic-profile/public"
@@ -49,6 +50,7 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
   defaultLocationId: ClinicDashboardLocationId
   doctorDirectory: DoctorDirectorySnapshot
   inquiryQueue: PatientInquiryQueueSnapshot
+  profileSourceSnapshot?: ClinicProfileSnapshot
   locations: readonly ClinicDashboardLocation[]
   locationSnapshots: Readonly<Record<ClinicDashboardLocationId, ClinicDashboardLocationSnapshot>>
   notifications: readonly ClinicDashboardNotification[]

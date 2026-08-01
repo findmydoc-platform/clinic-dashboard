@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, userEvent, waitFor, within } from "storybook/test"
+import { expect, fn, within } from "storybook/test"
 import { selectClinicTreatmentViews } from "../../model/clinic-treatments"
 import { clinicProfileFixture, clinicTreatmentCatalogueFixture } from "../../testing/clinic-profile.fixtures"
+import { clinicProfileSourceFixture } from "../../testing/clinic-profile-source.fixtures"
 import {
   createDoctorProfileCommandsFixture,
   doctorDirectoryFixture,
@@ -18,13 +19,17 @@ const actions = {
   onDoctorsChange: fn(),
   onFocusHandled: fn(),
   onGalleryOpen: fn(),
+  onLanguagesChange: fn(),
+  onLegacyCancel: fn(),
+  onLegacySave: fn(),
   onNameChange: fn(),
   onOpeningHoursEdit: fn(),
   onProfileCancel: fn(),
+  onProfileEdit: fn(),
+  onProfileReview: fn(),
   onProfileSave: fn(),
   onRemovalUndo: fn(),
-  onSpecialtyDialogOpen: fn(),
-  onSpecialtyRemove: fn(),
+  onSourceDiscard: fn(),
   onTreatmentCreate: fn(),
   onTreatmentOpen: fn(),
   onTreatmentRemove: fn(),
@@ -35,20 +40,34 @@ const treatmentViews = selectClinicTreatmentViews(
   clinicProfileFixture.treatments,
 )
 
-const readOnlyModel = {
+const publishedModel = {
   doctorCommands: createDoctorProfileCommandsFixture(),
   doctorDirectory: doctorDirectoryFixture,
-  doctorManagement: "hidden",
-  isDirty: false,
-  profile: clinicProfileFixture,
-  profileManagement: "hidden",
-  saveState: "idle",
-  statusMessage: "",
+  doctorManagement: "interactive",
+  legacyIsDirty: false,
+  legacyProfile: clinicProfileFixture,
+  legacySaveState: "idle",
+  legacyStatusMessage: "",
+  profileManagement: "interactive",
+  sourceProfileManagement: "interactive",
+  source: {
+    displayFields: clinicProfileSourceFixture.published,
+    hasSavedChanges: false,
+    hasSavedDraft: false,
+    isDirty: false,
+    mode: "view",
+    operation: "idle",
+    snapshot: clinicProfileSourceFixture,
+    statusMessage: "",
+    validationErrors: {},
+  },
   treatments: treatmentViews,
 } satisfies ClinicProfileScreenModel
 
 const meta = {
+  args: { actions, model: publishedModel },
   component: ClinicProfileScreen,
+  parameters: { layout: "fullscreen" },
   tags: ["domain:clinic-profile", "layer:organism", "status:prototype"],
   title: "Clinic Dashboard/Clinic Profile/Organisms/Clinic Profile Screen",
 } satisfies Meta<typeof ClinicProfileScreen>
@@ -56,53 +75,83 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const ManagementUnavailable: Story = {
+export const PublishedProfile: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Edit profile" })).toBeVisible()
+    await expect(canvas.queryByRole("textbox", { name: "Clinic name" })).not.toBeInTheDocument()
+  },
+}
+
+export const DraftAvailable: Story = {
   args: {
-    actions,
-    model: readOnlyModel,
+    model: {
+      ...publishedModel,
+      source: { ...publishedModel.source, hasSavedChanges: true, hasSavedDraft: true },
+    },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-
-    await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toBeDisabled()
-    await expect(canvas.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument()
-    await expect(canvas.queryByRole("button", { name: "Add doctor" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Continue editing" })).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Review & publish" })).toBeEnabled()
   },
 }
 
-export const EditableWithUndo: Story = {
+export const EditingDirty: Story = {
   args: {
-    actions,
     model: {
-      ...readOnlyModel,
-      doctorManagement: "interactive",
-      isDirty: true,
-      profileManagement: "interactive",
-      statusMessage: "Treatment removed.",
-      undoKind: "treatment",
-      undoMessage: "FUE hair transplant removed. Undo restores this item.",
+      ...publishedModel,
+      source: {
+        ...publishedModel.source,
+        hasSavedChanges: false,
+        isDirty: true,
+        mode: "edit",
+      },
     },
   },
-  play: async ({ args, canvasElement }) => {
+}
+
+export const Conflict: Story = {
+  args: {
+    model: {
+      ...publishedModel,
+      source: {
+        ...publishedModel.source,
+        isDirty: true,
+        mode: "conflict",
+        statusMessage: "The published profile or draft changed elsewhere.",
+      },
+    },
+  },
+}
+
+export const ProfileUnavailable: Story = {
+  args: {
+    model: {
+      ...publishedModel,
+      source: {
+        hasSavedChanges: false,
+        hasSavedDraft: false,
+        isDirty: false,
+        mode: "view",
+        operation: "idle",
+        statusMessage: "",
+        validationErrors: {},
+      },
+    },
+  },
+}
+
+export const SourceProfileReadOnlyKeepsLegacyControls: Story = {
+  args: {
+    model: {
+      ...publishedModel,
+      sourceProfileManagement: "read-only",
+    },
+  },
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByRole("button", { name: "Add doctor" })).toBeEnabled()
-    await userEvent.click(canvas.getByRole("button", { name: "Undo removal" }))
-    await expect(args.actions.onRemovalUndo).toHaveBeenCalledOnce()
-  },
-}
-
-export const DoctorsFocusRequest: Story = {
-  args: {
-    actions,
-    model: {
-      ...readOnlyModel,
-      focusTarget: "doctors",
-    },
-  },
-  play: async ({ args, canvasElement }) => {
-    const doctors = within(canvasElement).getByRole("heading", { name: "Doctors" }).closest("section")
-    if (!doctors) throw new Error("Doctor directory is required.")
-    await waitFor(() => expect(doctors).toHaveFocus())
-    await expect(args.actions.onFocusHandled).toHaveBeenCalledOnce()
+    await expect(canvas.queryByRole("button", { name: "Edit profile" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "New treatment" })).toBeVisible()
   },
 }
