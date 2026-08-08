@@ -30,6 +30,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Determine zizmor inputs
+        id: zizmor-inputs
+        run: |
+          set -euo pipefail
+          online_inputs="$(git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/**' | grep -v '^\.github/workflows/platform-release-deploy\.yml$' | tr '\n' ' ' | sed -E 's/[[:space:]]+$//' || true)"
+          echo "online_inputs=${online_inputs}" >> "$GITHUB_OUTPUT"
+
       - name: Workflow lint
         uses: reviewdog/action-actionlint@0d952c597ef8459f634d7145b0b044a9699e5e43 # v1.71.0
         with:
@@ -38,10 +45,21 @@ jobs:
           fail_level: error
 
       - name: Workflow security audit
+        if: steps.zizmor-inputs.outputs.online_inputs != ''
         uses: zizmorcore/zizmor-action@0dce2577a4760a2749d8cfb7a84b7d5585ebcb7d # v0.5.0
         with:
           advanced-security: "false"
           annotations: "true"
+          inputs: ${{ steps.zizmor-inputs.outputs.online_inputs }}
+          persona: regular
+
+      - name: Private internal workflow security audit
+        uses: zizmorcore/zizmor-action@0dce2577a4760a2749d8cfb7a84b7d5585ebcb7d # v0.5.0
+        with:
+          advanced-security: "false"
+          annotations: "true"
+          inputs: .github/workflows/platform-release-deploy.yml
+          online-audits: "false"
           persona: regular
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
