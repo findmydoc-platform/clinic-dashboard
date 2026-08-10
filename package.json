@@ -91,7 +91,7 @@
   },
   "pnpm": {
     "overrides": {
-      "fast-uri": "3.1.4",
+      "fast-uri": "3.1.5",
       "next@16.2.12>postcss": "8.5.23",
       "next@16.2.12>sharp": "0.35.0"
     }
