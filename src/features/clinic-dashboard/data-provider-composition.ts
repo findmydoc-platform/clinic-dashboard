@@ -10,11 +10,15 @@ import { createPayloadDoctorProfileProvider } from "./clinic-profile/server/payl
 import { createControlledPatientInquiryProvider } from "./messages/server/controlled-inquiries"
 import type { PatientInquiryProvider } from "./messages/server/patient-inquiry-provider"
 import { createPayloadPatientInquiryProvider } from "./messages/server/payload-inquiries"
+import { createControlledReviewProvider } from "./reviews/server/controlled-reviews"
+import { createPayloadReviewProvider } from "./reviews/server/payload-reviews"
+import type { ReviewProvider } from "./reviews/server/review-provider"
 
 export type ClinicDashboardDataProviders = Readonly<{
   doctors: DoctorProfileProvider
   inquiries: PatientInquiryProvider
   profile: ClinicProfileProvider
+  reviews: ReviewProvider
 }>
 
 export function composeClinicDashboardDataProviders(
@@ -41,5 +45,8 @@ export function composeClinicDashboardDataProviders(
     profile: controlled
       ? createControlledClinicProfileProvider()
       : createPayloadClinicProfileProvider(accessToken, clinicId),
+    reviews: controlled
+      ? createControlledReviewProvider()
+      : createPayloadReviewProvider(accessToken, clinicId),
   }
 }

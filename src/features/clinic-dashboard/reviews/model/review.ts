@@ -1,6 +1,6 @@
 import { cloneReviewAppealCase, type ReviewAppealCase } from "./appeal-case"
 
-export const reviewStatuses = ["Answered", "Open", "Under review"] as const
+const reviewStatuses = ["Answered", "Open", "Under review"] as const
 
 const pendingReviewResponseStatus = "pending-moderation" as const
 

@@ -1,191 +1,242 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from "react"
-import type { ReviewCommands } from "../model/review-commands"
-import type { ReviewsSnapshot } from "../model/reviews-snapshot"
-import { createReviewsState, reviewsReducer } from "../model/reviews.reducer"
-import { selectReviewsViewModel } from "../model/reviews.selectors"
-import type { ReviewsActions } from "../model/reviews-view-model"
+import { useCallback, useRef, useState } from "react"
+import type { ReviewSourceCommands } from "../model/review-source-commands"
+import { ReviewSourceCommandError } from "../model/review-source-commands"
+import {
+  canSubmitReviewResponse,
+  defaultReviewListFilters,
+  type ReviewHistorySnapshot,
+  type ReviewListFilters,
+  type ReviewsSourceSnapshot,
+} from "../model/review-source"
+import type { ReviewDialogModel, ReviewsActions } from "../model/reviews-view-model"
 
-type UseReviewsControllerInput = Readonly<{
-  commands: ReviewCommands
+type Input = Readonly<{
+  commands: ReviewSourceCommands
   showManagement: boolean
-  snapshot: ReviewsSnapshot
+  snapshot?: ReviewsSourceSnapshot
 }>
 
-const reviewRefreshDelayMs = 320
+function errorMessage(error: unknown, action: "history" | "load" | "mutation") {
+  if (error instanceof ReviewSourceCommandError) {
+    if (error.kind === "conflict") return "This workflow changed. Refresh the reviews and try again."
+    if (error.kind === "not-found") return "This review is no longer available."
+    if (error.kind === "timeout") return "The review service took too long to respond. Try again."
+    if (error.kind === "rejected")
+      return "The request could not be accepted. Check the details and try again."
+  }
+  if (action === "history") return "Review history could not be loaded. Try again."
+  if (action === "mutation") return "The change could not be submitted. Try again."
+  return "Reviews are temporarily unavailable. Try again."
+}
 
-export function useReviewsController({ commands, showManagement, snapshot }: UseReviewsControllerInput) {
-  const [state, dispatch] = useReducer(reviewsReducer, snapshot.items, createReviewsState)
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const managementEnabledRef = useRef(showManagement)
-  const mutationGenerationRef = useRef(0)
+export function useReviewsController({ commands, showManagement, snapshot: initialSnapshot }: Input) {
+  const [snapshot, setSnapshot] = useState(initialSnapshot)
+  const [appliedFilters, setAppliedFilters] = useState<ReviewListFilters>(defaultReviewListFilters)
+  const [draftFilters, setDraftFilters] = useState<ReviewListFilters>(defaultReviewListFilters)
+  const [dialog, setDialog] = useState<ReviewDialogModel>({ kind: "closed" })
+  const [isLoading, setIsLoading] = useState(false)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [statusMessage, setStatusMessage] = useState(
+    initialSnapshot ? "" : "Reviews are temporarily unavailable.",
+  )
+  const dialogOperationId = useRef(0)
+  const requestId = useRef(0)
 
-  useEffect(
-    () => () => {
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
+  const load = useCallback(
+    async (filters: ReviewListFilters, page: number, successMessage = "") => {
+      const currentRequest = ++requestId.current
+      setIsLoading(true)
+      setStatusMessage("Loading reviews…")
+      try {
+        const next = await commands.loadReviews(filters, page)
+        if (currentRequest !== requestId.current) return
+        setSnapshot(next)
+        setStatusMessage(successMessage)
+      } catch (error) {
+        if (currentRequest !== requestId.current) return
+        setStatusMessage(errorMessage(error, "load"))
+      } finally {
+        if (currentRequest === requestId.current) setIsLoading(false)
+      }
     },
-    [],
+    [commands],
   )
 
-  useLayoutEffect(() => {
-    const wasManagementEnabled = managementEnabledRef.current
-    managementEnabledRef.current = showManagement
-    if (showManagement) return
-
-    if (wasManagementEnabled) mutationGenerationRef.current += 1
-  }, [showManagement])
-
-  useEffect(() => {
-    if (showManagement) return
-
-    if (refreshTimerRef.current) {
-      clearTimeout(refreshTimerRef.current)
-      refreshTimerRef.current = undefined
-    }
-    dispatch({ type: "management-withdrawn" })
-  }, [showManagement])
-
-  const model = selectReviewsViewModel(state, snapshot, showManagement)
-  const dispatchIfManagement = (action: Parameters<typeof dispatch>[0]) => {
-    if (showManagement) dispatch(action)
+  const findReview = (reviewId: string) => snapshot?.page.items.find(({ id }) => id === reviewId)
+  const replaceReview = (reviewId: string, review: NonNullable<ReturnType<typeof findReview>>) => {
+    setSnapshot((current) =>
+      current
+        ? {
+            ...current,
+            page: {
+              ...current.page,
+              items: current.page.items.map((item) => (item.id === reviewId ? review : item)),
+            },
+          }
+        : current,
+    )
   }
 
-  const applyFilters = () => dispatchIfManagement({ type: "filters-applied" })
-  const changeDraftFilters = (filters: Parameters<ReviewsActions["changeDraftFilters"]>[0]) =>
-    dispatchIfManagement({ filters, type: "draft-filters-changed" })
-  const changeMobileFiltersOpen = (isOpen: boolean) =>
-    dispatchIfManagement({ isOpen, type: "mobile-filters-open-changed" })
-  const changePage = (page: number) => dispatchIfManagement({ page, type: "page-changed" })
-  const closeReviewDialog = () => dispatch({ type: "review-dialog-closed" })
-  const openReviewAppeal = (reviewId: string) =>
-    dispatchIfManagement({ reviewId, type: "review-appeal-opened" })
-  const openReviewHistory = (reviewId: string) =>
-    dispatchIfManagement({ reviewId, type: "review-history-opened" })
-  const openReviewNote = (reviewId: string) => dispatchIfManagement({ reviewId, type: "review-note-opened" })
-  const openReviewResponse = (reviewId: string) =>
-    dispatchIfManagement({ reviewId, type: "review-response-opened" })
-
-  const refreshReviews = () => {
-    if (!showManagement) return
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
-    dispatch({ type: "refresh-started" })
-    refreshTimerRef.current = setTimeout(() => {
-      dispatch({
-        statusMessage: "Reviews refreshed.",
-        type: "refresh-completed",
+  const openHistory = async (reviewId: string) => {
+    const review = findReview(reviewId)
+    if (!review) return
+    const operationId = ++dialogOperationId.current
+    setDialog({ isLoading: true, isLoadingOlder: false, kind: "history", review })
+    try {
+      const history = await commands.loadHistory(reviewId)
+      if (operationId !== dialogOperationId.current) return
+      setDialog({ history, isLoading: false, isLoadingOlder: false, kind: "history", review })
+    } catch (error) {
+      if (operationId !== dialogOperationId.current) return
+      setDialog({
+        error: errorMessage(error, "history"),
+        isLoading: false,
+        isLoadingOlder: false,
+        kind: "history",
+        review,
       })
-      refreshTimerRef.current = undefined
-    }, reviewRefreshDelayMs)
+    }
   }
 
-  const focusReview = useCallback(
-    (reviewId: string) => {
-      const reviewIndex = state.reviews.findIndex(({ id }) => id === reviewId)
-      if (reviewIndex < 0) return false
-
-      dispatch({ page: Math.floor(reviewIndex / 3) + 1, type: "review-targeted" })
-      return true
-    },
-    [state.reviews],
-  )
-
-  const markReviewAppealUnderReview: ReviewsActions["markReviewAppealUnderReview"] = async () => {
-    if (!showManagement) return "discarded"
-    if (state.dialog.kind !== "history") return "discarded"
-
-    const reviewId = state.dialog.reviewId
-    const selectedReview = state.reviews.find((review) => review.id === reviewId)
-    if (!selectedReview || selectedReview.appealCase?.status !== "submitted") return "discarded"
-
-    const mutationGeneration = mutationGenerationRef.current
-    const review = await commands.markReviewAppealUnderReview(selectedReview)
-    if (!managementEnabledRef.current || mutationGeneration !== mutationGenerationRef.current) {
-      return "discarded"
+  const loadOlderHistory = async () => {
+    if (dialog.kind !== "history" || !dialog.history?.publication.nextCursor) return
+    const current = dialog
+    const currentHistory = dialog.history
+    const operationId = ++dialogOperationId.current
+    setDialog({ ...current, error: undefined, isLoadingOlder: true })
+    try {
+      const next = await commands.loadHistory(current.review.id, currentHistory.publication.nextCursor)
+      if (operationId !== dialogOperationId.current) return
+      setDialog({
+        ...current,
+        history: {
+          ...next,
+          appeal: currentHistory.appeal,
+          publication: {
+            ...next.publication,
+            entries: [...currentHistory.publication.entries, ...next.publication.entries],
+          },
+          response: currentHistory.response,
+        },
+        isLoadingOlder: false,
+      })
+    } catch (error) {
+      if (operationId !== dialogOperationId.current) return
+      if (error instanceof ReviewSourceCommandError && error.kind === "history-changed") {
+        setDialog({ ...current, history: undefined, isLoading: true, isLoadingOlder: false })
+        try {
+          const restarted = await commands.loadHistory(current.review.id)
+          if (operationId !== dialogOperationId.current) return
+          setDialog({ ...current, history: restarted, isLoading: false, isLoadingOlder: false })
+        } catch (restartError) {
+          if (operationId !== dialogOperationId.current) return
+          setDialog({
+            ...current,
+            error: errorMessage(restartError, "history"),
+            isLoading: false,
+            isLoadingOlder: false,
+          })
+        }
+        return
+      }
+      setDialog({ ...current, error: errorMessage(error, "history"), isLoadingOlder: false })
     }
-    dispatch({
-      review,
-      statusMessage: "Demo only — appeal case updated locally; nothing was submitted or sent.",
-      type: "review-mutation-succeeded",
-    })
-    return "applied"
   }
 
-  const submitReviewAppeal: ReviewsActions["submitReviewAppeal"] = async ({ detail, reason }) => {
-    if (!showManagement) return "discarded"
-    if (state.dialog.kind !== "appeal") return "discarded"
-
-    const reviewId = state.dialog.reviewId
-    const selectedReview = state.reviews.find((review) => review.id === reviewId)
-    if (!selectedReview || selectedReview.appealCase) return "discarded"
-
-    const mutationGeneration = mutationGenerationRef.current
-    const review = await commands.submitReviewAppeal(selectedReview, reason, detail)
-    if (!managementEnabledRef.current || mutationGeneration !== mutationGenerationRef.current) {
-      return "discarded"
+  const submitReviewResponse: ReviewsActions["submitReviewResponse"] = async (body) => {
+    if (dialog.kind !== "response") return "discarded"
+    const currentDialog = dialog
+    const operationId = dialogOperationId.current
+    try {
+      const review = await commands.submitResponse(currentDialog.review.id, body)
+      replaceReview(currentDialog.review.id, review)
+      setStatusMessage("Response submitted for moderation.")
+      return operationId === dialogOperationId.current ? "applied" : "discarded"
+    } catch (error) {
+      if (operationId !== dialogOperationId.current) return "discarded"
+      setStatusMessage(errorMessage(error, "mutation"))
+      throw error
     }
-    dispatch({
-      review,
-      statusMessage: "Demo only — appeal case saved locally; nothing was submitted or sent.",
-      type: "review-mutation-succeeded",
-    })
-    return "applied"
   }
 
-  const submitReviewNote: ReviewsActions["submitReviewNote"] = async ({ note }) => {
-    if (!showManagement) return "discarded"
-    if (state.dialog.kind !== "note") return "discarded"
-
-    const reviewId = state.dialog.reviewId
-    const selectedReview = state.reviews.find((review) => review.id === reviewId)
-    if (!selectedReview) return "discarded"
-
-    const mutationGeneration = mutationGenerationRef.current
-    const review = await commands.saveReviewNote(selectedReview, note)
-    if (!managementEnabledRef.current || mutationGeneration !== mutationGenerationRef.current) {
-      return "discarded"
+  const submitReviewAppeal: ReviewsActions["submitReviewAppeal"] = async (submission) => {
+    if (dialog.kind !== "appeal") return "discarded"
+    const currentDialog = dialog
+    const operationId = dialogOperationId.current
+    try {
+      const review = await commands.submitAppeal(currentDialog.review.id, submission)
+      replaceReview(currentDialog.review.id, review)
+      setStatusMessage("Appeal submitted for platform review.")
+      return operationId === dialogOperationId.current ? "applied" : "discarded"
+    } catch (error) {
+      if (operationId !== dialogOperationId.current) return "discarded"
+      setStatusMessage(errorMessage(error, "mutation"))
+      throw error
     }
-    dispatch({ review, statusMessage: "Internal note saved.", type: "review-mutation-succeeded" })
-    return "applied"
-  }
-
-  const submitReviewResponse: ReviewsActions["submitReviewResponse"] = async ({ response }) => {
-    if (!showManagement) return "discarded"
-    if (state.dialog.kind !== "response") return "discarded"
-
-    const reviewId = state.dialog.reviewId
-    const selectedReview = state.reviews.find((review) => review.id === reviewId)
-    if (!selectedReview) return "discarded"
-
-    const mutationGeneration = mutationGenerationRef.current
-    const review = await commands.submitReviewResponseForModeration(selectedReview, response)
-    if (!managementEnabledRef.current || mutationGeneration !== mutationGenerationRef.current) {
-      return "discarded"
-    }
-    dispatch({
-      review,
-      statusMessage: "Demo only — response saved locally; nothing was submitted.",
-      type: "review-mutation-succeeded",
-    })
-    return "applied"
   }
 
   const actions: ReviewsActions = {
-    applyFilters,
-    changeDraftFilters,
-    changeMobileFiltersOpen,
-    changePage,
-    closeReviewDialog,
-    markReviewAppealUnderReview,
-    openReviewAppeal,
-    openReviewHistory,
-    openReviewNote,
-    openReviewResponse,
-    refreshReviews,
+    applyFilters() {
+      setAppliedFilters(draftFilters)
+      void load(draftFilters, 1, "Filters applied.")
+    },
+    changeDraftFilters: setDraftFilters,
+    changeMobileFiltersOpen: setIsMobileOpen,
+    changePage(page) {
+      void load(appliedFilters, page)
+    },
+    closeReviewDialog() {
+      dialogOperationId.current += 1
+      setDialog({ kind: "closed" })
+    },
+    loadOlderHistory() {
+      void loadOlderHistory()
+    },
+    openReviewAppeal(reviewId) {
+      const review = findReview(reviewId)
+      if (review && showManagement && !review.appeal) {
+        dialogOperationId.current += 1
+        setDialog({ kind: "appeal", review })
+      }
+    },
+    openReviewHistory(reviewId) {
+      void openHistory(reviewId)
+    },
+    openReviewResponse(reviewId) {
+      const review = findReview(reviewId)
+      if (review && showManagement && canSubmitReviewResponse(review)) {
+        dialogOperationId.current += 1
+        setDialog({ kind: "response", review })
+      }
+    },
+    refreshReviews() {
+      void load(appliedFilters, snapshot?.page.page ?? 1, "Reviews refreshed.")
+    },
     submitReviewAppeal,
-    submitReviewNote,
     submitReviewResponse,
   }
 
-  return { actions, focusReview, model }
+  return {
+    actions,
+    focusReview: useCallback(
+      (reviewId: string) => Boolean(snapshot?.page.items.some(({ id }) => id === reviewId)),
+      [snapshot],
+    ),
+    model: {
+      dialog,
+      filters: {
+        draft: draftFilters,
+        isDirty: JSON.stringify(draftFilters) !== JSON.stringify(appliedFilters),
+        isMobileOpen,
+        treatmentOptions: snapshot?.treatments ?? [],
+      },
+      isLoading,
+      list: snapshot?.page,
+      showManagement,
+      statusMessage,
+      summary: snapshot?.summary,
+    },
+  }
 }

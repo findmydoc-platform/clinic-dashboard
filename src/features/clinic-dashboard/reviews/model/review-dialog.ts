@@ -1,7 +1,5 @@
 import type { ClinicReview } from "./review"
-import { reviewAppealReasons, type ReviewAppealReason } from "./appeal-case"
-
-export { reviewAppealReasons, type ReviewAppealReason } from "./appeal-case"
+import type { ReviewAppealReason } from "./appeal-case"
 
 export type ReviewAppealSubmission = Readonly<{
   detail: string
@@ -29,7 +27,3 @@ export type ReviewDialogModel =
   | Readonly<{ kind: "history"; review: ClinicReview }>
   | Readonly<{ kind: "note"; review: ClinicReview }>
   | Readonly<{ kind: "response"; review: ClinicReview }>
-
-export function isReviewAppealReason(value: string): value is ReviewAppealReason {
-  return reviewAppealReasons.some((reason) => reason === value)
-}

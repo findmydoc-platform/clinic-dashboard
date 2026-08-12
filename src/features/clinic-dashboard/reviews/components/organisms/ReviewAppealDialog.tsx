@@ -4,95 +4,88 @@ import { useRef, useState } from "react"
 import { Field } from "@/components/ui/field"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import type { ClinicReview } from "../../model/review"
 import {
-  isReviewAppealReason,
   reviewAppealReasons,
+  reviewAppealReasonLabel,
+  type ClinicReviewRecord,
   type ReviewAppealReason,
-  type ReviewAppealSubmission,
-} from "../../model/review-dialog"
+} from "../../model/review-source"
 import type { ReviewMutationResult } from "../../model/reviews-view-model"
 import { ReviewMutationDialog } from "../molecules/ReviewMutationDialog"
 
-type ReviewAppealDialogProps = Readonly<{
+export function ReviewAppealDialog({
+  onClose,
+  onSubmit,
+  review,
+}: Readonly<{
   onClose: () => void
-  onSubmit: (submission: ReviewAppealSubmission) => Promise<ReviewMutationResult>
-  review: ClinicReview
-}>
-
-export function ReviewAppealDialog({ onClose, onSubmit, review }: ReviewAppealDialogProps) {
-  const [detail, setDetail] = useState("")
+  onSubmit: (submission: { details: string; reason: ReviewAppealReason }) => Promise<ReviewMutationResult>
+  review: ClinicReviewRecord
+}>) {
+  const [details, setDetails] = useState("")
   const [reason, setReason] = useState<ReviewAppealReason | "">("")
-  const [detailError, setDetailError] = useState("")
-  const [reasonError, setReasonError] = useState("")
-  const detailRef = useRef<HTMLTextAreaElement>(null)
-  const reasonRef = useRef<HTMLSelectElement>(null)
-  const trimmedDetail = detail.trim()
-
+  const [error, setError] = useState("")
+  const detailsRef = useRef<HTMLTextAreaElement>(null)
+  const trimmed = details.trim()
   const submit = async () => {
-    if (!reason) {
-      setReasonError("Choose an appeal reason.")
-      reasonRef.current?.focus()
+    if (!reason || trimmed.length < 10) {
+      setError(reason ? "Enter at least 10 characters." : "Choose an appeal reason.")
+      if (reason) detailsRef.current?.focus()
       return "discarded" as const
     }
-    if (trimmedDetail.length < 10) {
-      setDetailError("Enter at least 10 characters.")
-      detailRef.current?.focus()
-      return "discarded" as const
-    }
-
-    setDetailError("")
-    setReasonError("")
-    return onSubmit({ detail: trimmedDetail, reason })
+    return onSubmit({ details: trimmed, reason })
   }
-
   return (
     <ReviewMutationDialog
-      description="Save a local appeal-case preview. Nothing is submitted or sent."
-      isSubmitDisabled={!reason || trimmedDetail.length < 10}
+      description="An appeal can be submitted once and cannot be edited. The platform team reviews the request; an upheld appeal does not by itself change the public review."
+      isSubmitDisabled={!reason || trimmed.length < 10}
       onClose={onClose}
       onSubmit={submit}
       review={review}
-      submitLabel="Save appeal preview"
-      title="Appeal review"
+      submitLabel="Submit appeal"
+      title="Submit review appeal"
     >
-      <Field error={reasonError || undefined} isRequired label="Reason">
-        {(controlProps) => (
+      <Field error={!reason && error ? error : undefined} isRequired label="Reason">
+        {(props) => (
           <Select
-            {...controlProps}
+            {...props}
             onValueChange={(value) => {
-              setReason(isReviewAppealReason(value) ? value : "")
-              setReasonError("")
+              setReason(
+                reviewAppealReasons.includes(value as ReviewAppealReason)
+                  ? (value as ReviewAppealReason)
+                  : "",
+              )
+              setError("")
             }}
-            ref={reasonRef}
             value={reason}
           >
             <option value="">Select a reason…</option>
-            {reviewAppealReasons.map((appealReason) => (
-              <option key={appealReason} value={appealReason}>
-                {appealReason}
+            {reviewAppealReasons.map((value) => (
+              <option key={value} value={value}>
+                {reviewAppealReasonLabel(value)}
               </option>
             ))}
           </Select>
         )}
       </Field>
       <Field
-        description={`Minimum 10 characters · ${trimmedDetail.length} entered`}
-        error={detailError || undefined}
+        description={`${trimmed.length}/2,000 characters`}
+        error={reason && error ? error : undefined}
         isRequired
         label="Appeal details"
       >
-        {(controlProps) => (
+        {(props) => (
           <Textarea
-            {...controlProps}
+            {...props}
             className="min-h-36"
+            maxLength={2000}
             onValueChange={(value) => {
-              setDetail(value)
-              setDetailError("")
+              setDetails(value)
+              setError("")
             }}
             placeholder="Explain why this review should be assessed…"
-            ref={detailRef}
-            value={detail}
+            ref={detailsRef}
+            value={details}
           />
         )}
       </Field>

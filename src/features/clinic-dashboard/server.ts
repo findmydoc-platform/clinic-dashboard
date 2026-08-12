@@ -23,6 +23,14 @@ import {
   type PatientInquiryProviderFactory,
 } from "./messages/server/public"
 import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-input"
+import { defaultReviewListFilters } from "./reviews/model/review-source"
+import {
+  handleReviewAppealSubmit as handleReviewAppealSubmitWithProvider,
+  handleReviewHistoryLoad as handleReviewHistoryLoadWithProvider,
+  handleReviewListLoad as handleReviewListLoadWithProvider,
+  handleReviewResponseSubmit as handleReviewResponseSubmitWithProvider,
+} from "./reviews/server/actions"
+import type { ReviewProviderFactory } from "./reviews/server/review-provider"
 
 export { getClinicDashboardAccess } from "./auth/server/public"
 
@@ -34,6 +42,25 @@ const createDoctorProfileProvider: DoctorProfileProviderFactory = (accessToken, 
 
 const createClinicProfileProvider: ClinicProfileProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).profile
+
+const createReviewProvider: ReviewProviderFactory = (accessToken, clinicId) =>
+  composeClinicDashboardDataProviders(accessToken, clinicId).reviews
+
+export function handleReviewListLoad(request: NextRequest) {
+  return handleReviewListLoadWithProvider(request, createReviewProvider)
+}
+
+export function handleReviewResponseSubmit(request: NextRequest, reviewId: string) {
+  return handleReviewResponseSubmitWithProvider(request, reviewId, createReviewProvider)
+}
+
+export function handleReviewAppealSubmit(request: NextRequest, reviewId: string) {
+  return handleReviewAppealSubmitWithProvider(request, reviewId, createReviewProvider)
+}
+
+export function handleReviewHistoryLoad(request: NextRequest, reviewId: string) {
+  return handleReviewHistoryLoadWithProvider(request, reviewId, createReviewProvider)
+}
 
 export function handleClinicProfileLoad(request: NextRequest) {
   return handleClinicProfileLoadWithProvider(request, createClinicProfileProvider)
@@ -111,10 +138,11 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
 
   const providers = composeClinicDashboardDataProviders(accessToken, access.context.clinic.id)
   const canViewProfile = access.context.capabilities.includes("clinic-profile:view")
-  const [doctorResult, inquiryResult, profileResult] = await Promise.allSettled([
+  const [doctorResult, inquiryResult, profileResult, reviewResult] = await Promise.allSettled([
     providers.doctors.loadDirectory(),
     providers.inquiries.loadQueue(),
     canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
+    providers.reviews.loadReviews(defaultReviewListFilters, 1),
   ])
 
   return {
@@ -133,5 +161,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
         : { inquiries: [], status: "temporarily-unavailable" },
     profileSourceSnapshot:
       profileResult.status === "fulfilled" && profileResult.value?.ok ? profileResult.value.value : undefined,
+    reviewSourceSnapshot:
+      reviewResult.status === "fulfilled" && reviewResult.value.ok ? reviewResult.value.value : undefined,
   }
 }

@@ -53,7 +53,7 @@ export const VisualReferenceLocationSwitching: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
     await expect(canvas.getByRole("heading", { name: "Lukas Weber" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
-    await expect(canvas.getByText("Eva Fixture")).toBeInTheDocument()
+    await expect(canvas.getByText("Maya K.")).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
     await expect(canvas.getByText("Medicana International Istanbul")).toBeInTheDocument()
     await expect(
@@ -298,7 +298,7 @@ export const PotsdamWorkspaceContent: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
     await expect(canvas.getByRole("heading", { name: "Lukas Weber" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
-    await expect(canvas.getByText("Greta Fixture")).toBeInTheDocument()
+    await expect(canvas.getByText("Maya K.")).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
     await expect(canvas.getByText("Medicana International Istanbul")).toBeInTheDocument()
   },

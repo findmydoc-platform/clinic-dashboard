@@ -73,8 +73,7 @@ export const NotificationOpensReviewAtItsLocation: Story = {
     await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
       /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
     )
-    const review = canvas.getByRole("region", { name: "Review by Eva Fixture" })
-    await waitFor(() => expect(review).toHaveFocus())
+    await waitFor(() => expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toHaveFocus())
     await expect(canvas.queryByRole("dialog", { name: /review response/i })).not.toBeInTheDocument()
     await expect(canvas.getByText("Opened review at Berlin Health Clinic — Charlottenburg.")).toBeVisible()
   },

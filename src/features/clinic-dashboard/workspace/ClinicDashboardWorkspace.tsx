@@ -8,6 +8,7 @@ import {
   createDoctorProfileApiCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
+import { createReviewSourceApiCommands } from "@/features/clinic-dashboard/reviews/public"
 import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceComposition"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
 
@@ -32,6 +33,7 @@ export function ClinicDashboardWorkspace({
   )
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
+  const reviewSourceCommands = useMemo(() => createReviewSourceApiCommands(), [])
 
   return (
     <ClinicDashboardWorkspaceComposition
@@ -42,7 +44,7 @@ export function ClinicDashboardWorkspace({
       projectDashboardAfterProfileSave={demoClientAdapter.projectDashboardAfterProfileSave}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}
       prototypeMode={prototypeMode}
-      reviewCommands={demoClientAdapter.reviewCommands}
+      reviewCommands={reviewSourceCommands}
       showPrototypeModeToggle={showPrototypeModeToggle}
       workspaceInput={workspaceInput}
     />

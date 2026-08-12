@@ -3,15 +3,15 @@
 import { useEffect, useRef } from "react"
 import { ReviewsScreen } from "./components/organisms/ReviewsScreen"
 import { useReviewsController } from "./hooks/useReviewsController"
-import type { ReviewCommands } from "./model/review-commands"
-import type { ReviewsSnapshot } from "./model/reviews-snapshot"
+import type { ReviewSourceCommands } from "./model/review-source-commands"
+import type { ReviewsSourceSnapshot } from "./model/review-source"
 
 export type ReviewsProps = Readonly<{
-  commands: ReviewCommands
+  commands: ReviewSourceCommands
   focusTarget?: ReviewFocusTarget
   onFocusHandled?: () => void
   showManagement: boolean
-  snapshot: ReviewsSnapshot
+  snapshot?: ReviewsSourceSnapshot
 }>
 
 export type ReviewFocusTarget = Readonly<{ kind: "heading" }> | Readonly<{ kind: "review"; reviewId: string }>
@@ -35,7 +35,14 @@ export function Reviews({ commands, focusTarget, onFocusHandled, showManagement,
     }
 
     const reviewId = focusTarget.reviewId
-    if (!reviewId || !focusReview(reviewId)) return
+    if (!reviewId || !focusReview(reviewId)) {
+      const frame = requestAnimationFrame(() => {
+        const heading = rootRef.current?.querySelector<HTMLElement>("[data-reviews-heading]")
+        heading?.focus()
+        if (heading) onFocusHandled?.()
+      })
+      return () => cancelAnimationFrame(frame)
+    }
 
     const frame = requestAnimationFrame(() => {
       requestAnimationFrame(() => {

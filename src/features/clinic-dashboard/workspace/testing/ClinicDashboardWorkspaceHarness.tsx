@@ -28,7 +28,8 @@ import {
 import { messagesFixture, patientInquiryFixture } from "@/features/clinic-dashboard/messages/testing/public"
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import {
-  createReviewCommandsFixture,
+  createReviewSourceCommandsFixture,
+  reviewSourceSnapshotFixture,
   reviewsFixture,
 } from "@/features/clinic-dashboard/reviews/testing/public"
 import type { ClinicDashboardWorkspaceProps } from "../ClinicDashboardWorkspace"
@@ -290,6 +291,7 @@ export const clinicDashboardWorkspaceFixture = {
     status: "ready",
   },
   profileSourceSnapshot: clinicProfileSourceFixture,
+  reviewSourceSnapshot: reviewSourceSnapshotFixture,
   locations: workspaceLocationFixtures,
   locationSnapshots: {
     "berlin-charlottenburg": {
@@ -411,7 +413,7 @@ export function ClinicDashboardWorkspaceHarness({
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
   const [clinicProfileSourceCommands] = useState(() => createClinicProfileSourceCommandsFixture())
   const [doctorProfileCommands] = useState(() => createDoctorProfileCommandsFixture())
-  const [reviewCommands] = useState(() => createReviewCommandsFixture())
+  const [reviewCommands] = useState(() => createReviewSourceCommandsFixture())
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedClinicContextFixture}
