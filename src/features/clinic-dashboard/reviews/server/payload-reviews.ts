@@ -157,6 +157,12 @@ function endpointFor(pathname: string) {
   return new URL(pathname, validateEnvironment().PAYLOAD_API_URL)
 }
 
+function mutationEndpoint(pathname: string) {
+  const endpoint = endpointFor(pathname)
+  endpoint.searchParams.set("depth", "0")
+  return endpoint
+}
+
 function requestHeaders(accessToken: string) {
   return { Accept: "application/json", Authorization: `Bearer ${accessToken}` }
 }
@@ -594,7 +600,7 @@ export function createPayloadReviewProvider(
       if (!current.ok) return current
       if (current.value.appeal) return { error: "conflict", ok: false }
       const result = await requestPayloadJson(
-        endpointFor("/api/reviewAppeals"),
+        mutationEndpoint("/api/reviewAppeals"),
         mutationInit(accessToken, "POST", {
           review: payloadRelationshipId(reviewId),
           ...submission,
@@ -614,8 +620,8 @@ export function createPayloadReviewProvider(
       if (!canSubmitReviewResponse(current.value)) return { error: "conflict", ok: false }
       const existing = current.value.response
       const endpoint = existing
-        ? endpointFor(`/api/reviewResponses/${encodeURIComponent(existing.id)}`)
-        : endpointFor("/api/reviewResponses")
+        ? mutationEndpoint(`/api/reviewResponses/${encodeURIComponent(existing.id)}`)
+        : mutationEndpoint("/api/reviewResponses")
       const result = await requestPayloadJson(
         endpoint,
         mutationInit(

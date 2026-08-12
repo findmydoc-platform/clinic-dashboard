@@ -215,7 +215,9 @@ describe("review provider contract", () => {
     expect(result).toMatchObject({ ok: true, value: { appeal: { id: "41", status: "submitted" } } })
     expect(fetcher).toHaveBeenCalledTimes(4)
     const write = fetcher.mock.calls.at(-1)
-    expect(new URL(String(write?.[0])).pathname).toBe("/api/reviewAppeals")
+    const writeEndpoint = new URL(String(write?.[0]))
+    expect(writeEndpoint.pathname).toBe("/api/reviewAppeals")
+    expect(writeEndpoint.searchParams.get("depth")).toBe("0")
     expect(write?.[1]).toMatchObject({ method: "POST" })
     expect(write?.[1]?.headers).toMatchObject({ Authorization: "Bearer access-token" })
     expect(JSON.parse(String(write?.[1]?.body))).toEqual({
@@ -266,7 +268,9 @@ describe("review provider contract", () => {
       pendingResponse.pendingResponse.body,
     )
     expect(first).toMatchObject({ ok: true, value: { response: { id: "31", status: "pending" } } })
-    expect(new URL(String(firstFetcher.mock.calls.at(-1)?.[0])).pathname).toBe("/api/reviewResponses")
+    const firstWriteEndpoint = new URL(String(firstFetcher.mock.calls.at(-1)?.[0]))
+    expect(firstWriteEndpoint.pathname).toBe("/api/reviewResponses")
+    expect(firstWriteEndpoint.searchParams.get("depth")).toBe("0")
     expect(firstFetcher.mock.calls.at(-1)?.[1]).toMatchObject({ method: "POST" })
     expect(JSON.parse(String(firstFetcher.mock.calls.at(-1)?.[1]?.body))).toEqual({
       pendingResponse: { body: pendingResponse.pendingResponse.body },
@@ -290,9 +294,9 @@ describe("review provider contract", () => {
       pendingFetcher,
     ).submitResponse("review-1", pendingResponse.pendingResponse.body)
     expect(revised).toMatchObject({ ok: true, value: { response: { status: "pending" } } })
-    expect(new URL(String(pendingFetcher.mock.calls.at(-1)?.[0])).pathname).toBe(
-      "/api/reviewResponses/response-1",
-    )
+    const pendingWriteEndpoint = new URL(String(pendingFetcher.mock.calls.at(-1)?.[0]))
+    expect(pendingWriteEndpoint.pathname).toBe("/api/reviewResponses/response-1")
+    expect(pendingWriteEndpoint.searchParams.get("depth")).toBe("0")
     expect(pendingFetcher.mock.calls.at(-1)?.[1]).toMatchObject({ method: "PATCH" })
     expect(JSON.parse(String(pendingFetcher.mock.calls.at(-1)?.[1]?.body))).toEqual({
       pendingResponse: { body: pendingResponse.pendingResponse.body },
