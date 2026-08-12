@@ -48,20 +48,33 @@ const rawReviewSchema = z.object({
   withdrawnAt: timestampSchema.nullish(),
 })
 
+const pendingResponseSchema = z
+  .union([
+    z.object({ body: z.string().trim().min(10).max(2_000), submittedAt: timestampSchema }),
+    z.object({ body: z.null().optional(), submittedAt: z.null().optional() }),
+  ])
+  .nullish()
+const publishedResponseSchema = z
+  .union([
+    z.object({
+      approvedAt: timestampSchema,
+      body: z.string().trim().min(10).max(2_000),
+      isBlocked: z.boolean().nullish(),
+    }),
+    z.object({
+      approvedAt: z.null().optional(),
+      body: z.null().optional(),
+      isBlocked: z.boolean().nullish(),
+    }),
+  ])
+  .nullish()
+
 const rawResponseSchema = z.object({
   id: relationshipIdSchema,
   moderatedAt: timestampSchema.nullish(),
   moderationStatus: z.enum(reviewResponseStatuses),
-  pendingResponse: z
-    .object({ body: z.string().trim().min(10).max(2_000), submittedAt: timestampSchema })
-    .nullish(),
-  publishedResponse: z
-    .object({
-      approvedAt: timestampSchema,
-      body: z.string().trim().min(10).max(2_000),
-      isBlocked: z.boolean().nullish(),
-    })
-    .nullish(),
+  pendingResponse: pendingResponseSchema,
+  publishedResponse: publishedResponseSchema,
   review: relationshipIdSchema,
 })
 
@@ -255,16 +268,20 @@ function initials(author: string) {
 }
 
 function mapResponse(raw: z.infer<typeof rawResponseSchema>): ReviewResponseWorkflow {
+  const pending =
+    raw.pendingResponse?.body && raw.pendingResponse.submittedAt
+      ? { body: raw.pendingResponse.body, submittedAt: raw.pendingResponse.submittedAt }
+      : undefined
+  const published =
+    raw.publishedResponse?.body && raw.publishedResponse.approvedAt && !raw.publishedResponse.isBlocked
+      ? { approvedAt: raw.publishedResponse.approvedAt, body: raw.publishedResponse.body }
+      : undefined
+
   return {
     id: raw.id,
     moderatedAt: raw.moderatedAt ?? undefined,
-    pending: raw.pendingResponse
-      ? { body: raw.pendingResponse.body, submittedAt: raw.pendingResponse.submittedAt }
-      : undefined,
-    published:
-      raw.publishedResponse && !raw.publishedResponse.isBlocked
-        ? { approvedAt: raw.publishedResponse.approvedAt, body: raw.publishedResponse.body }
-        : undefined,
+    pending,
+    published,
     status: raw.moderationStatus,
   }
 }
@@ -549,8 +566,10 @@ export function createPayloadReviewProvider(
           action: version.lastAction,
           actorType: version.lastActorType,
           id,
-          pendingBody: version.pendingResponse?.body,
-          publishedBody: version.publishedResponse?.isBlocked ? undefined : version.publishedResponse?.body,
+          pendingBody: version.pendingResponse?.body ?? undefined,
+          publishedBody: version.publishedResponse?.isBlocked
+            ? undefined
+            : (version.publishedResponse?.body ?? undefined),
           recordedAt: createdAt,
           status: version.moderationStatus,
         })),

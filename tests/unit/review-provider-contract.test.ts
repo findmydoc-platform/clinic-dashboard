@@ -34,6 +34,8 @@ const pendingResponse = {
   review: "review-1",
 }
 
+const emptyPublishedResponse = { approvedAt: null, body: null, isBlocked: false }
+
 const submittedAppeal = {
   createdAt: "2026-01-06T12:00:00.000Z",
   decidedAt: null,
@@ -162,7 +164,12 @@ describe("review provider contract", () => {
             {
               createdAt: "2026-01-06T11:00:00.000Z",
               id: "response-version-1",
-              version: { ...pendingResponse, lastAction: "submitted", lastActorType: "clinic_staff" },
+              version: {
+                ...pendingResponse,
+                lastAction: "submitted",
+                lastActorType: "clinic_staff",
+                publishedResponse: emptyPublishedResponse,
+              },
             },
           ],
         })
@@ -179,7 +186,11 @@ describe("review provider contract", () => {
       ok: true,
       value: {
         publication: { entries: [expect.not.objectContaining({ publicText: expect.anything() })] },
-        response: [expect.not.objectContaining({ moderationReason: expect.anything() })],
+        response: [
+          expect.objectContaining({
+            pendingBody: pendingResponse.pendingResponse.body,
+          }),
+        ],
       },
     })
     const publicationCall = fetcher.mock.calls.find(([input]) =>
@@ -254,7 +265,12 @@ describe("review provider contract", () => {
 
   it("posts a first response and patches only an existing pending response", async () => {
     const numericReview = { ...rawReview, id: 19 }
-    const numericResponse = { ...pendingResponse, id: 31, review: 19 }
+    const numericResponse = {
+      ...pendingResponse,
+      id: 31,
+      publishedResponse: emptyPublishedResponse,
+      review: 19,
+    }
     const firstFetcher = vi.fn<typeof fetch>(async (input, init) => {
       const endpoint = new URL(String(input))
       if (endpoint.pathname === "/api/reviews/19") return json(numericReview)
