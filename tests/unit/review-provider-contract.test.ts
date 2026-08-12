@@ -195,6 +195,37 @@ describe("review provider contract", () => {
   })
 
   it("returns the accepted appeal without a fallible post-write reload", async () => {
+    const numericReview = { ...rawReview, id: 20 }
+    const numericAppeal = { ...submittedAppeal, id: 41, review: 20 }
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const endpoint = new URL(String(input))
+      if (endpoint.pathname === "/api/reviews/20") return json(numericReview)
+      if (endpoint.pathname === "/api/reviewResponses") return json({ docs: [] })
+      if (endpoint.pathname === "/api/reviewAppeals" && init?.method === "POST") {
+        return json({ doc: numericAppeal })
+      }
+      return json({ docs: [] })
+    })
+
+    const result = await createPayloadReviewProvider("access-token", "clinic-1", fetcher).submitAppeal("20", {
+      details: submittedAppeal.details,
+      reason: "incorrect_clinic",
+    })
+
+    expect(result).toMatchObject({ ok: true, value: { appeal: { id: "41", status: "submitted" } } })
+    expect(fetcher).toHaveBeenCalledTimes(4)
+    const write = fetcher.mock.calls.at(-1)
+    expect(new URL(String(write?.[0])).pathname).toBe("/api/reviewAppeals")
+    expect(write?.[1]).toMatchObject({ method: "POST" })
+    expect(write?.[1]?.headers).toMatchObject({ Authorization: "Bearer access-token" })
+    expect(JSON.parse(String(write?.[1]?.body))).toEqual({
+      details: submittedAppeal.details,
+      reason: "incorrect_clinic",
+      review: 20,
+    })
+  })
+
+  it("preserves nonnumeric review relationship IDs on appeal creation", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const endpoint = new URL(String(input))
       if (endpoint.pathname === "/api/reviews/review-1") return json(rawReview)
@@ -207,41 +238,39 @@ describe("review provider contract", () => {
 
     const result = await createPayloadReviewProvider("access-token", "clinic-1", fetcher).submitAppeal(
       "review-1",
-      { details: submittedAppeal.details, reason: "incorrect_clinic" },
+      {
+        details: submittedAppeal.details,
+        reason: "incorrect_clinic",
+      },
     )
 
-    expect(result).toMatchObject({ ok: true, value: { appeal: { id: "appeal-1", status: "submitted" } } })
-    expect(fetcher).toHaveBeenCalledTimes(4)
-    const write = fetcher.mock.calls.at(-1)
-    expect(new URL(String(write?.[0])).pathname).toBe("/api/reviewAppeals")
-    expect(write?.[1]).toMatchObject({ method: "POST" })
-    expect(write?.[1]?.headers).toMatchObject({ Authorization: "Bearer access-token" })
-    expect(JSON.parse(String(write?.[1]?.body))).toEqual({
-      details: submittedAppeal.details,
-      reason: "incorrect_clinic",
+    expect(result).toMatchObject({ ok: true })
+    expect(JSON.parse(String(fetcher.mock.calls.at(-1)?.[1]?.body))).toMatchObject({
       review: "review-1",
     })
   })
 
   it("posts a first response and patches only an existing pending response", async () => {
+    const numericReview = { ...rawReview, id: 19 }
+    const numericResponse = { ...pendingResponse, id: 31, review: 19 }
     const firstFetcher = vi.fn<typeof fetch>(async (input, init) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviews/review-1") return json(rawReview)
+      if (endpoint.pathname === "/api/reviews/19") return json(numericReview)
       if (endpoint.pathname === "/api/reviewResponses" && init?.method === "POST") {
-        return json({ doc: pendingResponse })
+        return json({ doc: numericResponse })
       }
       return json({ docs: [] })
     })
     const first = await createPayloadReviewProvider("access-token", "clinic-1", firstFetcher).submitResponse(
-      "review-1",
+      "19",
       pendingResponse.pendingResponse.body,
     )
-    expect(first).toMatchObject({ ok: true, value: { response: { id: "response-1", status: "pending" } } })
+    expect(first).toMatchObject({ ok: true, value: { response: { id: "31", status: "pending" } } })
     expect(new URL(String(firstFetcher.mock.calls.at(-1)?.[0])).pathname).toBe("/api/reviewResponses")
     expect(firstFetcher.mock.calls.at(-1)?.[1]).toMatchObject({ method: "POST" })
     expect(JSON.parse(String(firstFetcher.mock.calls.at(-1)?.[1]?.body))).toEqual({
       pendingResponse: { body: pendingResponse.pendingResponse.body },
-      review: "review-1",
+      review: 19,
     })
 
     const pendingFetcher = vi.fn<typeof fetch>(async (input, init) => {

@@ -227,6 +227,13 @@ function relationId(value: z.infer<typeof relationSchema>) {
   return typeof value === "string" ? value : value.id
 }
 
+function payloadRelationshipId(value: string) {
+  const numericValue = Number(value)
+  return Number.isSafeInteger(numericValue) && numericValue > 0 && String(numericValue) === value
+    ? numericValue
+    : value
+}
+
 function treatment(value: z.infer<typeof relationSchema>): ReviewTreatmentOption | null {
   return typeof value === "string" ? null : { id: value.id, label: value.name }
 }
@@ -588,7 +595,10 @@ export function createPayloadReviewProvider(
       if (current.value.appeal) return { error: "conflict", ok: false }
       const result = await requestPayloadJson(
         endpointFor("/api/reviewAppeals"),
-        mutationInit(accessToken, "POST", { review: reviewId, ...submission }),
+        mutationInit(accessToken, "POST", {
+          review: payloadRelationshipId(reviewId),
+          ...submission,
+        }),
         fetcher,
       )
       if (!result.ok) return { error: changeError(result), ok: false }
@@ -611,7 +621,9 @@ export function createPayloadReviewProvider(
         mutationInit(
           accessToken,
           existing ? "PATCH" : "POST",
-          existing ? { pendingResponse: { body } } : { pendingResponse: { body }, review: reviewId },
+          existing
+            ? { pendingResponse: { body } }
+            : { pendingResponse: { body }, review: payloadRelationshipId(reviewId) },
         ),
         fetcher,
       )
