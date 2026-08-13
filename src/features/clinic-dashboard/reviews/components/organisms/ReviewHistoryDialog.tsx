@@ -7,8 +7,8 @@ import {
   reviewPublicMeasureLabel,
   reviewResponseStatusLabel,
 } from "../../model/review-source"
-import { isSupersededResponseHistoryEntry } from "../../model/review-history"
-import type { ReviewAppealHistoryEntry, ReviewResponseHistoryEntry } from "../../model/review-source"
+import { isEditedResponseHistoryEntry } from "../../model/review-history"
+import type { ReviewAppealHistoryEntry, ReviewResponseStatus } from "../../model/review-source"
 import type { ReviewDialogModel } from "../../model/reviews-view-model"
 
 type HistoryDialog = Extract<ReviewDialogModel, { kind: "history" }>
@@ -17,17 +17,14 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
 }
 
-function responseActionLabel(action: ReviewResponseHistoryEntry["action"]) {
+function responseTitle(status: ReviewResponseStatus) {
   const labels = {
     approved: "Response approved",
     blocked: "Response blocked",
-    pending_edited: "Pending response edited",
+    pending: "Response submitted",
     rejected: "Response rejected",
-    revision_submitted: "Revision submitted",
-    seeded: "Response initialized",
-    submitted: "Response submitted",
   } as const
-  return labels[action]
+  return labels[status]
 }
 
 function appealActionLabel(action: ReviewAppealHistoryEntry["action"]) {
@@ -52,6 +49,8 @@ export function ReviewHistoryDialog({
   onLoadOlder: () => void
 }>) {
   const history = dialog.history
+  const currentResponse = history?.response[0]
+  const currentResponseBody = currentResponse?.pendingBody ?? currentResponse?.publishedBody
   return (
     <Modal
       description="Publication, clinic response, and appeal changes are shown independently."
@@ -123,55 +122,28 @@ export function ReviewHistoryDialog({
             </ol>
           </section>
           <section>
-            <h3 className="font-bold">Response history</h3>
-            {history.response.length ? (
-              <ol className="mt-3 space-y-3">
-                {history.response.map((entry, index) => {
-                  const isCurrent = index === 0
-                  const isSuperseded = isSupersededResponseHistoryEntry(history.response, index)
-                  return (
-                    <li
-                      aria-current={isCurrent ? "true" : undefined}
-                      className={`rounded-lg bg-[var(--surface)] p-4 ${
-                        isCurrent ? "border-l-4 border-[var(--accent)]" : "border-l-2 border-[var(--border)]"
-                      }`}
-                      key={entry.id}
-                    >
-                      <div className="flex flex-wrap justify-between gap-2">
-                        <strong>{responseActionLabel(entry.action)}</strong>
-                        <time className="text-xs text-[var(--foreground)]" dateTime={entry.recordedAt}>
-                          {formatDate(entry.recordedAt)}
-                        </time>
-                      </div>
-                      <p className="mt-1 text-xs font-bold text-[var(--foreground)]">
-                        {isCurrent
-                          ? `Current state · ${reviewResponseStatusLabel(entry.status)}`
-                          : isSuperseded
-                            ? `Superseded · ${reviewResponseStatusLabel(entry.status)} at the time`
-                            : `Historical state · ${reviewResponseStatusLabel(entry.status)}`}
-                      </p>
-                      {entry.publishedBody ? (
-                        <p className="mt-2 text-sm">
-                          {isCurrent ? "Current published response" : "Published response at this point"}:{" "}
-                          {entry.publishedBody}
-                        </p>
-                      ) : null}
-                      {entry.pendingBody ? (
-                        <p className="mt-2 text-sm">
-                          {isCurrent
-                            ? "Current pending response"
-                            : isSuperseded
-                              ? "Previous pending response"
-                              : "Pending response at this point"}
-                          : {entry.pendingBody}
-                        </p>
-                      ) : null}
-                    </li>
-                  )
-                })}
-              </ol>
+            <h3 className="font-bold">Clinic response</h3>
+            {currentResponse ? (
+              <div
+                aria-current="true"
+                className="mt-3 rounded-lg border-l-4 border-[var(--accent)] bg-[var(--surface)] p-4"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <strong>{responseTitle(currentResponse.status)}</strong>
+                  <p className="text-xs text-[var(--foreground)]">
+                    <time dateTime={currentResponse.recordedAt}>
+                      {formatDate(currentResponse.recordedAt)}
+                    </time>
+                    {isEditedResponseHistoryEntry(currentResponse) ? <span> · Edited</span> : null}
+                  </p>
+                </div>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">
+                  {reviewResponseStatusLabel(currentResponse.status)}
+                </p>
+                {currentResponseBody ? <p className="mt-2 text-sm">{currentResponseBody}</p> : null}
+              </div>
             ) : (
-              <p className="mt-2 text-sm text-[var(--foreground)]">No response history.</p>
+              <p className="mt-2 text-sm text-[var(--foreground)]">No clinic response.</p>
             )}
           </section>
           <section>

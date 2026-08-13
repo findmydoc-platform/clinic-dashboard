@@ -40,10 +40,15 @@ export const EditedPendingResponse: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement.ownerDocument.body)
-    await expect(canvas.getByText("Pending response edited")).toBeVisible()
-    await expect(canvas.getByText("Current state · Pending moderation")).toBeVisible()
     await expect(canvas.getByText("Response submitted")).toBeVisible()
-    await expect(canvas.getByText("Superseded · Pending moderation at the time")).toBeVisible()
+    await expect(canvas.getByText("Pending moderation")).toBeVisible()
+    await expect(canvas.getByText(/Edited$/)).toBeVisible()
+    await expect(
+      canvas.getByText("Thank you for the detailed feedback. We have shared it with the aftercare team."),
+    ).toBeVisible()
+    await expect(
+      canvas.queryByText("Thank you for the detailed feedback. We are reviewing it with our team."),
+    ).not.toBeInTheDocument()
     await expect(canvas.getByText("Appeal submitted")).toBeVisible()
   },
 }

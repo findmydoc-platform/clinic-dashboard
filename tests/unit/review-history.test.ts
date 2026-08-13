@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isSupersededResponseHistoryEntry } from "@/features/clinic-dashboard/reviews/model/review-history"
+import { isEditedResponseHistoryEntry } from "@/features/clinic-dashboard/reviews/model/review-history"
 import type { ReviewResponseHistoryEntry } from "@/features/clinic-dashboard/reviews/model/review-source"
 
 const submitted: ReviewResponseHistoryEntry = {
@@ -12,34 +12,12 @@ const submitted: ReviewResponseHistoryEntry = {
 }
 
 describe("review response history", () => {
-  it("marks an older pending submission as superseded by a newer clinic edit", () => {
-    const entries: readonly ReviewResponseHistoryEntry[] = [
-      {
-        ...submitted,
-        action: "pending_edited",
-        id: "edited",
-        recordedAt: "2026-01-21T13:00:00.000Z",
-      },
-      submitted,
-    ]
-
-    expect(isSupersededResponseHistoryEntry(entries, 0)).toBe(false)
-    expect(isSupersededResponseHistoryEntry(entries, 1)).toBe(true)
+  it("marks clinic edits and submitted revisions as edited", () => {
+    expect(isEditedResponseHistoryEntry({ ...submitted, action: "pending_edited" })).toBe(true)
+    expect(isEditedResponseHistoryEntry({ ...submitted, action: "revision_submitted" })).toBe(true)
   })
 
-  it("keeps a resolved pending version historical instead of calling it superseded", () => {
-    const entries: readonly ReviewResponseHistoryEntry[] = [
-      {
-        action: "approved",
-        actorType: "platform_staff",
-        id: "approved",
-        publishedBody: submitted.pendingBody,
-        recordedAt: "2026-01-21T14:00:00.000Z",
-        status: "approved",
-      },
-      submitted,
-    ]
-
-    expect(isSupersededResponseHistoryEntry(entries, 1)).toBe(false)
+  it("does not mark an initial submission as edited", () => {
+    expect(isEditedResponseHistoryEntry(submitted)).toBe(false)
   })
 })
