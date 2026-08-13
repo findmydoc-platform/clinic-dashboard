@@ -74,7 +74,7 @@ export function TreatmentDialog({
             : "Choose a central treatment and set this clinic's EUR price and public status."
       }
       footer={
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {isCreating && onTreatmentMissing ? (
             <Button
               className="justify-start px-0 text-[var(--primary)] enabled:hover:bg-transparent enabled:hover:text-[var(--primary-hover)]"

@@ -107,6 +107,16 @@ export const InvalidPrice: Story = {
 export const MobileAddTreatment: Story = {
   args: { initialTreatment: undefined },
   globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ canvasElement }) => {
+    const dialog = within(canvasElement).getByRole("dialog", { name: "Add treatment" })
+    const missingTreatment = within(dialog).getByRole("button", { name: "Treatment missing?" })
+    const cancel = within(dialog).getByRole("button", { name: "Cancel" })
+
+    expect(missingTreatment.getBoundingClientRect().top).toBeLessThan(cancel.getBoundingClientRect().top)
+    missingTreatment.focus()
+    await userEvent.tab()
+    await expect(cancel).toHaveFocus()
+  },
 }
 
 export const DarkAddTreatment: Story = {

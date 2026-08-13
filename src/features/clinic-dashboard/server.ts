@@ -162,14 +162,14 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
   const canViewTreatments = access.context.capabilities.includes("clinic-treatments:view")
   const [doctorResult, inquiryResult, profileResult, reviewResult, treatmentResult] =
     await Promise.allSettled([
-    providers.doctors.loadDirectory(),
-    providers.inquiries.loadQueue(),
-    canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
-    providers.reviews.loadReviews(defaultReviewListFilters, 1),
-    canViewTreatments
-      ? providers.treatments.loadTreatments()
-      : Promise.resolve({ error: "forbidden", ok: false } as const),
-  ])
+      providers.doctors.loadDirectory(),
+      providers.inquiries.loadQueue(),
+      canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
+      providers.reviews.loadReviews(defaultReviewListFilters, 1),
+      canViewTreatments
+        ? providers.treatments.loadTreatments()
+        : Promise.resolve({ error: "forbidden", ok: false } as const),
+    ])
 
   return {
     ...workspace,
