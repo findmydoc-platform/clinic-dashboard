@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Modal } from "@/components/ui/modal"
 import { Select } from "@/components/ui/select"
 import type {
-  ClinicTreatmentCreateInput,
+  ClinicTreatmentFormInput,
   ClinicTreatmentOffering,
   MasterTreatment,
 } from "../../model/clinic-treatment"
@@ -20,7 +20,7 @@ type TreatmentDialogProps = Readonly<{
   isReadOnly: boolean
   message?: string
   onOpenChange: (open: boolean) => void
-  onSave: (input: ClinicTreatmentCreateInput) => Promise<boolean>
+  onSave: (input: ClinicTreatmentFormInput) => Promise<boolean>
   onTreatmentMissing?: () => void
   open: boolean
 }>
@@ -71,7 +71,7 @@ export function TreatmentDialog({
           ? "View the central treatment details and this clinic's EUR price."
           : initialTreatment
             ? "Update this clinic's EUR price and public status."
-            : "Choose a central treatment and set this clinic's EUR price and public status."
+            : "Choose a central treatment and set this clinic's EUR price. New treatments start inactive."
       }
       footer={
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -175,16 +175,22 @@ export function TreatmentDialog({
           )}
         </Field>
 
-        <label className="flex min-h-11 items-center gap-3 text-sm font-bold text-[var(--foreground)]">
-          <input
-            checked={active}
-            className="size-5 accent-[var(--primary)]"
-            disabled={isReadOnly || isBusy}
-            onChange={(event) => setActive(event.currentTarget.checked)}
-            type="checkbox"
-          />
-          Publicly active
-        </label>
+        {isCreating ? (
+          <p className="text-sm leading-6 text-[var(--secondary)]">
+            New treatments are added inactive. Activate the treatment after it has been saved.
+          </p>
+        ) : (
+          <label className="flex min-h-11 items-center gap-3 text-sm font-bold text-[var(--foreground)]">
+            <input
+              checked={active}
+              className="size-5 accent-[var(--primary)]"
+              disabled={isReadOnly || isBusy}
+              onChange={(event) => setActive(event.currentTarget.checked)}
+              type="checkbox"
+            />
+            Publicly active
+          </label>
+        )}
       </div>
     </Modal>
   )

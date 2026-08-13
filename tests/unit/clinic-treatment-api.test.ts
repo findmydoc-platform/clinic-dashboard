@@ -23,7 +23,6 @@ describe("Clinic treatment browser API", () => {
     )
 
     const result = createClinicTreatmentApiCommands().createTreatment({
-      active: false,
       price: 0,
       treatmentId: "treatment-1",
     })
@@ -40,7 +39,6 @@ describe("Clinic treatment browser API", () => {
 
     await expect(
       createClinicTreatmentApiCommands().createTreatment({
-        active: false,
         price: 0,
         treatmentId: "treatment-1",
       }),

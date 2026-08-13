@@ -24,7 +24,6 @@ const priceSchema = z
   .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) <= 1e-8)
 const createSchema = z
   .object({
-    active: z.boolean(),
     price: priceSchema,
     treatmentId: identifierSchema,
   })
@@ -32,6 +31,7 @@ const createSchema = z
 const updateSchema = z
   .object({
     active: z.boolean(),
+    expectedRevision: z.string().datetime({ offset: true }),
     price: priceSchema,
   })
   .strict()

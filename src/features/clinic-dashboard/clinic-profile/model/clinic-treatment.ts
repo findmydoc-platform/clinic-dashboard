@@ -8,6 +8,7 @@ export type ClinicTreatmentOffering = Readonly<{
   active: boolean
   id: string
   price: number
+  revision: string
   treatment: MasterTreatment
 }>
 
@@ -24,12 +25,18 @@ export type ClinicTreatmentsSnapshot =
     }>
 
 export type ClinicTreatmentCreateInput = Readonly<{
-  active: boolean
   price: number
   treatmentId: string
 }>
 
 export type ClinicTreatmentUpdateInput = Readonly<{
   active: boolean
+  expectedRevision: string
   price: number
+}>
+
+export type ClinicTreatmentFormInput = Readonly<{
+  active: boolean
+  price: number
+  treatmentId: string
 }>

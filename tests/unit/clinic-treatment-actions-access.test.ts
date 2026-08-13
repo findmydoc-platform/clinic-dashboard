@@ -75,7 +75,7 @@ describe("clinic treatment BFF capability access", () => {
     expect(provider.loadTreatments).toHaveBeenCalledOnce()
 
     const createResponse = await handleClinicTreatmentCreate(
-      request("POST", { active: false, price: 0, treatmentId: "treatment-1" }),
+      request("POST", { price: 0, treatmentId: "treatment-1" }),
       createProvider,
     )
     expect(createResponse.status).toBe(403)

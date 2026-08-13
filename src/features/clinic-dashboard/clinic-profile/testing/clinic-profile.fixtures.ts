@@ -41,18 +41,21 @@ export const clinicTreatmentSnapshotFixture = {
       active: true,
       id: "offering-laser-teeth-whitening",
       price: 250,
+      revision: fixtureTimestamp,
       treatment: clinicTreatmentCatalogueFixture[0],
     },
     {
       active: true,
       id: "offering-ceramic-veneers",
       price: 850,
+      revision: fixtureTimestamp,
       treatment: clinicTreatmentCatalogueFixture[1],
     },
     {
       active: false,
       id: "offering-skin-analysis",
       price: 0,
+      revision: fixtureTimestamp,
       treatment: clinicTreatmentCatalogueFixture[2],
     },
   ],
@@ -158,9 +161,10 @@ export function createClinicTreatmentCommandsFixture(latencyMs = 0): ClinicTreat
       const treatment = snapshot.catalogue.find((candidate) => candidate.id === input.treatmentId)
       if (!treatment) throw new Error("Unknown treatment")
       const offering = {
-        active: input.active,
+        active: false,
         id: `offering-${input.treatmentId}`,
         price: input.price,
+        revision: fixtureTimestamp,
         treatment,
       }
       snapshot = { ...snapshot, offerings: [...snapshot.offerings, offering] }
@@ -175,7 +179,13 @@ export function createClinicTreatmentCommandsFixture(latencyMs = 0): ClinicTreat
       if (snapshot.status !== "ready") throw new Error("Treatment fixture is unavailable")
       const offering = snapshot.offerings.find((candidate) => candidate.id === offeringId)
       if (!offering) throw new Error("Unknown offering")
-      const updated = { ...offering, ...input }
+      if (offering.revision !== input.expectedRevision) throw new Error("Treatment conflict")
+      const updated = {
+        ...offering,
+        active: input.active,
+        price: input.price,
+        revision: new Date(Date.parse(offering.revision) + 1_000).toISOString(),
+      }
       snapshot = {
         ...snapshot,
         offerings: snapshot.offerings.map((candidate) => (candidate.id === offeringId ? updated : candidate)),

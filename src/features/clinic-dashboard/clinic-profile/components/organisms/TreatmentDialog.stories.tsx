@@ -53,6 +53,8 @@ export const AddTreatmentInactiveByDefault: Story = {
     const submit = within(dialog).getByRole("button", { name: "Add treatment" })
 
     await expect(submit).toBeDisabled()
+    await expect(within(dialog).queryByRole("checkbox", { name: "Publicly active" })).not.toBeInTheDocument()
+    await expect(within(dialog).getByText(/New treatments are added inactive/u)).toBeVisible()
     await userEvent.selectOptions(
       within(dialog).getByRole("combobox", { name: "Treatment" }),
       availableTreatments[0].id,

@@ -195,7 +195,6 @@ export function ClinicProfile({
           initialTreatment={treatments.selectedOffering}
           isBusy={treatments.isBusy}
           isReadOnly={!isClinicProfileManagementInteractive(treatmentManagement)}
-          key={treatments.selectedOffering?.id ?? "new-treatment"}
           message={treatments.dialogMessage}
           onOpenChange={treatmentController.actions.setDialogOpen}
           onSave={treatmentController.actions.save}

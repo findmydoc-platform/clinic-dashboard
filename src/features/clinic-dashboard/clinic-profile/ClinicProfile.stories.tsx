@@ -249,7 +249,7 @@ export const SaveFailurePreservesLeaveGuard: Story = {
       ).toHaveTextContent("The draft was created, but your changes could not be saved."),
     )
     const openDialog = documentPage.getByRole("alertdialog", { name: "Leave profile editing?" })
-    await expect(openDialog).toBeVisible()
+    await waitFor(() => expect(openDialog).toBeVisible())
     await expect(within(openDialog).getByRole("button", { name: "Save draft and leave" })).toBeEnabled()
   },
 }

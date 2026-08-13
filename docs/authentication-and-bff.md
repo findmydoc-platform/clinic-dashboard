@@ -179,9 +179,17 @@ uses the same provider contract, and is impossible to enable in Preview or Produ
 Controlled data.
 
 The clinic-treatment domain uses one private `ClinicTreatmentProvider` for `loadTreatments()`, `createTreatment()`, and
-`updateTreatment()`. The Payload adapter queries only the server-derived clinic, returns plain-text central treatment
-descriptions, adds the clinic identity itself during creation, and permits updates only to the EUR price and active
-status. Browser code uses the same-origin BFF with private no-store responses and never sends a clinic identifier.
+`updateTreatment()`. Its Payload adapter targets only the focused `GET`, `POST`, and `PATCH`
+`/api/clinic-dashboard/treatments` contract. The Website endpoint derives the clinic from the approved principal,
+returns plain-text central treatment descriptions, creates offerings inactive, and permits updates only to the EUR
+price and active status after an optimistic revision check. Browser code uses the same-origin BFF with private no-store
+responses and never sends a clinic identifier.
+
+The Dashboard snapshot maps Website `priceEUR` to the UI's fixed-EUR `price` field and preserves each ISO `revision`.
+Create sends only `{ treatmentId, priceEUR }`. Update sends `{ offeringId, expectedRevision, priceEUR, active }`; stale
+revisions and serializable update conflicts map to `409 CLINIC_TREATMENT_CONFLICT`, reload the latest offering, and keep the dialog open so the user can
+review and resubmit unsaved values. The adapter validates the focused DTO and never depends on generic Payload
+collection paths, query grammar, depth, relationship expansion, or collection response envelopes.
 
 ## Error and UI State Mapping
 
@@ -244,7 +252,8 @@ deduplication during one server render is allowed.
 
 When an authorized Dashboard command changes data rendered on the public website, Payload still executes the existing
 public revalidation contract for the affected surfaces. The private BFF response does not suppress, replace, or defer
-that invalidation. This architecture introduces no new cache class, tag family, owner, or event.
+that invalidation. Transactional treatment updates trigger the existing plan only after commit. This architecture
+introduces no new cache class, tag family, owner, or event.
 
 Client libraries may keep transient component state for interaction quality, but that state is not authoritative and
 must be discarded or reconciled after mutations, permission changes, or session failure.
@@ -261,6 +270,9 @@ The architecture remains valid only while the following properties hold:
 - Contract-test the bootstrap DTO and every stable error mapping against the synchronized website contract.
 - Run the same patient-inquiry provider contract against Controlled and Payload implementations, including queue shape,
   allowed changes, unknown IDs, and conflicting transitions.
+- Run the clinic-treatment provider contract against Controlled and Payload implementations, including request-scoped
+  persistence, tenant isolation, inactive creation, duplicate assignment, EUR validation, optimistic update conflicts,
+  and private/no-store response semantics.
 - Verify composition selects Controlled only in local test mode, selects Payload otherwise, rejects missing tokens, and
   fails closed in Preview and Production.
 - Verify architecture process fixtures reject concrete providers, private provider contracts, or mode selection in UI,
@@ -283,4 +295,4 @@ The architecture remains valid only while the following properties hold:
 - A Dashboard database, durable copy of Payload data, shared authenticated cache, or service-role credential.
 - Stable pull-request-number aliases or a callback relay application.
 - Portal session transfer or a clinic login form in the portal.
-- Capability-specific business features beyond the approved patient-inquiry domain.
+- Capability-specific business features beyond the approved patient-inquiry and clinic-treatment domains.

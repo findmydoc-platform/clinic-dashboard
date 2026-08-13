@@ -53,7 +53,7 @@ export function composeClinicDashboardDataProviders(
       ? createControlledReviewProvider()
       : createPayloadReviewProvider(accessToken, clinicId),
     treatments: controlled
-      ? createControlledClinicTreatmentProvider()
+      ? createControlledClinicTreatmentProvider(clinicId)
       : createPayloadClinicTreatmentProvider(accessToken, clinicId),
   }
 }

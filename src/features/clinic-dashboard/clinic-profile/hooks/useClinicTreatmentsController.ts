@@ -4,7 +4,7 @@ import { useCallback, useState } from "react"
 import type { ClinicProfileManagementAccess } from "../model/clinic-profile-management"
 import { isClinicProfileManagementInteractive } from "../model/clinic-profile-management"
 import type {
-  ClinicTreatmentCreateInput,
+  ClinicTreatmentFormInput,
   ClinicTreatmentOffering,
   ClinicTreatmentsSnapshot,
 } from "../model/clinic-treatment"
@@ -79,7 +79,7 @@ export function useClinicTreatmentsController({
   )
 
   const save = useCallback(
-    async (input: ClinicTreatmentCreateInput) => {
+    async (input: ClinicTreatmentFormInput) => {
       if (!isClinicProfileManagementInteractive(management) || snapshot.status !== "ready") {
         return false
       }
@@ -100,9 +100,10 @@ export function useClinicTreatmentsController({
         const offering = selectedOffering
           ? await commands.updateTreatment(selectedOffering.id, {
               active: input.active,
+              expectedRevision: selectedOffering.revision,
               price: input.price,
             })
-          : await commands.createTreatment(input)
+          : await commands.createTreatment({ price: input.price, treatmentId: input.treatmentId })
         setSnapshot({
           ...snapshot,
           offerings: selectedOffering
@@ -119,14 +120,22 @@ export function useClinicTreatmentsController({
             .loadTreatments()
             .catch(() => ({ catalogue: [], offerings: [], status: "temporarily-unavailable" }) as const)
           setSnapshot(refreshed)
+          const conflictedOfferingId =
+            refreshed.status === "ready"
+              ? (selectedOffering?.id ??
+                refreshed.offerings.find((offering) => offering.treatment.id === input.treatmentId)?.id)
+              : undefined
+          if (conflictedOfferingId) setSelectedOfferingId(conflictedOfferingId)
           setStatusMessage(
             refreshed.status === "ready"
-              ? "This treatment was already changed. The list was reloaded."
+              ? "This treatment changed elsewhere. The latest version was loaded."
               : "This treatment was already changed, but the list could not be reloaded.",
           )
-          setDialogMessage("")
-          setDialogOpen(false)
-          setSelectedOfferingId(undefined)
+          setDialogMessage(
+            refreshed.status === "ready"
+              ? "Review your values and save again."
+              : "Your values were not saved. Close this dialog and reload the treatment list before trying again.",
+          )
           return false
         }
         setDialogMessage(

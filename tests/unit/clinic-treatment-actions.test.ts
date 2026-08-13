@@ -21,6 +21,7 @@ const offering = {
   active: false,
   id: "offering-1",
   price: 0,
+  revision: "2026-08-13T10:00:00.000Z",
   treatment: {
     descriptionText: "Central description.",
     id: "treatment-1",
@@ -85,7 +86,6 @@ describe("Clinic treatment BFF", () => {
   it("creates without accepting a browser clinic id", async () => {
     const response = await handleClinicTreatmentCreate(
       request("POST", {
-        active: false,
         clinicId: "foreign-clinic",
         price: 0,
         treatmentId: "treatment-1",
@@ -96,12 +96,11 @@ describe("Clinic treatment BFF", () => {
     expect(providerMocks.createTreatment).not.toHaveBeenCalled()
 
     const accepted = await handleClinicTreatmentCreate(
-      request("POST", { active: false, price: 0, treatmentId: "treatment-1" }),
+      request("POST", { price: 0, treatmentId: "treatment-1" }),
       createProvider,
     )
     expect(accepted.status).toBe(201)
     expect(providerMocks.createTreatment).toHaveBeenCalledWith({
-      active: false,
       price: 0,
       treatmentId: "treatment-1",
     })
@@ -109,18 +108,19 @@ describe("Clinic treatment BFF", () => {
 
   it("patches only price and active and maps duplicate conflicts", async () => {
     const response = await handleClinicTreatmentUpdate(
-      request("PATCH", { active: true, price: 12.34 }, "offering-1"),
+      request("PATCH", { active: true, expectedRevision: offering.revision, price: 12.34 }, "offering-1"),
       createProvider,
     )
     expect(response.status).toBe(200)
     expect(providerMocks.updateTreatment).toHaveBeenCalledWith("offering-1", {
       active: true,
+      expectedRevision: offering.revision,
       price: 12.34,
     })
 
     providerMocks.createTreatment.mockResolvedValueOnce({ error: "conflict", ok: false })
     const conflict = await handleClinicTreatmentCreate(
-      request("POST", { active: false, price: 10, treatmentId: "treatment-1" }),
+      request("POST", { price: 10, treatmentId: "treatment-1" }),
       createProvider,
     )
     expect(conflict.status).toBe(409)
@@ -128,7 +128,7 @@ describe("Clinic treatment BFF", () => {
 
   it.each([-0.01, 12.345])("rejects invalid EUR price %s", async (price) => {
     const response = await handleClinicTreatmentCreate(
-      request("POST", { active: false, price, treatmentId: "treatment-1" }),
+      request("POST", { price, treatmentId: "treatment-1" }),
       createProvider,
     )
     expect(response.status).toBe(400)

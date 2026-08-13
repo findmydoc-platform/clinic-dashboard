@@ -17,6 +17,7 @@ const offeringSchema = z.object({
   active: z.boolean(),
   id: z.string(),
   price: z.number().nonnegative(),
+  revision: z.string().datetime({ offset: true }),
   treatment: masterTreatmentSchema,
 })
 const snapshotSchema = z.discriminatedUnion("status", [

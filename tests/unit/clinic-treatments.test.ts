@@ -30,7 +30,6 @@ describe("clinic treatment model", () => {
         clinicTreatmentSnapshotFixture.catalogue,
         clinicTreatmentSnapshotFixture.offerings,
         {
-          active: false,
           price: 250,
           treatmentId: "master-laser-teeth-whitening",
         },

@@ -62,5 +62,12 @@ Payload CORS expansion.
   the documented controlled states.
 - Authenticated responses remain private and absent from shared or durable caches.
 - Public-impacting Payload mutations retain the website revalidation contract.
+- The focused treatment provider targets only `GET`, `POST`, and `PATCH`
+  `/api/clinic-dashboard/treatments`; create sends no active state, and update carries the last observed revision.
+- Treatment create and update contract tests prove server-derived clinic scope, inactive creation, duplicate and stale
+  serializable conflicts, private/no-store responses, and request-scoped Controlled persistence.
 
-Cache impact for this documentation and implementation plan: `no-public-impact`.
+Cache impact: `public-cached`. Authenticated Dashboard treatment reads remain `private-live`. Treatment writes reuse the
+Website's existing `clinictreatments` hooks, related-clinic planner event, `clinic-detail` and `listing-comparison`
+policy entries, canonical tags, invalidation owner, and bounded paths; no new cache primitive or invalidation behavior
+is introduced.

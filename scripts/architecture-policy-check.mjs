@@ -134,6 +134,7 @@ function isAllowedClinicDashboardServerImport(file) {
     file === "tests/unit/clinic-dashboard-demo-data.test.ts" ||
     file === "tests/integration/patient-inquiry-queue-loading.test.ts" ||
     file === "tests/integration/patient-inquiry-status-route.test.ts" ||
+    file === "tests/unit/clinic-treatment-controlled-lifecycle.test.ts" ||
     file === "tests/integration/clinic-profile-routes.test.ts" ||
     file === "tests/integration/review-routes.test.ts"
   )

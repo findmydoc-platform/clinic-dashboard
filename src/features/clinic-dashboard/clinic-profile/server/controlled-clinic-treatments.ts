@@ -16,23 +16,48 @@ const catalogue = [
   },
 ] as const
 
-export function createControlledClinicTreatmentProvider(): ClinicTreatmentProvider {
-  let offerings: ClinicTreatmentOffering[] = [
-    {
-      active: true,
-      id: "controlled-offering-1",
-      price: 250,
-      treatment: catalogue[0],
-    },
-  ]
+const initialOfferings = (): ClinicTreatmentOffering[] => [
+  {
+    active: true,
+    id: "controlled-offering-1",
+    price: 250,
+    revision: "2026-01-01T00:00:00.000Z",
+    treatment: catalogue[0],
+  },
+]
+
+const offeringsByClinic = new Map<string, ClinicTreatmentOffering[]>()
+
+function offeringsForClinic(clinicId: string) {
+  const current = offeringsByClinic.get(clinicId)
+  if (current) return current
+  const seeded = initialOfferings()
+  offeringsByClinic.set(clinicId, seeded)
+  return seeded
+}
+
+function nextRevision(previous?: string) {
+  const previousTime = previous ? Date.parse(previous) : 0
+  return new Date(Math.max(Date.now(), previousTime + 1)).toISOString()
+}
+
+export function resetControlledClinicTreatmentProviders() {
+  offeringsByClinic.clear()
+}
+
+export function createControlledClinicTreatmentProvider(clinicId: string): ClinicTreatmentProvider {
   const snapshot = (): ClinicTreatmentsSnapshot => ({
     catalogue,
-    offerings: offerings.map((offering) => ({ ...offering, treatment: { ...offering.treatment } })),
+    offerings: offeringsForClinic(clinicId).map((offering) => ({
+      ...offering,
+      treatment: { ...offering.treatment },
+    })),
     status: "ready",
   })
 
   return {
     async createTreatment(input) {
+      const offerings = offeringsForClinic(clinicId)
       if (offerings.some((offering) => offering.treatment.id === input.treatmentId)) {
         return { error: "conflict", ok: false }
       }
@@ -40,23 +65,34 @@ export function createControlledClinicTreatmentProvider(): ClinicTreatmentProvid
       if (!treatment) return { error: "invalid-input", ok: false }
 
       const offering = {
-        active: input.active,
+        active: false,
         id: `controlled-offering-${offerings.length + 1}`,
         price: input.price,
+        revision: nextRevision(),
         treatment,
       }
-      offerings = [...offerings, offering]
+      offeringsByClinic.set(clinicId, [...offerings, offering])
       return { ok: true, value: offering }
     },
     async loadTreatments() {
       return { ok: true, value: snapshot() }
     },
     async updateTreatment(offeringId, input) {
+      const offerings = offeringsForClinic(clinicId)
       const existing = offerings.find((offering) => offering.id === offeringId)
       if (!existing) return { error: "not-found", ok: false }
+      if (existing.revision !== input.expectedRevision) return { error: "conflict", ok: false }
 
-      const offering = { ...existing, ...input }
-      offerings = offerings.map((candidate) => (candidate.id === offeringId ? offering : candidate))
+      const offering = {
+        ...existing,
+        active: input.active,
+        price: input.price,
+        revision: nextRevision(existing.revision),
+      }
+      offeringsByClinic.set(
+        clinicId,
+        offerings.map((candidate) => (candidate.id === offeringId ? offering : candidate)),
+      )
       return { ok: true, value: offering }
     },
   }

@@ -9,6 +9,37 @@ import { clinicTreatmentSnapshotFixture } from "@/features/clinic-dashboard/clin
 afterEach(cleanup)
 
 describe("clinic treatments controller", () => {
+  it("sends the selected offering revision with an update", async () => {
+    const offering = clinicTreatmentSnapshotFixture.offerings[0]
+    const commands = {
+      createTreatment: vi.fn(),
+      loadTreatments: vi.fn(),
+      updateTreatment: vi.fn(async () => ({ ...offering, active: !offering.active })),
+    }
+    const hook = renderHook(() =>
+      useClinicTreatmentsController({
+        commands,
+        initialSnapshot: clinicTreatmentSnapshotFixture,
+        management: "interactive",
+      }),
+    )
+
+    act(() => hook.result.current.actions.openOffering(offering))
+    await act(async () => {
+      await hook.result.current.actions.save({
+        active: !offering.active,
+        price: offering.price,
+        treatmentId: offering.treatment.id,
+      })
+    })
+
+    expect(commands.updateTreatment).toHaveBeenCalledWith(offering.id, {
+      active: !offering.active,
+      expectedRevision: offering.revision,
+      price: offering.price,
+    })
+  })
+
   it("reloads the source-backed list after a duplicate conflict", async () => {
     const refreshedSnapshot = {
       ...clinicTreatmentSnapshotFixture,
@@ -18,6 +49,7 @@ describe("clinic treatments controller", () => {
           active: false,
           id: "offering-master-hair-transplant",
           price: 2400,
+          revision: "2026-08-13T10:00:00.000Z",
           treatment: clinicTreatmentSnapshotFixture.catalogue[3],
         },
       ],
@@ -50,9 +82,11 @@ describe("clinic treatments controller", () => {
     expect(saved).toBe(false)
     expect(commands.loadTreatments).toHaveBeenCalledOnce()
     expect(hook.result.current.model.snapshot).toEqual(refreshedSnapshot)
-    expect(hook.result.current.model.dialogOpen).toBe(false)
+    expect(hook.result.current.model.dialogOpen).toBe(true)
+    expect(hook.result.current.model.selectedOffering?.id).toBe("offering-master-hair-transplant")
+    expect(hook.result.current.model.dialogMessage).toBe("Review your values and save again.")
     expect(hook.result.current.model.statusMessage).toBe(
-      "This treatment was already changed. The list was reloaded.",
+      "This treatment changed elsewhere. The latest version was loaded.",
     )
   })
 
@@ -83,8 +117,9 @@ describe("clinic treatments controller", () => {
       })
     })
 
-    expect(hook.result.current.model.dialogOpen).toBe(false)
+    expect(hook.result.current.model.dialogOpen).toBe(true)
     expect(hook.result.current.model.snapshot.status).toBe("temporarily-unavailable")
+    expect(hook.result.current.model.dialogMessage).toContain("Your values were not saved")
     expect(hook.result.current.model.statusMessage).toBe(
       "This treatment was already changed, but the list could not be reloaded.",
     )
