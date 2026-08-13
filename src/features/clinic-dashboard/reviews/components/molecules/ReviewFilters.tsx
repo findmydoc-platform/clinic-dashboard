@@ -1,39 +1,30 @@
-import { RefreshCw, SlidersHorizontal } from "lucide-react"
+import { SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Field } from "@/components/ui/field"
 import { Select } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type {
-  ReviewFilters as ReviewFiltersValue,
-  ReviewPeriod,
-  ReviewRating,
-} from "../../model/review-filters"
-import { reviewStatuses } from "../../model/review"
+import type { ReviewListFilters, ReviewTreatmentOption } from "../../model/review-source"
 
-type ReviewFiltersProps = Readonly<{
-  filters: ReviewFiltersValue
+type Props = Readonly<{
+  filters: ReviewListFilters
   isDirty: boolean
   isMobileOpen: boolean
-  isRefreshing: boolean
   onApply: () => void
-  onChange: (filters: ReviewFiltersValue) => void
+  onChange: (filters: ReviewListFilters) => void
   onMobileOpenChange: (open: boolean) => void
-  onRefresh: () => void
-  treatmentOptions: readonly string[]
+  treatmentOptions: readonly ReviewTreatmentOption[]
 }>
 
 export function ReviewFilters({
   filters,
   isDirty,
   isMobileOpen,
-  isRefreshing,
   onApply,
   onChange,
   onMobileOpenChange,
-  onRefresh,
   treatmentOptions,
-}: ReviewFiltersProps) {
+}: Props) {
   return (
     <section aria-label="Review filters">
       <Button
@@ -51,12 +42,13 @@ export function ReviewFilters({
           isMobileOpen ? "grid" : "hidden",
         )}
       >
-        <Field className="gap-1" label={<span className="text-xs tracking-wide uppercase">Period</span>}>
-          {(controlProps) => (
+        <Field label="Period">
+          {(props) => (
             <Select
-              {...controlProps}
-              className="text-sm font-normal"
-              onValueChange={(value) => onChange({ ...filters, period: value as ReviewPeriod })}
+              {...props}
+              onValueChange={(period) =>
+                onChange({ ...filters, period: period as ReviewListFilters["period"] })
+              }
               value={filters.period}
             >
               <option value="all">All periods</option>
@@ -66,91 +58,62 @@ export function ReviewFilters({
             </Select>
           )}
         </Field>
-        <Field className="gap-1" label={<span className="text-xs tracking-wide uppercase">Rating</span>}>
-          {(controlProps) => (
+        <Field label="Rating">
+          {(props) => (
             <Select
-              {...controlProps}
-              className="text-sm font-normal"
-              onValueChange={(value) =>
-                onChange({
-                  ...filters,
-                  rating: value === "all" ? "all" : (Number(value) as ReviewRating),
-                })
+              {...props}
+              onValueChange={(rating) =>
+                onChange({ ...filters, rating: rating as ReviewListFilters["rating"] })
               }
               value={filters.rating}
             >
               <option value="all">All ratings</option>
-              {[5, 4, 3, 2, 1].map((rating) => (
-                <option key={rating} value={rating}>
-                  {rating} {rating === 1 ? "star" : "stars"}
+              {[5, 4, 3, 2, 1].map((value) => (
+                <option key={value} value={value}>
+                  {value} stars
                 </option>
               ))}
             </Select>
           )}
         </Field>
-        <Field className="gap-1" label={<span className="text-xs tracking-wide uppercase">Treatment</span>}>
-          {(controlProps) => (
+        <Field label="Treatment">
+          {(props) => (
             <Select
-              {...controlProps}
-              className="text-sm font-normal"
-              onValueChange={(value) => onChange({ ...filters, treatment: value })}
+              {...props}
+              onValueChange={(treatment) => onChange({ ...filters, treatment })}
               value={filters.treatment}
             >
               <option value="all">All treatments</option>
-              {treatmentOptions.map((treatment) => (
-                <option key={treatment} value={treatment}>
-                  {treatment}
+              {treatmentOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
                 </option>
               ))}
             </Select>
           )}
         </Field>
-        <Field className="gap-1" label={<span className="text-xs tracking-wide uppercase">Status</span>}>
-          {(controlProps) => (
+        <Field label="Visibility">
+          {(props) => (
             <Select
-              {...controlProps}
-              className="text-sm font-normal"
-              onValueChange={(value) =>
-                onChange({
-                  ...filters,
-                  status: value as ReviewFiltersValue["status"],
-                })
+              {...props}
+              onValueChange={(visibility) =>
+                onChange({ ...filters, visibility: visibility as ReviewListFilters["visibility"] })
               }
-              value={filters.status}
+              value={filters.visibility}
             >
-              <option value="all">All statuses</option>
-              {reviewStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
+              <option value="all">All visibility</option>
+              <option value="published">Published</option>
+              <option value="moderated">Moderated</option>
+              <option value="removed">Removed</option>
+              <option value="withdrawn">Withdrawn</option>
             </Select>
           )}
         </Field>
-        <div className="flex flex-col justify-end gap-1.5">
-          <span className="text-xs font-bold text-[var(--foreground)]">
-            {isDirty ? "Changes not applied" : "Filters up to date"}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              disabled={!isDirty}
-              onClick={onApply}
-              size="small"
-              variant={isDirty ? "primary" : "outline"}
-            >
-              <SlidersHorizontal aria-hidden="true" className="size-4" /> Apply filters
-            </Button>
-            <Button
-              aria-label={isRefreshing ? "Refreshing reviews" : "Refresh reviews"}
-              disabled={isRefreshing}
-              onClick={onRefresh}
-              size="small"
-              variant="outline"
-            >
-              <RefreshCw aria-hidden="true" className={cn("size-4", isRefreshing && "animate-spin")} />
-              {isRefreshing ? "Refreshing…" : "Refresh"}
-            </Button>
-          </div>
+        <div className="flex items-end">
+          <Button className="w-full" disabled={!isDirty} onClick={onApply}>
+            <SlidersHorizontal aria-hidden="true" className="size-4" />
+            Apply
+          </Button>
         </div>
       </Card>
     </section>

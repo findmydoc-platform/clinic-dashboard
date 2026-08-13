@@ -100,8 +100,8 @@ test("switches complete location snapshots and resets local demo changes", async
     page.getByRole("button", { name: "Change inquiry status. Current status: In review" }),
   ).toBeVisible()
 
-  await page.getByRole("button", { name: "Reviews" }).click()
-  await expect(page.getByText("Melis Güneş")).toBeVisible()
+  await page.getByRole("button", { exact: true, name: "Reviews" }).click()
+  await expect(page.getByText("Maya K.")).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile" }).click()
   await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
   await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveCount(0)
@@ -143,6 +143,54 @@ test("switches complete location snapshots and resets local demo changes", async
   await expect(page.getByText("Status changed from Submitted to In review · 11:08")).toHaveCount(0)
   await page.getByRole("button", { name: "Clinic profile" }).click()
   await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+})
+
+test("manages review responses, appeals, filters, and history through the authenticated BFF", async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("button", { exact: true, name: "Reviews" }).click()
+
+  await page.getByLabel("Visibility").selectOption("removed")
+  await page.getByRole("button", { name: "Apply" }).click()
+  await expect(page.getByText("Review text removed")).toBeVisible()
+
+  await page.getByLabel("Visibility").selectOption("all")
+  await page.getByRole("button", { name: "Apply" }).click()
+  const review = page.getByRole("region", { name: "Review by Maya K., Dentistry" })
+  const pendingResponseReview = page.getByRole("region", {
+    name: "Review by Anonymous patient, Hair transplant",
+  })
+
+  await expect(review.getByRole("button", { name: /response/i })).toHaveCount(0)
+  await pendingResponseReview.getByRole("button", { name: "Edit pending response" }).click()
+  const responseDialog = page.getByRole("dialog", { name: "Edit pending response" })
+  await responseDialog
+    .getByLabel("Clinic response")
+    .fill("Thank you for the detailed feedback. We have shared it with our clinic team.")
+  await responseDialog.getByRole("button", { name: "Submit for moderation" }).click()
+  await expect(
+    pendingResponseReview.getByText(
+      "Thank you for the detailed feedback. We have shared it with our clinic team.",
+    ),
+  ).toBeVisible()
+
+  await review.getByRole("button", { name: "Submit appeal" }).click()
+  const appealDialog = page.getByRole("dialog", { name: "Submit review appeal" })
+  await appealDialog.getByLabel("Reason").selectOption("incorrect_clinic")
+  await appealDialog
+    .getByLabel("Appeal details")
+    .fill("The appointment described in this review belongs to another clinic location.")
+  await appealDialog.getByRole("button", { name: "Submit appeal" }).click()
+  await expect(review.getByText("Appeal · Incorrect clinic")).toBeVisible()
+  await expect(review.getByText("Submitted", { exact: true })).toBeVisible()
+
+  await review.getByRole("button", { name: "View history" }).click()
+  const historyDialog = page.getByRole("dialog", { name: "Review history" })
+  await expect(historyDialog.getByRole("heading", { name: "Publication history" })).toBeVisible()
+  await expect(historyDialog.getByRole("heading", { name: "Clinic response" })).toBeVisible()
+  await expect(historyDialog.getByRole("heading", { name: "Appeal history" })).toBeVisible()
 })
 
 test("deep-links across locations and projects a saved profile until reload", async ({ page }) => {

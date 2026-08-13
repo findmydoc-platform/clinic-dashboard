@@ -8,6 +8,7 @@ const serverMocks = vi.hoisted(() => ({
   loadProfile: vi.fn(),
   loadWorkspace: vi.fn(),
   loadQueue: vi.fn(),
+  loadReviews: vi.fn(),
 }))
 
 vi.mock("@/features/clinic-dashboard/data-provider-composition", () => ({
@@ -63,6 +64,10 @@ describe("Patient inquiry queue server loading", () => {
       error: "temporarily-unavailable",
       ok: false,
     })
+    serverMocks.loadReviews.mockResolvedValue({
+      error: "unavailable",
+      ok: false,
+    })
     serverMocks.composeDataProviders.mockReturnValue({
       doctors: {
         loadDirectory: serverMocks.loadDirectory,
@@ -73,6 +78,9 @@ describe("Patient inquiry queue server loading", () => {
       },
       profile: {
         loadSnapshot: serverMocks.loadProfile,
+      },
+      reviews: {
+        loadReviews: serverMocks.loadReviews,
       },
     })
   })

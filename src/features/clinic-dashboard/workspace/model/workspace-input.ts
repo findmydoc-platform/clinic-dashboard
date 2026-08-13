@@ -10,7 +10,7 @@ import type {
   PatientInquiryProfile,
   PatientInquiryQueueSnapshot,
 } from "@/features/clinic-dashboard/messages/public"
-import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
+import type { ReviewsSnapshot, ReviewsSourceSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import type { ClinicDashboardLocation, ClinicDashboardLocationId } from "./locations"
 import type { ClinicDashboardNotification } from "./notifications"
 
@@ -51,6 +51,7 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
   doctorDirectory: DoctorDirectorySnapshot
   inquiryQueue: PatientInquiryQueueSnapshot
   profileSourceSnapshot?: ClinicProfileSnapshot
+  reviewSourceSnapshot?: ReviewsSourceSnapshot
   locations: readonly ClinicDashboardLocation[]
   locationSnapshots: Readonly<Record<ClinicDashboardLocationId, ClinicDashboardLocationSnapshot>>
   notifications: readonly ClinicDashboardNotification[]

@@ -144,12 +144,6 @@ export const reviewsFixture = {
   total: 1248,
 } satisfies ReviewsSnapshot
 
-export const openReviewFixture = reviewsFixture.items.find(
-  (review) => review.status === "Open",
-) as ClinicReview
-export const publishedReviewFixture = reviewsFixture.items.find(
-  (review) => review.status === "Answered" && review.pendingResponse,
-) as ClinicReview
 export const submittedAppealReviewFixture = reviewsFixture.items.find(
   (review) => review.appealCase?.status === "submitted",
 ) as ClinicReview
@@ -199,20 +193,6 @@ export function createReviewCommandsFixture(latencyMs = 0): ReviewCommands {
         }),
         revision: review.revision + 1,
       })
-    },
-  }
-}
-
-export function createRetryReviewCommandsFixture(): ReviewCommands {
-  const commands = createReviewCommandsFixture()
-  let saveAttempts = 0
-
-  return {
-    ...commands,
-    submitReviewResponseForModeration: async (...input) => {
-      saveAttempts += 1
-      if (saveAttempts === 1) throw new Error("Fixture rejection")
-      return commands.submitReviewResponseForModeration(...input)
     },
   }
 }

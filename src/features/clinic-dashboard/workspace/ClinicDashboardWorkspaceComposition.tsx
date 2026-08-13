@@ -29,7 +29,7 @@ import {
   PrototypeModeSwitch,
   type ClinicDashboardPrototypeMode,
 } from "@/features/clinic-dashboard/prototype/public"
-import { Reviews, type ReviewCommands } from "@/features/clinic-dashboard/reviews/public"
+import { Reviews, type ReviewSourceCommands } from "@/features/clinic-dashboard/reviews/public"
 import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
@@ -77,7 +77,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
       snapshot: DashboardSnapshot
     }>,
   ) => DashboardSnapshot
-  reviewCommands: ReviewCommands
+  reviewCommands: ReviewSourceCommands
   showPrototypeModeToggle: boolean
   start?: ClinicDashboardWorkspaceStartState
   workspaceInput: ClinicDashboardWorkspaceInput
@@ -280,8 +280,8 @@ export function ClinicDashboardWorkspaceComposition({
       </p>
 
       <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
-        <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, doctors and patient
-        inquiries are live. Dashboard cards, charts, reviews, gallery and treatments are local examples.
+        <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, doctors, patient
+        inquiries and reviews are live. Dashboard cards, charts, gallery and treatments are local examples.
       </div>
 
       {activeSection === "dashboard" ? (
@@ -308,10 +308,9 @@ export function ClinicDashboardWorkspaceComposition({
         <Reviews
           commands={reviewCommands}
           focusTarget={model.reviewFocusTarget}
-          key={selectedLocation.id}
           onFocusHandled={actions.clearReviewFocusRequest}
           showManagement={capabilities.canManageReviews}
-          snapshot={selectedSnapshot.reviews}
+          snapshot={workspaceInput.reviewSourceSnapshot}
         />
       </div>
       <div hidden={activeSection !== "profile"}>

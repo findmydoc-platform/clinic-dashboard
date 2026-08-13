@@ -24,3 +24,4 @@ Read .codex/project-profile.toml before creating the document. Do not repeat com
 - [Clinic Dashboard Prototype and Capability Visibility Plan](./clinic-dashboard-prototype-and-capability-visibility.md)
 - [Dashboard and Header Prototype Interaction Plan](./dashboard-header-prototype-interactions.md)
 - [Dashboard Lower Area Prototype Interaction Plan](./dashboard-lower-prototype-interactions.md)
+- [Review Responses, Appeals, and Publication History](./review-responses-appeals-and-publication-history.md)
