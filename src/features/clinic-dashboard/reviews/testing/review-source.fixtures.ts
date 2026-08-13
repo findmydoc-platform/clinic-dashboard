@@ -114,6 +114,38 @@ export const reviewHistoryFixture: ReviewHistorySnapshot = {
   reviewId: "review-source-public",
 }
 
+export const editedPendingResponseHistoryFixture: ReviewHistorySnapshot = {
+  appeal: [
+    {
+      action: "submitted",
+      actorType: "clinic_staff",
+      id: "appeal-submitted",
+      recordedAt: "2026-01-21T12:45:00.000Z",
+      status: "submitted",
+    },
+  ],
+  publication: reviewHistoryFixture.publication,
+  response: [
+    {
+      action: "pending_edited",
+      actorType: "clinic_staff",
+      id: "response-edited",
+      pendingBody: "Thank you for the detailed feedback. We have shared it with the aftercare team.",
+      recordedAt: "2026-01-21T13:00:00.000Z",
+      status: "pending",
+    },
+    {
+      action: "submitted",
+      actorType: "clinic_staff",
+      id: "response-submitted",
+      pendingBody: "Thank you for the detailed feedback. We are reviewing it with our team.",
+      recordedAt: "2026-01-21T12:30:00.000Z",
+      status: "pending",
+    },
+  ],
+  reviewId: "review-source-context",
+}
+
 export function createReviewSourceCommandsFixture(): ReviewSourceCommands {
   let records = reviewSourceRecordsFixture.map((record) => structuredClone(record)) as ClinicReviewRecord[]
   const currentSnapshot = (filters: ReviewListFilters): ReviewsSourceSnapshot => ({
