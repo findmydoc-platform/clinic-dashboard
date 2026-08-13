@@ -53,6 +53,40 @@ describe("Payload clinic bootstrap", () => {
     })
   })
 
+  it("does not infer treatment access from profile capabilities", async () => {
+    const profileOnlyBootstrap = {
+      ...bootstrap,
+      capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+    }
+
+    await expect(
+      fetchClinicDashboardBootstrap(
+        "access-token",
+        vi.fn(async () => jsonResponse(profileOnlyBootstrap)) as typeof fetch,
+      ),
+    ).resolves.toEqual({
+      context: profileOnlyBootstrap,
+      status: "approved",
+    })
+  })
+
+  it("preserves an explicit read-only treatment capability", async () => {
+    const readOnlyTreatmentsBootstrap = {
+      ...bootstrap,
+      capabilities: ["clinic-profile:view", "clinic-profile:edit", "clinic-treatments:view"],
+    }
+
+    await expect(
+      fetchClinicDashboardBootstrap(
+        "access-token",
+        vi.fn(async () => jsonResponse(readOnlyTreatmentsBootstrap)) as typeof fetch,
+      ),
+    ).resolves.toEqual({
+      context: readOnlyTreatmentsBootstrap,
+      status: "approved",
+    })
+  })
+
   it.each([
     [401, "CLINIC_DASHBOARD_UNAUTHORIZED", "unauthorized"],
     [403, "CLINIC_DASHBOARD_ACCESS_DENIED", "denied"],

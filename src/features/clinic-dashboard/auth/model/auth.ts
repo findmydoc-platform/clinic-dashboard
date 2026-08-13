@@ -12,6 +12,7 @@ const clinicDashboardCapabilitiesSchema = z
   .refine((capabilities) => new Set(capabilities).size === capabilities.length, {
     message: "Capabilities must be unique.",
   })
+  .readonly()
 
 export const authenticatedClinicContextSchema = z.object({
   capabilities: clinicDashboardCapabilitiesSchema.readonly(),

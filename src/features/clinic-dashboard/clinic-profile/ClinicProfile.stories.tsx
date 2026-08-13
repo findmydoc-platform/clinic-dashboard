@@ -9,8 +9,9 @@ import {
 } from "./model/clinic-profile-source-commands"
 import {
   clinicProfileFixture,
-  clinicTreatmentCatalogueFixture,
+  clinicTreatmentSnapshotFixture,
   createClinicProfileCommandsFixture,
+  createClinicTreatmentCommandsFixture,
 } from "./testing/clinic-profile.fixtures"
 import {
   clinicProfileSourceDraftFixture,
@@ -23,6 +24,7 @@ function ClinicProfileStoryFixture({
   commands: _commands,
   doctorCommands: _doctorCommands,
   sourceCommands: _sourceCommands,
+  treatmentCommands: _treatmentCommands,
   ...props
 }: ComponentProps<typeof ClinicProfile>) {
   const [commands] = useState<ClinicProfileCommands>(() => createClinicProfileCommandsFixture())
@@ -30,6 +32,7 @@ function ClinicProfileStoryFixture({
   const [sourceCommands] = useState<ClinicProfileSourceCommands>(() =>
     createClinicProfileSourceCommandsFixture(props.sourceSnapshot),
   )
+  const [treatmentCommands] = useState(() => createClinicTreatmentCommandsFixture())
 
   return (
     <ClinicProfile
@@ -37,6 +40,7 @@ function ClinicProfileStoryFixture({
       commands={commands}
       doctorCommands={doctorCommands}
       sourceCommands={sourceCommands}
+      treatmentCommands={treatmentCommands}
     />
   )
 }
@@ -59,7 +63,9 @@ const meta = {
     sourceProfileManagement: "interactive",
     sourceCommands: createClinicProfileSourceCommandsFixture(),
     sourceSnapshot: clinicProfileSourceFixture,
-    treatmentCatalogue: clinicTreatmentCatalogueFixture,
+    treatmentCommands: createClinicTreatmentCommandsFixture(),
+    treatmentManagement: "interactive",
+    treatmentSnapshot: clinicTreatmentSnapshotFixture,
   },
   component: ClinicProfile,
   parameters: { layout: "fullscreen" },
@@ -243,7 +249,7 @@ export const SaveFailurePreservesLeaveGuard: Story = {
       ).toHaveTextContent("The draft was created, but your changes could not be saved."),
     )
     const openDialog = documentPage.getByRole("alertdialog", { name: "Leave profile editing?" })
-    await expect(openDialog).toBeVisible()
+    await waitFor(() => expect(openDialog).toBeVisible())
     await expect(within(openDialog).getByRole("button", { name: "Save draft and leave" })).toBeEnabled()
   },
 }

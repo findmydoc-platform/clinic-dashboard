@@ -1750,6 +1750,23 @@ describe("architecture policy checker process fixtures", () => {
     expect(result.status, combinedOutput(result)).toBe(0)
   })
 
+  it("allows the exact controlled treatment lifecycle test to use the private server entry", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/server.ts": `
+        import "server-only"
+        export function handleClinicTreatmentsLoad() { return new Response() }
+      `,
+      "tests/unit/clinic-treatment-controlled-lifecycle.test.ts": `
+        import { handleClinicTreatmentsLoad } from "../../src/features/clinic-dashboard/server"
+        export const handler = handleClinicTreatmentsLoad
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+
+    expect(result.status, combinedOutput(result)).toBe(0)
+  })
+
   it("requires the private server entry to declare its server-only boundary", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/server.ts": `

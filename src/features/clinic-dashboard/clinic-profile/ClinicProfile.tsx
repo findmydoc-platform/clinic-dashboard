@@ -13,11 +13,14 @@ import { PublishReviewDialog } from "./components/organisms/PublishReviewDialog"
 import { TreatmentDialog } from "./components/organisms/TreatmentDialog"
 import { useClinicProfileController } from "./hooks/useClinicProfileController"
 import { useClinicProfileSourceController } from "./hooks/useClinicProfileSourceController"
+import { useClinicTreatmentsController } from "./hooks/useClinicTreatmentsController"
 import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
-import type { ClinicProfileDraft, ClinicProfileFocusTarget, MasterTreatment } from "./model/clinic-profile"
+import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "./model/clinic-profile"
 import { resolveClinicProfileDraftInput } from "./model/clinic-profile-editing"
 import type { ClinicProfileSnapshot } from "./model/clinic-profile-source"
 import type { ClinicProfileSourceCommands } from "./model/clinic-profile-source-commands"
+import type { ClinicTreatmentCommands } from "./model/clinic-treatment-commands"
+import type { ClinicTreatmentsSnapshot } from "./model/clinic-treatment"
 import type { DoctorDirectorySnapshot, DoctorProfile } from "./model/doctor-profile"
 import type { DoctorProfileCommands } from "./model/doctor-profile-commands"
 import {
@@ -42,7 +45,9 @@ export type ClinicProfileProps = Readonly<{
   sourceProfileManagement: ClinicProfileManagementAccess
   sourceCommands: ClinicProfileSourceCommands
   sourceSnapshot?: ClinicProfileSnapshot
-  treatmentCatalogue: readonly MasterTreatment[]
+  treatmentCommands: ClinicTreatmentCommands
+  treatmentManagement: ClinicProfileManagementAccess
+  treatmentSnapshot: ClinicTreatmentsSnapshot
 }>
 
 export function ClinicProfile({
@@ -61,7 +66,9 @@ export function ClinicProfile({
   sourceProfileManagement,
   sourceCommands,
   sourceSnapshot,
-  treatmentCatalogue,
+  treatmentCommands,
+  treatmentManagement,
+  treatmentSnapshot,
 }: ClinicProfileProps) {
   const legacy = useClinicProfileController({
     commands,
@@ -69,10 +76,14 @@ export function ClinicProfile({
       profileManagement,
       teamManagement: "hidden",
     },
-    initialDialog,
     initialProfile,
     onProfileSaved,
-    treatmentCatalogue,
+  })
+  const treatmentController = useClinicTreatmentsController({
+    commands: treatmentCommands,
+    initialDialog,
+    initialSnapshot: treatmentSnapshot,
+    management: treatmentManagement,
   })
   const source = useClinicProfileSourceController({
     commands: sourceCommands,
@@ -88,6 +99,7 @@ export function ClinicProfile({
     sourceModel.snapshot
       ? resolveClinicProfileDraftInput(sourceModel.workingDraft, sourceModel.snapshot.availableCities)
       : sourceModel.published
+  const treatments = treatmentController.model
 
   const screenActions: ClinicProfileScreenActions = {
     onAddressEdit: () => sourceActions.setDialog("address"),
@@ -104,12 +116,11 @@ export function ClinicProfile({
     onProfileEdit: sourceActions.startEditing,
     onProfileReview: sourceActions.requestReview,
     onProfileSave: () => void sourceActions.saveDraft(),
-    onRemovalUndo: legacyActions.undoRemoval,
     onSourceDiscard: () =>
       sourceActions.setConfirmation(sourceModel.mode === "conflict" ? "reload" : "discard"),
-    onTreatmentCreate: () => legacyActions.openTreatmentDialog(),
-    onTreatmentOpen: legacyActions.openTreatmentDialog,
-    onTreatmentRemove: legacyActions.removeTreatment,
+    onTreatmentCreate: treatmentController.actions.openCreate,
+    onTreatmentOpen: treatmentController.actions.openOffering,
+    onTreatmentRetry: treatmentController.actions.reload,
   }
 
   return (
@@ -140,9 +151,10 @@ export function ClinicProfile({
             validationErrors: sourceModel.validationErrors,
             workingDraft: sourceModel.workingDraft,
           },
-          treatments: legacyModel.treatmentViews,
-          undoKind: legacyModel.undoKind,
-          undoMessage: legacyModel.undoMessage,
+          treatmentManagement,
+          treatmentSnapshot: treatments.snapshot,
+          treatmentStatusMessage: treatments.statusMessage,
+          treatmentsBusy: treatments.isBusy,
         }}
       />
 
@@ -175,16 +187,17 @@ export function ClinicProfile({
           open
         />
       ) : null}
-      {legacyDialog === "treatment" &&
-      isClinicProfileManagementVisible(profileManagement) &&
-      (legacyModel.selectedTreatment || isClinicProfileManagementInteractive(profileManagement)) ? (
+      {treatments.dialogOpen &&
+      isClinicProfileManagementVisible(treatmentManagement) &&
+      (treatments.selectedOffering || isClinicProfileManagementInteractive(treatmentManagement)) ? (
         <TreatmentDialog
-          availableTreatments={legacyModel.availableMasterTreatments}
-          initialTreatment={legacyModel.selectedTreatment}
-          isReadOnly={!isClinicProfileManagementInteractive(profileManagement)}
-          key={legacyModel.selectedTreatment?.masterTreatmentId ?? "new-treatment"}
-          onOpenChange={(open) => legacyActions.setDialogOpen("treatment", open)}
-          onSave={legacyActions.saveTreatment}
+          availableTreatments={treatments.availableTreatments}
+          initialTreatment={treatments.selectedOffering}
+          isBusy={treatments.isBusy}
+          isReadOnly={!isClinicProfileManagementInteractive(treatmentManagement)}
+          message={treatments.dialogMessage}
+          onOpenChange={treatmentController.actions.setDialogOpen}
+          onSave={treatmentController.actions.save}
           onTreatmentMissing={onTreatmentMissing}
           open
         />

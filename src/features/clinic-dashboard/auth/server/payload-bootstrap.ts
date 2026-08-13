@@ -14,7 +14,12 @@ const BOOTSTRAP_ERROR_CODES = {
 } as const
 
 const controlledAuthenticatedClinicContext = {
-  capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+  capabilities: [
+    "clinic-profile:view",
+    "clinic-profile:edit",
+    "clinic-treatments:view",
+    "clinic-treatments:edit",
+  ],
   clinic: {
     id: "controlled-clinic",
     name: "Controlled Clinic",

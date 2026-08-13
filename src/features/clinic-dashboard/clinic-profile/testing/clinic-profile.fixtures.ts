@@ -5,16 +5,62 @@ import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import receptionImage from "@/assets/clinic-dashboard/reception.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
 import type { ClinicProfileCommands } from "../model/clinic-profile-commands"
-import type { ClinicProfileDraft, MasterTreatment } from "../model/clinic-profile"
+import type { ClinicTreatmentCommands } from "../model/clinic-treatment-commands"
+import type { ClinicTreatmentsSnapshot, MasterTreatment } from "../model/clinic-treatment"
+import type { ClinicProfileDraft } from "../model/clinic-profile"
 
 const fixtureTimestamp = "2023-10-16T12:00:00.000Z"
 
-export const clinicTreatmentCatalogueFixture = [
-  { id: "master-laser-teeth-whitening", name: "Laser teeth whitening" },
-  { id: "master-ceramic-veneers", name: "Ceramic veneers (per tooth)" },
-  { id: "master-skin-analysis", name: "Skin analysis and treatment" },
-  { id: "master-hair-transplant", name: "Hair transplant" },
+const clinicTreatmentCatalogueFixture = [
+  {
+    descriptionText: "Professional whitening using a centrally maintained treatment protocol.",
+    id: "master-laser-teeth-whitening",
+    name: "Laser teeth whitening",
+  },
+  {
+    descriptionText: "Ceramic veneer treatment planned for one tooth.",
+    id: "master-ceramic-veneers",
+    name: "Ceramic veneers (per tooth)",
+  },
+  {
+    descriptionText: "Clinical skin analysis followed by a central treatment recommendation.",
+    id: "master-skin-analysis",
+    name: "Skin analysis and treatment",
+  },
+  {
+    descriptionText: "Hair restoration treatment using a centrally maintained description.",
+    id: "master-hair-transplant",
+    name: "Hair transplant",
+  },
 ] satisfies readonly MasterTreatment[]
+
+export const clinicTreatmentSnapshotFixture = {
+  catalogue: clinicTreatmentCatalogueFixture,
+  offerings: [
+    {
+      active: true,
+      id: "offering-laser-teeth-whitening",
+      price: 250,
+      revision: fixtureTimestamp,
+      treatment: clinicTreatmentCatalogueFixture[0],
+    },
+    {
+      active: true,
+      id: "offering-ceramic-veneers",
+      price: 850,
+      revision: fixtureTimestamp,
+      treatment: clinicTreatmentCatalogueFixture[1],
+    },
+    {
+      active: false,
+      id: "offering-skin-analysis",
+      price: 0,
+      revision: fixtureTimestamp,
+      treatment: clinicTreatmentCatalogueFixture[2],
+    },
+  ],
+  status: "ready",
+} as const
 
 export const clinicProfileFixture = {
   address: {
@@ -78,20 +124,6 @@ export const clinicProfileFixture = {
       specialty: "Dermatologist and laser specialist",
     },
   ],
-  treatments: [
-    {
-      masterTreatmentId: "master-laser-teeth-whitening",
-      price: "€250",
-    },
-    {
-      masterTreatmentId: "master-ceramic-veneers",
-      price: "€850",
-    },
-    {
-      masterTreatmentId: "master-skin-analysis",
-      price: "€120",
-    },
-  ],
   revision: 1,
   updatedAt: "2023-10-12T08:00:00.000Z",
 } satisfies ClinicProfileDraft
@@ -112,6 +144,53 @@ export function createClinicProfileCommandsFixture(latencyMs = 0): ClinicProfile
         revision: profile.revision + 1,
         updatedAt: fixtureTimestamp,
       }
+    },
+  }
+}
+
+export function createClinicTreatmentCommandsFixture(latencyMs = 0): ClinicTreatmentCommands {
+  let snapshot: ClinicTreatmentsSnapshot = clinicTreatmentSnapshotFixture
+  const wait = async () => {
+    if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs))
+  }
+
+  return {
+    async createTreatment(input) {
+      await wait()
+      if (snapshot.status !== "ready") throw new Error("Treatment fixture is unavailable")
+      const treatment = snapshot.catalogue.find((candidate) => candidate.id === input.treatmentId)
+      if (!treatment) throw new Error("Unknown treatment")
+      const offering = {
+        active: false,
+        id: `offering-${input.treatmentId}`,
+        price: input.price,
+        revision: fixtureTimestamp,
+        treatment,
+      }
+      snapshot = { ...snapshot, offerings: [...snapshot.offerings, offering] }
+      return offering
+    },
+    async loadTreatments() {
+      await wait()
+      return snapshot
+    },
+    async updateTreatment(offeringId, input) {
+      await wait()
+      if (snapshot.status !== "ready") throw new Error("Treatment fixture is unavailable")
+      const offering = snapshot.offerings.find((candidate) => candidate.id === offeringId)
+      if (!offering) throw new Error("Unknown offering")
+      if (offering.revision !== input.expectedRevision) throw new Error("Treatment conflict")
+      const updated = {
+        ...offering,
+        active: input.active,
+        price: input.price,
+        revision: new Date(Date.parse(offering.revision) + 1_000).toISOString(),
+      }
+      snapshot = {
+        ...snapshot,
+        offerings: snapshot.offerings.map((candidate) => (candidate.id === offeringId ? updated : candidate)),
+      }
+      return updated
     },
   }
 }

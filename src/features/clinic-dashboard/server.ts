@@ -10,6 +10,9 @@ import {
   handleClinicProfileDraftSave as handleClinicProfileDraftSaveWithProvider,
   handleClinicProfileLoad as handleClinicProfileLoadWithProvider,
   handleClinicProfilePublish as handleClinicProfilePublishWithProvider,
+  handleClinicTreatmentCreate as handleClinicTreatmentCreateWithProvider,
+  handleClinicTreatmentRead as handleClinicTreatmentReadWithProvider,
+  handleClinicTreatmentUpdate as handleClinicTreatmentUpdateWithProvider,
   handleDoctorCreate as handleDoctorCreateWithProvider,
   handleDoctorImageReplace as handleDoctorImageReplaceWithProvider,
   handleDoctorSpecialtyCreate as handleDoctorSpecialtyCreateWithProvider,
@@ -17,6 +20,7 @@ import {
   handleDoctorUpdate as handleDoctorUpdateWithProvider,
   type ClinicProfileProviderFactory,
   type DoctorProfileProviderFactory,
+  type ClinicTreatmentProviderFactory,
 } from "./clinic-profile/server/public"
 import {
   handlePatientInquiryStatusUpdate as handlePatientInquiryStatusUpdateWithProvider,
@@ -45,6 +49,9 @@ const createClinicProfileProvider: ClinicProfileProviderFactory = (accessToken, 
 
 const createReviewProvider: ReviewProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).reviews
+
+const createClinicTreatmentProvider: ClinicTreatmentProviderFactory = (accessToken, clinicId) =>
+  composeClinicDashboardDataProviders(accessToken, clinicId).treatments
 
 export function handleReviewListLoad(request: NextRequest) {
   return handleReviewListLoadWithProvider(request, createReviewProvider)
@@ -80,6 +87,18 @@ export function handleClinicProfileDraftDiscard(request: NextRequest) {
 
 export function handleClinicProfilePublish(request: NextRequest) {
   return handleClinicProfilePublishWithProvider(request, createClinicProfileProvider)
+}
+
+export function handleClinicTreatmentRead(request: NextRequest) {
+  return handleClinicTreatmentReadWithProvider(request, createClinicTreatmentProvider)
+}
+
+export function handleClinicTreatmentCreate(request: NextRequest) {
+  return handleClinicTreatmentCreateWithProvider(request, createClinicTreatmentProvider)
+}
+
+export function handleClinicTreatmentUpdate(request: NextRequest) {
+  return handleClinicTreatmentUpdateWithProvider(request, createClinicTreatmentProvider)
 }
 
 export function handleDoctorCreate(request: NextRequest) {
@@ -118,6 +137,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
         status: "temporarily-unavailable",
       },
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
+      treatmentSnapshot: { catalogue: [], offerings: [], status: "temporarily-unavailable" },
     }
   }
 
@@ -133,17 +153,23 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
         status: "temporarily-unavailable",
       },
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
+      treatmentSnapshot: { catalogue: [], offerings: [], status: "temporarily-unavailable" },
     }
   }
 
   const providers = composeClinicDashboardDataProviders(accessToken, access.context.clinic.id)
   const canViewProfile = access.context.capabilities.includes("clinic-profile:view")
-  const [doctorResult, inquiryResult, profileResult, reviewResult] = await Promise.allSettled([
-    providers.doctors.loadDirectory(),
-    providers.inquiries.loadQueue(),
-    canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
-    providers.reviews.loadReviews(defaultReviewListFilters, 1),
-  ])
+  const canViewTreatments = access.context.capabilities.includes("clinic-treatments:view")
+  const [doctorResult, inquiryResult, profileResult, reviewResult, treatmentResult] =
+    await Promise.allSettled([
+      providers.doctors.loadDirectory(),
+      providers.inquiries.loadQueue(),
+      canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
+      providers.reviews.loadReviews(defaultReviewListFilters, 1),
+      canViewTreatments
+        ? providers.treatments.loadTreatments()
+        : Promise.resolve({ error: "forbidden", ok: false } as const),
+    ])
 
   return {
     ...workspace,
@@ -163,5 +189,13 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
       profileResult.status === "fulfilled" && profileResult.value?.ok ? profileResult.value.value : undefined,
     reviewSourceSnapshot:
       reviewResult.status === "fulfilled" && reviewResult.value.ok ? reviewResult.value.value : undefined,
+    treatmentSnapshot:
+      treatmentResult.status === "fulfilled" && treatmentResult.value.ok
+        ? treatmentResult.value.value
+        : {
+            catalogue: [],
+            offerings: [],
+            status: canViewTreatments ? "temporarily-unavailable" : "forbidden",
+          },
   }
 }

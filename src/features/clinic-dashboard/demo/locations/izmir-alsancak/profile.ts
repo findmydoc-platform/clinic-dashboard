@@ -69,10 +69,5 @@ export const izmirAlsancakProfile = {
       specialty: "Dermatology",
     },
   ],
-  treatments: [
-    { masterTreatmentId: "master-ceramic-veneers", price: "From €890 per tooth" },
-    { masterTreatmentId: "master-laser-teeth-whitening", price: "€280" },
-    { masterTreatmentId: "master-skin-analysis", price: "€140" },
-  ],
   updatedAt: "2026-07-19T08:20:00.000Z",
 } satisfies ClinicProfileDraft

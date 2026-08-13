@@ -38,9 +38,29 @@ export const clinicDashboardDemoLocations = [
 export const clinicDashboardDemoDefaultLocationId = "istanbul-levent"
 
 export const clinicDashboardDemoTreatmentCatalogue = [
-  { id: "master-laser-teeth-whitening", name: "Laser teeth whitening" },
-  { id: "master-ceramic-veneers", name: "Ceramic veneers (per tooth)" },
-  { id: "master-skin-analysis", name: "Skin analysis and treatment" },
-  { id: "master-hair-transplant", name: "Hair transplant" },
-  { id: "master-dermatology-consultation", name: "Dermatology consultation" },
+  {
+    descriptionText: "Professional tooth whitening using a centrally maintained treatment protocol.",
+    id: "master-laser-teeth-whitening",
+    name: "Laser teeth whitening",
+  },
+  {
+    descriptionText: "Ceramic veneer treatment planned and priced per tooth.",
+    id: "master-ceramic-veneers",
+    name: "Ceramic veneers (per tooth)",
+  },
+  {
+    descriptionText: "Clinical skin analysis followed by a central treatment recommendation.",
+    id: "master-skin-analysis",
+    name: "Skin analysis and treatment",
+  },
+  {
+    descriptionText: "Hair restoration treatment using a centrally maintained procedure description.",
+    id: "master-hair-transplant",
+    name: "Hair transplant",
+  },
+  {
+    descriptionText: "Consultation with a dermatologist to assess symptoms and treatment options.",
+    id: "master-dermatology-consultation",
+    name: "Dermatology consultation",
+  },
 ] satisfies readonly MasterTreatment[]

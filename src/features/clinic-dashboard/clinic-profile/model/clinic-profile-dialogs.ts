@@ -4,8 +4,7 @@ import {
   type ClinicProfileManagementAccess,
 } from "./clinic-profile-management"
 
-export type ClinicProfileDialogId =
-  "address" | "gallery" | "hours" | "specialty" | "team-member" | "treatment"
+export type ClinicProfileDialogId = "address" | "gallery" | "hours" | "specialty" | "team-member"
 
 export type ClinicProfileDialogAvailability = Readonly<{
   profileManagement: ClinicProfileManagementAccess
@@ -31,12 +30,6 @@ export function isClinicProfileDialogAvailable(
     return (
       isClinicProfileManagementInteractive(availability.teamManagement) ||
       (hasSelectedEntity && isClinicProfileManagementVisible(availability.teamManagement))
-    )
-  }
-  if (dialog === "treatment") {
-    return (
-      isClinicProfileManagementInteractive(availability.profileManagement) ||
-      (hasSelectedEntity && isClinicProfileManagementVisible(availability.profileManagement))
     )
   }
   return isClinicProfileManagementInteractive(availability.profileManagement)

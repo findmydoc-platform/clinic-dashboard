@@ -4,9 +4,10 @@ import { useState } from "react"
 import {
   clinicProfileFixture,
   clinicProfileSourceFixture,
-  clinicTreatmentCatalogueFixture,
-  createClinicProfileCommandsFixture,
   createClinicProfileSourceCommandsFixture,
+  clinicTreatmentSnapshotFixture,
+  createClinicProfileCommandsFixture,
+  createClinicTreatmentCommandsFixture,
   createDoctorProfileCommandsFixture,
   doctorDirectoryFixture,
 } from "@/features/clinic-dashboard/clinic-profile/testing/public"
@@ -399,7 +400,7 @@ export const clinicDashboardWorkspaceFixture = {
   },
   notifications: notificationsFixture,
   organization: workspaceOrganizationFixture,
-  treatmentCatalogue: clinicTreatmentCatalogueFixture,
+  treatmentSnapshot: clinicTreatmentSnapshotFixture,
 } satisfies ClinicDashboardWorkspaceInput
 
 export function ClinicDashboardWorkspaceHarness({
@@ -412,6 +413,7 @@ export function ClinicDashboardWorkspaceHarness({
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
   const [clinicProfileSourceCommands] = useState(() => createClinicProfileSourceCommandsFixture())
+  const [clinicTreatmentCommands] = useState(() => createClinicTreatmentCommandsFixture())
   const [doctorProfileCommands] = useState(() => createDoctorProfileCommandsFixture())
   const [reviewCommands] = useState(() => createReviewSourceCommandsFixture())
   return (
@@ -419,6 +421,7 @@ export function ClinicDashboardWorkspaceHarness({
       authenticatedContext={authenticatedClinicContextFixture}
       clinicProfileCommands={clinicProfileCommands}
       clinicProfileSourceCommands={clinicProfileSourceCommands}
+      clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
       initialNotificationReadIds={notificationState?.readIds}
       initialNotificationsOpen={notificationState?.isOpen}

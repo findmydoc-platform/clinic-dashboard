@@ -69,10 +69,5 @@ export const istanbulLeventProfile = {
       specialty: "Dermatology and laser medicine",
     },
   ],
-  treatments: [
-    { masterTreatmentId: "master-hair-transplant", price: "From €3,900" },
-    { masterTreatmentId: "master-dermatology-consultation", price: "€150" },
-    { masterTreatmentId: "master-skin-analysis", price: "€120" },
-  ],
   updatedAt: "2026-07-19T08:30:00.000Z",
 } satisfies ClinicProfileDraft

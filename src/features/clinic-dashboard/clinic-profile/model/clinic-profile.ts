@@ -22,20 +22,6 @@ export type ClinicTeamMember = Readonly<{
 
 export type ClinicTeamMemberInput = Readonly<Omit<ClinicTeamMember, "id">>
 
-export type MasterTreatment = Readonly<{
-  id: string
-  name: string
-}>
-
-export type ClinicTreatment = Readonly<{
-  masterTreatmentId: string
-  price: string
-}>
-
-export type ClinicTreatmentInput = ClinicTreatment
-
-export type ClinicTreatmentView = Readonly<ClinicTreatment & { name: string }>
-
 export type ClinicOpeningHours = Readonly<{
   days: string
   hours: string
@@ -64,7 +50,6 @@ export type ClinicProfileDraft = Readonly<{
   revision: number
   specialties: readonly string[]
   team: readonly ClinicTeamMember[]
-  treatments: readonly ClinicTreatment[]
   updatedAt: string
 }>
 
@@ -76,7 +61,6 @@ export function cloneClinicProfile(profile: ClinicProfileDraft): ClinicProfileDr
     openingHours: profile.openingHours.map((entry) => ({ ...entry })),
     specialties: [...profile.specialties],
     team: profile.team.map((member) => ({ ...member })),
-    treatments: profile.treatments.map((treatment) => ({ ...treatment })),
   }
 }
 
