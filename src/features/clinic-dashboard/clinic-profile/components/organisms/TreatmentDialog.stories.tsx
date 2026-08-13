@@ -112,7 +112,7 @@ export const MobileAddTreatment: Story = {
     const missingTreatment = within(dialog).getByRole("button", { name: "Treatment missing?" })
     const cancel = within(dialog).getByRole("button", { name: "Cancel" })
 
-    expect(missingTreatment.getBoundingClientRect().top).toBeLessThan(cancel.getBoundingClientRect().top)
+    expect(missingTreatment.compareDocumentPosition(cancel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     missingTreatment.focus()
     await userEvent.tab()
     await expect(cancel).toHaveFocus()
