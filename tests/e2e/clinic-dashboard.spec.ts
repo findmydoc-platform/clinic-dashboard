@@ -189,7 +189,7 @@ test("manages review responses, appeals, filters, and history through the authen
   await review.getByRole("button", { name: "View history" }).click()
   const historyDialog = page.getByRole("dialog", { name: "Review history" })
   await expect(historyDialog.getByRole("heading", { name: "Publication history" })).toBeVisible()
-  await expect(historyDialog.getByRole("heading", { name: "Response history" })).toBeVisible()
+  await expect(historyDialog.getByRole("heading", { name: "Clinic response" })).toBeVisible()
   await expect(historyDialog.getByRole("heading", { name: "Appeal history" })).toBeVisible()
 })
 
