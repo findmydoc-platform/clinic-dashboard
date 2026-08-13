@@ -131,7 +131,7 @@ const rawPublicationHistorySchema = z.object({
 const rawResponseVersionSchema = z.object({
   createdAt: timestampSchema,
   id: relationshipIdSchema,
-  version: rawResponseSchema.extend({
+  version: z.object({
     lastAction: z.enum([
       "approved",
       "blocked",
@@ -142,14 +142,20 @@ const rawResponseVersionSchema = z.object({
       "submitted",
     ]),
     lastActorType: z.enum(["clinic_staff", "platform_staff", "system"]),
+    moderationStatus: z.enum(reviewResponseStatuses),
+    pendingResponse: pendingResponseSchema,
+    publishedResponse: publishedResponseSchema,
   }),
 })
 const rawAppealVersionSchema = z.object({
   createdAt: timestampSchema,
   id: relationshipIdSchema,
-  version: rawAppealSchema.extend({
+  version: z.object({
+    decidedAt: timestampSchema.nullish(),
+    decisionReason: z.string().trim().min(10).max(2_000).nullish(),
     lastAction: z.enum(["dismissed", "reviewed", "seeded", "submitted", "under_review", "upheld"]),
     lastActorType: z.enum(["clinic_staff", "platform_staff", "system"]),
+    status: z.enum(reviewAppealStatuses),
   }),
 })
 const rawResponseVersionListSchema = z.object({ docs: z.array(rawResponseVersionSchema).max(1_000) })

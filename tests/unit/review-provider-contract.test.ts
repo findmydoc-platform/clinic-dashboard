@@ -165,10 +165,28 @@ describe("review provider contract", () => {
               createdAt: "2026-01-06T11:00:00.000Z",
               id: "response-version-1",
               version: {
-                ...pendingResponse,
                 lastAction: "submitted",
                 lastActorType: "clinic_staff",
+                moderationStatus: "pending",
+                pendingResponse: pendingResponse.pendingResponse,
                 publishedResponse: emptyPublishedResponse,
+              },
+            },
+          ],
+        })
+      }
+      if (endpoint.pathname === "/api/reviewAppeals/versions") {
+        return json({
+          docs: [
+            {
+              createdAt: "2026-01-06T12:00:00.000Z",
+              id: "appeal-version-1",
+              version: {
+                decidedAt: null,
+                decisionReason: null,
+                lastAction: "submitted",
+                lastActorType: "clinic_staff",
+                status: "submitted",
               },
             },
           ],
@@ -185,6 +203,13 @@ describe("review provider contract", () => {
     expect(result).toMatchObject({
       ok: true,
       value: {
+        appeal: [
+          expect.objectContaining({
+            action: "submitted",
+            id: "appeal-version-1",
+            status: "submitted",
+          }),
+        ],
         publication: { entries: [expect.not.objectContaining({ publicText: expect.anything() })] },
         response: [
           expect.objectContaining({
