@@ -51,6 +51,7 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
       medicalSpecialties: [],
       status: "temporarily-unavailable",
     },
+    galleryStatus: "temporarily-unavailable",
     inquiryQueue: {
       inquiries: [
         createDemoInquiry(istanbulLeventPatientInquiry, "2026-07-26T07:45:00.000Z", "26 July 2026", "09:45"),

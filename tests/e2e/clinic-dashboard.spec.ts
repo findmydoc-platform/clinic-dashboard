@@ -193,9 +193,13 @@ test("manages review responses, appeals, filters, and history through the authen
   await expect(historyDialog.getByRole("heading", { name: "Appeal history" })).toBeVisible()
 })
 
-test("deep-links across locations and projects a saved profile until reload", async ({ page }) => {
+test("deep-links across locations and persists gallery curation across reload", async ({
+  page,
+}, testInfo) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
+  const receptionAlt = `Reception at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
+  const consultationAlt = `Consultation room at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
 
   await page.getByRole("button", { name: "Notifications, 4 new notifications" }).click()
   await page.getByRole("button", { name: /New message from Leyla Demir/ }).click()
@@ -208,17 +212,110 @@ test("deep-links across locations and projects a saved profile until reload", as
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
 
   const gallery = page.getByRole("region", { name: "Clinic image gallery" })
-  await gallery.getByRole("button", { name: "View all images" }).click()
-  const galleryDialog = page.getByRole("dialog", { name: "Edit clinic images" })
-  await galleryDialog.getByRole("button", { name: "Set cover" }).first().click()
-  await galleryDialog.getByRole("button", { name: "Done" }).click()
-  await page.getByRole("button", { name: "Save changes" }).click()
-  await expect(page.getByText("Profile saved as revision 2.")).toBeVisible()
+  await gallery.getByRole("button", { name: "Manage gallery" }).click()
+  const galleryEditor = page.getByRole("region", { name: "Manage gallery" })
+  await galleryEditor.getByRole("button", { name: "Add images" }).first().click()
+  const firstAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
+  const firstUploadResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      response.request().method() === "POST",
+  )
+  const imageBuffer = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64",
+  )
+  await firstAddImagesDialog
+    .locator('input[type="file"][aria-label="Choose clinic images"]')
+    .setInputFiles({ buffer: imageBuffer, mimeType: "image/png", name: "izmir-reception.png" })
+  expect((await firstUploadResponse).status()).toBe(201)
+  await expect(firstAddImagesDialog).toBeHidden()
+  await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(receptionAlt)
+
+  await galleryEditor.getByRole("button", { name: "Add images" }).first().click()
+  const secondAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
+  const secondUploadResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      response.request().method() === "POST",
+  )
+  await secondAddImagesDialog
+    .locator('input[type="file"][aria-label="Choose clinic images"]')
+    .setInputFiles({ buffer: imageBuffer, mimeType: "image/png", name: "izmir-consultation.png" })
+  expect((await secondUploadResponse).status()).toBe(201)
+  await expect(secondAddImagesDialog).toBeHidden()
+  await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(consultationAlt)
+
+  const firstReorderHandle = galleryEditor.getByRole("button", {
+    name: "Reorder image 1. Drag or use arrow keys.",
+  })
+  const secondGalleryItem = galleryEditor
+    .getByRole("button", { name: `Edit image 2: ${consultationAlt}` })
+    .locator("xpath=ancestor::li")
+  const firstHandleBounds = await firstReorderHandle.boundingBox()
+  const secondItemBounds = await secondGalleryItem.boundingBox()
+  if (!firstHandleBounds || !secondItemBounds) throw new Error("Gallery reorder geometry is required.")
+  await page.mouse.move(
+    firstHandleBounds.x + firstHandleBounds.width / 2,
+    firstHandleBounds.y + firstHandleBounds.height / 2,
+  )
+  await page.mouse.down()
+  await page.mouse.move(
+    secondItemBounds.x + secondItemBounds.width - 2,
+    secondItemBounds.y + secondItemBounds.height / 2,
+    { steps: 6 },
+  )
+  await page.mouse.up()
+  await expect(galleryEditor.getByRole("status")).toHaveText("Image moved to position 2 of 2.")
+  await expect(galleryEditor.getByRole("button", { name: `Edit image 1: ${consultationAlt}` })).toBeVisible()
+
+  const movedReceptionHandle = galleryEditor.getByRole("button", {
+    name: "Reorder image 2. Drag or use arrow keys.",
+  })
+  await movedReceptionHandle.focus()
+  await page.keyboard.press("ArrowLeft")
+  await expect(galleryEditor.getByRole("button", { name: `Edit image 1: ${receptionAlt}` })).toBeVisible()
+
+  const saveResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await galleryEditor.getByRole("button", { name: "Save and return" }).click()
+  expect((await saveResponse).status()).toBe(200)
+  await expect(galleryEditor).toBeHidden()
+
+  await gallery.getByRole("button", { name: "Manage gallery" }).click()
+  const reopenedEditor = page.getByRole("region", { name: "Manage gallery" })
+  await reopenedEditor
+    .getByRole("button", { name: new RegExp(`Edit image \\d+: ${consultationAlt}`) })
+    .click()
+  await reopenedEditor.getByRole("button", { name: "Set as main image" }).click()
+  await reopenedEditor.getByRole("button", { name: new RegExp(`Edit image \\d+: ${receptionAlt}`) }).click()
+  await reopenedEditor.getByRole("button", { name: "More image actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
+  const removalDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
+  const removalResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await removalDialog.getByRole("button", { name: "Remove image and save" }).click()
+  expect((await removalResponse).status()).toBe(200)
+  await expect(reopenedEditor).toBeHidden()
+
+  await page.reload()
+  const persistedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
+  await persistedLocationSelector.click()
+  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  const persistedGallery = page.getByRole("region", { name: "Clinic image gallery" })
+  await expect(persistedGallery.getByRole("img", { name: consultationAlt })).toBeVisible()
+  await expect(persistedGallery.getByRole("img", { name: receptionAlt })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })
   await expect(clinicPreview.getByText("Avenora Clinic — İzmir")).toBeVisible()
-  await expect(clinicPreview.getByRole("img", { name: "Reception at Avenora Clinic — İzmir" })).toBeVisible()
+  await expect(clinicPreview.getByRole("img", { name: consultationAlt })).toBeVisible()
   await expect(page.getByText("94%", { exact: true }).first()).toBeVisible()
   await expect(page.getByRole("button", { name: "Review images" })).toHaveCount(0)
 
@@ -233,6 +330,21 @@ test("deep-links across locations and projects a saved profile until reload", as
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+
+  const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })
+  await cleanupGallery.getByRole("button", { name: "Manage gallery" }).click()
+  const cleanupEditor = page.getByRole("region", { name: "Manage gallery" })
+  await cleanupEditor.getByRole("button", { name: "More image actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await cleanupEditor.getByRole("button", { name: "Save and return" }).click()
+  const cleanupDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
+  const cleanupResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await cleanupDialog.getByRole("button", { name: "Remove image and save" }).click()
+  expect((await cleanupResponse).status()).toBe(200)
+  await expect(cleanupEditor).toBeHidden()
 })
 
 test("saves, resumes, reviews and publishes the authenticated clinic profile draft", async ({ page }) => {

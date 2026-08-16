@@ -5,6 +5,7 @@ import { AlertTriangle, FilePenLine } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageHeading } from "@/components/ui/page-heading"
+import type { ClinicGalleryLoadStatus } from "../../model/clinic-gallery"
 import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "../../model/clinic-profile"
 import type {
   ClinicProfileChangeSet,
@@ -35,6 +36,7 @@ export type ClinicProfileScreenModel = Readonly<{
   doctorDirectory: DoctorDirectorySnapshot
   doctorManagement: ClinicProfileManagementAccess
   focusTarget?: ClinicProfileFocusTarget
+  galleryStatus: ClinicGalleryLoadStatus
   legacyIsDirty: boolean
   legacyProfile: ClinicProfileDraft
   legacySaveState: "idle" | "saved" | "saving"
@@ -236,6 +238,8 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
         galleryTotal={model.legacyProfile.galleryTotal}
         onOpen={actions.onGalleryOpen}
         ref={galleryRef}
+        showAction={model.source.mode === "view"}
+        status={model.galleryStatus}
       />
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,0.8fr)]">

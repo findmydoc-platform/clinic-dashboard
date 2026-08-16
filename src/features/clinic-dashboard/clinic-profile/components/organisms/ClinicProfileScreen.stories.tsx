@@ -37,6 +37,7 @@ const publishedModel = {
   doctorCommands: createDoctorProfileCommandsFixture(),
   doctorDirectory: doctorDirectoryFixture,
   doctorManagement: "interactive",
+  galleryStatus: "ready",
   legacyIsDirty: false,
   legacyProfile: clinicProfileFixture,
   legacySaveState: "idle",
@@ -104,6 +105,11 @@ export const EditingDirty: Story = {
         mode: "edit",
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("region", { name: "Clinic image gallery" })).toBeVisible()
+    await expect(canvas.queryByRole("button", { name: "Manage gallery" })).not.toBeInTheDocument()
   },
 }
 

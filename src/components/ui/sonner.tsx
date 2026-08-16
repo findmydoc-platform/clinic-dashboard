@@ -4,7 +4,15 @@ import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 export function Toaster(props: ToasterProps) {
-  const { theme = "system" } = useTheme()
+  const { resolvedTheme, theme } = useTheme()
+  const documentTheme =
+    typeof document === "undefined"
+      ? undefined
+      : document.documentElement.classList.contains("dark")
+        ? "dark"
+        : "light"
+  const toasterTheme =
+    theme === "system" ? (resolvedTheme ?? documentTheme ?? "system") : (theme ?? documentTheme)
 
   return (
     <Sonner
@@ -17,7 +25,7 @@ export function Toaster(props: ToasterProps) {
           "--normal-text": "var(--foreground)",
         } as React.CSSProperties
       }
-      theme={theme as ToasterProps["theme"]}
+      theme={toasterTheme as ToasterProps["theme"]}
       {...props}
     />
   )

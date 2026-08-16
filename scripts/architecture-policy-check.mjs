@@ -124,6 +124,7 @@ function isAllowedClinicDashboardServerImport(file) {
     file === "src/app/page.tsx" ||
     file === "src/app/api/dashboard/inquiries/[inquiryId]/status/route.ts" ||
     file === "src/app/api/dashboard/clinic-treatments/route.ts" ||
+    /^src\/app\/api\/dashboard\/gallery(?:\/(?:discard|image|media))?\/route\.ts$/u.test(file) ||
     /^src\/app\/api\/dashboard\/reviews(?:\/\[reviewId\]\/(?:appeal|history|response))?\/route\.ts$/u.test(
       file,
     ) ||

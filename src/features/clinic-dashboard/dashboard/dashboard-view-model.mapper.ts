@@ -13,8 +13,8 @@ export function createDashboardViewModel(
 
   return {
     clinicPreview: {
-      coverAlt: locationSummary.coverAlt,
-      coverImage: locationSummary.coverImage,
+      ...(locationSummary.coverAlt ? { coverAlt: locationSummary.coverAlt } : {}),
+      ...(locationSummary.coverImage ? { coverImage: locationSummary.coverImage } : {}),
       location: locationSummary.location,
       name: locationSummary.name,
       ratingLabel: `${snapshot.rating.value.toFixed(1)} ★`,

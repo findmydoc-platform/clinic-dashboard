@@ -25,3 +25,4 @@ Read .codex/project-profile.toml before creating the document. Do not repeat com
 - [Dashboard and Header Prototype Interaction Plan](./dashboard-header-prototype-interactions.md)
 - [Dashboard Lower Area Prototype Interaction Plan](./dashboard-lower-prototype-interactions.md)
 - [Review Responses, Appeals, and Publication History](./review-responses-appeals-and-publication-history.md)
+- [Clinic Gallery Management](./clinic-gallery-management.md)

@@ -1,5 +1,7 @@
 import type {
+  ClinicGalleryLoadStatus,
   ClinicProfileDraft,
+  ClinicGallerySnapshot,
   ClinicProfileSnapshot,
   ClinicTreatmentsSnapshot,
   DoctorDirectorySnapshot,
@@ -49,6 +51,8 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
   }>
   defaultLocationId: ClinicDashboardLocationId
   doctorDirectory: DoctorDirectorySnapshot
+  galleryStatus: ClinicGalleryLoadStatus
+  gallerySnapshot?: ClinicGallerySnapshot
   inquiryQueue: PatientInquiryQueueSnapshot
   profileSourceSnapshot?: ClinicProfileSnapshot
   reviewSourceSnapshot?: ReviewsSourceSnapshot

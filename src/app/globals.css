@@ -201,6 +201,10 @@ a {
   animation: dashboard-drawer-enter 160ms ease-out;
 }
 
+[data-sonner-toaster][data-sonner-theme="light"] {
+  --success-text: #006f25 !important;
+}
+
 @keyframes dashboard-drawer-enter {
   from {
     transform: translateX(-100%);

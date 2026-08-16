@@ -5,6 +5,7 @@ import { createClinicDashboardDemoClientAdapter } from "@/features/clinic-dashbo
 import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
 import {
   createClinicProfileSourceApiCommands,
+  createClinicGalleryApiCommands,
   createClinicTreatmentApiCommands,
   createDoctorProfileApiCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
@@ -34,6 +35,7 @@ export function ClinicDashboardWorkspace({
   )
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
+  const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
   const reviewSourceCommands = useMemo(() => createReviewSourceApiCommands(), [])
   const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
 
@@ -41,6 +43,7 @@ export function ClinicDashboardWorkspace({
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedContext}
       clinicProfileCommands={demoClientAdapter.clinicProfileCommands}
+      clinicGalleryCommands={clinicGalleryCommands}
       clinicProfileSourceCommands={clinicProfileSourceCommands}
       clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}

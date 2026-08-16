@@ -9,8 +9,10 @@ import {
 } from "./model/clinic-profile-source-commands"
 import {
   clinicProfileFixture,
+  clinicGallerySnapshotFixture,
   clinicTreatmentSnapshotFixture,
   createClinicProfileCommandsFixture,
+  createClinicGalleryCommandsFixture,
   createClinicTreatmentCommandsFixture,
 } from "./testing/clinic-profile.fixtures"
 import {
@@ -22,12 +24,14 @@ import { createDoctorProfileCommandsFixture, doctorDirectoryFixture } from "./te
 
 function ClinicProfileStoryFixture({
   commands: _commands,
+  galleryCommands: _galleryCommands,
   doctorCommands: _doctorCommands,
   sourceCommands: _sourceCommands,
   treatmentCommands: _treatmentCommands,
   ...props
 }: ComponentProps<typeof ClinicProfile>) {
   const [commands] = useState<ClinicProfileCommands>(() => createClinicProfileCommandsFixture())
+  const [galleryCommands] = useState(() => createClinicGalleryCommandsFixture(props.gallerySnapshot))
   const [doctorCommands] = useState(() => createDoctorProfileCommandsFixture())
   const [sourceCommands] = useState<ClinicProfileSourceCommands>(() =>
     createClinicProfileSourceCommandsFixture(props.sourceSnapshot),
@@ -38,6 +42,7 @@ function ClinicProfileStoryFixture({
     <ClinicProfile
       {...props}
       commands={commands}
+      galleryCommands={galleryCommands}
       doctorCommands={doctorCommands}
       sourceCommands={sourceCommands}
       treatmentCommands={treatmentCommands}
@@ -53,6 +58,10 @@ const renderOwnedClinicProfileCommands = {
 const meta = {
   args: {
     commands: renderOwnedClinicProfileCommands,
+    galleryCommands: createClinicGalleryCommandsFixture(),
+    galleryManagement: "interactive",
+    galleryStatus: "ready",
+    gallerySnapshot: clinicGallerySnapshotFixture,
     doctorCommands: createDoctorProfileCommandsFixture(),
     doctorDirectory: doctorDirectoryFixture,
     doctorManagement: "interactive",

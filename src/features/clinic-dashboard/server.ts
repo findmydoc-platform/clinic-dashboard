@@ -3,6 +3,7 @@ import "server-only"
 import type { NextRequest } from "next/server"
 import { composeClinicDashboardDataProviders } from "./data-provider-composition"
 import { clinicDashboardDemoWorkspaceProvider } from "./demo/loader"
+import { toDashboardClinicGallerySnapshot } from "./clinic-profile/server/clinic-gallery-dto"
 import { getClinicDashboardAccess, getClinicDashboardAccessToken } from "./auth/server/public"
 import {
   handleClinicProfileDraftCreate as handleClinicProfileDraftCreateWithProvider,
@@ -10,6 +11,11 @@ import {
   handleClinicProfileDraftSave as handleClinicProfileDraftSaveWithProvider,
   handleClinicProfileLoad as handleClinicProfileLoadWithProvider,
   handleClinicProfilePublish as handleClinicProfilePublishWithProvider,
+  handleClinicGalleryDiscard as handleClinicGalleryDiscardWithProvider,
+  handleClinicGalleryImage as handleClinicGalleryImageWithProvider,
+  handleClinicGalleryRead as handleClinicGalleryReadWithProvider,
+  handleClinicGallerySave as handleClinicGallerySaveWithProvider,
+  handleClinicGalleryUpload as handleClinicGalleryUploadWithProvider,
   handleClinicTreatmentCreate as handleClinicTreatmentCreateWithProvider,
   handleClinicTreatmentRead as handleClinicTreatmentReadWithProvider,
   handleClinicTreatmentUpdate as handleClinicTreatmentUpdateWithProvider,
@@ -19,6 +25,7 @@ import {
   handleDoctorSpecialtyUpdate as handleDoctorSpecialtyUpdateWithProvider,
   handleDoctorUpdate as handleDoctorUpdateWithProvider,
   type ClinicProfileProviderFactory,
+  type ClinicGalleryProviderFactory,
   type DoctorProfileProviderFactory,
   type ClinicTreatmentProviderFactory,
 } from "./clinic-profile/server/public"
@@ -46,6 +53,9 @@ const createDoctorProfileProvider: DoctorProfileProviderFactory = (accessToken, 
 
 const createClinicProfileProvider: ClinicProfileProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).profile
+
+const createClinicGalleryProvider: ClinicGalleryProviderFactory = (accessToken, clinicId) =>
+  composeClinicDashboardDataProviders(accessToken, clinicId).gallery
 
 const createReviewProvider: ReviewProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).reviews
@@ -87,6 +97,26 @@ export function handleClinicProfileDraftDiscard(request: NextRequest) {
 
 export function handleClinicProfilePublish(request: NextRequest) {
   return handleClinicProfilePublishWithProvider(request, createClinicProfileProvider)
+}
+
+export function handleClinicGalleryRead(request: NextRequest) {
+  return handleClinicGalleryReadWithProvider(request, createClinicGalleryProvider)
+}
+
+export function handleClinicGallerySave(request: NextRequest) {
+  return handleClinicGallerySaveWithProvider(request, createClinicGalleryProvider)
+}
+
+export function handleClinicGalleryUpload(request: NextRequest) {
+  return handleClinicGalleryUploadWithProvider(request, createClinicGalleryProvider)
+}
+
+export function handleClinicGalleryDiscard(request: NextRequest) {
+  return handleClinicGalleryDiscardWithProvider(request, createClinicGalleryProvider)
+}
+
+export function handleClinicGalleryImage(request: NextRequest) {
+  return handleClinicGalleryImageWithProvider(request, createClinicGalleryProvider)
 }
 
 export function handleClinicTreatmentRead(request: NextRequest) {
@@ -136,6 +166,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
         medicalSpecialties: [],
         status: "temporarily-unavailable",
       },
+      galleryStatus: "temporarily-unavailable",
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
       treatmentSnapshot: { catalogue: [], offerings: [], status: "temporarily-unavailable" },
     }
@@ -159,10 +190,12 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
 
   const providers = composeClinicDashboardDataProviders(accessToken, access.context.clinic.id)
   const canViewProfile = access.context.capabilities.includes("clinic-profile:view")
+  const canViewGallery = access.context.capabilities.includes("clinic-gallery:view")
   const canViewTreatments = access.context.capabilities.includes("clinic-treatments:view")
-  const [doctorResult, inquiryResult, profileResult, reviewResult, treatmentResult] =
+  const [doctorResult, galleryResult, inquiryResult, profileResult, reviewResult, treatmentResult] =
     await Promise.allSettled([
       providers.doctors.loadDirectory(),
+      canViewGallery ? providers.gallery.loadGallery() : Promise.resolve(undefined),
       providers.inquiries.loadQueue(),
       canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
       providers.reviews.loadReviews(defaultReviewListFilters, 1),
@@ -181,6 +214,15 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
             medicalSpecialties: [],
             status: "temporarily-unavailable",
           },
+    gallerySnapshot:
+      galleryResult.status === "fulfilled" && galleryResult.value?.ok
+        ? toDashboardClinicGallerySnapshot(galleryResult.value.value)
+        : undefined,
+    galleryStatus: !canViewGallery
+      ? "forbidden"
+      : galleryResult.status === "fulfilled" && galleryResult.value?.ok
+        ? "ready"
+        : "temporarily-unavailable",
     inquiryQueue:
       inquiryResult.status === "fulfilled" && inquiryResult.value.ok
         ? inquiryResult.value.value
