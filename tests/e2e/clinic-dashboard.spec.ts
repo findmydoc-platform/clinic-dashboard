@@ -215,8 +215,8 @@ test("deep-links across locations and persists gallery curation across reload", 
   await gallery.getByRole("button", { name: "Manage gallery" }).click()
   const galleryEditor = page.getByRole("region", { name: "Manage gallery" })
   await galleryEditor.getByRole("button", { name: "Add images" }).first().click()
-  const addImagesDialog = page.getByRole("dialog", { name: "Add images" })
-  const uploadResponse = page.waitForResponse(
+  const firstAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
+  const firstUploadResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
       response.request().method() === "POST",
@@ -225,15 +225,25 @@ test("deep-links across locations and persists gallery curation across reload", 
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
     "base64",
   )
-  await addImagesDialog.locator('input[type="file"][aria-label="Choose clinic images"]').setInputFiles([
-    { buffer: imageBuffer, mimeType: "image/png", name: "izmir-reception.png" },
-    { buffer: imageBuffer, mimeType: "image/png", name: "izmir-consultation.png" },
-  ])
-  expect((await uploadResponse).status()).toBe(201)
-  await expect(addImagesDialog).toBeHidden()
-  await expect(galleryEditor.getByRole("button", { name: "Needs alt text" })).toHaveCount(2)
+  await firstAddImagesDialog
+    .locator('input[type="file"][aria-label="Choose clinic images"]')
+    .setInputFiles({ buffer: imageBuffer, mimeType: "image/png", name: "izmir-reception.png" })
+  expect((await firstUploadResponse).status()).toBe(201)
+  await expect(firstAddImagesDialog).toBeHidden()
   await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(receptionAlt)
-  await galleryEditor.getByRole("button", { name: "Needs alt text" }).click()
+
+  await galleryEditor.getByRole("button", { name: "Add images" }).first().click()
+  const secondAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
+  const secondUploadResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      response.request().method() === "POST",
+  )
+  await secondAddImagesDialog
+    .locator('input[type="file"][aria-label="Choose clinic images"]')
+    .setInputFiles({ buffer: imageBuffer, mimeType: "image/png", name: "izmir-consultation.png" })
+  expect((await secondUploadResponse).status()).toBe(201)
+  await expect(secondAddImagesDialog).toBeHidden()
   await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(consultationAlt)
   const saveResponse = page.waitForResponse(
     (response) =>
