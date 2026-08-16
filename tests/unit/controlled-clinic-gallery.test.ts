@@ -59,6 +59,24 @@ describe("controlled clinic gallery provider", () => {
     })
   })
 
+  it("rejects duplicate media IDs instead of persisting an ambiguous order", async () => {
+    const provider = createControlledClinicGalleryProvider("clinic-1")
+    const upload = await provider.uploadMedia({
+      file: new File(["image"], "clinic.jpg", { type: "image/jpeg" }),
+    })
+    if (!upload.ok) throw new Error("Upload failed")
+
+    await expect(
+      provider.saveGallery({
+        expectedRevision: 0,
+        items: [
+          { alt: "Clinic reception", mediaId: upload.value.id },
+          { alt: "Clinic reception duplicate", mediaId: upload.value.id },
+        ],
+      }),
+    ).resolves.toEqual({ error: "invalid-input", ok: false })
+  })
+
   it("retains concurrent uploads with unique media IDs", async () => {
     const uploads = await Promise.all([
       createControlledClinicGalleryProvider("clinic-1").uploadMedia({

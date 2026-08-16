@@ -1,5 +1,6 @@
 import "server-only"
 
+import { randomUUID } from "node:crypto"
 import type { ClinicGalleryMedia, ClinicGallerySnapshot } from "../model/clinic-gallery"
 import type { ClinicGalleryProvider } from "./clinic-gallery-provider"
 
@@ -75,6 +76,9 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
     async saveGallery(input) {
       const current = snapshotFor(clinicId)
       if (current.revision !== input.expectedRevision) return { error: "conflict", ok: false }
+      if (new Set(input.items.map((item) => item.mediaId)).size !== input.items.length) {
+        return { error: "invalid-input", ok: false }
+      }
       const byId = new Map(current.items.map((item) => [item.id, item]))
       const items: ClinicGalleryMedia[] = []
       for (const inputItem of input.items) {
@@ -103,7 +107,7 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
       const media: ClinicGalleryMedia = {
         alt: input.alt ?? "",
         captionText: input.captionText,
-        id: `controlled-gallery-${state.mediaSequence}`,
+        id: `controlled-gallery-${randomUUID()}`,
         status: "draft",
         url: `https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1600&q=80&v=${state.mediaSequence}`,
       }
