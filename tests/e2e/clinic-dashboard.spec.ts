@@ -227,7 +227,7 @@ test("deep-links across locations and projects a saved profile until reload", as
   })
   expect((await uploadResponse).status()).toBe(201)
   await expect(addImagesDialog).toBeHidden()
-  await expect(galleryEditor.getByText("Needs alt text")).toBeVisible()
+  await expect(galleryEditor.getByRole("button", { name: "Needs alt text" })).toBeVisible()
   await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill("Reception at Avenora Clinic — İzmir")
   const saveResponse = page.waitForResponse(
     (response) =>
