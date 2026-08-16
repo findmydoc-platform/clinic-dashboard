@@ -4,6 +4,7 @@ import {
   clinicGallerySaveInput,
   clinicGalleryUploadConstraintError,
   moveClinicGalleryItem,
+  restoreClinicGalleryItem,
   type ClinicGallerySnapshot,
 } from "@/features/clinic-dashboard/clinic-profile/model/clinic-gallery"
 import {
@@ -51,6 +52,26 @@ describe("clinic gallery model", () => {
     const reordered = moveClinicGalleryItem(snapshot.items, "two", 0)
     expect(reordered.map((item) => item.id)).toEqual(["two", "one"])
     expect(clinicGalleryHasChanges(snapshot, reordered)).toBe(true)
+  })
+
+  it("restores multiple removals in their stable relative order", () => {
+    const [one, two] = snapshot.items
+    if (!one || !two) throw new Error("Gallery fixture requires two items.")
+    const three = { ...two, id: "three" }
+    const withoutBoth = [three]
+
+    const withFirst = restoreClinicGalleryItem(withoutBoth, {
+      index: 0,
+      item: one,
+      nextId: two.id,
+    })
+    const restored = restoreClinicGalleryItem(withFirst, {
+      index: 0,
+      item: two,
+      nextId: three.id,
+    })
+
+    expect(restored.map((item) => item.id)).toEqual(["one", "two", "three"])
   })
 
   it("builds the focused save DTO and trims public metadata", () => {

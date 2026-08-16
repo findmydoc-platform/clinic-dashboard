@@ -1,7 +1,15 @@
 "use client"
 
 import Image from "next/image"
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  type RefObject,
+} from "react"
 import {
   AlertCircle,
   AlertTriangle,
@@ -72,6 +80,7 @@ function SelectedImageActionsMenu({
   onMoveEarlier,
   onMoveLater,
   onRemove,
+  triggerRef,
 }: Readonly<{
   busy: boolean
   canMoveEarlier: boolean
@@ -79,13 +88,14 @@ function SelectedImageActionsMenu({
   onMoveEarlier: () => void
   onMoveLater: () => void
   onRemove: () => void
+  triggerRef: RefObject<HTMLButtonElement | null>
 }>) {
   const [open, setOpen] = useState(false)
 
   return (
     <DropdownMenu onOpenChange={setOpen} open={open}>
       <DropdownMenu.Trigger asChild>
-        <Button disabled={busy} variant="outline">
+        <Button disabled={busy} ref={triggerRef} variant="outline">
           <MoreHorizontal aria-hidden="true" className="size-4" /> More image actions
         </Button>
       </DropdownMenu.Trigger>
@@ -110,6 +120,8 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
   const [draggedId, setDraggedId] = useState<string>()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const selectedActionsRef = useRef<HTMLButtonElement>(null)
+  const focusAfterRemovalRef = useRef(false)
   const openerRef = useRef<HTMLElement | null>(null)
   const wasOpenRef = useRef(false)
   const knownItemIdsRef = useRef(new Set<string>())
@@ -136,6 +148,16 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
   }, [model.items, model.open])
 
   useEffect(() => {
+    if (!focusAfterRemovalRef.current || !model.open) return
+    focusAfterRemovalRef.current = false
+    const frame = requestAnimationFrame(() => {
+      if (model.selected) selectedActionsRef.current?.focus({ preventScroll: true })
+      else headingRef.current?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [model.open, model.selected])
+
+  useEffect(() => {
     if (!model.open) return
     const additions = model.items.filter(
       (item) => item.status === "draft" && !knownItemIdsRef.current.has(item.id),
@@ -155,6 +177,7 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
   const removeSelected = () => {
     if (!model.selected) return
     const removedId = model.selected.id
+    focusAfterRemovalRef.current = true
     actions.remove(removedId)
     toast("Image removed from this gallery.", {
       action: { label: "Undo", onClick: () => actions.undoRemoval(removedId) },
@@ -612,6 +635,7 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                             onMoveEarlier={() => actions.reorder(model.selected!.id, selectedIndex - 1)}
                             onMoveLater={() => actions.reorder(model.selected!.id, selectedIndex + 1)}
                             onRemove={removeSelected}
+                            triggerRef={selectedActionsRef}
                           />
                         </div>
                       ) : null}
@@ -743,7 +767,11 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
             </Button>
           </>
         }
-        description="Your gallery changes have not been saved yet. You are returning to Clinic profile."
+        description={
+          model.pendingExternalNavigation
+            ? "Your gallery changes have not been saved yet. Continue only after saving or discarding them."
+            : "Your gallery changes have not been saved yet. You are returning to Clinic profile."
+        }
         onOpenChange={(open) => {
           if (!open) actions.setConfirmation(null)
         }}

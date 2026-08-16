@@ -354,6 +354,42 @@ export const GallerySaveReturnsWithToast: Story = {
   },
 }
 
+export const GalleryLocationSwitchUsesLeaveGuard: Story = {
+  args: { prototypeMode: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+    const locationSelector = canvas.getByRole("button", { name: /Switch clinic location/ })
+
+    await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Manage gallery" }))
+    const editor = await page.findByRole("region", { name: "Manage gallery" })
+    await userEvent.type(
+      within(editor).getByRole("textbox", { name: "Caption (optional)" }),
+      "Unsaved location-specific caption",
+    )
+
+    await userEvent.click(locationSelector)
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
+    )
+
+    const leaveDialog = await page.findByRole("alertdialog", { name: "Save changes before leaving?" })
+    await waitFor(() => expect(leaveDialog).toBeVisible())
+    await expect(within(leaveDialog).getByText(/Continue only after saving or discarding them/)).toBeVisible()
+    await expect(locationSelector).toHaveAccessibleName(
+      /Current location: Demo data · Berlin Health Clinic — Mitte/,
+    )
+
+    await userEvent.click(within(leaveDialog).getByRole("button", { name: "Discard changes" }))
+    await waitFor(() =>
+      expect(locationSelector).toHaveAccessibleName(
+        /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
+      ),
+    )
+  },
+}
+
 export const FourImageGalleryDark: Story = {
   args: { prototypeMode: "visual-reference" },
   globals: { theme: "dark" },

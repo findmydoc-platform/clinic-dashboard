@@ -159,6 +159,9 @@ export const StagedRemovalWithPreview: Story = {
     await userEvent.click(within(gallery).getByRole("button", { name: "More image actions" }))
     await userEvent.click(await documentPage.findByRole("menuitem", { name: "Remove image" }))
     await expect(within(gallery).getByText("Removed (1)")).toBeVisible()
+    await waitFor(() =>
+      expect(within(gallery).getByRole("button", { name: "More image actions" })).toHaveFocus(),
+    )
     await userEvent.click(within(gallery).getByRole("button", { name: "Save and return" }))
     const confirmation = await documentPage.findByRole("alertdialog", {
       name: "Remove 1 image and save?",
@@ -268,6 +271,7 @@ export const SaveConflictPreservesLocalChanges: Story = {
   args: { scenario: "save-conflict" },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement)
+    const documentPage = within(canvasElement.ownerDocument.body)
     await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
     const gallery = getGallery(canvasElement.ownerDocument.body)
     const secondHandle = within(gallery).getByRole("button", {
@@ -280,6 +284,12 @@ export const SaveConflictPreservesLocalChanges: Story = {
     await expect(within(gallery).getByText(/Your local values remain visible/)).toBeVisible()
     await expect(within(gallery).getByRole("button", { name: "More image actions" })).toBeVisible()
     await expect(within(gallery).getByRole("button", { name: "Save and return" })).toBeDisabled()
+    await userEvent.click(within(gallery).getByRole("button", { name: "Reload latest" }))
+    const reloadDialog = documentPage.getByRole("alertdialog", { name: "Reload the latest gallery?" })
+    await userEvent.click(within(reloadDialog).getByRole("button", { name: "Reload latest" }))
+    await waitFor(() =>
+      expect(within(gallery).queryByText("Gallery changed elsewhere")).not.toBeInTheDocument(),
+    )
   },
 }
 
@@ -338,4 +348,30 @@ export const ReadOnly: Story = {
 export const MobileInspector: Story = {
   globals: { viewport: { value: "mobile390Tall" } },
   play: ImageInspector.play,
+}
+
+export const MobileSaveAndLeaveGuard: Story = {
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    const documentPage = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
+    const gallery = getGallery(canvasElement.ownerDocument.body)
+    await userEvent.type(
+      within(gallery).getByRole("textbox", { name: "Caption (optional)" }),
+      "Mobile gallery caption",
+    )
+    const mobileSave = within(gallery)
+      .getAllByRole("button", { name: "Save and return" })
+      .find((button) => button.getClientRects().length > 0)
+    if (!mobileSave) throw new Error("Visible mobile save action is required.")
+    await expect(mobileSave).toBeVisible()
+    await waitFor(() => expect(mobileSave).toBeEnabled())
+    mobileSave.focus()
+    await expect(mobileSave).toHaveFocus()
+
+    await userEvent.click(within(gallery).getByRole("button", { name: "Back to profile" }))
+    const leaveDialog = documentPage.getByRole("alertdialog", { name: "Save changes before leaving?" })
+    await waitFor(() => expect(leaveDialog).toBeVisible())
+  },
 }

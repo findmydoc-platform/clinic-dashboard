@@ -3,6 +3,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useClinicGalleryController } from "@/features/clinic-dashboard/clinic-profile/hooks/useClinicGalleryController"
+import { ClinicGalleryCommandError } from "@/features/clinic-dashboard/clinic-profile/model/clinic-gallery-commands"
 import type {
   ClinicGalleryMedia,
   ClinicGallerySnapshot,
@@ -246,5 +247,135 @@ describe("clinic gallery controller", () => {
     expect(hook.result.current.model.messageTone).toBe("error")
     expect(hook.result.current.model.message).toBe("The gallery could not be saved.")
     expect(hook.result.current.model.open).toBe(true)
+  })
+
+  it("restores multiple removals without changing their original order", () => {
+    const initial = snapshot([media("one"), media("two"), media("three")])
+    const hook = renderHook(() =>
+      useClinicGalleryController({
+        commands: createCommands(initial),
+        initialSnapshot: initial,
+        management: "interactive",
+      }),
+    )
+
+    act(() => hook.result.current.actions.remove("one"))
+    act(() => hook.result.current.actions.remove("two"))
+    act(() => hook.result.current.actions.undoRemoval("one"))
+    act(() => hook.result.current.actions.undoRemoval("two"))
+
+    expect(hook.result.current.model.items.map((item) => item.id)).toEqual(["one", "two", "three"])
+  })
+
+  it("allows immediate undo after removing from a full gallery", () => {
+    const initial = snapshot(Array.from({ length: 12 }, (_, index) => media(String(index + 1))))
+    const hook = renderHook(() =>
+      useClinicGalleryController({
+        commands: createCommands(initial),
+        initialSnapshot: initial,
+        management: "interactive",
+      }),
+    )
+
+    act(() => hook.result.current.actions.remove("1"))
+    act(() => hook.result.current.actions.undoRemoval("1"))
+
+    expect(hook.result.current.model.items).toHaveLength(12)
+    expect(hook.result.current.model.items[0]?.id).toBe("1")
+    expect(hook.result.current.model.message).toBe("")
+  })
+
+  it("guards external navigation and waits for draft cleanup before continuing", async () => {
+    stubImageDimensions()
+    const initial = snapshot([])
+    const commands = createCommands(initial)
+    const continueNavigation = vi.fn()
+    const hook = renderHook(() =>
+      useClinicGalleryController({ commands, initialSnapshot: initial, management: "interactive" }),
+    )
+
+    act(() => hook.result.current.actions.openGallery())
+    await act(async () => hook.result.current.actions.uploadFiles([imageFile("new.jpg")]))
+    act(() => hook.result.current.actions.requestNavigation(continueNavigation))
+
+    expect(hook.result.current.model.confirmation).toBe("leave")
+    expect(hook.result.current.model.pendingExternalNavigation).toBe(true)
+    expect(continueNavigation).not.toHaveBeenCalled()
+
+    await act(async () => hook.result.current.actions.closeWithoutSaving())
+
+    expect(commands.discardDrafts).toHaveBeenCalledWith(["draft-new.jpg"])
+    expect(continueNavigation).toHaveBeenCalledOnce()
+    expect(commands.discardDrafts.mock.invocationCallOrder[0]).toBeLessThan(
+      continueNavigation.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it("cancels pending external navigation when the user keeps editing", async () => {
+    const initial = snapshot()
+    const continueNavigation = vi.fn()
+    const hook = renderHook(() =>
+      useClinicGalleryController({
+        commands: createCommands(initial),
+        initialSnapshot: initial,
+        management: "interactive",
+      }),
+    )
+
+    act(() => hook.result.current.actions.openGallery())
+    act(() => hook.result.current.actions.updateItem("one", { alt: "Updated reception" }))
+    act(() => hook.result.current.actions.requestNavigation(continueNavigation))
+    act(() => hook.result.current.actions.setConfirmation(null))
+    await act(async () => hook.result.current.actions.save())
+
+    expect(continueNavigation).not.toHaveBeenCalled()
+    expect(hook.result.current.model.pendingExternalNavigation).toBe(false)
+  })
+
+  it("warns before browser reload while gallery changes are dirty", () => {
+    const initial = snapshot()
+    const hook = renderHook(() =>
+      useClinicGalleryController({
+        commands: createCommands(initial),
+        initialSnapshot: initial,
+        management: "interactive",
+      }),
+    )
+
+    act(() => hook.result.current.actions.updateItem("one", { alt: "Updated reception" }))
+    const event = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it("discards new drafts before reloading the latest snapshot after a conflict", async () => {
+    stubImageDimensions()
+    const initial = snapshot([media("published")])
+    const latest = { ...initial, items: [media("latest")], revision: 5 }
+    const commands = createCommands(initial)
+    commands.saveGallery.mockRejectedValueOnce(
+      new ClinicGalleryCommandError("conflict", "The gallery changed elsewhere."),
+    )
+    commands.loadGallery.mockResolvedValue(latest)
+    const hook = renderHook(() =>
+      useClinicGalleryController({ commands, initialSnapshot: initial, management: "interactive" }),
+    )
+
+    act(() => hook.result.current.actions.openGallery())
+    await act(async () => hook.result.current.actions.uploadFiles([imageFile("draft.jpg")]))
+    act(() => hook.result.current.actions.updateItem("draft-draft.jpg", { alt: "Draft consultation room" }))
+    await act(async () => hook.result.current.actions.save())
+
+    expect(hook.result.current.model.conflict).toBe(true)
+    await act(async () => hook.result.current.actions.reloadAfterConflict())
+
+    expect(commands.discardDrafts).toHaveBeenCalledWith(["draft-draft.jpg"])
+    expect(commands.loadGallery).toHaveBeenCalledOnce()
+    expect(commands.discardDrafts.mock.invocationCallOrder[0]).toBeLessThan(
+      commands.loadGallery.mock.invocationCallOrder[0]!,
+    )
+    expect(hook.result.current.model.items.map((item) => item.id)).toEqual(["latest"])
+    expect(hook.result.current.model.conflict).toBe(false)
   })
 })

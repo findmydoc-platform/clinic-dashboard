@@ -84,6 +84,30 @@ export function moveClinicGalleryItem(
   return next
 }
 
+export function restoreClinicGalleryItem(
+  items: readonly ClinicGalleryMedia[],
+  removed: Readonly<{
+    index: number
+    item: ClinicGalleryMedia
+    nextId?: string
+    previousId?: string
+  }>,
+) {
+  if (items.some((item) => item.id === removed.item.id)) return items
+
+  const nextIndex = removed.nextId ? items.findIndex((item) => item.id === removed.nextId) : -1
+  const previousIndex = removed.previousId ? items.findIndex((item) => item.id === removed.previousId) : -1
+  const targetIndex =
+    nextIndex >= 0
+      ? nextIndex
+      : previousIndex >= 0
+        ? previousIndex + 1
+        : Math.min(removed.index, items.length)
+  const restored = [...items]
+  restored.splice(targetIndex, 0, removed.item)
+  return restored
+}
+
 export function clinicGalleryHasChanges(
   snapshot: ClinicGallerySnapshot,
   items: readonly ClinicGalleryMedia[],

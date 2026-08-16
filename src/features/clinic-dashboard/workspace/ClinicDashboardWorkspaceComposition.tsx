@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import {
   submitClinicDashboardAuthAction,
   type AuthenticatedClinicContext,
@@ -111,6 +111,15 @@ export function ClinicDashboardWorkspaceComposition({
   >()
   const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
   const [galleryProjection, setGalleryProjection] = useState<ClinicGallerySnapshot>()
+  const galleryNavigationRequestRef = useRef<((continuation: () => void) => void) | undefined>(undefined)
+  const setGalleryNavigationRequest = useCallback((request?: (continuation: () => void) => void) => {
+    galleryNavigationRequestRef.current = request
+  }, [])
+  const continueAfterGalleryGuard = useCallback((continuation: () => void) => {
+    const request = galleryNavigationRequestRef.current
+    if (request) request(continuation)
+    else continuation()
+  }, [])
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
@@ -228,9 +237,11 @@ export function ClinicDashboardWorkspaceComposition({
     const nextProfileTask = nextSnapshot.dashboard.profileTasks[0]
     if (!nextProfileTask) throw new Error(`Clinic location ${locationId} requires a profile task.`)
 
-    setSavedProfileProjection(undefined)
-    setGalleryProjection(undefined)
-    actions.selectLocation(locationId, nextLocation.name, nextProfileTask)
+    continueAfterGalleryGuard(() => {
+      setSavedProfileProjection(undefined)
+      setGalleryProjection(undefined)
+      actions.selectLocation(locationId, nextLocation.name, nextProfileTask)
+    })
   }
 
   const openProfileDestination = (destination: ClinicProfileFocusTarget) => {
@@ -303,8 +314,11 @@ export function ClinicDashboardWorkspaceComposition({
               if (!nextProfileTask) {
                 throw new Error(`Clinic location ${notification.locationId} requires a profile task.`)
               }
-              setSavedProfileProjection(undefined)
-              actions.openNotification(notification, nextLocation.name, nextProfileTask)
+              continueAfterGalleryGuard(() => {
+                setSavedProfileProjection(undefined)
+                setGalleryProjection(undefined)
+                actions.openNotification(notification, nextLocation.name, nextProfileTask)
+              })
             }}
             onOpenChange={actions.setNotificationsOpen}
             open={model.notificationsOpen}
@@ -312,7 +326,7 @@ export function ClinicDashboardWorkspaceComposition({
           />
         ) : undefined
       }
-      onSectionSelect={actions.navigate}
+      onSectionSelect={(section) => continueAfterGalleryGuard(() => actions.navigate(section))}
       onSupportRequest={capabilities.showSupport ? actions.openSupport : undefined}
     >
       <p aria-live="polite" className="sr-only" role="status">
@@ -372,6 +386,7 @@ export function ClinicDashboardWorkspaceComposition({
           key={selectedLocation.id}
           onFocusHandled={actions.clearProfileFocusRequest}
           onGallerySaved={setGalleryProjection}
+          onGalleryNavigationRequestChange={setGalleryNavigationRequest}
           onDoctorsChange={(doctors) => {
             const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
             if (source.status !== "ready") return

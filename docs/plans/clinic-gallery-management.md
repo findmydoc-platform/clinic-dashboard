@@ -4,14 +4,14 @@
 
 This plan covers [Clinic Dashboard #100](https://github.com/findmydoc-platform/clinic-dashboard/issues/100).
 Implementation depends on the focused Website gallery contract from
-[Website #1619](https://github.com/findmydoc-platform/website/issues/1619). The Website implementation
-is still in progress. The Dashboard adapter is implemented against the currently agreed route, DTO,
-error, upload-limit, revision, and cleanup contracts. Those contracts must be verified again after
-Website #1619 is merged and before the Dashboard change is delivered.
+[Website #1619](https://github.com/findmydoc-platform/website/issues/1619). Website PR #1704 is merged
+at `6947bde4642e7a3cc257658bd5bc79295b266027`, and Website #1619 is closed. The Dashboard adapter and
+tests have been revalidated against the final focused route, DTO, error, upload-limit, revision, and
+cleanup contracts on Website `main`.
 
-The current Clinic Dashboard gallery is fixture-backed. Its mosaic remains the visual reference for
-the profile overview, but its local cover selection and legacy profile-save path are not retained as
-the source-backed management workflow.
+The former Clinic Dashboard gallery was fixture-backed. Its mosaic remains the visual reference for
+the profile overview, while the source-backed management workflow owns gallery order, metadata, and
+the public main image independently from the legacy profile-save path.
 
 ## User Outcome and Audience
 
@@ -242,10 +242,10 @@ vary manager layout and interaction density, but it must not invent capabilities
 
 ## Delivery and Reviewer Gate
 
-1. Implement against the agreed Website #1619 contract while its focused Website work is in
-   progress.
-2. After Website #1619 is merged, verify the final Website route, DTO, error, upload-limit, cleanup,
-   and revision contracts. Contract drift updates both repositories before Dashboard delivery.
+1. Implement against the agreed Website #1619 contract.
+2. Verify the final merged Website route, DTO, error, upload-limit, cleanup, and revision contracts.
+   Contract drift updates both repositories before Dashboard delivery. Completed against Website
+   merge `6947bde4642e7a3cc257658bd5bc79295b266027`.
 3. Generate exactly three Product Design boards and wait for the selected direction.
 4. Implement the selected UI and live-domain integration without changing deployment configuration.
 5. Capture responsive Light and Dark evidence and complete local validation.
@@ -256,8 +256,8 @@ vary manager layout and interaction density, but it must not invent capabilities
 
 ## Risks
 
-- The Website contract is actively being implemented, so its final merged shape may still drift.
-  The Dashboard adapter and contract tests must be reconciled before delivery.
+- The focused Website and Dashboard contracts can drift in later changes. Strict response parsing,
+  stable error-mapping tests, and coordinated contract updates keep that boundary explicit.
 - Upload success precedes gallery save, so cancel, navigation, and failure paths must reliably
   request draft discard without claiming guaranteed immediate physical cleanup.
 - Permanent post-commit deletion makes removal materially destructive. The conditional confirmation

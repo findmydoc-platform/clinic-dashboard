@@ -23,6 +23,42 @@ describe("controlled clinic gallery provider", () => {
     })
   })
 
+  it("persists main-image reorder and removal across request-scoped providers", async () => {
+    const firstProvider = createControlledClinicGalleryProvider("clinic-1")
+    const firstUpload = await firstProvider.uploadMedia({
+      file: new File(["first"], "first.jpg", { type: "image/jpeg" }),
+    })
+    const secondUpload = await firstProvider.uploadMedia({
+      file: new File(["second"], "second.jpg", { type: "image/jpeg" }),
+    })
+    if (!firstUpload.ok || !secondUpload.ok) throw new Error("Upload failed")
+
+    const initialSave = await firstProvider.saveGallery({
+      expectedRevision: 0,
+      items: [
+        { alt: "First image", mediaId: firstUpload.value.id },
+        { alt: "Second image", mediaId: secondUpload.value.id },
+      ],
+    })
+    if (!initialSave.ok) throw new Error("Initial save failed")
+
+    const nextProvider = createControlledClinicGalleryProvider("clinic-1")
+    await expect(
+      nextProvider.saveGallery({
+        expectedRevision: initialSave.value.revision,
+        items: [{ alt: "Second image", mediaId: secondUpload.value.id }],
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { items: [{ alt: "Second image", id: secondUpload.value.id }], revision: 2 },
+    })
+
+    await expect(createControlledClinicGalleryProvider("clinic-1").loadGallery()).resolves.toMatchObject({
+      ok: true,
+      value: { items: [{ alt: "Second image", id: secondUpload.value.id }], revision: 2 },
+    })
+  })
+
   it("isolates clinics and rejects stale revisions", async () => {
     const clinicOne = createControlledClinicGalleryProvider("clinic-1")
     const clinicTwo = createControlledClinicGalleryProvider("clinic-2")

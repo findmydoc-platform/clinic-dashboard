@@ -1,12 +1,13 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ClinicProfileManagementAccess } from "../model/clinic-profile-management"
 import {
   clinicGalleryHasChanges,
   clinicGallerySaveInput,
   clinicGalleryUploadConstraintError,
   moveClinicGalleryItem,
+  restoreClinicGalleryItem,
   type ClinicGalleryMedia,
   type ClinicGallerySnapshot,
 } from "../model/clinic-gallery"
@@ -20,7 +21,12 @@ export type ClinicGalleryUploadRow = Readonly<{
 }>
 
 type UploadRowState = ClinicGalleryUploadRow & Readonly<{ file: File }>
-type RemovedItem = Readonly<{ index: number; item: ClinicGalleryMedia }>
+type RemovedItem = Readonly<{
+  index: number
+  item: ClinicGalleryMedia
+  nextId?: string
+  previousId?: string
+}>
 type Operation = "discarding" | "idle" | "loading" | "saving" | "uploading"
 type MessageTone = "error" | "info"
 
@@ -77,6 +83,9 @@ export function useClinicGalleryController({
   const [uploadReviewIds, setUploadReviewIds] = useState<readonly string[]>([])
   const [uploadReviewTotal, setUploadReviewTotal] = useState(0)
   const uploadBatchActiveRef = useRef(false)
+  const itemsRef = useRef(items)
+  const pendingNavigationRef = useRef<(() => void) | undefined>(undefined)
+  const removedRef = useRef(removed)
 
   const hasGalleryChanges = snapshot ? clinicGalleryHasChanges(snapshot, items) : false
   const pendingNewDraftIds = useMemo(() => {
@@ -105,6 +114,30 @@ export function useClinicGalleryController({
   const selected = items.find((item) => item.id === selectedId) ?? items[0]
   const uploadReviewItem = items.find((item) => item.id === uploadReviewIds[0])
   const isInteractive = management === "interactive"
+
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
+
+  useEffect(() => {
+    removedRef.current = removed
+  }, [removed])
+
+  useEffect(() => {
+    if (!isDirty) return
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", preventUnload)
+    return () => window.removeEventListener("beforeunload", preventUnload)
+  }, [isDirty])
+
+  const continuePendingNavigation = useCallback(() => {
+    const continuation = pendingNavigationRef.current
+    pendingNavigationRef.current = undefined
+    continuation?.()
+  }, [])
 
   const replaceWithSnapshot = useCallback((next: ClinicGallerySnapshot) => {
     setSnapshot(next)
@@ -166,13 +199,15 @@ export function useClinicGalleryController({
       setUploadReviewTotal(0)
       setAddOpen(false)
       setOpen(false)
+      continuePendingNavigation()
     } catch {
+      pendingNavigationRef.current = undefined
       setMessageTone("error")
       setMessage("Draft cleanup failed. Your uploads may still be stored. Try leaving again.")
     } finally {
       setOperation("idle")
     }
-  }, [discardNewDrafts, replaceWithSnapshot, snapshot])
+  }, [continuePendingNavigation, discardNewDrafts, replaceWithSnapshot, snapshot])
 
   const reloadAfterConflict = useCallback(async () => {
     setConfirmation(null)
@@ -193,11 +228,21 @@ export function useClinicGalleryController({
     }
   }, [commands, discardNewDrafts, replaceWithSnapshot])
 
-  const requestClose = useCallback(() => {
-    if (operation !== "idle") return
-    if (isDirty) setConfirmation("leave")
-    else setOpen(false)
-  }, [isDirty, operation])
+  const requestNavigation = useCallback(
+    (continuation?: () => void) => {
+      if (operation !== "idle") return
+      pendingNavigationRef.current = continuation
+      if (isDirty) {
+        setConfirmation("leave")
+        return
+      }
+      setOpen(false)
+      continuePendingNavigation()
+    },
+    [continuePendingNavigation, isDirty, operation],
+  )
+
+  const requestClose = useCallback(() => requestNavigation(), [requestNavigation])
 
   const updateItem = useCallback(
     (id: string, change: Partial<Pick<ClinicGalleryMedia, "alt" | "captionText">>) => {
@@ -216,7 +261,15 @@ export function useClinicGalleryController({
       const index = current.findIndex((item) => item.id === id)
       const item = current[index]
       if (!item) return current
-      setRemoved((removedItems) => [...removedItems, { index, item }])
+      setRemoved((removedItems) => [
+        ...removedItems,
+        {
+          index,
+          item,
+          ...(current[index - 1] ? { previousId: current[index - 1].id } : {}),
+          ...(current[index + 1] ? { nextId: current[index + 1].id } : {}),
+        },
+      ])
       const next = current.filter((candidate) => candidate.id !== id)
       setSelectedId(next[Math.min(index, next.length - 1)]?.id)
       return next
@@ -225,24 +278,24 @@ export function useClinicGalleryController({
 
   const undoRemoval = useCallback(
     (id: string) => {
-      setRemoved((current) => {
-        const removedItem = current.find((entry) => entry.item.id === id)
-        if (!removedItem) return current
-        if (snapshot && items.length >= snapshot.constraints.maxItems) {
-          setMessageTone("info")
-          setMessage(`Only ${snapshot.constraints.maxItems} gallery images are allowed.`)
-          return current
-        }
-        setItems((active) => {
-          const next = [...active]
-          next.splice(Math.min(removedItem.index, next.length), 0, removedItem.item)
-          return next
-        })
-        setSelectedId(id)
-        return current.filter((entry) => entry.item.id !== id)
-      })
+      const removedItem = removedRef.current.find((entry) => entry.item.id === id)
+      if (!removedItem) return
+      const active = itemsRef.current
+      if (snapshot && active.length >= snapshot.constraints.maxItems) {
+        setMessageTone("info")
+        setMessage(`Only ${snapshot.constraints.maxItems} gallery images are allowed.`)
+        return
+      }
+      const nextItems = restoreClinicGalleryItem(active, removedItem)
+      const nextRemoved = removedRef.current.filter((entry) => entry.item.id !== id)
+      itemsRef.current = nextItems
+      removedRef.current = nextRemoved
+      setItems(nextItems)
+      setRemoved(nextRemoved)
+      setSelectedId(id)
+      setMessage("")
     },
-    [items.length, snapshot],
+    [snapshot],
   )
 
   const validateUploadFile = useCallback(
@@ -461,13 +514,16 @@ export function useClinicGalleryController({
       if (!hasGalleryChanges) {
         replaceWithSnapshot(snapshot)
         setOpen(false)
+        continuePendingNavigation()
         return
       }
       const next = await commands.saveGallery(clinicGallerySaveInput(snapshot, items))
       replaceWithSnapshot(next)
       onSaved?.(next)
       setOpen(false)
+      continuePendingNavigation()
     } catch (error) {
+      pendingNavigationRef.current = undefined
       const isConflict = error instanceof ClinicGalleryCommandError && error.code === "conflict"
       setConflict(isConflict)
       setMessageTone("error")
@@ -485,6 +541,7 @@ export function useClinicGalleryController({
   }, [
     commands,
     conflict,
+    continuePendingNavigation,
     discardRemovedDrafts,
     hasGalleryChanges,
     isDirty,
@@ -511,7 +568,9 @@ export function useClinicGalleryController({
       replaceWithSnapshot(next)
       onSaved?.(next)
       setOpen(false)
+      continuePendingNavigation()
     } catch (error) {
+      pendingNavigationRef.current = undefined
       const isConflict = error instanceof ClinicGalleryCommandError && error.code === "conflict"
       setConflict(isConflict)
       setMessageTone("error")
@@ -525,7 +584,24 @@ export function useClinicGalleryController({
     } finally {
       setOperation("idle")
     }
-  }, [commands, conflict, discardRemovedDrafts, items, onSaved, replaceWithSnapshot, snapshot])
+  }, [
+    commands,
+    conflict,
+    continuePendingNavigation,
+    discardRemovedDrafts,
+    items,
+    onSaved,
+    replaceWithSnapshot,
+    snapshot,
+  ])
+
+  const setConfirmationAction = useCallback(
+    (next: "leave" | "reload-after-conflict" | "remove-and-save" | null) => {
+      if (next === null) pendingNavigationRef.current = undefined
+      setConfirmation(next)
+    },
+    [],
+  )
 
   return {
     actions: {
@@ -536,6 +612,7 @@ export function useClinicGalleryController({
       openGallery,
       remove,
       reloadAfterConflict,
+      requestNavigation,
       retryUpload,
       reorder,
       requestClose,
@@ -543,7 +620,7 @@ export function useClinicGalleryController({
       saveConfirmed,
       select: setSelectedId,
       setAddOpen,
-      setConfirmation,
+      setConfirmation: setConfirmationAction,
       skipUploadReview: () => advanceUploadReview(false),
       undoRemoval,
       updateItem,
@@ -563,6 +640,7 @@ export function useClinicGalleryController({
         messageTone,
         open,
         operation,
+        pendingExternalNavigation: Boolean(pendingNavigationRef.current),
         removed,
         selected,
         snapshot,

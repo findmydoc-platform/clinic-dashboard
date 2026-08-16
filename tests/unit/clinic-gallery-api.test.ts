@@ -51,6 +51,25 @@ describe("Clinic gallery browser API", () => {
     ).rejects.toMatchObject({ code: "conflict" })
   })
 
+  it.each([
+    [400, "CLINIC_GALLERY_INVALID_INPUT", "invalid-input"],
+    [401, "CLINIC_GALLERY_UNAUTHORIZED", "unauthorized"],
+    [403, "CLINIC_GALLERY_ACCESS_DENIED", "forbidden"],
+    [404, "CLINIC_GALLERY_MEDIA_NOT_FOUND", "media-not-found"],
+    [409, "CLINIC_GALLERY_CONFLICT", "conflict"],
+    [413, "CLINIC_GALLERY_UPLOAD_TOO_LARGE", "upload-too-large"],
+    [415, "CLINIC_GALLERY_UNSUPPORTED_MEDIA_TYPE", "unsupported-media-type"],
+    [422, "CLINIC_GALLERY_INVALID_INPUT", "invalid-input"],
+    [503, "CLINIC_GALLERY_UNAVAILABLE", "unavailable"],
+  ] as const)("maps BFF status %s and %s to %s", async (status, code, error) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ code }), { status })),
+    )
+
+    await expect(createClinicGalleryApiCommands().loadGallery()).rejects.toMatchObject({ code: error })
+  })
+
   it("discards only the requested draft media through the protected endpoint", async () => {
     setCsrfCookie("csrf-token")
     const fetcher = vi.fn(

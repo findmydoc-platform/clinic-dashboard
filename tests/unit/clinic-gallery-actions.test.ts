@@ -103,6 +103,24 @@ describe("Clinic gallery BFF", () => {
     })
   })
 
+  it.each([
+    ["unauthorized", 401, "CLINIC_GALLERY_UNAUTHORIZED"],
+    ["forbidden", 403, "CLINIC_GALLERY_ACCESS_DENIED"],
+    ["media-not-found", 404, "CLINIC_GALLERY_MEDIA_NOT_FOUND"],
+    ["conflict", 409, "CLINIC_GALLERY_CONFLICT"],
+    ["upload-too-large", 413, "CLINIC_GALLERY_UPLOAD_TOO_LARGE"],
+    ["unsupported-media-type", 415, "CLINIC_GALLERY_UNSUPPORTED_MEDIA_TYPE"],
+    ["invalid-input", 422, "CLINIC_GALLERY_INVALID_INPUT"],
+    ["unavailable", 503, "CLINIC_GALLERY_UNAVAILABLE"],
+  ] as const)("maps provider error %s to %s %s", async (error, status, code) => {
+    provider.loadGallery.mockResolvedValueOnce({ error, ok: false })
+
+    const response = await handleClinicGalleryRead(controlledRequest("GET"), createProvider)
+
+    expect(response.status).toBe(status)
+    await expect(response.json()).resolves.toEqual({ code })
+  })
+
   it("streams authorized clinic images privately through the BFF", async () => {
     provider.loadImage.mockResolvedValueOnce({
       ok: true,

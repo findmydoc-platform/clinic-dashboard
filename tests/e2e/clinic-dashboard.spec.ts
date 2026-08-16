@@ -193,7 +193,7 @@ test("manages review responses, appeals, filters, and history through the authen
   await expect(historyDialog.getByRole("heading", { name: "Appeal history" })).toBeVisible()
 })
 
-test("deep-links across locations and projects a saved profile until reload", async ({ page }) => {
+test("deep-links across locations and persists gallery curation across reload", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
@@ -217,18 +217,22 @@ test("deep-links across locations and projects a saved profile until reload", as
       new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
       response.request().method() === "POST",
   )
-  await addImagesDialog.locator('input[type="file"][aria-label="Choose clinic images"]').setInputFiles({
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-      "base64",
-    ),
-    mimeType: "image/png",
-    name: "izmir-reception.png",
-  })
+  const imageBuffer = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64",
+  )
+  await addImagesDialog.locator('input[type="file"][aria-label="Choose clinic images"]').setInputFiles([
+    { buffer: imageBuffer, mimeType: "image/png", name: "izmir-reception.png" },
+    { buffer: imageBuffer, mimeType: "image/png", name: "izmir-consultation.png" },
+  ])
   expect((await uploadResponse).status()).toBe(201)
   await expect(addImagesDialog).toBeHidden()
-  await expect(galleryEditor.getByRole("button", { name: "Needs alt text" })).toBeVisible()
+  await expect(galleryEditor.getByRole("button", { name: "Needs alt text" })).toHaveCount(2)
   await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill("Reception at Avenora Clinic — İzmir")
+  await galleryEditor.getByRole("button", { name: "Needs alt text" }).click()
+  await galleryEditor
+    .getByRole("textbox", { name: "Alt text" })
+    .fill("Consultation room at Avenora Clinic — İzmir")
   const saveResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
@@ -237,10 +241,46 @@ test("deep-links across locations and projects a saved profile until reload", as
   expect((await saveResponse).status()).toBe(200)
   await expect(galleryEditor).toBeHidden()
 
+  await gallery.getByRole("button", { name: "Manage gallery" }).click()
+  const reopenedEditor = page.getByRole("region", { name: "Manage gallery" })
+  await reopenedEditor
+    .getByRole("button", { name: "Edit image 2: Consultation room at Avenora Clinic — İzmir" })
+    .click()
+  await reopenedEditor.getByRole("button", { name: "Set as main image" }).click()
+  await reopenedEditor
+    .getByRole("button", { name: "Edit image 2: Reception at Avenora Clinic — İzmir" })
+    .click()
+  await reopenedEditor.getByRole("button", { name: "More image actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
+  const removalDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
+  const removalResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await removalDialog.getByRole("button", { name: "Remove image and save" }).click()
+  expect((await removalResponse).status()).toBe(200)
+  await expect(reopenedEditor).toBeHidden()
+
+  await page.reload()
+  const persistedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
+  await persistedLocationSelector.click()
+  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  const persistedGallery = page.getByRole("region", { name: "Clinic image gallery" })
+  await expect(
+    persistedGallery.getByRole("img", { name: "Consultation room at Avenora Clinic — İzmir" }),
+  ).toBeVisible()
+  await expect(
+    persistedGallery.getByRole("img", { name: "Reception at Avenora Clinic — İzmir" }),
+  ).toHaveCount(0)
+
   await page.getByRole("button", { name: "Dashboard" }).click()
   const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })
   await expect(clinicPreview.getByText("Avenora Clinic — İzmir")).toBeVisible()
-  await expect(clinicPreview.getByRole("img", { name: "Reception at Avenora Clinic — İzmir" })).toBeVisible()
+  await expect(
+    clinicPreview.getByRole("img", { name: "Consultation room at Avenora Clinic — İzmir" }),
+  ).toBeVisible()
   await expect(page.getByText("94%", { exact: true }).first()).toBeVisible()
   await expect(page.getByRole("button", { name: "Review images" })).toHaveCount(0)
 

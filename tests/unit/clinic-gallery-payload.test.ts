@@ -46,6 +46,34 @@ describe("Clinic gallery Payload adapter", () => {
     expect(init).toMatchObject({ cache: "no-store", redirect: "error" })
   })
 
+  it.each([
+    ["upload concurrency", { ...snapshot, constraints: { ...constraints, maxConcurrentUploads: 4 } }],
+    ["pixel limit", { ...snapshot, constraints: { ...constraints, maxPixels: undefined } }],
+    ["revision", { ...snapshot, revision: -1 }],
+  ])("fails closed when the Website contract drifts in %s", async (_contractPart, responseBody) => {
+    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(responseBody))
+    const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
+
+    await expect(provider.loadGallery()).resolves.toEqual({ error: "unavailable", ok: false })
+  })
+
+  it.each([
+    [400, "invalid-input"],
+    [401, "unauthorized"],
+    [403, "forbidden"],
+    [404, "media-not-found"],
+    [409, "conflict"],
+    [413, "upload-too-large"],
+    [415, "unsupported-media-type"],
+    [422, "invalid-input"],
+    [503, "unavailable"],
+  ] as const)("maps Website gallery status %s to %s", async (status, error) => {
+    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ code: "UPSTREAM_ERROR" }, status))
+    const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
+
+    await expect(provider.loadGallery()).resolves.toEqual({ error, ok: false })
+  })
+
   it("saves only revision, ordered media IDs and metadata", async () => {
     const fetcher = vi.fn<typeof fetch>(async (_input, init) => {
       expect(init?.method).toBe("PUT")

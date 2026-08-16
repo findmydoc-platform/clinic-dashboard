@@ -27,6 +27,19 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+async function expectMainImageDominant(gallery: HTMLElement) {
+  const images = within(gallery).getAllByRole("img")
+  const mainTile = images[0]?.parentElement
+  if (!mainTile) throw new Error("Main gallery tile is required.")
+  const mainRect = mainTile.getBoundingClientRect()
+  for (const image of images.slice(1)) {
+    const tile = image.parentElement
+    if (!tile) throw new Error("Secondary gallery tile is required.")
+    const tileRect = tile.getBoundingClientRect()
+    await expect(mainRect.width * mainRect.height).toBeGreaterThan(tileRect.width * tileRect.height)
+  }
+}
+
 export const CoverFirst: Story = {
   play: async ({ args, canvasElement }) => {
     const gallery = within(canvasElement).getByRole("region", { name: "Clinic image gallery" })
@@ -44,6 +57,7 @@ export const OneImage: Story = {
     const gallery = within(canvasElement).getByRole("region", { name: "Clinic image gallery" })
     await expect(within(gallery).getAllByRole("img")).toHaveLength(1)
     await expect(within(gallery).getByText("Main image")).toBeVisible()
+    await expectMainImageDominant(gallery)
   },
 }
 
@@ -53,6 +67,7 @@ export const TwoImages: Story = {
     const gallery = within(canvasElement).getByRole("region", { name: "Clinic image gallery" })
     await expect(within(gallery).getAllByRole("img")).toHaveLength(2)
     await expect(within(gallery).getByText("Main image")).toBeVisible()
+    await expectMainImageDominant(gallery)
   },
 }
 
@@ -62,6 +77,7 @@ export const ThreeImages: Story = {
     const gallery = within(canvasElement).getByRole("region", { name: "Clinic image gallery" })
     await expect(within(gallery).getAllByRole("img")).toHaveLength(3)
     await expect(within(gallery).getByText("Main image")).toBeVisible()
+    await expectMainImageDominant(gallery)
   },
 }
 
@@ -71,6 +87,7 @@ export const FourImages: Story = {
     const gallery = within(canvasElement).getByRole("region", { name: "Clinic image gallery" })
     await expect(within(gallery).getAllByRole("img")).toHaveLength(4)
     await expect(within(gallery).getByText("Main image")).toBeVisible()
+    await expectMainImageDominant(gallery)
   },
 }
 
@@ -80,6 +97,7 @@ export const FiveImages: Story = {
     const gallery = within(canvasElement).getByRole("region", { name: "Clinic image gallery" })
     await expect(within(gallery).getAllByRole("img")).toHaveLength(5)
     await expect(within(gallery).getByText("Main image")).toBeVisible()
+    await expectMainImageDominant(gallery)
   },
 }
 
@@ -87,6 +105,8 @@ export const MobileReadOnlyGalleryAccess: Story = {
   globals: { viewport: { value: "mobile390Tall" } },
   play: async ({ args, canvasElement }) => {
     const openGallery = within(canvasElement).getByRole("button", { name: "Manage gallery" })
+    const gallery = within(canvasElement).getByRole("region", { name: "Clinic image gallery" })
+    await expectMainImageDominant(gallery)
     await expect(openGallery).toBeEnabled()
     await userEvent.click(openGallery)
     await expect(args.onOpen).toHaveBeenCalledOnce()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -48,6 +48,7 @@ export type ClinicProfileProps = Readonly<{
   initialProfile: ClinicProfileDraft
   onFocusHandled: () => void
   onGallerySaved?: (snapshot: ClinicGallerySnapshot) => void
+  onGalleryNavigationRequestChange?: (request?: (continuation: () => void) => void) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   onProfileSaved?: (profile: ClinicProfileDraft) => void
   onTreatmentMissing?: () => void
@@ -74,6 +75,7 @@ export function ClinicProfile({
   initialProfile,
   onFocusHandled,
   onGallerySaved,
+  onGalleryNavigationRequestChange,
   onDoctorsChange,
   onProfileSaved,
   onTreatmentMissing,
@@ -113,6 +115,16 @@ export function ClinicProfile({
     management: galleryManagement,
     onSaved: handleGallerySaved,
   })
+  useEffect(() => {
+    onGalleryNavigationRequestChange?.(
+      galleryController.model.open ? galleryController.actions.requestNavigation : undefined,
+    )
+    return () => onGalleryNavigationRequestChange?.(undefined)
+  }, [
+    galleryController.actions.requestNavigation,
+    galleryController.model.open,
+    onGalleryNavigationRequestChange,
+  ])
   const source = useClinicProfileSourceController({
     commands: sourceCommands,
     initialSnapshot: sourceSnapshot,
