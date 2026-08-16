@@ -299,6 +299,21 @@ test("deep-links across locations and persists gallery curation across reload", 
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+
+  const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })
+  await cleanupGallery.getByRole("button", { name: "Manage gallery" }).click()
+  const cleanupEditor = page.getByRole("region", { name: "Manage gallery" })
+  await cleanupEditor.getByRole("button", { name: "More image actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await cleanupEditor.getByRole("button", { name: "Save and return" }).click()
+  const cleanupDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
+  const cleanupResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await cleanupDialog.getByRole("button", { name: "Remove image and save" }).click()
+  expect((await cleanupResponse).status()).toBe(200)
+  await expect(cleanupEditor).toBeHidden()
 })
 
 test("saves, resumes, reviews and publishes the authenticated clinic profile draft", async ({ page }) => {
