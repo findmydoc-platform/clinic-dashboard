@@ -194,7 +194,7 @@ export function ClinicDashboardWorkspaceComposition({
         })
       : selectedSnapshot.dashboard
   const projectedDashboardSnapshot =
-    galleryProjection && galleryProjection.items.length > 0
+    effectiveGallerySnapshot && effectiveGallerySnapshot.items.length > 0
       ? projectDashboardAfterProfileSave({
           initialProfile: selectedSnapshot.clinicProfile,
           locationId: selectedLocation.id,
