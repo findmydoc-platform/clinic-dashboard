@@ -238,6 +238,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
         galleryTotal={model.legacyProfile.galleryTotal}
         onOpen={actions.onGalleryOpen}
         ref={galleryRef}
+        showAction={model.source.mode === "view"}
         status={model.galleryStatus}
       />
 

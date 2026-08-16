@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { ClinicDashboardWorkspaceHarness } from "./public"
 
 const productionArgs = {
@@ -325,7 +325,32 @@ export const DemoBadgeAndFourImageGallery: Story = {
 
     await expect(canvas.getAllByText("Mixed data")[0]).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
-    await expect(canvas.getByRole("button", { name: "Open gallery" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Manage gallery" })).toBeInTheDocument()
+  },
+}
+
+export const GallerySaveReturnsWithToast: Story = {
+  args: { prototypeMode: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+
+    await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Manage gallery" }))
+
+    const editor = await page.findByRole("region", { name: "Manage gallery" })
+    await userEvent.type(
+      within(editor).getByRole("textbox", { name: "Caption (optional)" }),
+      "A welcoming reception for patients.",
+    )
+    await userEvent.click(within(editor).getByRole("button", { name: "Save and return" }))
+
+    await expect(canvas.getByRole("heading", { name: "Clinic profile" })).toBeVisible()
+    await waitFor(() =>
+      expect(page.getAllByText("Gallery saved.").some((element) => element.getClientRects().length > 0)).toBe(
+        true,
+      ),
+    )
   },
 }
 
@@ -337,12 +362,12 @@ export const FourImageGalleryDark: Story = {
     const page = within(canvasElement.ownerDocument.body)
 
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
-    await userEvent.click(canvas.getByRole("button", { name: "Open gallery" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Manage gallery" }))
 
     const editor = await page.findByRole("region", { name: "Manage gallery" })
     await expect(canvasElement.ownerDocument.documentElement).toHaveClass("dark")
-    await expect(within(editor).getByRole("button", { name: "Current main image" })).toBeDisabled()
-    await expect(within(editor).getByRole("button", { name: "Remove image" })).toBeVisible()
-    await expect(within(editor).getByRole("button", { name: "Save gallery" })).toBeDisabled()
+    await expect(within(editor).getAllByText("Main image")[0]).toBeVisible()
+    await expect(within(editor).getByRole("button", { name: "More image actions" })).toBeVisible()
+    await expect(within(editor).getByRole("button", { name: "Save and return" })).toBeDisabled()
   },
 }

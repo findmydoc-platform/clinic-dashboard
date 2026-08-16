@@ -6,12 +6,12 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
-  ArrowDown,
-  ArrowUp,
+  ArrowRight,
   Check,
   GripVertical,
   ImagePlus,
   LoaderCircle,
+  MoreHorizontal,
   RotateCcw,
   Trash2,
   Upload,
@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu } from "@/components/ui/dropdown-menu"
 import { Field } from "@/components/ui/field"
 import { Modal } from "@/components/ui/modal"
 import { Textarea } from "@/components/ui/textarea"
@@ -37,21 +38,70 @@ function mediaSource(item: ClinicGalleryMedia) {
 
 function GalleryLoadingSkeleton() {
   return (
-    <div aria-busy="true" className="grid min-h-[34rem] animate-pulse gap-5 lg:grid-cols-[17rem_1fr_20rem]">
+    <div
+      aria-busy="true"
+      className="min-h-[34rem] animate-pulse overflow-hidden rounded-xl border border-[var(--border)]"
+    >
       <span className="sr-only">Loading clinic gallery…</span>
-      <div className="grid content-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+      <div className="border-b border-[var(--border)] bg-[var(--surface)] p-4">
         <div className="h-5 w-28 rounded bg-[var(--border)]" />
-        {Array.from({ length: 5 }, (_, index) => (
-          <div className="h-16 rounded-lg bg-[var(--border)]" key={index} />
-        ))}
+        <div className="mt-4 flex gap-3 overflow-hidden">
+          {Array.from({ length: 5 }, (_, index) => (
+            <div className="h-24 w-32 shrink-0 rounded-lg bg-[var(--border)]" key={index} />
+          ))}
+        </div>
       </div>
-      <div className="aspect-[4/3] self-center rounded-xl bg-[var(--surface)]" />
-      <div className="grid content-start gap-4 rounded-xl border border-[var(--border)] p-5">
-        <div className="h-6 w-32 rounded bg-[var(--border)]" />
-        <div className="h-28 rounded-lg bg-[var(--surface)]" />
-        <div className="h-28 rounded-lg bg-[var(--surface)]" />
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="p-4 sm:p-6">
+          <div className="aspect-[16/10] rounded-xl bg-[var(--surface)]" />
+        </div>
+        <div className="grid content-start gap-4 border-t border-[var(--border)] p-5 lg:border-t-0 lg:border-l">
+          <div className="h-6 w-32 rounded bg-[var(--border)]" />
+          <div className="h-28 rounded-lg bg-[var(--surface)]" />
+          <div className="h-28 rounded-lg bg-[var(--surface)]" />
+        </div>
       </div>
     </div>
+  )
+}
+
+function SelectedImageActionsMenu({
+  busy,
+  canMoveEarlier,
+  canMoveLater,
+  onMoveEarlier,
+  onMoveLater,
+  onRemove,
+}: Readonly<{
+  busy: boolean
+  canMoveEarlier: boolean
+  canMoveLater: boolean
+  onMoveEarlier: () => void
+  onMoveLater: () => void
+  onRemove: () => void
+}>) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <DropdownMenu onOpenChange={setOpen} open={open}>
+      <DropdownMenu.Trigger asChild>
+        <Button disabled={busy} variant="outline">
+          <MoreHorizontal aria-hidden="true" className="size-4" /> More image actions
+        </Button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" aria-label="Selected image actions" className="w-60">
+        <DropdownMenu.Item disabled={!canMoveEarlier} onSelect={onMoveEarlier}>
+          <ArrowLeft aria-hidden="true" className="size-4" /> Move earlier
+        </DropdownMenu.Item>
+        <DropdownMenu.Item disabled={!canMoveLater} onSelect={onMoveLater}>
+          <ArrowRight aria-hidden="true" className="size-4" /> Move later
+        </DropdownMenu.Item>
+        <DropdownMenu.Separator />
+        <DropdownMenu.Item onSelect={onRemove} variant="destructive">
+          <Trash2 aria-hidden="true" className="size-4" /> Remove image
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu>
   )
 }
 
@@ -62,22 +112,39 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
   const headingRef = useRef<HTMLHeadingElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
   const wasOpenRef = useRef(false)
+  const knownItemIdsRef = useRef(new Set<string>())
   const busy = model.operation !== "idle"
   const selectedIndex = model.selected ? model.items.findIndex((item) => item.id === model.selected?.id) : -1
   const publishedRemovals = model.removed.filter((entry) => entry.item.status === "published")
   const publishedRemovalActionLabel =
     publishedRemovals.length === 1 ? "Remove image and save" : `Remove ${publishedRemovals.length} and save`
   const failedUploads = model.uploadRows.filter((row) => row.status === "failed")
-  const isReviewingSelected = model.uploadReviewItem?.id === model.selected?.id
+  const missingAltCount = model.items.filter((item) => !item.alt.trim()).length
+  const saveDisabled = busy || model.conflict || !model.isDirty || missingAltCount > 0
 
   useEffect(() => {
     if (model.open && !wasOpenRef.current) {
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      knownItemIdsRef.current = new Set(model.items.map((item) => item.id))
       requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }))
     }
-    if (!model.open && wasOpenRef.current) openerRef.current?.focus()
+    if (!model.open && wasOpenRef.current) {
+      openerRef.current?.focus()
+      knownItemIdsRef.current = new Set()
+    }
     wasOpenRef.current = model.open
-  }, [model.open])
+  }, [model.items, model.open])
+
+  useEffect(() => {
+    if (!model.open) return
+    const additions = model.items.filter(
+      (item) => item.status === "draft" && !knownItemIdsRef.current.has(item.id),
+    )
+    if (additions.length > 0) {
+      toast.success(`${additions.length} image${additions.length === 1 ? "" : "s"} uploaded.`)
+    }
+    for (const item of model.items) knownItemIdsRef.current.add(item.id)
+  }, [model.items, model.open])
 
   const handleFiles = (event: ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.currentTarget.files ?? [])]
@@ -95,6 +162,10 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
     })
   }
 
+  const selectItem = (itemId: string) => {
+    actions.select(itemId)
+  }
+
   const dropOn = (event: DragEvent, targetIndex: number) => {
     event.preventDefault()
     if (draggedId) actions.reorder(draggedId, targetIndex)
@@ -102,78 +173,76 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
   }
 
   const reorderWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, itemId: string, index: number) => {
-    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return
+    const earlier = event.key === "ArrowLeft" || event.key === "ArrowUp"
+    const later = event.key === "ArrowRight" || event.key === "ArrowDown"
+    if (!earlier && !later) return
     event.preventDefault()
-    actions.reorder(itemId, index + (event.key === "ArrowUp" ? -1 : 1))
+    actions.reorder(itemId, index + (earlier ? -1 : 1))
   }
+
+  const saveButtonLabel = model.operation === "saving" ? "Saving and returning…" : "Save and return"
 
   return (
     <>
       {model.open ? (
-        <section aria-labelledby="clinic-gallery-title" className="grid gap-5 pb-16 sm:pb-0">
+        <section aria-labelledby="clinic-gallery-title" className="grid gap-5 pb-20 sm:pb-0">
           <header className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_94%,transparent)] px-4 py-3 backdrop-blur sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4 lg:-mx-8 lg:-mt-7 lg:px-8">
-            <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3">
+            <div className="mx-auto grid max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-4">
               <Button
-                aria-label="Back to clinic profile"
-                className="shrink-0 sm:hidden"
+                aria-label="Back to profile"
+                className="-ml-1 justify-start px-1 sm:-ml-3 sm:px-3"
                 disabled={busy}
                 onClick={actions.requestClose}
-                size="icon"
                 variant="ghost"
               >
-                <ArrowLeft aria-hidden="true" className="size-5" />
+                <ArrowLeft aria-hidden="true" className="size-4" />
+                <span className="sm:hidden">Back</span>
+                <span className="hidden sm:inline">Back to profile</span>
               </Button>
-              <div className="min-w-0 flex-1">
-                <nav
-                  aria-label="Breadcrumb"
-                  className="mb-1 hidden text-xs text-[var(--foreground)] sm:block"
+              <div className="flex min-w-0 flex-col items-center sm:flex-row sm:items-baseline sm:gap-3">
+                <h1
+                  className="truncate text-xl font-bold tracking-tight text-[var(--secondary)] focus:outline-none sm:text-3xl"
+                  id="clinic-gallery-title"
+                  ref={headingRef}
+                  tabIndex={-1}
                 >
-                  Clinic profile <span aria-hidden="true">/</span> Gallery
-                </nav>
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h1
-                    className="text-xl font-bold tracking-tight text-[var(--secondary)] focus:outline-none sm:text-3xl"
-                    id="clinic-gallery-title"
-                    ref={headingRef}
-                    tabIndex={-1}
-                  >
-                    {model.isInteractive ? "Manage gallery" : "Clinic image gallery"}
-                  </h1>
-                  {model.snapshot ? (
-                    <span className="text-sm text-[var(--foreground)]">
-                      {model.items.length} of {model.snapshot.constraints.maxItems} images
-                    </span>
-                  ) : null}
-                  {model.isDirty ? (
-                    <span className="text-sm font-medium text-[var(--foreground)]">Unsaved changes</span>
-                  ) : null}
-                </div>
-              </div>
-              <div className="hidden flex-wrap items-center gap-2 sm:flex">
-                <Button disabled={busy} onClick={actions.requestClose} variant="outline">
-                  {model.isInteractive ? "Cancel" : "Close gallery"}
-                </Button>
-                {model.isInteractive ? (
-                  <>
-                    <Button
-                      disabled={busy || model.availableUploadSlots === 0}
-                      onClick={() => actions.setAddOpen(true)}
-                      variant="outline"
-                    >
-                      <ImagePlus aria-hidden="true" className="size-4" /> Add images
-                    </Button>
-                    <Button
-                      disabled={busy || model.conflict || !model.isDirty}
-                      onClick={() => void actions.save()}
-                    >
-                      {model.operation === "saving" ? (
-                        <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
-                      ) : null}
-                      {model.operation === "saving" ? "Saving gallery…" : "Save gallery"}
-                    </Button>
-                  </>
+                  {model.isInteractive ? "Manage gallery" : "Clinic image gallery"}
+                </h1>
+                {model.snapshot ? (
+                  <span className="shrink-0 text-xs text-[var(--foreground)] sm:text-sm">
+                    {model.items.length} of {model.snapshot.constraints.maxItems} images
+                  </span>
+                ) : null}
+                {model.isDirty ? (
+                  <span className="hidden shrink-0 text-sm font-medium text-[var(--foreground)] lg:inline">
+                    Unsaved changes
+                  </span>
                 ) : null}
               </div>
+              {model.isInteractive ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    aria-label="Add images"
+                    className="px-3 min-[420px]:px-4"
+                    disabled={busy || model.availableUploadSlots === 0}
+                    onClick={() => actions.setAddOpen(true)}
+                    variant="outline"
+                  >
+                    <ImagePlus aria-hidden="true" className="size-4" />
+                    <span className="hidden min-[420px]:inline">Add images</span>
+                  </Button>
+                  <Button
+                    className="hidden sm:inline-flex"
+                    disabled={saveDisabled}
+                    onClick={() => void actions.save()}
+                  >
+                    {model.operation === "saving" ? (
+                      <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+                    ) : null}
+                    {saveButtonLabel}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </header>
 
@@ -215,7 +284,7 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                 </div>
               </div>
               {model.snapshot && model.isDirty ? (
-                <Button disabled={busy} onClick={() => void actions.save()} variant="outline">
+                <Button disabled={saveDisabled} onClick={() => void actions.save()} variant="outline">
                   Try saving again
                 </Button>
               ) : model.snapshot ? null : (
@@ -235,16 +304,12 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
               aria-labelledby="failed-uploads-title"
               className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4"
             >
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="font-bold text-[var(--secondary)]" id="failed-uploads-title">
-                    Some images were not added
-                  </h2>
-                  <p className="text-sm text-[var(--foreground)]">
-                    The successful uploads are ready to describe. Retry or remove the failed files.
-                  </p>
-                </div>
-              </div>
+              <h2 className="font-bold text-[var(--secondary)]" id="failed-uploads-title">
+                Some images were not added
+              </h2>
+              <p className="mt-1 text-sm text-[var(--foreground)]">
+                Successful uploads are already in the gallery. Retry or remove the failed files.
+              </p>
               <ul className="mt-3 grid gap-2" aria-label="Failed uploads">
                 {failedUploads.map((row) => (
                   <li
@@ -296,14 +361,14 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
               </div>
             </div>
           ) : model.items.length === 0 && model.removed.length === 0 ? (
-            <div className="grid min-h-[34rem] place-items-center rounded-xl border border-[var(--border)] bg-[var(--background)] p-8 text-center">
+            <div className="grid min-h-[28rem] place-items-center rounded-xl border border-[var(--border)] bg-[var(--background)] p-8 text-center">
               <div className="max-w-md">
                 <div className="mx-auto grid size-14 place-items-center rounded-xl bg-[var(--surface)]">
                   <ImagePlus aria-hidden="true" className="size-7 text-[var(--primary)]" />
                 </div>
                 <h2 className="mt-5 text-xl font-bold text-[var(--secondary)]">Add your clinic photos</h2>
                 <p className="mt-2 text-sm leading-6">
-                  Start with the image that best represents the clinic. The first five images create the first
+                  Start with the image that best represents the clinic. The first five images shape the first
                   impression.
                 </p>
                 {model.isInteractive ? (
@@ -314,108 +379,117 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
               </div>
             </div>
           ) : (
-            <div className="grid min-h-[38rem] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] lg:grid-cols-[17rem_minmax(0,1fr)_21rem]">
-              <aside
-                aria-label="Gallery image order"
-                className="border-b border-[var(--border)] bg-[var(--surface)] p-4 lg:border-r lg:border-b-0"
+            <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)]">
+              <section
+                aria-labelledby="gallery-order-title"
+                className="border-b border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5"
               >
-                <div className="mb-3">
-                  <h2 className="font-bold text-[var(--secondary)]">Image order</h2>
-                  <p className="mt-1 text-xs leading-5 text-[var(--foreground)]">
-                    The main image leads your profile. The first five shape the first impression.
-                  </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h2 className="font-bold text-[var(--secondary)]" id="gallery-order-title">
+                      Image order
+                    </h2>
+                    <p className="mt-1 text-xs leading-5 text-[var(--foreground)]">
+                      The main image leads your profile. Drag images to change their order.
+                    </p>
+                  </div>
+                  {model.isInteractive && model.availableUploadSlots === 0 ? (
+                    <p className="text-xs text-[var(--foreground)]">
+                      Gallery full. Save removals before adding replacements.
+                    </p>
+                  ) : null}
                 </div>
-                {model.isInteractive && model.availableUploadSlots === 0 ? (
-                  <p className="mb-3 border-l-2 border-[var(--primary)] pl-3 text-xs leading-5 text-[var(--foreground)]">
-                    Gallery full. Save removals before adding replacement images.
-                  </p>
-                ) : null}
-                <ol className="flex gap-2 overflow-x-auto pb-2 lg:grid lg:overflow-visible">
-                  {model.items.map((item, index) => (
-                    <li
-                      className={`w-16 shrink-0 lg:w-auto ${index === 5 ? "lg:mt-3 lg:border-t lg:border-[var(--border)] lg:pt-3" : ""}`}
-                      key={item.id}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => dropOn(event, index)}
-                    >
-                      {index === 5 ? (
-                        <span className="mb-2 hidden text-[0.6875rem] font-bold tracking-wide text-[var(--foreground)] uppercase lg:block">
-                          More gallery images
-                        </span>
-                      ) : null}
-                      <div
-                        className={`grid w-16 grid-cols-1 items-center gap-1 rounded-lg border p-1 text-left lg:w-full lg:grid-cols-[2.5rem_3.5rem_minmax(0,1fr)] lg:gap-2 lg:p-2 ${
-                          model.selected?.id === item.id
-                            ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--background))] shadow-[inset_3px_0_var(--accent)]"
-                            : "border-[var(--border)] bg-[var(--background)]"
-                        }`}
+
+                <ol className="mt-4 flex gap-3 overflow-x-auto pb-2" aria-label="Gallery image order">
+                  {model.items.map((item, index) => {
+                    const missingAlt = !item.alt.trim()
+                    const selected = model.selected?.id === item.id
+                    return (
+                      <li
+                        className="w-32 shrink-0"
+                        key={item.id}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => dropOn(event, index)}
                       >
-                        {model.isInteractive ? (
+                        <div
+                          className={`relative rounded-lg border p-1.5 ${
+                            selected
+                              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--background))] shadow-[inset_0_-3px_var(--accent)]"
+                              : missingAlt
+                                ? "border-[var(--destructive)] bg-[var(--background)]"
+                                : "border-[var(--border)] bg-[var(--background)]"
+                          }`}
+                        >
                           <button
-                            aria-label={`Reorder image ${index + 1}. Use up and down arrow keys.`}
-                            className="grid h-6 w-full cursor-grab place-items-center rounded-md text-xs font-bold focus-visible:outline-2 focus-visible:outline-[var(--primary)] lg:size-10"
-                            draggable
-                            onDragEnd={() => setDraggedId(undefined)}
-                            onDragStart={() => setDraggedId(item.id)}
-                            onKeyDown={(event) => reorderWithKeyboard(event, item.id, index)}
+                            aria-current={selected ? "true" : undefined}
+                            aria-label={`${model.isInteractive ? "Edit" : "View"} image ${index + 1}: ${item.alt || "Alt text missing"}`}
+                            className="relative block aspect-[4/3] w-full overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                            onClick={() => selectItem(item.id)}
                             type="button"
                           >
-                            <span className="lg:hidden">{index + 1}</span>
-                            <GripVertical aria-hidden="true" className="hidden size-5 lg:block" />
-                          </button>
-                        ) : (
-                          <span className="text-center text-sm font-bold">{index + 1}</span>
-                        )}
-                        <button
-                          aria-current={model.selected?.id === item.id ? "true" : undefined}
-                          aria-label={`${model.isInteractive ? "Edit" : "View"} image ${index + 1}: ${item.alt || "Alt text missing"}`}
-                          className="relative aspect-square overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                          onClick={() => actions.select(item.id)}
-                          type="button"
-                        >
-                          <Image
-                            alt=""
-                            className="object-cover"
-                            fill
-                            sizes="56px"
-                            src={mediaSource(item)}
-                            unoptimized={isClinicGalleryImageProxyUrl(mediaSource(item))}
-                          />
-                          {index === 0 ? (
-                            <span className="absolute inset-x-0 bottom-0 bg-[rgb(0_0_0_/_0.72)] px-1 py-0.5 text-center text-[0.625rem] font-bold text-white lg:hidden">
-                              Main
+                            <Image
+                              alt=""
+                              className="object-cover"
+                              fill
+                              sizes="128px"
+                              src={mediaSource(item)}
+                              unoptimized={isClinicGalleryImageProxyUrl(mediaSource(item))}
+                            />
+                            <span className="absolute top-1 right-1 rounded bg-[rgb(0_0_0_/_0.72)] px-1.5 py-0.5 text-[0.625rem] font-bold text-white">
+                              {index + 1}
                             </span>
-                          ) : null}
-                        </button>
-                        <button
-                          className="hidden min-w-0 rounded-md px-1 py-2 text-left focus-visible:outline-2 focus-visible:outline-[var(--primary)] lg:block"
-                          onClick={() => actions.select(item.id)}
-                          type="button"
-                        >
-                          <span className="block text-xs font-bold">
-                            {index === 0
-                              ? "Main image"
-                              : index < 5
-                                ? `Top image ${index + 1}`
-                                : `Image ${index + 1}`}
-                          </span>
-                          <span className="block truncate text-xs text-[var(--foreground)]">
-                            {item.alt || "Alt text required"}
-                          </span>
-                        </button>
-                      </div>
-                    </li>
-                  ))}
+                            {index === 0 ? (
+                              <span className="absolute inset-x-1 bottom-1 rounded bg-[rgb(0_0_0_/_0.72)] px-1 py-0.5 text-center text-[0.625rem] font-bold text-white">
+                                Main image
+                              </span>
+                            ) : null}
+                          </button>
+                          <div className="mt-1 flex min-h-7 items-center gap-1">
+                            {model.isInteractive ? (
+                              <button
+                                aria-label={`Reorder image ${index + 1}. Use arrow keys.`}
+                                className="grid size-7 shrink-0 cursor-grab place-items-center rounded text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+                                draggable
+                                onDragEnd={() => setDraggedId(undefined)}
+                                onDragStart={() => setDraggedId(item.id)}
+                                onKeyDown={(event) => reorderWithKeyboard(event, item.id, index)}
+                                type="button"
+                              >
+                                <GripVertical aria-hidden="true" className="size-4" />
+                              </button>
+                            ) : null}
+                            <button
+                              className={`min-w-0 flex-1 truncate rounded px-1 text-left text-[0.6875rem] font-bold focus-visible:outline-2 focus-visible:outline-[var(--primary)] ${
+                                missingAlt ? "text-[var(--destructive)]" : "text-[var(--foreground)]"
+                              }`}
+                              onClick={() => selectItem(item.id)}
+                              type="button"
+                            >
+                              {missingAlt ? "Needs alt text" : item.alt}
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    )
+                  })}
                 </ol>
+
+                {missingAltCount > 0 ? (
+                  <p className="mt-2 text-xs font-medium text-[var(--destructive)]" role="status">
+                    {missingAltCount} image{missingAltCount === 1 ? " needs" : "s need"} alt text before
+                    saving.
+                  </p>
+                ) : null}
+
                 {model.removed.length > 0 ? (
-                  <div className="mt-5 border-t border-[var(--border)] pt-4">
+                  <div className="mt-4 border-t border-[var(--border)] pt-4">
                     <h3 className="text-sm font-bold text-[var(--secondary)]">
                       Removed ({model.removed.length})
                     </h3>
-                    <div className="mt-2 grid gap-2">
+                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                       {model.removed.map(({ item }) => (
                         <div
-                          className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] p-2"
+                          className="flex w-56 shrink-0 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] p-2"
                           key={item.id}
                         >
                           <div className="relative size-11 shrink-0 overflow-hidden rounded-md opacity-60">
@@ -444,174 +518,120 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                     </div>
                   </div>
                 ) : null}
-              </aside>
+              </section>
 
-              <div className="min-w-0 border-b border-[var(--border)] p-4 sm:p-6 lg:border-r lg:border-b-0">
-                {model.selected ? (
-                  <div className="mx-auto grid h-full max-w-4xl content-center gap-4">
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-[var(--surface)]">
-                      <Image
-                        alt={model.selected.alt || "Selected clinic image"}
-                        className="object-contain"
-                        fill
-                        priority
-                        sizes="(min-width: 1024px) 55vw, 100vw"
-                        src={model.selected.url}
-                        unoptimized={isClinicGalleryImageProxyUrl(model.selected.url)}
-                      />
-                      <span className="absolute right-3 bottom-3 rounded-md bg-[rgb(0_0_0_/_0.72)] px-3 py-1 text-xs font-bold text-white">
-                        {selectedIndex + 1} of {model.items.length}
-                      </span>
-                    </div>
-                    <p className="text-sm text-[var(--foreground)]">
-                      {selectedIndex === 0
-                        ? "This is the main image patients see first."
-                        : selectedIndex < 5
-                          ? "This image contributes to the first impression on the public profile."
-                          : "This image adds depth and trust when patients open the full gallery."}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              <aside aria-label="Selected image details" className="p-4 sm:p-6">
-                {model.selected ? (
-                  <div className="grid gap-6">
-                    {model.uploadReviewItem ? (
-                      <div className="rounded-lg border border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_8%,var(--background))] p-4">
-                        <p className="text-xs font-bold tracking-wide text-[var(--secondary)] uppercase">
-                          New image {model.uploadReviewPosition?.current} of{" "}
-                          {model.uploadReviewPosition?.total}
-                        </p>
-                        <h2 className="mt-1 font-bold text-[var(--secondary)]">Describe your new images</h2>
-                        <p className="mt-1 text-xs leading-5 text-[var(--foreground)]">
-                          A short factual description helps patients and screen readers understand the image.
-                        </p>
-                        {!isReviewingSelected ? (
-                          <Button
-                            className="mt-3"
-                            onClick={() => actions.select(model.uploadReviewItem!.id)}
-                            size="small"
-                            variant="outline"
-                          >
-                            Continue new image
-                          </Button>
-                        ) : null}
+              <div className="grid min-h-[32rem] lg:grid-cols-[minmax(0,1fr)_22rem]">
+                <div className="min-w-0 p-4 sm:p-6">
+                  {model.selected ? (
+                    <div className="mx-auto grid max-w-5xl content-start gap-3">
+                      <div className="relative aspect-video overflow-hidden rounded-xl bg-[var(--surface)]">
+                        <Image
+                          alt={model.selected.alt || "Selected clinic image"}
+                          className="object-contain"
+                          fill
+                          priority
+                          sizes="(min-width: 1024px) 65vw, 100vw"
+                          src={model.selected.url}
+                          unoptimized={isClinicGalleryImageProxyUrl(model.selected.url)}
+                        />
+                        <span className="absolute right-3 bottom-3 rounded-md bg-[rgb(0_0_0_/_0.72)] px-3 py-1 text-xs font-bold text-white">
+                          {selectedIndex + 1} of {model.items.length}
+                        </span>
                       </div>
-                    ) : null}
-                    <div>
-                      <h2 className="text-lg font-bold text-[var(--secondary)]">Image details</h2>
-                      <p className="mt-1 text-xs leading-5 text-[var(--foreground)]">
-                        Clear descriptions make the gallery accessible and easier to trust.
+                      <p className="text-sm text-[var(--foreground)]">
+                        {selectedIndex === 0
+                          ? "This is the main image patients see first."
+                          : selectedIndex < 5
+                            ? "This image contributes to the first impression on the public profile."
+                            : "This image adds depth and trust when patients open the full gallery."}
                       </p>
                     </div>
-                    <Field
-                      error={!model.selected.alt.trim() ? "Alt text is required before saving." : undefined}
-                      isRequired
-                      label="Alt text"
-                    >
-                      {(controlProps) => (
-                        <Textarea
-                          {...controlProps}
-                          disabled={!model.isInteractive || busy}
-                          onValueChange={(alt) => actions.updateItem(model.selected!.id, { alt })}
-                          value={model.selected?.alt ?? ""}
-                        />
-                      )}
-                    </Field>
-                    <Field label="Caption (optional)">
-                      {(controlProps) => (
-                        <Textarea
-                          {...controlProps}
-                          disabled={!model.isInteractive || busy}
-                          onValueChange={(captionText) =>
-                            actions.updateItem(model.selected!.id, { captionText })
-                          }
-                          value={model.selected?.captionText ?? ""}
-                        />
-                      )}
-                    </Field>
-                    {isReviewingSelected ? (
-                      <div className="grid grid-cols-2 gap-2 border-t border-[var(--border)] pt-5">
-                        <Button disabled={busy} onClick={actions.skipUploadReview} variant="outline">
-                          Skip for now
-                        </Button>
-                        <Button disabled={busy} onClick={actions.completeUploadReview}>
-                          {model.uploadReviewPosition?.current === model.uploadReviewPosition?.total
-                            ? "Finish details"
-                            : "Next image"}
-                        </Button>
+                  ) : null}
+                </div>
+
+                <aside
+                  aria-label="Selected image details"
+                  className="border-t border-[var(--border)] p-4 sm:p-6 lg:border-t-0 lg:border-l"
+                >
+                  {model.selected ? (
+                    <div className="grid gap-5 lg:sticky lg:top-36">
+                      <div>
+                        <h2 className="text-lg font-bold text-[var(--secondary)]">Image details</h2>
+                        <p className="mt-1 text-xs leading-5 text-[var(--foreground)]">
+                          Clear descriptions make the gallery accessible and easier to trust.
+                        </p>
                       </div>
-                    ) : null}
-                    {model.isInteractive ? (
-                      <div className="grid gap-3 border-t border-[var(--border)] pt-5">
-                        <div>
-                          <h3 className="text-sm font-bold text-[var(--secondary)]">Main image</h3>
-                          <p className="mt-1 text-xs text-[var(--foreground)]">
-                            Moves this image to position 1.
-                          </p>
+                      <Field
+                        error={!model.selected.alt.trim() ? "Alt text is required before saving." : undefined}
+                        isRequired
+                        label="Alt text"
+                      >
+                        {(controlProps) => (
+                          <Textarea
+                            {...controlProps}
+                            disabled={!model.isInteractive || busy}
+                            onValueChange={(alt) => actions.updateItem(model.selected!.id, { alt })}
+                            value={model.selected?.alt ?? ""}
+                          />
+                        )}
+                      </Field>
+                      <Field label="Caption (optional)">
+                        {(controlProps) => (
+                          <Textarea
+                            {...controlProps}
+                            disabled={!model.isInteractive || busy}
+                            onValueChange={(captionText) =>
+                              actions.updateItem(model.selected!.id, { captionText })
+                            }
+                            value={model.selected?.captionText ?? ""}
+                          />
+                        )}
+                      </Field>
+
+                      {model.isInteractive ? (
+                        <div className="grid gap-3 border-t border-[var(--border)] pt-5">
+                          {selectedIndex === 0 ? (
+                            <p className="flex items-center gap-2 text-sm font-bold text-[var(--secondary)]">
+                              <Check aria-hidden="true" className="size-4 text-[var(--primary)]" /> Main image
+                            </p>
+                          ) : (
+                            <Button
+                              disabled={busy}
+                              onClick={() => actions.reorder(model.selected!.id, 0)}
+                              variant="outline"
+                            >
+                              Set as main image
+                            </Button>
+                          )}
+
+                          <SelectedImageActionsMenu
+                            busy={busy}
+                            canMoveEarlier={selectedIndex > 0}
+                            canMoveLater={selectedIndex < model.items.length - 1}
+                            key={model.selected.id}
+                            onMoveEarlier={() => actions.reorder(model.selected!.id, selectedIndex - 1)}
+                            onMoveLater={() => actions.reorder(model.selected!.id, selectedIndex + 1)}
+                            onRemove={removeSelected}
+                          />
                         </div>
-                        <Button
-                          disabled={busy || selectedIndex === 0}
-                          onClick={() => actions.reorder(model.selected!.id, 0)}
-                          variant="outline"
-                        >
-                          {selectedIndex === 0 ? <Check aria-hidden="true" className="size-4" /> : null}
-                          {selectedIndex === 0 ? "Current main image" : "Set as main image"}
-                        </Button>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            disabled={busy || selectedIndex <= 0}
-                            onClick={() => actions.reorder(model.selected!.id, selectedIndex - 1)}
-                            variant="outline"
-                          >
-                            <ArrowUp aria-hidden="true" className="size-4" /> Earlier
-                          </Button>
-                          <Button
-                            disabled={busy || selectedIndex >= model.items.length - 1}
-                            onClick={() => actions.reorder(model.selected!.id, selectedIndex + 1)}
-                            variant="outline"
-                          >
-                            <ArrowDown aria-hidden="true" className="size-4" /> Later
-                          </Button>
-                        </div>
-                        <div className="mt-2 border-t border-[var(--border)] pt-5">
-                          <Button disabled={busy} onClick={removeSelected} variant="destructive">
-                            <Trash2 aria-hidden="true" className="size-4" /> Remove image
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </aside>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </aside>
+              </div>
             </div>
           )}
 
-          <footer className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 gap-2 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
-            <Button disabled={busy} onClick={actions.requestClose} variant="outline">
-              {model.isInteractive ? "Cancel" : "Close"}
-            </Button>
-            {model.isInteractive ? (
-              <>
-                <Button
-                  disabled={busy || model.conflict || !model.isDirty}
-                  onClick={() => void actions.save()}
-                >
-                  {model.operation === "saving" ? "Saving…" : "Save gallery"}
-                </Button>
-                <Button
-                  disabled={busy || model.availableUploadSlots === 0}
-                  onClick={() => actions.setAddOpen(true)}
-                  variant="ghost"
-                >
-                  <ImagePlus aria-hidden="true" className="size-4" /> Add images
-                </Button>
-              </>
-            ) : (
-              <span aria-hidden="true" className="col-span-2" />
-            )}
-          </footer>
+          {model.isInteractive ? (
+            <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
+              <Button className="w-full" disabled={saveDisabled} onClick={() => void actions.save()}>
+                {model.operation === "saving" ? (
+                  <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+                ) : null}
+                {saveButtonLabel}
+              </Button>
+            </footer>
+          ) : null}
         </section>
       ) : null}
 
@@ -712,20 +732,23 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
       <AlertDialog
         actions={
           <>
-            <Button onClick={() => actions.setConfirmation(null)} variant="outline">
+            <Button disabled={busy} onClick={() => actions.setConfirmation(null)} variant="outline">
               Keep editing
             </Button>
-            <Button onClick={() => void actions.closeWithoutSaving()} variant="destructive">
-              Leave without saving
+            <Button disabled={busy} onClick={() => void actions.closeWithoutSaving()} variant="destructive">
+              Discard changes
+            </Button>
+            <Button disabled={saveDisabled} onClick={() => void actions.save()}>
+              {saveButtonLabel}
             </Button>
           </>
         }
-        description="Your ordering, image details and newly uploaded drafts will be discarded. The public gallery stays unchanged."
+        description="Your gallery changes have not been saved yet. You are returning to Clinic profile."
         onOpenChange={(open) => {
           if (!open) actions.setConfirmation(null)
         }}
         open={model.open && model.confirmation === "leave"}
-        title="Leave gallery editing?"
+        title="Save changes before leaving?"
       />
       <AlertDialog
         actions={

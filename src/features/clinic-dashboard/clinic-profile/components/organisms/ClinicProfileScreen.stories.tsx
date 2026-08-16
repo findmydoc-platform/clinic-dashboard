@@ -106,6 +106,11 @@ export const EditingDirty: Story = {
       },
     },
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("region", { name: "Clinic image gallery" })).toBeVisible()
+    await expect(canvas.queryByRole("button", { name: "Manage gallery" })).not.toBeInTheDocument()
+  },
 }
 
 export const Conflict: Story = {

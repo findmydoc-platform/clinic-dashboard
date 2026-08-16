@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Toaster } from "@/components/ui/sonner"
 import {
   clinicProfileFixture,
   clinicGallerySnapshotFixture,
@@ -422,34 +423,37 @@ export function ClinicDashboardWorkspaceHarness({
   const [doctorProfileCommands] = useState(() => createDoctorProfileCommandsFixture())
   const [reviewCommands] = useState(() => createReviewSourceCommandsFixture())
   return (
-    <ClinicDashboardWorkspaceComposition
-      authenticatedContext={authenticatedClinicContextFixture}
-      clinicProfileCommands={clinicProfileCommands}
-      clinicGalleryCommands={clinicGalleryCommands}
-      clinicProfileSourceCommands={clinicProfileSourceCommands}
-      clinicTreatmentCommands={clinicTreatmentCommands}
-      doctorProfileCommands={doctorProfileCommands}
-      initialNotificationReadIds={notificationState?.readIds}
-      initialNotificationsOpen={notificationState?.isOpen}
-      initialReportingPeriod={reportingPeriod}
-      persistNotificationReadStateInSession={persistNotificationReadStateInSession}
-      prototypeMode={prototypeMode}
-      projectDashboardAfterProfileSave={({ initialProfile, savedProfile, snapshot }) => {
-        const coverChanged =
-          initialProfile.gallery.find(({ isCover }) => isCover)?.id !==
-          savedProfile.gallery.find(({ isCover }) => isCover)?.id
-        return {
-          ...snapshot,
-          profileCompletion: Math.min(snapshot.profileCompletion + (coverChanged ? 4 : 0), 100),
-          profileTasks: snapshot.profileTasks.filter(
-            ({ destination }) => !(destination === "gallery" && coverChanged),
-          ),
-        }
-      }}
-      reviewCommands={reviewCommands}
-      showPrototypeModeToggle={showPrototypeModeToggle}
-      start={start}
-      workspaceInput={clinicDashboardWorkspaceFixture}
-    />
+    <>
+      <ClinicDashboardWorkspaceComposition
+        authenticatedContext={authenticatedClinicContextFixture}
+        clinicProfileCommands={clinicProfileCommands}
+        clinicGalleryCommands={clinicGalleryCommands}
+        clinicProfileSourceCommands={clinicProfileSourceCommands}
+        clinicTreatmentCommands={clinicTreatmentCommands}
+        doctorProfileCommands={doctorProfileCommands}
+        initialNotificationReadIds={notificationState?.readIds}
+        initialNotificationsOpen={notificationState?.isOpen}
+        initialReportingPeriod={reportingPeriod}
+        persistNotificationReadStateInSession={persistNotificationReadStateInSession}
+        prototypeMode={prototypeMode}
+        projectDashboardAfterProfileSave={({ initialProfile, savedProfile, snapshot }) => {
+          const coverChanged =
+            initialProfile.gallery.find(({ isCover }) => isCover)?.id !==
+            savedProfile.gallery.find(({ isCover }) => isCover)?.id
+          return {
+            ...snapshot,
+            profileCompletion: Math.min(snapshot.profileCompletion + (coverChanged ? 4 : 0), 100),
+            profileTasks: snapshot.profileTasks.filter(
+              ({ destination }) => !(destination === "gallery" && coverChanged),
+            ),
+          }
+        }}
+        reviewCommands={reviewCommands}
+        showPrototypeModeToggle={showPrototypeModeToggle}
+        start={start}
+        workspaceInput={clinicDashboardWorkspaceFixture}
+      />
+      <Toaster position="top-right" richColors />
+    </>
   )
 }

@@ -1,5 +1,7 @@
 "use client"
 
+import { useCallback } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { AddressDialog } from "./components/molecules/AddressDialog"
@@ -83,6 +85,13 @@ export function ClinicProfile({
   treatmentManagement,
   treatmentSnapshot,
 }: ClinicProfileProps) {
+  const handleGallerySaved = useCallback(
+    (snapshot: ClinicGallerySnapshot) => {
+      onGallerySaved?.(snapshot)
+      toast.success("Gallery saved.")
+    },
+    [onGallerySaved],
+  )
   const legacy = useClinicProfileController({
     commands,
     dialogAvailability: {
@@ -102,7 +111,7 @@ export function ClinicProfile({
     commands: galleryCommands,
     initialSnapshot: gallerySnapshot,
     management: galleryManagement,
-    onSaved: onGallerySaved,
+    onSaved: handleGallerySaved,
   })
   const source = useClinicProfileSourceController({
     commands: sourceCommands,
@@ -159,7 +168,7 @@ export function ClinicProfile({
               effectiveGalleryStatus === "ready" && galleryController.model.snapshot
                 ? {
                     ...legacyModel.profile,
-                    gallery: galleryController.model.snapshot.items.slice(0, 4).map((item, index) => ({
+                    gallery: galleryController.model.snapshot.items.slice(0, 5).map((item, index) => ({
                       alt: item.alt,
                       id: item.id,
                       isCover: index === 0,

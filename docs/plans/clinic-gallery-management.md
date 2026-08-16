@@ -84,9 +84,12 @@ The existing rounded mosaic remains at the top of the clinic profile. It is a su
 point, not the editing surface.
 
 - The first saved image is visually dominant and represents the public main image.
-- Up to four images are previewed; additional images are represented by a count action.
+- Up to five images are previewed. One to five saved images use adaptive layouts without empty
+  placeholders, and the main image always remains the largest tile.
 - An empty gallery shows a calm placeholder and an add action only when edit access exists.
 - Read-only users can open the saved gallery but never see management controls.
+- Profile editing and gallery management are separate tasks. The gallery action is hidden while the
+  profile form is being edited.
 - Gallery loading or failure does not block the independently source-backed profile, doctors, or
   treatments areas.
 
@@ -98,9 +101,12 @@ The gallery manager owns one local working copy of the saved gallery and its rev
 - add-image access until the local capacity is exhausted;
 - an unambiguous main-image marker on the first item;
 - direct main-image selection, ordering, metadata editing, removal, and undo;
+- a compact horizontal order strip, top-aligned focused preview, and metadata inspector;
+- drag ordering with arrow-key support plus secondary move and remove actions in a compact menu;
 - clear unsaved-change status and an explanation that saving updates the public clinic profile
   immediately when the clinic is public;
-- `Cancel` and `Save gallery` actions that remain reachable on narrow and short viewports.
+- `Back to profile` and `Save and return` actions that remain reachable on narrow and short
+  viewports.
 
 Closing or navigating away with unsaved changes opens a leave guard. Keeping edits returns to the
 manager. Discarding restores the saved gallery and asks the server to discard newly uploaded draft
@@ -113,8 +119,9 @@ One file-picker or drop action may select up to the remaining gallery capacity. 
 sent as individual requests, with at most three active uploads. Each item independently shows
 waiting, uploading, uploaded, retryable error, or rejected status.
 
-Successful uploads are appended to the local order. Alt text may be entered after upload, but save
-is blocked until every selected gallery item has non-empty alt text. Caption text remains optional.
+Successful uploads are appended to the local order and selected in the same continuous editor;
+there is no separate skip-or-finish metadata step. Alt text may be entered after upload, but save is
+blocked until every selected gallery item has non-empty alt text. Caption text remains optional.
 Unsupported formats, oversized files, excessive pixel dimensions, capacity overflow, and server
 failures produce specific, local messages without cancelling successful sibling uploads.
 
@@ -199,6 +206,14 @@ inspector. It favors careful alt-text and caption work while keeping the complet
 A small sequence separates upload, describe, and arrange/review stages while preserving the same
 local working copy. It favors first-time clarity and error prevention at the cost of additional
 navigation.
+
+### Selected Direction: Compact Image Inspector
+
+The implemented direction uses Direction B as its base and incorporates the approved simplification
+work. The profile overview uses adaptive one-to-five-image compositions with a visually dominant
+main image. The manager uses one horizontal order strip, a top-aligned focused image, and a compact
+metadata inspector. Uploads remain in this editor, missing alt text blocks save, secondary order and
+removal actions live in one menu, and successful save returns to the profile with a floating toast.
 
 All directions retain the current profile mosaic, existing typography, tokens, components, restrained
 radius, Light/Dark support, and text-light findmydoc Dashboard character. The visual exploration may

@@ -117,7 +117,7 @@ export const ImageInspector: Story = {
     await waitFor(() =>
       expect(within(gallery).getByRole("heading", { name: "Manage gallery" })).toHaveFocus(),
     )
-    await expect(within(gallery).getByRole("button", { name: "Current main image" })).toBeDisabled()
+    await expect(within(gallery).getAllByText("Main image")[0]).toBeVisible()
     await expect(within(gallery).getByRole("textbox", { name: /Alt text/ })).toHaveValue(
       "Berlin Health Clinic reception",
     )
@@ -130,12 +130,17 @@ export const KeyboardReorderAndSave: Story = {
     const documentPage = within(canvasElement.ownerDocument.body)
     await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
     const gallery = getGallery(canvasElement.ownerDocument.body)
+    await waitFor(() =>
+      expect(within(gallery).getByRole("heading", { name: "Manage gallery" })).toHaveFocus(),
+    )
     const secondHandle = within(gallery).getByRole("button", {
-      name: "Reorder image 2. Use up and down arrow keys.",
+      name: "Reorder image 2. Use arrow keys.",
     })
     secondHandle.focus()
-    await userEvent.keyboard("{ArrowUp}")
-    await userEvent.click(within(gallery).getByRole("button", { name: "Save gallery" }))
+    await userEvent.keyboard("{ArrowLeft}")
+    const save = within(gallery).getByRole("button", { name: "Save and return" })
+    await waitFor(() => expect(save).toBeEnabled())
+    await userEvent.click(save)
     await waitFor(() =>
       expect(documentPage.queryByRole("region", { name: "Manage gallery" })).not.toBeInTheDocument(),
     )
@@ -148,9 +153,13 @@ export const StagedRemovalWithPreview: Story = {
     const documentPage = within(canvasElement.ownerDocument.body)
     await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
     const gallery = getGallery(canvasElement.ownerDocument.body)
-    await userEvent.click(within(gallery).getByRole("button", { name: "Remove image" }))
+    await waitFor(() =>
+      expect(within(gallery).getByRole("heading", { name: "Manage gallery" })).toHaveFocus(),
+    )
+    await userEvent.click(within(gallery).getByRole("button", { name: "More image actions" }))
+    await userEvent.click(await documentPage.findByRole("menuitem", { name: "Remove image" }))
     await expect(within(gallery).getByText("Removed (1)")).toBeVisible()
-    await userEvent.click(within(gallery).getByRole("button", { name: "Save gallery" }))
+    await userEvent.click(within(gallery).getByRole("button", { name: "Save and return" }))
     const confirmation = await documentPage.findByRole("alertdialog", {
       name: "Remove 1 image and save?",
     })
@@ -184,7 +193,7 @@ export const AddImages: Story = {
   },
 }
 
-export const GuidedUploadDetails: Story = {
+export const UploadedImagesRequireAltText: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement)
     const documentPage = within(canvasElement.ownerDocument.body)
@@ -198,11 +207,14 @@ export const GuidedUploadDetails: Story = {
     ])
     await waitFor(() => expect(addDialog).not.toBeVisible())
     gallery = getGallery(canvasElement.ownerDocument.body)
-    await expect(within(gallery).getByText("New image 1 of 2")).toBeVisible()
+    await expect(within(gallery).getAllByText("Needs alt text")).toHaveLength(2)
+    await expect(within(gallery).getByRole("button", { name: "Save and return" })).toBeDisabled()
     await userEvent.type(within(gallery).getByRole("textbox", { name: /Alt text/ }), "Consultation room")
-    await userEvent.click(within(gallery).getByRole("button", { name: "Next image" }))
-    await expect(within(gallery).getByText("New image 2 of 2")).toBeVisible()
-    await expect(within(gallery).getByRole("button", { name: "Skip for now" })).toBeVisible()
+    await userEvent.click(within(gallery).getByRole("button", { name: "Edit image 6: Alt text missing" }))
+    await userEvent.type(within(gallery).getByRole("textbox", { name: /Alt text/ }), "Clinic reception")
+    await expect(within(gallery).queryByText("Needs alt text")).not.toBeInTheDocument()
+    await expect(within(gallery).getByRole("button", { name: "Save and return" })).toBeEnabled()
+    await expect(within(gallery).queryByRole("button", { name: "Skip for now" })).not.toBeInTheDocument()
   },
 }
 
@@ -226,7 +238,7 @@ export const FailedUploadCanRetry: Story = {
     await waitFor(() =>
       expect(within(gallery).queryByText("Some images were not added")).not.toBeInTheDocument(),
     )
-    await expect(within(gallery).getByText("New image 1 of 2")).toBeVisible()
+    await expect(within(gallery).getAllByText("Needs alt text")).toHaveLength(2)
   },
 }
 
@@ -258,12 +270,16 @@ export const SaveConflictPreservesLocalChanges: Story = {
     const page = within(canvasElement)
     await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
     const gallery = getGallery(canvasElement.ownerDocument.body)
-    await userEvent.click(within(gallery).getByRole("button", { name: "Later" }))
-    await userEvent.click(within(gallery).getByRole("button", { name: "Save gallery" }))
+    const secondHandle = within(gallery).getByRole("button", {
+      name: "Reorder image 2. Use arrow keys.",
+    })
+    secondHandle.focus()
+    await userEvent.keyboard("{ArrowLeft}")
+    await userEvent.click(within(gallery).getByRole("button", { name: "Save and return" }))
     await waitFor(() => expect(within(gallery).getByText("Gallery changed elsewhere")).toBeVisible())
     await expect(within(gallery).getByText(/Your local values remain visible/)).toBeVisible()
-    await expect(within(gallery).getByRole("button", { name: "Set as main image" })).toBeVisible()
-    await expect(within(gallery).getByRole("button", { name: "Save gallery" })).toBeDisabled()
+    await expect(within(gallery).getByRole("button", { name: "More image actions" })).toBeVisible()
+    await expect(within(gallery).getByRole("button", { name: "Save and return" })).toBeDisabled()
   },
 }
 
@@ -278,9 +294,11 @@ export const DraftCleanupFailureStaysVisible: Story = {
     const addDialog = documentPage.getByRole("dialog", { name: "Add images" })
     await userEvent.upload(within(addDialog).getByLabelText("Choose clinic images"), imageFile("draft.png"))
     await waitFor(() => expect(addDialog).not.toBeVisible())
-    await userEvent.click(within(gallery).getByRole("button", { name: "Cancel" }))
-    const leaveDialog = documentPage.getByRole("alertdialog", { name: "Leave gallery editing?" })
-    await userEvent.click(within(leaveDialog).getByRole("button", { name: "Leave without saving" }))
+    await userEvent.click(within(gallery).getByRole("button", { name: "Back to profile" }))
+    const leaveDialog = documentPage.getByRole("alertdialog", {
+      name: "Save changes before leaving?",
+    })
+    await userEvent.click(within(leaveDialog).getByRole("button", { name: "Discard changes" }))
     await expect(within(gallery).getByText(/Draft cleanup failed/)).toBeVisible()
   },
 }
@@ -301,7 +319,7 @@ export const FullCapacity: Story = {
     const gallery = getGallery(canvasElement.ownerDocument.body)
     await expect(within(gallery).getByText(/Gallery full/)).toBeVisible()
     await expect(within(gallery).getByRole("button", { name: "Add images" })).toBeDisabled()
-    await expect(within(gallery).getByText("More gallery images")).toBeVisible()
+    await expect(within(gallery).getAllByRole("button", { name: /^Edit image/ })).toHaveLength(12)
   },
 }
 
@@ -313,7 +331,7 @@ export const ReadOnly: Story = {
     const gallery = getGallery(canvasElement.ownerDocument.body, "Clinic image gallery")
     await expect(within(gallery).queryByRole("button", { name: "Remove image" })).not.toBeInTheDocument()
     await expect(within(gallery).getByRole("button", { name: /View image 1/ })).toBeVisible()
-    await expect(within(gallery).getByRole("button", { name: "Close gallery" })).toBeVisible()
+    await expect(within(gallery).getByRole("button", { name: "Back to profile" })).toBeVisible()
   },
 }
 

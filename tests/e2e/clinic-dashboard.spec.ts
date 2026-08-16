@@ -208,7 +208,7 @@ test("deep-links across locations and projects a saved profile until reload", as
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
 
   const gallery = page.getByRole("region", { name: "Clinic image gallery" })
-  await gallery.getByRole("button", { name: "Open gallery" }).click()
+  await gallery.getByRole("button", { name: "Manage gallery" }).click()
   const galleryEditor = page.getByRole("region", { name: "Manage gallery" })
   await galleryEditor.getByRole("button", { name: "Add images" }).first().click()
   const addImagesDialog = page.getByRole("dialog", { name: "Add images" })
@@ -227,13 +227,13 @@ test("deep-links across locations and projects a saved profile until reload", as
   })
   expect((await uploadResponse).status()).toBe(201)
   await expect(addImagesDialog).toBeHidden()
-  await expect(galleryEditor.getByText("New image 1 of 1")).toBeVisible()
+  await expect(galleryEditor.getByText("Needs alt text")).toBeVisible()
   await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill("Reception at Avenora Clinic — İzmir")
   const saveResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
   )
-  await galleryEditor.getByRole("button", { name: "Save gallery" }).click()
+  await galleryEditor.getByRole("button", { name: "Save and return" }).click()
   expect((await saveResponse).status()).toBe(200)
   await expect(galleryEditor).toBeHidden()
 

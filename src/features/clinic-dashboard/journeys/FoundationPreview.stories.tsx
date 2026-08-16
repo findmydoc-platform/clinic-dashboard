@@ -90,7 +90,7 @@ export const ProfileSaveProjectsIntoDashboard: Story = {
 
     const gallery = canvas.getByRole("region", { name: "Clinic image gallery" })
     await waitFor(() => expect(gallery).toHaveFocus())
-    await userEvent.click(within(gallery).getByRole("button", { name: "Open gallery" }))
+    await userEvent.click(within(gallery).getByRole("button", { name: "Manage gallery" }))
     const galleryEditor = canvas.getByRole("region", { name: "Manage gallery" })
     await userEvent.click(
       within(galleryEditor).getByRole("button", {
@@ -98,7 +98,7 @@ export const ProfileSaveProjectsIntoDashboard: Story = {
       }),
     )
     await userEvent.click(within(galleryEditor).getByRole("button", { name: "Set as main image" }))
-    await userEvent.click(within(galleryEditor).getByRole("button", { name: "Save gallery" }))
+    await userEvent.click(within(galleryEditor).getByRole("button", { name: "Save and return" }))
     await waitFor(() =>
       expect(canvas.queryByRole("region", { name: "Manage gallery" })).not.toBeInTheDocument(),
     )
