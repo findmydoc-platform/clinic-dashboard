@@ -245,6 +245,37 @@ test("deep-links across locations and persists gallery curation across reload", 
   expect((await secondUploadResponse).status()).toBe(201)
   await expect(secondAddImagesDialog).toBeHidden()
   await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(consultationAlt)
+
+  const firstReorderHandle = galleryEditor.getByRole("button", {
+    name: "Reorder image 1. Drag or use arrow keys.",
+  })
+  const secondGalleryItem = galleryEditor
+    .getByRole("button", { name: `Edit image 2: ${consultationAlt}` })
+    .locator("xpath=ancestor::li")
+  const firstHandleBounds = await firstReorderHandle.boundingBox()
+  const secondItemBounds = await secondGalleryItem.boundingBox()
+  if (!firstHandleBounds || !secondItemBounds) throw new Error("Gallery reorder geometry is required.")
+  await page.mouse.move(
+    firstHandleBounds.x + firstHandleBounds.width / 2,
+    firstHandleBounds.y + firstHandleBounds.height / 2,
+  )
+  await page.mouse.down()
+  await page.mouse.move(
+    secondItemBounds.x + secondItemBounds.width - 2,
+    secondItemBounds.y + secondItemBounds.height / 2,
+    { steps: 6 },
+  )
+  await page.mouse.up()
+  await expect(galleryEditor.getByRole("status")).toHaveText("Image moved to position 2 of 2.")
+  await expect(galleryEditor.getByRole("button", { name: `Edit image 1: ${consultationAlt}` })).toBeVisible()
+
+  const movedReceptionHandle = galleryEditor.getByRole("button", {
+    name: "Reorder image 2. Drag or use arrow keys.",
+  })
+  await movedReceptionHandle.focus()
+  await page.keyboard.press("ArrowLeft")
+  await expect(galleryEditor.getByRole("button", { name: `Edit image 1: ${receptionAlt}` })).toBeVisible()
+
   const saveResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",

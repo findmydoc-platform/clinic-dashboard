@@ -6,8 +6,8 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  type DragEvent,
   type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react"
 import {
@@ -39,6 +39,21 @@ import type { ClinicGalleryMedia } from "../../model/clinic-gallery"
 type ClinicGalleryManagerDialogProps = Readonly<{
   controller: ReturnType<typeof useClinicGalleryController>
 }>
+
+type PointerReorderSession = {
+  dragging: boolean
+  edgeDirection: -1 | 0 | 1
+  handle: HTMLButtonElement
+  initialIndex: number
+  itemId: string
+  pointerId: number
+  startX: number
+  startY: number
+  targetIndex: number
+  x: number
+}
+
+const pointerDragThreshold = 6
 
 function mediaSource(item: ClinicGalleryMedia) {
   return item.thumbnailUrl ?? item.url
@@ -118,8 +133,13 @@ function SelectedImageActionsMenu({
 export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerDialogProps) {
   const { actions, model } = controller
   const [draggedId, setDraggedId] = useState<string>()
+  const [reorderAnnouncement, setReorderAnnouncement] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const autoScrollFrameRef = useRef<number | undefined>(undefined)
+  const orderListRef = useRef<HTMLOListElement>(null)
+  const pointerListenerCleanupRef = useRef<(() => void) | undefined>(undefined)
+  const pointerReorderRef = useRef<PointerReorderSession | undefined>(undefined)
   const selectedActionsRef = useRef<HTMLButtonElement>(null)
   const focusAfterRemovalRef = useRef(false)
   const openerRef = useRef<HTMLElement | null>(null)
@@ -168,6 +188,16 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
     for (const item of model.items) knownItemIdsRef.current.add(item.id)
   }, [model.items, model.open])
 
+  useEffect(
+    () => () => {
+      pointerListenerCleanupRef.current?.()
+      if (autoScrollFrameRef.current !== undefined) {
+        cancelAnimationFrame(autoScrollFrameRef.current)
+      }
+    },
+    [],
+  )
+
   const handleFiles = (event: ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.currentTarget.files ?? [])]
     event.currentTarget.value = ""
@@ -189,9 +219,133 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
     actions.select(itemId)
   }
 
-  const dropOn = (event: DragEvent, targetIndex: number) => {
+  const stopPointerAutoScroll = () => {
+    if (autoScrollFrameRef.current === undefined) return
+    cancelAnimationFrame(autoScrollFrameRef.current)
+    autoScrollFrameRef.current = undefined
+  }
+
+  const reorderPointerAt = (clientX: number) => {
+    const session = pointerReorderRef.current
+    const orderList = orderListRef.current
+    if (!session || !orderList) return
+
+    const orderItems = [...orderList.querySelectorAll<HTMLElement>("[data-gallery-order-item]")]
+    if (orderItems.length === 0) return
+    const nextIndex = orderItems.findIndex((orderItem) => {
+      const bounds = orderItem.getBoundingClientRect()
+      return clientX < bounds.left + bounds.width / 2
+    })
+    const targetIndex = nextIndex === -1 ? orderItems.length - 1 : nextIndex
+    if (targetIndex === session.targetIndex) return
+    session.targetIndex = targetIndex
+    actions.reorder(session.itemId, targetIndex)
+  }
+
+  const runPointerAutoScroll = () => {
+    autoScrollFrameRef.current = undefined
+    const session = pointerReorderRef.current
+    const orderList = orderListRef.current
+    if (!session?.dragging || !orderList || session.edgeDirection === 0) return
+
+    orderList.scrollBy({ left: session.edgeDirection * 8 })
+    reorderPointerAt(session.x)
+    autoScrollFrameRef.current = requestAnimationFrame(runPointerAutoScroll)
+  }
+
+  const startPointerAutoScroll = () => {
+    if (autoScrollFrameRef.current !== undefined) return
+    autoScrollFrameRef.current = requestAnimationFrame(runPointerAutoScroll)
+  }
+
+  const beginPointerReorder = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    itemId: string,
+    targetIndex: number,
+  ) => {
+    if (
+      busy ||
+      pointerReorderRef.current ||
+      !event.isPrimary ||
+      (event.pointerType === "mouse" && event.button !== 0)
+    )
+      return
+    pointerReorderRef.current = {
+      dragging: false,
+      edgeDirection: 0,
+      handle: event.currentTarget,
+      initialIndex: targetIndex,
+      itemId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      targetIndex,
+      x: event.clientX,
+    }
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Window-level pointer tracking remains available when capture is unsupported.
+    }
+    const continueReorder = (pointerEvent: PointerEvent) => continuePointerReorder(pointerEvent)
+    const completeReorder = (pointerEvent: PointerEvent) => finishPointerReorder(pointerEvent, false)
+    const cancelReorder = (pointerEvent: PointerEvent) => finishPointerReorder(pointerEvent, true)
+    window.addEventListener("pointermove", continueReorder, { passive: false })
+    window.addEventListener("pointerup", completeReorder)
+    window.addEventListener("pointercancel", cancelReorder)
+    pointerListenerCleanupRef.current = () => {
+      window.removeEventListener("pointermove", continueReorder)
+      window.removeEventListener("pointerup", completeReorder)
+      window.removeEventListener("pointercancel", cancelReorder)
+    }
+    setReorderAnnouncement("")
+  }
+
+  const continuePointerReorder = (event: PointerEvent) => {
+    const session = pointerReorderRef.current
+    if (!session || session.pointerId !== event.pointerId) return
+
+    if (!session.dragging) {
+      const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY)
+      if (distance < pointerDragThreshold) return
+      session.dragging = true
+      setDraggedId(session.itemId)
+    }
+
     event.preventDefault()
-    if (draggedId) actions.reorder(draggedId, targetIndex)
+    const orderList = orderListRef.current
+    if (!orderList) return
+
+    session.x = event.clientX
+    const listBounds = orderList.getBoundingClientRect()
+    const edgeSize = Math.min(48, listBounds.width / 4)
+    session.edgeDirection =
+      event.clientX < listBounds.left + edgeSize ? -1 : event.clientX > listBounds.right - edgeSize ? 1 : 0
+    if (session.edgeDirection === 0) stopPointerAutoScroll()
+    else startPointerAutoScroll()
+    reorderPointerAt(event.clientX)
+  }
+
+  const finishPointerReorder = (event: PointerEvent, cancelled: boolean) => {
+    const session = pointerReorderRef.current
+    if (!session || session.pointerId !== event.pointerId) return
+    pointerReorderRef.current = undefined
+    pointerListenerCleanupRef.current?.()
+    pointerListenerCleanupRef.current = undefined
+    stopPointerAutoScroll()
+    if (session.handle.hasPointerCapture(event.pointerId)) {
+      session.handle.releasePointerCapture(event.pointerId)
+    }
+    if (session.dragging) {
+      event.preventDefault()
+      const positionChanged = session.targetIndex !== session.initialIndex
+      if (cancelled && positionChanged) actions.reorder(session.itemId, session.initialIndex)
+      setReorderAnnouncement(
+        !cancelled && positionChanged
+          ? `Image moved to position ${session.targetIndex + 1} of ${model.items.length}.`
+          : "",
+      )
+    }
     setDraggedId(undefined)
   }
 
@@ -423,17 +577,16 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                   ) : null}
                 </div>
 
-                <ol className="mt-4 flex gap-3 overflow-x-auto pb-2" aria-label="Gallery image order">
+                <ol
+                  aria-label="Gallery image order"
+                  className="mt-4 flex gap-3 overflow-x-auto pb-2"
+                  ref={orderListRef}
+                >
                   {model.items.map((item, index) => {
                     const missingAlt = !item.alt.trim()
                     const selected = model.selected?.id === item.id
                     return (
-                      <li
-                        className="w-32 shrink-0"
-                        key={item.id}
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={(event) => dropOn(event, index)}
-                      >
+                      <li className="w-32 shrink-0" data-gallery-order-item key={item.id}>
                         <div
                           className={`relative rounded-lg border p-1.5 ${
                             selected
@@ -470,12 +623,15 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                           <div className="mt-1 flex min-h-7 items-center gap-1">
                             {model.isInteractive ? (
                               <button
-                                aria-label={`Reorder image ${index + 1}. Use arrow keys.`}
-                                className="grid size-7 shrink-0 cursor-grab place-items-center rounded text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
-                                draggable
-                                onDragEnd={() => setDraggedId(undefined)}
-                                onDragStart={() => setDraggedId(item.id)}
+                                aria-label={`Reorder image ${index + 1}. Drag or use arrow keys.`}
+                                className={`grid size-11 shrink-0 touch-none place-items-center rounded text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] ${
+                                  draggedId === item.id
+                                    ? "cursor-grabbing bg-[var(--surface)]"
+                                    : "cursor-grab"
+                                }`}
+                                disabled={busy}
                                 onKeyDown={(event) => reorderWithKeyboard(event, item.id, index)}
+                                onPointerDown={(event) => beginPointerReorder(event, item.id, index)}
                                 type="button"
                               >
                                 <GripVertical aria-hidden="true" className="size-4" />
@@ -496,6 +652,10 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                     )
                   })}
                 </ol>
+
+                <p aria-live="polite" className="sr-only" role="status">
+                  {reorderAnnouncement}
+                </p>
 
                 {missingAltCount > 0 ? (
                   <p className="mt-2 text-xs font-medium text-[var(--destructive)]" role="status">

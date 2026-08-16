@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, userEvent, waitFor, within } from "storybook/test"
+import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { Button } from "@/components/ui/button"
 import { useClinicGalleryController } from "../../hooks/useClinicGalleryController"
 import type { ClinicGallerySnapshot } from "../../model/clinic-gallery"
@@ -134,7 +134,7 @@ export const KeyboardReorderAndSave: Story = {
       expect(within(gallery).getByRole("heading", { name: "Manage gallery" })).toHaveFocus(),
     )
     const secondHandle = within(gallery).getByRole("button", {
-      name: "Reorder image 2. Use arrow keys.",
+      name: "Reorder image 2. Drag or use arrow keys.",
     })
     secondHandle.focus()
     await userEvent.keyboard("{ArrowLeft}")
@@ -275,7 +275,7 @@ export const SaveConflictPreservesLocalChanges: Story = {
     await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
     const gallery = getGallery(canvasElement.ownerDocument.body)
     const secondHandle = within(gallery).getByRole("button", {
-      name: "Reorder image 2. Use arrow keys.",
+      name: "Reorder image 2. Drag or use arrow keys.",
     })
     secondHandle.focus()
     await userEvent.keyboard("{ArrowLeft}")
@@ -348,6 +348,106 @@ export const ReadOnly: Story = {
 export const MobileInspector: Story = {
   globals: { viewport: { value: "mobile390Tall" } },
   play: ImageInspector.play,
+}
+
+export const MobileTouchReorder: Story = {
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
+    const gallery = getGallery(canvasElement.ownerDocument.body)
+    const firstHandle = within(gallery).getByRole("button", {
+      name: "Reorder image 1. Drag or use arrow keys.",
+    })
+    const secondImage = within(gallery).getByRole("button", {
+      name: "Edit image 2: Berlin Health Clinic exterior",
+    })
+    const firstBounds = firstHandle.getBoundingClientRect()
+    const secondBounds = secondImage.closest("li")?.getBoundingClientRect()
+    if (!secondBounds) throw new Error("Second gallery order item is required.")
+
+    await expect(firstBounds.width).toBeGreaterThanOrEqual(44)
+    await fireEvent.pointerDown(firstHandle, {
+      button: 0,
+      clientX: firstBounds.left + firstBounds.width / 2,
+      clientY: firstBounds.top + firstBounds.height / 2,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    })
+    await fireEvent.pointerMove(firstHandle, {
+      clientX: secondBounds.left + secondBounds.width / 2 - 2,
+      clientY: secondBounds.top + secondBounds.height / 2,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    })
+    await fireEvent.pointerUp(firstHandle, {
+      clientX: secondBounds.left + secondBounds.width / 2 - 2,
+      clientY: secondBounds.top + secondBounds.height / 2,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    })
+
+    await expect(within(gallery).getByRole("status")).toHaveTextContent("Image moved to position 2 of 4.")
+    await expect(
+      within(gallery).getByRole("button", { name: "Edit image 1: Berlin Health Clinic exterior" }),
+    ).toBeVisible()
+  },
+}
+
+export const MobileTouchCancelRestoresOrder: Story = {
+  args: {
+    initialSnapshot: {
+      ...clinicGallerySnapshotFixture,
+      items: Array.from({ length: 12 }, (_, index) => ({
+        ...clinicGallerySnapshotFixture.items[index % clinicGallerySnapshotFixture.items.length]!,
+        id: `touch-cancel-${index + 1}`,
+      })),
+    },
+  },
+  globals: { viewport: { value: "mobile390Tall" } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement)
+    await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
+    const gallery = getGallery(canvasElement.ownerDocument.body)
+    const orderList = within(gallery).getByRole("list", { name: "Gallery image order" })
+    const firstHandle = within(gallery).getByRole("button", {
+      name: "Reorder image 1. Drag or use arrow keys.",
+    })
+    const firstBounds = firstHandle.getBoundingClientRect()
+    const listBounds = orderList.getBoundingClientRect()
+
+    await fireEvent.pointerDown(firstHandle, {
+      button: 0,
+      clientX: firstBounds.left + firstBounds.width / 2,
+      clientY: firstBounds.top + firstBounds.height / 2,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    })
+    await fireEvent.pointerMove(firstHandle, {
+      clientX: listBounds.right - 1,
+      clientY: firstBounds.top + firstBounds.height / 2,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    })
+    await waitFor(() => expect(orderList.scrollLeft).toBeGreaterThan(24))
+    await fireEvent.pointerCancel(firstHandle, {
+      clientX: listBounds.right - 1,
+      clientY: firstBounds.top + firstBounds.height / 2,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    })
+
+    await expect(within(gallery).getByRole("status")).toBeEmptyDOMElement()
+    await expect(
+      within(gallery).getByRole("button", { name: "Edit image 1: Berlin Health Clinic reception" }),
+    ).toBeInTheDocument()
+  },
 }
 
 export const MobileSaveAndLeaveGuard: Story = {
