@@ -49,7 +49,7 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
         return { error: "forbidden", ok: false }
       }
       const png = Buffer.from(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+Xw1Q2QAAAABJRU5ErkJggg==",
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+Xw1Q2QAAAABJRU5ErkJggg==", // pragma: allowlist secret
         "base64",
       )
       return {
