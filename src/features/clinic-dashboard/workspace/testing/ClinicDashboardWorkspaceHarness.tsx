@@ -3,10 +3,12 @@
 import { useState } from "react"
 import {
   clinicProfileFixture,
+  clinicGallerySnapshotFixture,
   clinicProfileSourceFixture,
   createClinicProfileSourceCommandsFixture,
   clinicTreatmentSnapshotFixture,
   createClinicProfileCommandsFixture,
+  createClinicGalleryCommandsFixture,
   createClinicTreatmentCommandsFixture,
   createDoctorProfileCommandsFixture,
   doctorDirectoryFixture,
@@ -277,6 +279,8 @@ const potsdamProfile = {
 export const clinicDashboardWorkspaceFixture = {
   account: workspaceAccountFixture,
   defaultLocationId: "berlin-mitte",
+  galleryStatus: "ready",
+  gallerySnapshot: clinicGallerySnapshotFixture,
   doctorDirectory: doctorDirectoryFixture,
   inquiryQueue: {
     inquiries: [
@@ -412,6 +416,7 @@ export function ClinicDashboardWorkspaceHarness({
   start,
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
+  const [clinicGalleryCommands] = useState(() => createClinicGalleryCommandsFixture())
   const [clinicProfileSourceCommands] = useState(() => createClinicProfileSourceCommandsFixture())
   const [clinicTreatmentCommands] = useState(() => createClinicTreatmentCommandsFixture())
   const [doctorProfileCommands] = useState(() => createDoctorProfileCommandsFixture())
@@ -420,6 +425,7 @@ export function ClinicDashboardWorkspaceHarness({
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedClinicContextFixture}
       clinicProfileCommands={clinicProfileCommands}
+      clinicGalleryCommands={clinicGalleryCommands}
       clinicProfileSourceCommands={clinicProfileSourceCommands}
       clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}

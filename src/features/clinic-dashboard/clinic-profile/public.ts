@@ -1,8 +1,16 @@
 export { ClinicProfile, type ClinicProfileProps } from "./ClinicProfile"
+export { createClinicGalleryApiCommands } from "./browser/clinic-gallery-api"
 export { createClinicProfileSourceApiCommands } from "./browser/clinic-profile-api"
 export { createDoctorProfileApiCommands } from "./browser/doctor-profile-api"
 export { createClinicTreatmentApiCommands } from "./browser/clinic-treatment-api"
 export type { ClinicProfileCommands } from "./model/clinic-profile-commands"
+export type { ClinicGalleryCommands } from "./model/clinic-gallery-commands"
+export type {
+  ClinicGalleryConstraints,
+  ClinicGalleryLoadStatus,
+  ClinicGalleryMedia,
+  ClinicGallerySnapshot,
+} from "./model/clinic-gallery"
 export type {
   ClinicProfileCity,
   ClinicProfileDraftCreateInput,

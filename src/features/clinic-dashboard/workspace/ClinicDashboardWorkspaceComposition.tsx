@@ -8,6 +8,8 @@ import {
 import {
   ClinicProfile,
   type ClinicProfileCommands,
+  type ClinicGalleryCommands,
+  type ClinicGallerySnapshot,
   type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
   type ClinicProfileSourceCommands,
@@ -63,6 +65,7 @@ export type ClinicDashboardWorkspaceStartState =
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
   clinicProfileCommands: ClinicProfileCommands
+  clinicGalleryCommands: ClinicGalleryCommands
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
   doctorProfileCommands: DoctorProfileCommands
@@ -88,6 +91,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
 export function ClinicDashboardWorkspaceComposition({
   authenticatedContext,
   clinicProfileCommands,
+  clinicGalleryCommands,
   clinicProfileSourceCommands,
   clinicTreatmentCommands,
   doctorProfileCommands,
@@ -106,6 +110,7 @@ export function ClinicDashboardWorkspaceComposition({
     Readonly<{ locationId: string; profile: ClinicProfileDraft }> | undefined
   >()
   const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
+  const [galleryProjection, setGalleryProjection] = useState<ClinicGallerySnapshot>()
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
@@ -132,6 +137,11 @@ export function ClinicDashboardWorkspaceComposition({
       ? "interactive"
       : "read-only"
     : "hidden"
+  const galleryManagement = authenticatedContext.capabilities.includes("clinic-gallery:view")
+    ? authenticatedContext.capabilities.includes("clinic-gallery:edit")
+      ? "interactive"
+      : "read-only"
+    : "hidden"
   const canViewTreatments = authenticatedContext.capabilities.includes("clinic-treatments:view")
   const canEditTreatments = authenticatedContext.capabilities.includes("clinic-treatments:edit")
   const treatmentManagement = canViewTreatments ? (canEditTreatments ? "interactive" : "read-only") : "hidden"
@@ -145,11 +155,27 @@ export function ClinicDashboardWorkspaceComposition({
     : workspaceInput.defaultLocationId
   const selectedLocation = getClinicDashboardLocation(workspaceInput.locations, effectiveLocationId)
   const selectedSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, selectedLocation.id)
-  const selectedProfile =
+  const profileProjection =
     savedProfileProjection?.locationId === selectedLocation.id
       ? savedProfileProjection.profile
       : selectedSnapshot.clinicProfile
-  const projectedDashboardSnapshot =
+  const effectiveGallerySnapshot = galleryProjection ?? workspaceInput.gallerySnapshot
+  const effectiveGalleryStatus = galleryProjection ? "ready" : workspaceInput.galleryStatus
+  const selectedProfile =
+    effectiveGallerySnapshot || effectiveGalleryStatus !== "ready"
+      ? {
+          ...profileProjection,
+          gallery:
+            effectiveGallerySnapshot?.items.slice(0, 4).map((item, index) => ({
+              alt: item.alt,
+              id: item.id,
+              isCover: index === 0,
+              src: item.thumbnailUrl ?? item.url,
+            })) ?? [],
+          galleryTotal: effectiveGallerySnapshot?.items.length ?? 0,
+        }
+      : profileProjection
+  const profileProjectedDashboard =
     savedProfileProjection?.locationId === selectedLocation.id
       ? projectDashboardAfterProfileSave({
           initialProfile: selectedSnapshot.clinicProfile,
@@ -158,15 +184,22 @@ export function ClinicDashboardWorkspaceComposition({
           snapshot: selectedSnapshot.dashboard,
         })
       : selectedSnapshot.dashboard
+  const projectedDashboardSnapshot =
+    galleryProjection && galleryProjection.items.length > 0
+      ? projectDashboardAfterProfileSave({
+          initialProfile: selectedSnapshot.clinicProfile,
+          locationId: selectedLocation.id,
+          savedProfile: selectedProfile,
+          snapshot: profileProjectedDashboard,
+        })
+      : profileProjectedDashboard
   const coverImage = selectedProfile.gallery.find((image) => image.isCover) ?? selectedProfile.gallery[0]
-  if (!coverImage) throw new Error(`Clinic location ${selectedLocation.id} requires a cover image.`)
 
   const dashboardController = useDashboardController({
     canExportProfileViews: capabilities.canUseDashboardReporting,
     initialReportingPeriod,
     locationSummary: {
-      coverAlt: coverImage.alt,
-      coverImage: coverImage.src,
+      ...(coverImage ? { coverAlt: coverImage.alt, coverImage: coverImage.src } : {}),
       location: selectedLocation.location,
       name: selectedProfile.name,
     },
@@ -196,6 +229,7 @@ export function ClinicDashboardWorkspaceComposition({
     if (!nextProfileTask) throw new Error(`Clinic location ${locationId} requires a profile task.`)
 
     setSavedProfileProjection(undefined)
+    setGalleryProjection(undefined)
     actions.selectLocation(locationId, nextLocation.name, nextProfileTask)
   }
 
@@ -287,7 +321,7 @@ export function ClinicDashboardWorkspaceComposition({
 
       <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
         <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, doctors, clinic
-        treatments, patient inquiries and reviews are live. Dashboard cards, charts and gallery are local
+        treatments, gallery, patient inquiries and reviews are live. Dashboard cards and charts are local
         examples.
       </div>
 
@@ -323,6 +357,10 @@ export function ClinicDashboardWorkspaceComposition({
       <div hidden={activeSection !== "profile"}>
         <ClinicProfile
           commands={clinicProfileCommands}
+          galleryCommands={clinicGalleryCommands}
+          galleryManagement={galleryManagement}
+          galleryStatus={effectiveGalleryStatus}
+          gallerySnapshot={effectiveGallerySnapshot}
           doctorCommands={doctorProfileCommands}
           doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
           doctorManagement={capabilities.teamManagement}
@@ -333,6 +371,7 @@ export function ClinicDashboardWorkspaceComposition({
           initialProfile={selectedProfile}
           key={selectedLocation.id}
           onFocusHandled={actions.clearProfileFocusRequest}
+          onGallerySaved={setGalleryProjection}
           onDoctorsChange={(doctors) => {
             const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
             if (source.status !== "ready") return

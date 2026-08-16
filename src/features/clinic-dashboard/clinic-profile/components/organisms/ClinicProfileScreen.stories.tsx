@@ -37,6 +37,7 @@ const publishedModel = {
   doctorCommands: createDoctorProfileCommandsFixture(),
   doctorDirectory: doctorDirectoryFixture,
   doctorManagement: "interactive",
+  galleryStatus: "ready",
   legacyIsDirty: false,
   legacyProfile: clinicProfileFixture,
   legacySaveState: "idle",

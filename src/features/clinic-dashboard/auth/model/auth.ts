@@ -3,6 +3,8 @@ import { z } from "zod"
 const clinicDashboardCapabilitySchema = z.enum([
   "clinic-profile:view",
   "clinic-profile:edit",
+  "clinic-gallery:view",
+  "clinic-gallery:edit",
   "clinic-treatments:view",
   "clinic-treatments:edit",
 ])

@@ -1,6 +1,14 @@
 import "server-only"
 
 export {
+  handleClinicGalleryDiscard,
+  handleClinicGalleryImage,
+  handleClinicGalleryRead,
+  handleClinicGallerySave,
+  handleClinicGalleryUpload,
+} from "./clinic-gallery-actions"
+
+export {
   handleClinicTreatmentCreate,
   handleClinicTreatmentRead,
   handleClinicTreatmentUpdate,
@@ -19,6 +27,11 @@ export {
   handleClinicProfileLoad,
   handleClinicProfilePublish,
 } from "./clinic-profile-actions"
+export type {
+  ClinicGalleryProvider,
+  ClinicGalleryProviderFactory,
+  ClinicGalleryProviderResult,
+} from "./clinic-gallery-provider"
 export type {
   ClinicProfileProvider,
   ClinicProfileProviderFactory,

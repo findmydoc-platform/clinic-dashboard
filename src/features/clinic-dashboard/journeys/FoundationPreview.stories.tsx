@@ -90,13 +90,18 @@ export const ProfileSaveProjectsIntoDashboard: Story = {
 
     const gallery = canvas.getByRole("region", { name: "Clinic image gallery" })
     await waitFor(() => expect(gallery).toHaveFocus())
-    await userEvent.click(within(gallery).getByRole("button", { name: "View all images" }))
-    const galleryDialog = canvas.getByRole("dialog", { name: "Edit clinic images" })
-    await userEvent.click(within(galleryDialog).getAllByRole("button", { name: "Set cover" })[0]!)
-    await userEvent.click(within(galleryDialog).getByRole("button", { name: "Done" }))
-
-    await userEvent.click(canvas.getByRole("button", { name: "Save changes" }))
-    await expect(await canvas.findByText("Profile saved as revision 2.")).toBeVisible()
+    await userEvent.click(within(gallery).getByRole("button", { name: "Open gallery" }))
+    const galleryEditor = canvas.getByRole("region", { name: "Manage gallery" })
+    await userEvent.click(
+      within(galleryEditor).getByRole("button", {
+        name: "Edit image 2: Berlin Health Clinic exterior",
+      }),
+    )
+    await userEvent.click(within(galleryEditor).getByRole("button", { name: "Set as main image" }))
+    await userEvent.click(within(galleryEditor).getByRole("button", { name: "Save gallery" }))
+    await waitFor(() =>
+      expect(canvas.queryByRole("region", { name: "Manage gallery" })).not.toBeInTheDocument(),
+    )
 
     await userEvent.click(canvas.getByRole("button", { name: "Dashboard" }))
     const preview = canvas.getByRole("region", { name: "Dashboard clinic location summary" })

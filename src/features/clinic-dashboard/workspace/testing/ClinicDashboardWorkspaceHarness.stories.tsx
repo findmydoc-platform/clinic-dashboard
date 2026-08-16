@@ -325,7 +325,7 @@ export const DemoBadgeAndFourImageGallery: Story = {
 
     await expect(canvas.getAllByText("Mixed data")[0]).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
-    await expect(canvas.getByRole("button", { name: "View all images" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Open gallery" })).toBeInTheDocument()
   },
 }
 
@@ -337,13 +337,12 @@ export const FourImageGalleryDark: Story = {
     const page = within(canvasElement.ownerDocument.body)
 
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
-    await userEvent.click(canvas.getByRole("button", { name: "View all images" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Open gallery" }))
 
-    const dialog = await page.findByRole("dialog", { name: "Edit clinic images" })
+    const editor = await page.findByRole("region", { name: "Manage gallery" })
     await expect(canvasElement.ownerDocument.documentElement).toHaveClass("dark")
-    await expect(within(dialog).getAllByRole("img")).toHaveLength(4)
-    await expect(within(dialog).getByLabelText("Current cover image")).toBeVisible()
-    await expect(within(dialog).getAllByRole("button", { name: "Set cover" })).toHaveLength(3)
-    await expect(within(dialog).getByRole("button", { name: "Done" })).toBeVisible()
+    await expect(within(editor).getByRole("button", { name: "Current main image" })).toBeDisabled()
+    await expect(within(editor).getByRole("button", { name: "Remove image" })).toBeVisible()
+    await expect(within(editor).getByRole("button", { name: "Save gallery" })).toBeDisabled()
   },
 }

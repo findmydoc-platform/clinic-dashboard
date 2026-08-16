@@ -38,3 +38,14 @@ export const MobileReadOnlyGalleryAccess: Story = {
     await expect(args.onOpen).toHaveBeenCalledOnce()
   },
 }
+
+export const UnavailableWithoutFixtureFallback: Story = {
+  args: { gallery: [], galleryTotal: 0, status: "temporarily-unavailable" },
+  play: async ({ args, canvasElement }) => {
+    const alert = within(canvasElement).getByRole("alert")
+    await expect(within(alert).getByText("Gallery unavailable")).toBeVisible()
+    await expect(within(alert).queryByRole("img")).not.toBeInTheDocument()
+    await userEvent.click(within(alert).getByRole("button", { name: "Try again" }))
+    await expect(args.onOpen).toHaveBeenCalledOnce()
+  },
+}

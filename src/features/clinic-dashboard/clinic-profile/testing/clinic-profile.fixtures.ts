@@ -5,6 +5,8 @@ import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import receptionImage from "@/assets/clinic-dashboard/reception.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
 import type { ClinicProfileCommands } from "../model/clinic-profile-commands"
+import type { ClinicGalleryCommands } from "../model/clinic-gallery-commands"
+import type { ClinicGallerySnapshot } from "../model/clinic-gallery"
 import type { ClinicTreatmentCommands } from "../model/clinic-treatment-commands"
 import type { ClinicTreatmentsSnapshot, MasterTreatment } from "../model/clinic-treatment"
 import type { ClinicProfileDraft } from "../model/clinic-profile"
@@ -127,6 +129,75 @@ export const clinicProfileFixture = {
   revision: 1,
   updatedAt: "2023-10-12T08:00:00.000Z",
 } satisfies ClinicProfileDraft
+
+export const clinicGallerySnapshotFixture = {
+  constraints: {
+    acceptedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/avif"],
+    maxConcurrentUploads: 3,
+    maxFileBytes: 4 * 1024 * 1024,
+    maxItems: 12,
+    maxPixels: 50_000_000,
+  },
+  items: clinicProfileFixture.gallery.map((item) => ({
+    alt: item.alt,
+    id: item.id,
+    status: "published" as const,
+    url: typeof item.src === "string" ? item.src : item.src.src,
+  })),
+  revision: 4,
+} satisfies ClinicGallerySnapshot
+
+export function createClinicGalleryCommandsFixture(
+  initialSnapshot: ClinicGallerySnapshot = clinicGallerySnapshotFixture,
+  latencyMs = 0,
+): ClinicGalleryCommands {
+  let snapshot = initialSnapshot
+  let mediaSequence = 0
+  const wait = async () => {
+    if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs))
+  }
+  return {
+    async discardDrafts(mediaIds) {
+      await wait()
+      snapshot = {
+        ...snapshot,
+        items: snapshot.items.filter((item) => item.status === "published" || !mediaIds.includes(item.id)),
+      }
+    },
+    async loadGallery() {
+      await wait()
+      return snapshot
+    },
+    async saveGallery(input) {
+      await wait()
+      if (input.expectedRevision !== snapshot.revision) throw new Error("Gallery conflict")
+      const mediaById = new Map(snapshot.items.map((item) => [item.id, item]))
+      snapshot = {
+        ...snapshot,
+        items: input.items.map((item) => {
+          const media = mediaById.get(item.mediaId)
+          if (!media) throw new Error("Unknown gallery media")
+          return { ...media, alt: item.alt, captionText: item.captionText, status: "published" as const }
+        }),
+        revision: snapshot.revision + 1,
+      }
+      return snapshot
+    },
+    async uploadMedia(input) {
+      await wait()
+      mediaSequence += 1
+      const media = {
+        alt: input.alt ?? "",
+        captionText: input.captionText,
+        id: `uploaded-gallery-${mediaSequence}`,
+        status: "draft" as const,
+        url: URL.createObjectURL(input.file),
+      }
+      snapshot = { ...snapshot, items: [...snapshot.items, media] }
+      return media
+    },
+  }
+}
 
 export function createClinicProfileCommandsFixture(latencyMs = 0): ClinicProfileCommands {
   let teamEntitySequence = 0

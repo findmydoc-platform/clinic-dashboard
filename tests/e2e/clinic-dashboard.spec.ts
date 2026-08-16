@@ -208,12 +208,34 @@ test("deep-links across locations and projects a saved profile until reload", as
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
 
   const gallery = page.getByRole("region", { name: "Clinic image gallery" })
-  await gallery.getByRole("button", { name: "View all images" }).click()
-  const galleryDialog = page.getByRole("dialog", { name: "Edit clinic images" })
-  await galleryDialog.getByRole("button", { name: "Set cover" }).first().click()
-  await galleryDialog.getByRole("button", { name: "Done" }).click()
-  await page.getByRole("button", { name: "Save changes" }).click()
-  await expect(page.getByText("Profile saved as revision 2.")).toBeVisible()
+  await gallery.getByRole("button", { name: "Open gallery" }).click()
+  const galleryEditor = page.getByRole("region", { name: "Manage gallery" })
+  await galleryEditor.getByRole("button", { name: "Add images" }).first().click()
+  const addImagesDialog = page.getByRole("dialog", { name: "Add images" })
+  const uploadResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      response.request().method() === "POST",
+  )
+  await addImagesDialog.locator('input[type="file"][aria-label="Choose clinic images"]').setInputFiles({
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    ),
+    mimeType: "image/png",
+    name: "izmir-reception.png",
+  })
+  expect((await uploadResponse).status()).toBe(201)
+  await expect(addImagesDialog).toBeHidden()
+  await expect(galleryEditor.getByText("New image 1 of 1")).toBeVisible()
+  await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill("Reception at Avenora Clinic — İzmir")
+  const saveResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await galleryEditor.getByRole("button", { name: "Save gallery" }).click()
+  expect((await saveResponse).status()).toBe(200)
+  await expect(galleryEditor).toBeHidden()
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })

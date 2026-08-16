@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { AddressDialog } from "./components/molecules/AddressDialog"
-import { GalleryDialog } from "./components/molecules/GalleryDialog"
+import { ClinicGalleryManagerDialog } from "./components/organisms/ClinicGalleryManagerDialog"
 import { OpeningHoursDialog } from "./components/molecules/OpeningHoursDialog"
 import {
   ClinicProfileScreen,
@@ -12,9 +12,12 @@ import {
 import { PublishReviewDialog } from "./components/organisms/PublishReviewDialog"
 import { TreatmentDialog } from "./components/organisms/TreatmentDialog"
 import { useClinicProfileController } from "./hooks/useClinicProfileController"
+import { useClinicGalleryController } from "./hooks/useClinicGalleryController"
 import { useClinicProfileSourceController } from "./hooks/useClinicProfileSourceController"
 import { useClinicTreatmentsController } from "./hooks/useClinicTreatmentsController"
 import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
+import type { ClinicGalleryCommands } from "./model/clinic-gallery-commands"
+import type { ClinicGalleryLoadStatus, ClinicGallerySnapshot } from "./model/clinic-gallery"
 import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "./model/clinic-profile"
 import { resolveClinicProfileDraftInput } from "./model/clinic-profile-editing"
 import type { ClinicProfileSnapshot } from "./model/clinic-profile-source"
@@ -31,6 +34,10 @@ import {
 
 export type ClinicProfileProps = Readonly<{
   commands: ClinicProfileCommands
+  galleryCommands: ClinicGalleryCommands
+  galleryManagement: ClinicProfileManagementAccess
+  galleryStatus: ClinicGalleryLoadStatus
+  gallerySnapshot?: ClinicGallerySnapshot
   doctorCommands: DoctorProfileCommands
   doctorDirectory: DoctorDirectorySnapshot
   doctorManagement: ClinicProfileManagementAccess
@@ -38,6 +45,7 @@ export type ClinicProfileProps = Readonly<{
   initialDialog?: "treatment"
   initialProfile: ClinicProfileDraft
   onFocusHandled: () => void
+  onGallerySaved?: (snapshot: ClinicGallerySnapshot) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   onProfileSaved?: (profile: ClinicProfileDraft) => void
   onTreatmentMissing?: () => void
@@ -52,6 +60,10 @@ export type ClinicProfileProps = Readonly<{
 
 export function ClinicProfile({
   commands,
+  galleryCommands,
+  galleryManagement,
+  galleryStatus,
+  gallerySnapshot,
   doctorCommands,
   doctorDirectory,
   doctorManagement,
@@ -59,6 +71,7 @@ export function ClinicProfile({
   initialDialog,
   initialProfile,
   onFocusHandled,
+  onGallerySaved,
   onDoctorsChange,
   onProfileSaved,
   onTreatmentMissing,
@@ -85,12 +98,19 @@ export function ClinicProfile({
     initialSnapshot: treatmentSnapshot,
     management: treatmentManagement,
   })
+  const galleryController = useClinicGalleryController({
+    commands: galleryCommands,
+    initialSnapshot: gallerySnapshot,
+    management: galleryManagement,
+    onSaved: onGallerySaved,
+  })
   const source = useClinicProfileSourceController({
     commands: sourceCommands,
     initialSnapshot: sourceSnapshot,
   })
-  const { actions: legacyActions, dialog: legacyDialog, model: legacyModel } = legacy
+  const { actions: legacyActions, model: legacyModel } = legacy
   const { actions: sourceActions, model: sourceModel } = source
+  const effectiveGalleryStatus = galleryController.model.snapshot ? "ready" : galleryStatus
   const isSavingFromLeaveDialog = sourceModel.confirmation === "leave" && sourceModel.operation === "saving"
 
   const sourceDisplayFields =
@@ -106,7 +126,7 @@ export function ClinicProfile({
     onDescriptionChange: sourceActions.changeDescription,
     onDoctorsChange: (doctors) => onDoctorsChange?.(doctors),
     onFocusHandled,
-    onGalleryOpen: () => legacyActions.openDialog("gallery"),
+    onGalleryOpen: galleryController.actions.openGallery,
     onLanguagesChange: sourceActions.changeLanguages,
     onLegacyCancel: legacyActions.cancelChanges,
     onLegacySave: legacyActions.saveChanges,
@@ -125,38 +145,55 @@ export function ClinicProfile({
 
   return (
     <>
-      <ClinicProfileScreen
-        actions={screenActions}
-        model={{
-          doctorCommands,
-          doctorDirectory,
-          doctorManagement,
-          focusTarget,
-          legacyIsDirty: legacyModel.isDirty,
-          legacyProfile: legacyModel.profile,
-          legacySaveState: legacyModel.saveState,
-          legacyStatusMessage: legacyModel.statusMessage,
-          profileManagement,
-          sourceProfileManagement,
-          source: {
-            changeSet: sourceModel.changeSet,
-            displayFields: sourceDisplayFields,
-            hasSavedChanges: sourceModel.hasSavedChanges,
-            hasSavedDraft: Boolean(sourceModel.snapshot?.draft),
-            isDirty: sourceModel.isDirty,
-            mode: sourceModel.mode,
-            operation: sourceModel.operation,
-            snapshot: sourceModel.snapshot,
-            statusMessage: sourceModel.statusMessage,
-            validationErrors: sourceModel.validationErrors,
-            workingDraft: sourceModel.workingDraft,
-          },
-          treatmentManagement,
-          treatmentSnapshot: treatments.snapshot,
-          treatmentStatusMessage: treatments.statusMessage,
-          treatmentsBusy: treatments.isBusy,
-        }}
-      />
+      {!galleryController.model.open ? (
+        <ClinicProfileScreen
+          actions={screenActions}
+          model={{
+            doctorCommands,
+            doctorDirectory,
+            doctorManagement,
+            focusTarget,
+            galleryStatus: effectiveGalleryStatus,
+            legacyIsDirty: legacyModel.isDirty,
+            legacyProfile:
+              effectiveGalleryStatus === "ready" && galleryController.model.snapshot
+                ? {
+                    ...legacyModel.profile,
+                    gallery: galleryController.model.snapshot.items.slice(0, 4).map((item, index) => ({
+                      alt: item.alt,
+                      id: item.id,
+                      isCover: index === 0,
+                      src: item.thumbnailUrl ?? item.url,
+                    })),
+                    galleryTotal: galleryController.model.snapshot.items.length,
+                  }
+                : effectiveGalleryStatus === "ready"
+                  ? legacyModel.profile
+                  : { ...legacyModel.profile, gallery: [], galleryTotal: 0 },
+            legacySaveState: legacyModel.saveState,
+            legacyStatusMessage: legacyModel.statusMessage,
+            profileManagement,
+            sourceProfileManagement,
+            source: {
+              changeSet: sourceModel.changeSet,
+              displayFields: sourceDisplayFields,
+              hasSavedChanges: sourceModel.hasSavedChanges,
+              hasSavedDraft: Boolean(sourceModel.snapshot?.draft),
+              isDirty: sourceModel.isDirty,
+              mode: sourceModel.mode,
+              operation: sourceModel.operation,
+              snapshot: sourceModel.snapshot,
+              statusMessage: sourceModel.statusMessage,
+              validationErrors: sourceModel.validationErrors,
+              workingDraft: sourceModel.workingDraft,
+            },
+            treatmentManagement,
+            treatmentSnapshot: treatments.snapshot,
+            treatmentStatusMessage: treatments.statusMessage,
+            treatmentsBusy: treatments.isBusy,
+          }}
+        />
+      ) : null}
 
       {sourceModel.dialog === "address" && sourceModel.workingDraft && sourceModel.snapshot ? (
         <AddressDialog
@@ -178,15 +215,7 @@ export function ClinicProfile({
         />
       ) : null}
 
-      {legacyDialog === "gallery" ? (
-        <GalleryDialog
-          gallery={legacyModel.profile.gallery}
-          isReadOnly={!isClinicProfileManagementInteractive(profileManagement)}
-          onOpenChange={(open) => legacyActions.setDialogOpen("gallery", open)}
-          onSelectCover={legacyActions.selectGalleryCover}
-          open
-        />
-      ) : null}
+      <ClinicGalleryManagerDialog controller={galleryController} />
       {treatments.dialogOpen &&
       isClinicProfileManagementVisible(treatmentManagement) &&
       (treatments.selectedOffering || isClinicProfileManagementInteractive(treatmentManagement)) ? (
