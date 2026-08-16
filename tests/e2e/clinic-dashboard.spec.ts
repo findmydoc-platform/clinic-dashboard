@@ -193,9 +193,13 @@ test("manages review responses, appeals, filters, and history through the authen
   await expect(historyDialog.getByRole("heading", { name: "Appeal history" })).toBeVisible()
 })
 
-test("deep-links across locations and persists gallery curation across reload", async ({ page }) => {
+test("deep-links across locations and persists gallery curation across reload", async ({
+  page,
+}, testInfo) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
+  const receptionAlt = `Reception at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
+  const consultationAlt = `Consultation room at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
 
   await page.getByRole("button", { name: "Notifications, 4 new notifications" }).click()
   await page.getByRole("button", { name: /New message from Leyla Demir/ }).click()
@@ -228,11 +232,9 @@ test("deep-links across locations and persists gallery curation across reload", 
   expect((await uploadResponse).status()).toBe(201)
   await expect(addImagesDialog).toBeHidden()
   await expect(galleryEditor.getByRole("button", { name: "Needs alt text" })).toHaveCount(2)
-  await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill("Reception at Avenora Clinic — İzmir")
+  await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(receptionAlt)
   await galleryEditor.getByRole("button", { name: "Needs alt text" }).click()
-  await galleryEditor
-    .getByRole("textbox", { name: "Alt text" })
-    .fill("Consultation room at Avenora Clinic — İzmir")
+  await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(consultationAlt)
   const saveResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
@@ -244,12 +246,10 @@ test("deep-links across locations and persists gallery curation across reload", 
   await gallery.getByRole("button", { name: "Manage gallery" }).click()
   const reopenedEditor = page.getByRole("region", { name: "Manage gallery" })
   await reopenedEditor
-    .getByRole("button", { name: "Edit image 2: Consultation room at Avenora Clinic — İzmir" })
+    .getByRole("button", { name: new RegExp(`Edit image \\d+: ${consultationAlt}`) })
     .click()
   await reopenedEditor.getByRole("button", { name: "Set as main image" }).click()
-  await reopenedEditor
-    .getByRole("button", { name: "Edit image 2: Reception at Avenora Clinic — İzmir" })
-    .click()
+  await reopenedEditor.getByRole("button", { name: new RegExp(`Edit image \\d+: ${receptionAlt}`) }).click()
   await reopenedEditor.getByRole("button", { name: "More image actions" }).click()
   await page.getByRole("menuitem", { name: "Remove image" }).click()
   await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
@@ -268,19 +268,13 @@ test("deep-links across locations and persists gallery curation across reload", 
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   const persistedGallery = page.getByRole("region", { name: "Clinic image gallery" })
-  await expect(
-    persistedGallery.getByRole("img", { name: "Consultation room at Avenora Clinic — İzmir" }),
-  ).toBeVisible()
-  await expect(
-    persistedGallery.getByRole("img", { name: "Reception at Avenora Clinic — İzmir" }),
-  ).toHaveCount(0)
+  await expect(persistedGallery.getByRole("img", { name: consultationAlt })).toBeVisible()
+  await expect(persistedGallery.getByRole("img", { name: receptionAlt })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })
   await expect(clinicPreview.getByText("Avenora Clinic — İzmir")).toBeVisible()
-  await expect(
-    clinicPreview.getByRole("img", { name: "Consultation room at Avenora Clinic — İzmir" }),
-  ).toBeVisible()
+  await expect(clinicPreview.getByRole("img", { name: consultationAlt })).toBeVisible()
   await expect(page.getByText("94%", { exact: true }).first()).toBeVisible()
   await expect(page.getByRole("button", { name: "Review images" })).toHaveCount(0)
 

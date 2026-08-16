@@ -59,6 +59,23 @@ describe("controlled clinic gallery provider", () => {
     })
   })
 
+  it("retains concurrent uploads with unique media IDs", async () => {
+    const uploads = await Promise.all([
+      createControlledClinicGalleryProvider("clinic-1").uploadMedia({
+        file: new File(["first"], "first.jpg", { type: "image/jpeg" }),
+      }),
+      createControlledClinicGalleryProvider("clinic-1").uploadMedia({
+        file: new File(["second"], "second.jpg", { type: "image/jpeg" }),
+      }),
+    ])
+
+    expect(uploads.every((upload) => upload.ok)).toBe(true)
+    const snapshot = await createControlledClinicGalleryProvider("clinic-1").loadGallery()
+    if (!snapshot.ok) throw new Error("Gallery load failed")
+    expect(snapshot.value.items).toHaveLength(2)
+    expect(new Set(snapshot.value.items.map((item) => item.id))).toHaveProperty("size", 2)
+  })
+
   it("isolates clinics and rejects stale revisions", async () => {
     const clinicOne = createControlledClinicGalleryProvider("clinic-1")
     const clinicTwo = createControlledClinicGalleryProvider("clinic-2")

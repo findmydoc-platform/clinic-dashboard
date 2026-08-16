@@ -11,27 +11,42 @@ const constraints = {
   maxPixels: 50_000_000,
 } as const
 
-const galleryByClinic = new Map<string, ClinicGallerySnapshot>()
-let mediaSequence = 0
+type ControlledClinicGalleryState = {
+  galleryByClinic: Map<string, ClinicGallerySnapshot>
+  mediaSequence: number
+}
+
+function controlledState() {
+  const controlledGlobal = globalThis as typeof globalThis & {
+    __findmydocControlledClinicGallery?: ControlledClinicGalleryState
+  }
+  controlledGlobal.__findmydocControlledClinicGallery ??= {
+    galleryByClinic: new Map<string, ClinicGallerySnapshot>(),
+    mediaSequence: 0,
+  }
+  return controlledGlobal.__findmydocControlledClinicGallery
+}
 
 function snapshotFor(clinicId: string) {
-  const existing = galleryByClinic.get(clinicId)
+  const state = controlledState()
+  const existing = state.galleryByClinic.get(clinicId)
   if (existing) return existing
   const empty = { constraints, items: [], revision: 0 } as const
-  galleryByClinic.set(clinicId, empty)
+  state.galleryByClinic.set(clinicId, empty)
   return empty
 }
 
 export function resetControlledClinicGallery() {
-  galleryByClinic.clear()
-  mediaSequence = 0
+  const state = controlledState()
+  state.galleryByClinic.clear()
+  state.mediaSequence = 0
 }
 
 export function createControlledClinicGalleryProvider(clinicId: string): ClinicGalleryProvider {
   return {
     async discardDrafts(mediaIds) {
       const current = snapshotFor(clinicId)
-      galleryByClinic.set(clinicId, {
+      controlledState().galleryByClinic.set(clinicId, {
         ...current,
         items: current.items.filter((item) => item.status === "published" || !mediaIds.includes(item.id)),
       })
@@ -73,7 +88,7 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
         })
       }
       const next = { constraints, items, revision: current.revision + 1 }
-      galleryByClinic.set(clinicId, next)
+      controlledState().galleryByClinic.set(clinicId, next)
       return { ok: true, value: next }
     },
     async uploadMedia(input) {
@@ -83,15 +98,16 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
         return { error: "unsupported-media-type", ok: false }
       }
       if (current.items.length >= constraints.maxItems) return { error: "invalid-input", ok: false }
-      mediaSequence += 1
+      const state = controlledState()
+      state.mediaSequence += 1
       const media: ClinicGalleryMedia = {
         alt: input.alt ?? "",
         captionText: input.captionText,
-        id: `controlled-gallery-${mediaSequence}`,
+        id: `controlled-gallery-${state.mediaSequence}`,
         status: "draft",
-        url: `https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1600&q=80&v=${mediaSequence}`,
+        url: `https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1600&q=80&v=${state.mediaSequence}`,
       }
-      galleryByClinic.set(clinicId, { ...current, items: [...current.items, media] })
+      state.galleryByClinic.set(clinicId, { ...current, items: [...current.items, media] })
       return { ok: true, value: media }
     },
   }
