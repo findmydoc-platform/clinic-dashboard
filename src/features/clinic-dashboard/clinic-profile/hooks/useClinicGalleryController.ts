@@ -257,23 +257,25 @@ export function useClinicGalleryController({
 
   const remove = useCallback((id: string) => {
     setUploadReviewIds((current) => current.filter((candidate) => candidate !== id))
-    setItems((current) => {
-      const index = current.findIndex((item) => item.id === id)
-      const item = current[index]
-      if (!item) return current
-      setRemoved((removedItems) => [
-        ...removedItems,
-        {
-          index,
-          item,
-          ...(current[index - 1] ? { previousId: current[index - 1].id } : {}),
-          ...(current[index + 1] ? { nextId: current[index + 1].id } : {}),
-        },
-      ])
-      const next = current.filter((candidate) => candidate.id !== id)
-      setSelectedId(next[Math.min(index, next.length - 1)]?.id)
-      return next
-    })
+    const current = itemsRef.current
+    const index = current.findIndex((item) => item.id === id)
+    const item = current[index]
+    if (!item) return
+    const nextRemoved = [
+      ...removedRef.current,
+      {
+        index,
+        item,
+        ...(current[index - 1] ? { previousId: current[index - 1].id } : {}),
+        ...(current[index + 1] ? { nextId: current[index + 1].id } : {}),
+      },
+    ]
+    const nextItems = current.filter((candidate) => candidate.id !== id)
+    itemsRef.current = nextItems
+    removedRef.current = nextRemoved
+    setItems(nextItems)
+    setRemoved(nextRemoved)
+    setSelectedId(nextItems[Math.min(index, nextItems.length - 1)]?.id)
   }, [])
 
   const undoRemoval = useCallback(

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, renderHook } from "@testing-library/react"
+import { StrictMode, type ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useClinicGalleryController } from "@/features/clinic-dashboard/clinic-profile/hooks/useClinicGalleryController"
 import { ClinicGalleryCommandError } from "@/features/clinic-dashboard/clinic-profile/model/clinic-gallery-commands"
@@ -164,6 +165,24 @@ describe("clinic gallery controller", () => {
     })
     expect(onSaved).toHaveBeenCalledWith(saved)
     expect(hook.result.current.model.open).toBe(false)
+  })
+
+  it("records one removal when React checks state updates in Strict Mode", () => {
+    const initial = snapshot()
+    const hook = renderHook(
+      () =>
+        useClinicGalleryController({
+          commands: createCommands(initial),
+          initialSnapshot: initial,
+          management: "interactive",
+        }),
+      { wrapper: ({ children }: { children: ReactNode }) => <StrictMode>{children}</StrictMode> },
+    )
+
+    act(() => hook.result.current.actions.remove("one"))
+
+    expect(hook.result.current.model.removed).toHaveLength(1)
+    expect(hook.result.current.model.removed[0]?.item.id).toBe("one")
   })
 
   it("does not free an upload slot until a published removal is saved", () => {
