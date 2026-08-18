@@ -105,6 +105,24 @@ These are not open gaps and should not be re-decided in implementation:
   submission boundary. The existing email/fingerprint window may remain only as guest duplicate mitigation; it is not
   identity or ownership.
 
+#### Unread transition matrix
+
+Unread transitions are part of the server contract, not a client-side interpretation:
+
+| Activity                    | Clinic staff                                                                                                              | Bound patient                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| New Inquiry                 | Unread for every currently eligible clinic staff member                                                                   | Read for the submitting patient             |
+| External patient message    | Unread for every currently eligible clinic staff member                                                                   | Read for the patient author                 |
+| External clinic message     | Read for the staff author; unread for every other currently eligible clinic staff member                                  | Unread                                      |
+| Internal note               | Read for the staff author; unread for every other currently eligible clinic staff member                                  | Not visible and never unread                |
+| Handling or lifecycle event | Does not create unread                                                                                                    | Does not create unread                      |
+| Mark as Spam                | Clears existing clinic-staff unread state for the Inquiry team-wide; a later internal note can create clinic unread again | Does not change the patient's read position |
+
+Clinic staff may explicitly mark an Inquiry personally read or unread. The patient surface may advance only the
+patient's own read position after the latest external activity has loaded in a visible active tab; it offers no manual
+mark-unread command. Eligibility changes remove a former staff member's access rather than preserving an addressable
+unread projection for that principal.
+
 ### 2. Authorization and capability projection
 
 - Add `clinic-inquiries:view` and `clinic-inquiries:edit` to the closed bootstrap union. Under the current product rule,
@@ -114,8 +132,11 @@ These are not open gaps and should not be re-decided in implementation:
   The two bootstrap values control feature visibility only. Request bodies never contain an authoritative clinic,
   patient, sender, or staff actor.
 - Each Clinic detail DTO returns state-derived action flags (`canReply`, `canAddInternalNote`,
-  `canChangeHandlingStatus`, `canChangeLifecycle`, `canViewContactData`) so Closed, Spam, Guest, and revoked-access
-  behavior cannot diverge between frontend copies.
+  `canChangeHandlingStatus`, `canChangeLifecycle`, `canRevealContactData`) and a
+  `contactDataVisibility: "full" | "collapsed" | "masked"` projection so Closed, Spam, Guest, and revoked-access
+  behavior cannot diverge between frontend copies. The normal Spam detail contains masked contact values only; raw
+  contact values are absent from that response. Revealing them is a separate, explicit read-only action that
+  re-resolves principal, clinic, capability, Inquiry, and current Spam state before returning a private/no-store result.
 - Patient endpoints resolve the Patient from the current Website session and expose only that Patient's bound Inquiries.
   Internal notes, staff identity, audit relations, moderation reasons, and clinic-only processing events are absent from
   patient DTOs. A foreign or no-longer-visible aggregate returns the same non-disclosing `404` as a missing one.
@@ -132,12 +153,17 @@ These are not open gaps and should not be re-decided in implementation:
 - Clinic list reads return keyset-paginated `InquirySummaryDTO` records sorted by
   `(latestActivityAt DESC, inquiryId DESC)`, plus an opaque next cursor. A summary contains the Inquiry reference,
   patient display/binding state, requested treatment/doctor summary, `handlingStatus`, `lifecycle`, latest-activity
-  kind/time/safe preview, personal unread count, and aggregate revision. Filters/search are server inputs and are bound
-  into the opaque cursor.
+  kind/time/safe preview, personal unread count, and aggregate revision. The default primary filter is Open; the other
+  primary filters are Unread, Closed, Spam, and All. A secondary handling-status filter supports Submitted, In review,
+  and Contacted and composes with the primary filter and search. Clinic search covers only patient name, Inquiry ID,
+  original Inquiry text, external message text, internal-note text, and attachment filenames; contact data, file
+  content, and OCR are excluded. The normalized filters and search query are bound into the opaque cursor.
 - Clinic detail reads return the summary plus immutable Inquiry/contact context, the paginated clinic timeline, current
   action flags, and revision. The clinic timeline may contain external messages, internal notes, and clinic-visible
   system events, each as a discriminated DTO. Attachment metadata contains an authorized same-origin download handle,
-  never an upstream URL.
+  never an upstream URL. Open and Closed detail may project their approved full/collapsed contact context, but the
+  normal Spam detail projects masked values only. Raw Spam contact data is available solely through the separate,
+  freshly authorized reveal action and is never embedded in list, detail, polling, or search responses.
 - Patient list/detail DTOs contain clinic display context, Inquiry context, lifecycle, latest activity, personal unread,
   and external messages/attachments only. They omit clinic handling status unless it has an explicitly patient-visible
   meaning; V1 needs only Open/Closed. Message senders project as `clinic` or `patient`; the concrete clinic employee
@@ -226,8 +252,9 @@ which draft is retained, what retry action is shown, and how backoff is presente
   false claim that contact occurred. Legacy Spam uses Submitted as its recorded prior status for a later remove-Spam
   operation, also with the migration marker.
 - Contract fixtures in both repositories must describe the same DTOs, capabilities, codes, lifecycle transitions,
-  participant isolation, and idempotency outcomes. The accepted architecture's synchronized-document rule remains the
-  source of truth during the staggered deployment.
+  participant isolation, idempotency outcomes, Spam contact masking/reveal boundary, complete unread transition matrix,
+  exact filter combinations, and allowed/excluded search corpus. The accepted architecture's synchronized-document rule
+  remains the source of truth during the staggered deployment.
 
 ## Deliberately unresolved elsewhere
 
