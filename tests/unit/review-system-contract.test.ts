@@ -18,16 +18,15 @@ describe("review system contracts", () => {
   })
 
   it.each([
-    ["planning-reviewer.toml", "planning_reviewer", "gpt-5.6-terra", "medium"],
-    ["logic-reviewer.toml", "logic_reviewer", "gpt-5.6-sol", "high"],
-    ["security-reviewer.toml", "security_reviewer", "gpt-5.6-sol", "high"],
-    ["test-reviewer.toml", "test_reviewer", "gpt-5.6-terra", "high"],
-    ["ui-reviewer.toml", "ui_reviewer", "gpt-5.6-terra", "high"],
-  ])("pins %s ownership and execution settings", (fileName, name, model, effort) => {
+    ["planning-reviewer.toml", "planning_reviewer", "medium"],
+    ["logic-reviewer.toml", "logic_reviewer", "high"],
+    ["security-reviewer.toml", "security_reviewer", "high"],
+    ["test-reviewer.toml", "test_reviewer", "high"],
+    ["ui-reviewer.toml", "ui_reviewer", "high"],
+  ])("keeps %s ownership and execution settings", (fileName, name, effort) => {
     const agent = read(`.codex/agents/${fileName}`)
 
     expect(agent).toContain(`name = "${name}"`)
-    expect(agent).toContain(`model = "${model}"`)
     expect(agent).toContain(`model_reasoning_effort = "${effort}"`)
     expect(agent).toContain('sandbox_mode = "read-only"')
     expect(agent).toContain("severity 1-10")
@@ -46,18 +45,23 @@ describe("review system contracts", () => {
     expect(openAiYaml).toContain("$review-gate")
   })
 
-  it("uses reviewer sandboxes without requiring a parent permission change", () => {
+  it("keeps reviewer execution details in the Review Gate skill", () => {
     const rootInstructions = read("AGENTS.md")
     const skill = read(".codex/skills/review-gate/SKILL.md")
     const plan = read("docs/plans/clinic-dashboard-reviewer-system.md")
 
-    for (const content of [rootInstructions, skill, plan]) {
+    for (const content of [skill, plan]) {
       expect(content).toContain("parent task")
       expect(content).not.toContain("switch the task checkpoint to read-only")
       expect(content).not.toContain("read-only parent task checkpoint")
     }
 
-    expect(rootInstructions).toContain('sandbox_mode = "read-only"')
+    expect(rootInstructions).toContain("$review-gate")
+    expect(rootInstructions).toContain("authoritative source")
+    expect(rootInstructions).toContain("explicit user approval")
+    expect(rootInstructions).not.toContain('sandbox_mode = "read-only"')
+    expect(rootInstructions).not.toContain("Severity 7-10")
+    expect(rootInstructions).not.toContain("planning_reviewer")
     expect(skill).toContain('sandbox_mode = "read-only"')
     expect(plan).toContain("parent task permission does not need to change")
   })
@@ -72,5 +76,28 @@ describe("review system contracts", () => {
       "node .codex/skills/review-gate/scripts/verify-review-system.mjs",
     )
     expect(packageJson.scripts.check).toContain("pnpm review:verify")
+  })
+
+  it("keeps the focused destructive and external-write command policy", () => {
+    const safetyRules = read(".codex/rules/safety.rules")
+    const workflowRules = read(".codex/rules/workflow.rules")
+
+    for (const destructivePrefix of [
+      '["rtk", "git", "reset", "--hard"]',
+      '["rtk", "proxy", "git", "reset", "--hard"]',
+      '["rtk", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]]',
+      '["rtk", "proxy", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]]',
+    ]) {
+      expect(safetyRules).toContain(destructivePrefix)
+    }
+
+    for (const externalWritePrefix of [
+      '["rtk", "git", "push"]',
+      '["rtk", "proxy", "git", "push"]',
+      'pattern = github_prefix + ["pr", github_pull_request_write_actions]',
+      'pattern = github_prefix + ["issue", github_issue_write_actions]',
+    ]) {
+      expect(workflowRules).toContain(externalWritePrefix)
+    }
   })
 })

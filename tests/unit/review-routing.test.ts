@@ -73,6 +73,7 @@ describe("review routing", () => {
     ["Vercel platform config", "vercel.json", ["security_reviewer"]],
     ["root environment contract", ".env.example", ["security_reviewer"]],
     ["nested environment contract", "config/.env.preview", ["security_reviewer"]],
+    ["Codex command policy", ".codex/rules/safety.rules", ["security_reviewer", "test_reviewer"]],
   ])("routes %s through security review", (_label, file, expected) => {
     expect(recommended(changed(file))).toEqual(expected)
   })
