@@ -26,12 +26,6 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 <!-- END:nextjs-agent-rules -->
 
-## UI Design
-
-- Use pill-shaped labels and badges sparingly. Do not default to a pill whenever small contextual information needs emphasis.
-- Prefer typography, spacing, grouping, inline metadata, icons, or separators before introducing a pill.
-- Reserve pills for compact states, counts, or selectable filters when the enclosed shape communicates meaning or interaction. Do not use them for ordinary descriptive taxonomy or repeated labels unless an approved design specifically requires it.
-
 ## Codex Reviewers
 
 - Before handoff, use the `$review-gate` skill after local validation. It is the authoritative source for reviewer routing, approval, execution, finding handling, severity gates, and retained artifacts; never run AI reviewers without explicit user approval.
@@ -48,10 +42,3 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - Before every deployment, confirm that `.vercel/project.json` resolves to `clinic-dashboard` and that `vercel project inspect clinic-dashboard --scope findmydoc` succeeds.
 - Production deployments must use a clean checkout of the latest `origin/main` and target only this existing project.
 - Never create, link, or deploy to an alternative Vercel project unless the user explicitly approves it.
-
-## Light And Dark Mode
-
-- Treat light and dark mode as supported states for every UI change.
-- Use light mode for the default handoff screenshot.
-- Account for both themes in colors, surfaces, borders, states, charts, and image overlays. A separate dark-mode screenshot is not required by default.
-- Require a dark-mode visual check and screenshot when a change affects theme behavior, colors, contrast, status states, overlays, or fixes a dark-mode regression.
