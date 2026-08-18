@@ -107,7 +107,6 @@ expect(!skill.includes("TODO"), "Review Gate skill must not contain initializer 
 const rootInstructions = read("AGENTS.md")
 const reviewerPlan = read("docs/plans/clinic-dashboard-reviewer-system.md")
 for (const [name, content] of [
-  ["AGENTS.md", rootInstructions],
   ["Review Gate skill", skill],
   ["Reviewer system plan", reviewerPlan],
 ]) {
@@ -122,8 +121,18 @@ for (const [name, content] of [
   )
 }
 expect(
-  rootInstructions.includes('sandbox_mode = "read-only"'),
-  "AGENTS.md must use reviewer sandbox_mode as the write boundary",
+  rootInstructions.includes("$review-gate") && rootInstructions.includes("authoritative source"),
+  "AGENTS.md must delegate reviewer workflow details to the Review Gate skill",
+)
+expect(
+  rootInstructions.includes("explicit user approval"),
+  "AGENTS.md must retain the user-approval boundary for AI reviewers",
+)
+expect(
+  !rootInstructions.includes('sandbox_mode = "read-only"') &&
+    !rootInstructions.includes("Severity 7-10") &&
+    !rootInstructions.includes("planning_reviewer"),
+  "AGENTS.md must not duplicate Review Gate execution details",
 )
 expect(
   skill.includes('sandbox_mode = "read-only"'),
@@ -136,6 +145,45 @@ expect(
 const openAiYaml = read(".codex/skills/review-gate/agents/openai.yaml")
 expect(openAiYaml.includes("$review-gate"), "Review Gate default prompt must mention $review-gate")
 read(".codex/skills/review-gate/references/routing.md")
+
+const safetyRules = read(".codex/rules/safety.rules")
+for (const protectedRuleSource of [
+  'pattern = ["git"]',
+  'pattern = ["gh"]',
+  'pattern = ["rtk", rtk_global_options]',
+  'pattern = ["rtk", "proxy", rtk_proxy_modifiers]',
+  '["rtk", "git"]',
+  '["rtk", "proxy", "git"]',
+  "pattern = git_prefix + [git_global_options]",
+  'git_prefix + ["-C", ".", "reset", "--hard"]',
+  '["rtk", "gh"]',
+  '["rtk", "proxy", "gh"]',
+  "pattern = github_prefix + [github_global_options]",
+  'github_prefix + ["-R", "findmydoc-platform/clinic-dashboard", "pr", "create"]',
+]) {
+  expect(
+    safetyRules.includes(protectedRuleSource),
+    `Safety rules must retain the canonical-command guard source: ${protectedRuleSource}`,
+  )
+}
+
+const workflowRules = read(".codex/rules/workflow.rules")
+for (const fallbackRuleSource of ["pattern = git_prefix", "pattern = github_prefix"]) {
+  expect(
+    workflowRules.includes(fallbackRuleSource),
+    `Workflow rules must retain the non-canonical command fallback: ${fallbackRuleSource}`,
+  )
+}
+for (const approvalCommand of ["merge", "rebase", "revert", "cherry-pick", "am", "pull"]) {
+  expect(
+    workflowRules.includes(`"${approvalCommand}"`),
+    `Workflow rules must require approval for git ${approvalCommand}`,
+  )
+}
+expect(
+  workflowRules.includes('["create", "new"]'),
+  "Workflow rules must protect both supported pull-request creation commands",
+)
 
 if (failures.length > 0) {
   process.stderr.write(`Review system verification failed:\n- ${failures.join("\n- ")}\n`)

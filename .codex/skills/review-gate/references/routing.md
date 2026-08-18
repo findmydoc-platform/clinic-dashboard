@@ -7,13 +7,13 @@
 
 ## Signals
 
-| Surface                                                                                 | Reviewer            |
-| --------------------------------------------------------------------------------------- | ------------------- |
-| Plans, ADRs, project profile, access, data, migration, or rollout decisions             | `planning_reviewer` |
-| Production TypeScript, server, controller, model, state, mapping, or API behavior       | `logic_reviewer`    |
-| Auth, API, server, environment, workflow, dependency, persistence, or secret boundaries | `security_reviewer` |
-| Production behavior, tests, test configuration, fixtures, or mocks                      | `test_reviewer`     |
-| TSX, styles, stories, themes, branding, or visual assets                                | `ui_reviewer`       |
+| Surface                                                                                      | Reviewer            |
+| -------------------------------------------------------------------------------------------- | ------------------- |
+| Plans, ADRs, project profile, access, data, migration, or rollout decisions                  | `planning_reviewer` |
+| Production TypeScript, server, controller, model, state, mapping, or API behavior            | `logic_reviewer`    |
+| Auth, API, server, environment, workflow, dependency, persistence, or Codex trust boundaries | `security_reviewer` |
+| Production behavior, tests, test configuration, fixtures, mocks, or Codex contracts          | `test_reviewer`     |
+| TSX, styles, stories, themes, branding, or visual assets                                     | `ui_reviewer`       |
 
 The router uses path and filename signals. Its temporary JSON recommendation is deterministic, but the main agent must state the reasons and may add a reviewer only when concrete diff evidence exposes a missed risk. Any added reviewer requires the same user approval.
 

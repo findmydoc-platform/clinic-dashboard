@@ -1,11 +1,151 @@
+# Codex rules match exact argv prefixes. Keep policy-covered commands canonical:
+# rtk, then git or gh, then the protected subcommand. Modifiers before the
+# protected subcommand are forbidden because they can shift the match position.
+
 prefix_rule(
-  pattern = ["git", "reset", "--hard"],
+  pattern = ["git"],
   decision = "forbidden",
-  justification = "Never discard worktree changes."
+  justification = "Use the canonical rtk git command shape so repository safeguards remain effective.",
+  match = [
+    "git status",
+    "git -C . reset --hard",
+  ]
 )
 
 prefix_rule(
-  pattern = ["git", "clean"],
+  pattern = ["gh"],
   decision = "forbidden",
-  justification = "Never delete untracked work without explicit user approval."
+  justification = "Use the canonical rtk gh command shape so GitHub approval safeguards remain effective.",
+  match = [
+    "gh pr view 119",
+    "gh -R findmydoc-platform/clinic-dashboard pr create",
+  ]
 )
+
+rtk_global_options = [
+  "-v",
+  "-vv",
+  "-vvv",
+  "--verbose",
+  "--ultra-compact",
+  "--skip-env",
+]
+
+prefix_rule(
+  pattern = ["rtk", rtk_global_options],
+  decision = "forbidden",
+  justification = "Omit RTK global modifiers from policy-covered Git and GitHub commands.",
+  match = [
+    "rtk --ultra-compact git commit -m test",
+    "rtk --skip-env gh pr create",
+  ]
+)
+
+rtk_proxy_modifiers = [
+  "--",
+  "--ultra-compact",
+  "--skip-env",
+]
+
+prefix_rule(
+  pattern = ["rtk", "proxy", rtk_proxy_modifiers],
+  decision = "forbidden",
+  justification = "Use rtk proxy followed immediately by the proxied command.",
+  match = [
+    "rtk proxy -- git reset --hard",
+    "rtk proxy --ultra-compact gh pr create",
+  ]
+)
+
+git_command_prefixes = [
+  ["rtk", "git"],
+  ["rtk", "proxy", "git"],
+]
+
+git_global_options = [
+  "-C",
+  "-c",
+  "-p",
+  "--paginate",
+  "-P",
+  "--no-pager",
+  "--no-replace-objects",
+  "--no-lazy-fetch",
+  "--no-optional-locks",
+  "--no-advice",
+  "--bare",
+  "--git-dir",
+  "--work-tree",
+  "--namespace",
+  "--config-env",
+  "--exec-path",
+  "--html-path",
+  "--man-path",
+  "--info-path",
+  "--literal-pathspecs",
+  "--glob-pathspecs",
+  "--noglob-pathspecs",
+  "--icase-pathspecs",
+  "--ultra-compact",
+  "--skip-env",
+]
+
+for git_prefix in git_command_prefixes:
+  prefix_rule(
+    pattern = git_prefix + [git_global_options],
+    decision = "forbidden",
+    justification = "Omit Git global options and use the intended working directory directly.",
+    match = [
+      " ".join(git_prefix + ["-C", ".", "reset", "--hard"]),
+      " ".join(git_prefix + ["--no-pager", "commit", "-m", "test"]),
+    ]
+  )
+
+  prefix_rule(
+    pattern = git_prefix + ["reset"],
+    decision = "forbidden",
+    justification = "Never discard or rewrite repository state with git reset.",
+    match = [
+      " ".join(git_prefix + ["reset"]),
+      " ".join(git_prefix + ["reset", "--hard"]),
+    ]
+  )
+
+  prefix_rule(
+    pattern = git_prefix + ["clean"],
+    decision = "forbidden",
+    justification = "Never delete untracked work without explicit user approval.",
+    match = [" ".join(git_prefix + ["clean", "-fd"])]
+  )
+
+github_command_prefixes = [
+  ["rtk", "gh"],
+  ["rtk", "proxy", "gh"],
+]
+
+github_global_options = [
+  "-R",
+  "--repo",
+  "--hostname",
+  "--ultra-compact",
+  "--skip-env",
+]
+
+for github_prefix in github_command_prefixes:
+  prefix_rule(
+    pattern = github_prefix + [github_global_options],
+    decision = "forbidden",
+    justification = "Place GitHub options after the protected subcommand or omit them.",
+    match = [
+      " ".join(github_prefix + ["-R", "findmydoc-platform/clinic-dashboard", "pr", "create"]),
+    ]
+  )
+
+  prefix_rule(
+    pattern = github_prefix + ["pr", github_global_options],
+    decision = "forbidden",
+    justification = "Place repository selection after the pull-request action.",
+    match = [
+      " ".join(github_prefix + ["pr", "--repo", "findmydoc-platform/clinic-dashboard", "create"]),
+    ]
+  )

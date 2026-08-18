@@ -1,11 +1,56 @@
-prefix_rule(
-  pattern = ["git", "commit"],
-  decision = "prompt",
-  justification = "Commits require explicit user approval."
-)
+git_command_prefixes = [
+  ["rtk", "git"],
+  ["rtk", "proxy", "git"],
+]
 
-prefix_rule(
-  pattern = ["gh", "pr", "create"],
-  decision = "prompt",
-  justification = "Pull request creation requires explicit user approval."
-)
+history_writing_commands = [
+  "commit",
+  "merge",
+  "rebase",
+  "revert",
+  "cherry-pick",
+  "am",
+  "pull",
+]
+
+for git_prefix in git_command_prefixes:
+  prefix_rule(
+    pattern = git_prefix,
+    decision = "prompt",
+    justification = "Every Git command outside the sandbox requires approval; destructive rules remain forbidden.",
+    match = [" ".join(git_prefix + ["status"])]
+  )
+
+  prefix_rule(
+    pattern = git_prefix + [history_writing_commands],
+    decision = "prompt",
+    justification = "Commands that can create or rewrite commits require explicit user approval.",
+    match = [
+      " ".join(git_prefix + ["commit", "-m", "test"]),
+      " ".join(git_prefix + ["merge", "feature/example"]),
+      " ".join(git_prefix + ["cherry-pick", "0123456"]),
+    ]
+  )
+
+github_command_prefixes = [
+  ["rtk", "gh"],
+  ["rtk", "proxy", "gh"],
+]
+
+for github_prefix in github_command_prefixes:
+  prefix_rule(
+    pattern = github_prefix,
+    decision = "prompt",
+    justification = "Every GitHub command outside the sandbox requires approval; write-specific rules remain explicit.",
+    match = [" ".join(github_prefix + ["pr", "view", "119"])]
+  )
+
+  prefix_rule(
+    pattern = github_prefix + ["pr", ["create", "new"]],
+    decision = "prompt",
+    justification = "Pull request creation requires explicit user approval.",
+    match = [
+      " ".join(github_prefix + ["pr", "create", "--title", "test"]),
+      " ".join(github_prefix + ["pr", "new", "--title", "test"]),
+    ]
+  )

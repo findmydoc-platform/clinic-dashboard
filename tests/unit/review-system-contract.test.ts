@@ -46,18 +46,23 @@ describe("review system contracts", () => {
     expect(openAiYaml).toContain("$review-gate")
   })
 
-  it("uses reviewer sandboxes without requiring a parent permission change", () => {
+  it("keeps reviewer execution details in the Review Gate skill", () => {
     const rootInstructions = read("AGENTS.md")
     const skill = read(".codex/skills/review-gate/SKILL.md")
     const plan = read("docs/plans/clinic-dashboard-reviewer-system.md")
 
-    for (const content of [rootInstructions, skill, plan]) {
+    for (const content of [skill, plan]) {
       expect(content).toContain("parent task")
       expect(content).not.toContain("switch the task checkpoint to read-only")
       expect(content).not.toContain("read-only parent task checkpoint")
     }
 
-    expect(rootInstructions).toContain('sandbox_mode = "read-only"')
+    expect(rootInstructions).toContain("$review-gate")
+    expect(rootInstructions).toContain("authoritative source")
+    expect(rootInstructions).toContain("explicit user approval")
+    expect(rootInstructions).not.toContain('sandbox_mode = "read-only"')
+    expect(rootInstructions).not.toContain("Severity 7-10")
+    expect(rootInstructions).not.toContain("planning_reviewer")
     expect(skill).toContain('sandbox_mode = "read-only"')
     expect(plan).toContain("parent task permission does not need to change")
   })
@@ -72,5 +77,34 @@ describe("review system contracts", () => {
       "node .codex/skills/review-gate/scripts/verify-review-system.mjs",
     )
     expect(packageJson.scripts.check).toContain("pnpm review:verify")
+  })
+
+  it("keeps command-policy bypass regressions covered", () => {
+    const safetyRules = read(".codex/rules/safety.rules")
+    const workflowRules = read(".codex/rules/workflow.rules")
+
+    for (const protectedRuleSource of [
+      'pattern = ["git"]',
+      'pattern = ["gh"]',
+      'pattern = ["rtk", rtk_global_options]',
+      'pattern = ["rtk", "proxy", rtk_proxy_modifiers]',
+      '["rtk", "git"]',
+      '["rtk", "proxy", "git"]',
+      "pattern = git_prefix + [git_global_options]",
+      'git_prefix + ["-C", ".", "reset", "--hard"]',
+      '["rtk", "gh"]',
+      '["rtk", "proxy", "gh"]',
+      "pattern = github_prefix + [github_global_options]",
+      'github_prefix + ["-R", "findmydoc-platform/clinic-dashboard", "pr", "create"]',
+    ]) {
+      expect(safetyRules).toContain(protectedRuleSource)
+    }
+
+    for (const approvalCommand of ["merge", "rebase", "revert", "cherry-pick", "am", "pull"]) {
+      expect(workflowRules).toContain(`"${approvalCommand}"`)
+    }
+    expect(workflowRules).toContain("pattern = git_prefix")
+    expect(workflowRules).toContain("pattern = github_prefix")
+    expect(workflowRules).toContain('["create", "new"]')
   })
 })

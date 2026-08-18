@@ -42,8 +42,8 @@ The router scans changes since the merge-base with `origin/main`, including bran
 
 - Plans, project-profile, access, data, migration, and rollout decisions route to `planning_reviewer`.
 - Production TypeScript, server, controller, model, state, mapping, API, and executable tooling route to `logic_reviewer`.
-- Auth, API, server, environment, workflow, dependency, persistence, secrets, proxy gateways, Next.js or Vercel configuration, and `.env` contracts route to `security_reviewer`.
-- Production behavior, tests, test configuration, fixtures, mocks, and reviewer contracts route to `test_reviewer`.
+- Auth, API, server, environment, workflow, dependency, persistence, secrets, Codex command rules, reviewer configuration, proxy gateways, Next.js or Vercel configuration, and `.env` contracts route to `security_reviewer`.
+- Production behavior, tests, test configuration, fixtures, mocks, and Codex or reviewer contracts route to `test_reviewer`.
 - TSX, styles, stories, themes, branding, and visual assets route to `ui_reviewer`.
 
 The UI reviewer starts with existing Mobile, Light, Dark, and Storybook evidence. It uses a focused browser run only when evidence is missing, contradictory, or interaction-critical. Reviewers inherit relevant green validation and avoid full-suite reruns.

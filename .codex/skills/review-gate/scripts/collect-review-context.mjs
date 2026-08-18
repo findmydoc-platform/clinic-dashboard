@@ -24,9 +24,9 @@ const OMITTED_REASONS = {
   logic_reviewer:
     "No production logic, state, mapping, server, controller, model, API, or executable tooling change was detected.",
   security_reviewer:
-    "No auth, API, server, environment, workflow, dependency, persistence, secret, or reviewer trust boundary was detected.",
+    "No auth, API, server, environment, workflow, dependency, persistence, secret, or Codex trust boundary was detected.",
   test_reviewer:
-    "No production behavior, test, test configuration, fixture, mock, or reviewer-contract change was detected.",
+    "No production behavior, test, test configuration, fixture, mock, or Codex-contract change was detected.",
   ui_reviewer: "No TSX, style, story, theme, branding, or visual-asset change was detected.",
 }
 
@@ -197,11 +197,11 @@ export function classifyReviewSurface(files) {
     /(^|\/)vercel\.json$/i,
     /^\.github\/workflows\//i,
     /(^|\/)(package\.json|pnpm-lock\.yaml|audit-ci\.jsonc)$/i,
-    /^\.codex\/(agents\/|config\.toml$|skills\/review-gate\/)/i,
+    /^\.codex\/(agents\/|config\.toml$|rules\/|skills\/review-gate\/)/i,
   ])
   addSignal(
     "security-boundary",
-    "Auth, API, server, environment, workflow, dependency, persistence, or reviewer trust boundaries changed.",
+    "Auth, API, server, environment, workflow, dependency, persistence, or Codex trust boundaries changed.",
     securityPaths,
   )
 
@@ -222,7 +222,7 @@ export function classifyReviewSurface(files) {
       (path) =>
         isTestPath(path) ||
         /^tests?\//i.test(path) ||
-        /^\.codex\/(agents\/|config\.toml$|skills\/review-gate\/)/i.test(path) ||
+        /^\.codex\/(agents\/|config\.toml$|rules\/|skills\/review-gate\/)/i.test(path) ||
         path === "eslint.config.mjs" ||
         path === "knip.json" ||
         path === "package.json" ||
@@ -236,7 +236,7 @@ export function classifyReviewSurface(files) {
   const testReviewPaths = unique([...testPaths, ...productionBehaviorPaths])
   addSignal(
     "verification-surface",
-    "Production behavior, tests, test configuration, fixtures, mocks, or reviewer contracts changed.",
+    "Production behavior, tests, test configuration, fixtures, mocks, or Codex contracts changed.",
     testReviewPaths,
   )
 
