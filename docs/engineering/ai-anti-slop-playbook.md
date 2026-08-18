@@ -1,20 +1,19 @@
-# AI Anti-Slop Playbook
+# AI Instruction Governance Playbook
 
-This playbook defines how instruction quality is governed in the clinic dashboard repository.
+This playbook defines the deterministic instruction checks used in the clinic dashboard repository.
 
 ## Objectives
 
-- Reduce low-signal AI output.
-- Keep instructions concise, scoped, and conflict-free.
-- Preserve delivery speed with deterministic checks.
+- Keep the effective instruction graph discoverable.
+- Keep instruction files within objective size and example budgets.
+- Reject contradictory language or execution requirements in scopes that apply together.
 
 ## Design Principles
 
-1. Priority over volume: keep correctness, task completion, and brevity explicit.
-2. Minimal constraints: avoid prompt and instruction overload.
-3. Conflict-free instruction graph across root and scoped files.
-4. Short examples only when they remove ambiguity.
-5. Scoped guidance through layered `AGENTS.md` files.
+1. Repository and path-specific instructions remain in layered `AGENTS.md` files.
+2. Objective structural checks are automated; tone and output style remain outside the checker.
+3. Parent-child conflicts are evaluated along effective instruction chains, not across disjoint sibling scopes.
+4. Short examples are allowed when they remove ambiguity.
 
 ## Enforcement Model
 
@@ -24,8 +23,7 @@ This playbook defines how instruction quality is governed in the clinic dashboar
 - Deep Quality lane: scheduled or manual runs repeat the complete checker alongside broader audits.
 - Review: instruction changes should receive the read-only planning or security reviewer when relevant.
 
-The checker is fail-closed inside each workflow. Repository rules decide whether the workflow itself is a
-required merge check; that branch-protection policy is outside this playbook.
+The checker is fail-closed inside each workflow. Repository rules decide whether the workflow itself is a required merge check; that branch-protection policy is outside this playbook.
 
 ## Checker Contract
 
@@ -37,10 +35,12 @@ required merge check; that branch-protection policy is outside this playbook.
 
 ## Budgets And Conflicts
 
-- The root policy section is limited to 120 lines and 8 hard rules.
 - Scanned instruction files are limited to 180 lines, 24 hard rules, and one example block.
 - Skill reference files may contain up to three example blocks.
-- The checker detects filler phrases, contextual AI disclaimers, language conflicts, tone conflicts, and contradictory build rules along effective parent-child `AGENTS.md` chains. Disjoint sibling scopes are evaluated independently.
+- The checker detects conflicting user-communication languages and contradictory build requirements along effective parent-child `AGENTS.md` chains.
+- Instruction discovery covers active root and nested `AGENTS.md` or override files, scoped playbooks, Codex agents, command rules, and skills.
+
+The checker does not require a root style policy, fixed output headings, fixed uncertainty labels, filler-phrase bans, or model-specific wording.
 
 ## Exceptions
 
@@ -48,9 +48,8 @@ Use an exception only when a finding is confirmed noise and cannot be fixed imme
 
 ## Review Checklist
 
-1. Are priorities explicit and ordered?
-2. Is the rule scoped to the closest applicable instruction file?
-3. Is the rule set concise and non-redundant?
-4. Are conflicts with other instruction layers absent?
-5. Are examples short and necessary?
-6. Does `pnpm ai:slop-check` pass locally?
+1. Is each instruction scoped to the closest applicable file?
+2. Is the rule set concise and non-redundant?
+3. Are conflicts with other effective instruction layers absent?
+4. Are examples short and necessary?
+5. Does `pnpm ai:slop-check` pass locally?

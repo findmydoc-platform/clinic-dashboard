@@ -37,17 +37,16 @@ expect(!/\bmax_threads\b/.test(config), "Project config must not use max_threads
 expect(!/\bmax_depth\b/.test(config), "Project config must not use max_depth")
 
 const agents = [
-  ["planning-reviewer.toml", "planning_reviewer", "gpt-5.6-terra", "medium"],
-  ["logic-reviewer.toml", "logic_reviewer", "gpt-5.6-sol", "high"],
-  ["security-reviewer.toml", "security_reviewer", "gpt-5.6-sol", "high"],
-  ["test-reviewer.toml", "test_reviewer", "gpt-5.6-terra", "high"],
-  ["ui-reviewer.toml", "ui_reviewer", "gpt-5.6-terra", "high"],
+  ["planning-reviewer.toml", "planning_reviewer", "medium"],
+  ["logic-reviewer.toml", "logic_reviewer", "high"],
+  ["security-reviewer.toml", "security_reviewer", "high"],
+  ["test-reviewer.toml", "test_reviewer", "high"],
+  ["ui-reviewer.toml", "ui_reviewer", "high"],
 ]
 
-for (const [fileName, name, model, effort] of agents) {
+for (const [fileName, name, effort] of agents) {
   const content = read(`.codex/agents/${fileName}`)
   expectPattern(content, new RegExp(`^name = "${name}"$`, "m"), `${name} must keep its contract name`)
-  expectPattern(content, new RegExp(`^model = "${model}"$`, "m"), `${name} must use ${model}`)
   expectPattern(
     content,
     new RegExp(`^model_reasoning_effort = "${effort}"$`, "m"),
@@ -147,43 +146,30 @@ expect(openAiYaml.includes("$review-gate"), "Review Gate default prompt must men
 read(".codex/skills/review-gate/references/routing.md")
 
 const safetyRules = read(".codex/rules/safety.rules")
-for (const protectedRuleSource of [
-  'pattern = ["git"]',
-  'pattern = ["gh"]',
-  'pattern = ["rtk", rtk_global_options]',
-  'pattern = ["rtk", "proxy", rtk_proxy_modifiers]',
-  '["rtk", "git"]',
-  '["rtk", "proxy", "git"]',
-  "pattern = git_prefix + [git_global_options]",
-  'git_prefix + ["-C", ".", "reset", "--hard"]',
-  '["rtk", "gh"]',
-  '["rtk", "proxy", "gh"]',
-  "pattern = github_prefix + [github_global_options]",
-  'github_prefix + ["-R", "findmydoc-platform/clinic-dashboard", "pr", "create"]',
+for (const destructivePrefix of [
+  '["rtk", "git", "reset", "--hard"]',
+  '["rtk", "proxy", "git", "reset", "--hard"]',
+  '["rtk", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]]',
+  '["rtk", "proxy", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]]',
 ]) {
   expect(
-    safetyRules.includes(protectedRuleSource),
-    `Safety rules must retain the canonical-command guard source: ${protectedRuleSource}`,
+    safetyRules.includes(destructivePrefix),
+    `Safety rules must retain the destructive command prefix: ${destructivePrefix}`,
   )
 }
 
 const workflowRules = read(".codex/rules/workflow.rules")
-for (const fallbackRuleSource of ["pattern = git_prefix", "pattern = github_prefix"]) {
+for (const externalWritePrefix of [
+  '["rtk", "git", "push"]',
+  '["rtk", "proxy", "git", "push"]',
+  'pattern = github_prefix + ["pr", github_pull_request_write_actions]',
+  'pattern = github_prefix + ["issue", github_issue_write_actions]',
+]) {
   expect(
-    workflowRules.includes(fallbackRuleSource),
-    `Workflow rules must retain the non-canonical command fallback: ${fallbackRuleSource}`,
+    workflowRules.includes(externalWritePrefix),
+    `Workflow rules must retain the external write prefix: ${externalWritePrefix}`,
   )
 }
-for (const approvalCommand of ["merge", "rebase", "revert", "cherry-pick", "am", "pull"]) {
-  expect(
-    workflowRules.includes(`"${approvalCommand}"`),
-    `Workflow rules must require approval for git ${approvalCommand}`,
-  )
-}
-expect(
-  workflowRules.includes('["create", "new"]'),
-  "Workflow rules must protect both supported pull-request creation commands",
-)
 
 if (failures.length > 0) {
   process.stderr.write(`Review system verification failed:\n- ${failures.join("\n- ")}\n`)

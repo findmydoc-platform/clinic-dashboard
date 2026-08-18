@@ -699,7 +699,7 @@ Agents and reviewers should stop and reclassify work when they see:
 
 Keep checks narrow:
 
-- `ai:slop-check`: instruction-source clarity, conflicts, budgets, and forbidden AI wording.
+- `ai:slop-check`: instruction discovery, objective budgets, and effective-scope conflicts.
 - `architecture:check`: import direction, ownership, model purity, fixture/prototype-data boundaries, and forbidden catch-all file names.
 - `stories:governance:check`: colocation, title hierarchy, component metadata, allowed tags, title/path/tag agreement, and required direct coverage.
 - `deadcode:check`: unused files and exports.

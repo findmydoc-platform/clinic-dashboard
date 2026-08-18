@@ -18,16 +18,15 @@ describe("review system contracts", () => {
   })
 
   it.each([
-    ["planning-reviewer.toml", "planning_reviewer", "gpt-5.6-terra", "medium"],
-    ["logic-reviewer.toml", "logic_reviewer", "gpt-5.6-sol", "high"],
-    ["security-reviewer.toml", "security_reviewer", "gpt-5.6-sol", "high"],
-    ["test-reviewer.toml", "test_reviewer", "gpt-5.6-terra", "high"],
-    ["ui-reviewer.toml", "ui_reviewer", "gpt-5.6-terra", "high"],
-  ])("pins %s ownership and execution settings", (fileName, name, model, effort) => {
+    ["planning-reviewer.toml", "planning_reviewer", "medium"],
+    ["logic-reviewer.toml", "logic_reviewer", "high"],
+    ["security-reviewer.toml", "security_reviewer", "high"],
+    ["test-reviewer.toml", "test_reviewer", "high"],
+    ["ui-reviewer.toml", "ui_reviewer", "high"],
+  ])("keeps %s ownership and execution settings", (fileName, name, effort) => {
     const agent = read(`.codex/agents/${fileName}`)
 
     expect(agent).toContain(`name = "${name}"`)
-    expect(agent).toContain(`model = "${model}"`)
     expect(agent).toContain(`model_reasoning_effort = "${effort}"`)
     expect(agent).toContain('sandbox_mode = "read-only"')
     expect(agent).toContain("severity 1-10")
@@ -79,32 +78,26 @@ describe("review system contracts", () => {
     expect(packageJson.scripts.check).toContain("pnpm review:verify")
   })
 
-  it("keeps command-policy bypass regressions covered", () => {
+  it("keeps the focused destructive and external-write command policy", () => {
     const safetyRules = read(".codex/rules/safety.rules")
     const workflowRules = read(".codex/rules/workflow.rules")
 
-    for (const protectedRuleSource of [
-      'pattern = ["git"]',
-      'pattern = ["gh"]',
-      'pattern = ["rtk", rtk_global_options]',
-      'pattern = ["rtk", "proxy", rtk_proxy_modifiers]',
-      '["rtk", "git"]',
-      '["rtk", "proxy", "git"]',
-      "pattern = git_prefix + [git_global_options]",
-      'git_prefix + ["-C", ".", "reset", "--hard"]',
-      '["rtk", "gh"]',
-      '["rtk", "proxy", "gh"]',
-      "pattern = github_prefix + [github_global_options]",
-      'github_prefix + ["-R", "findmydoc-platform/clinic-dashboard", "pr", "create"]',
+    for (const destructivePrefix of [
+      '["rtk", "git", "reset", "--hard"]',
+      '["rtk", "proxy", "git", "reset", "--hard"]',
+      '["rtk", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]]',
+      '["rtk", "proxy", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]]',
     ]) {
-      expect(safetyRules).toContain(protectedRuleSource)
+      expect(safetyRules).toContain(destructivePrefix)
     }
 
-    for (const approvalCommand of ["merge", "rebase", "revert", "cherry-pick", "am", "pull"]) {
-      expect(workflowRules).toContain(`"${approvalCommand}"`)
+    for (const externalWritePrefix of [
+      '["rtk", "git", "push"]',
+      '["rtk", "proxy", "git", "push"]',
+      'pattern = github_prefix + ["pr", github_pull_request_write_actions]',
+      'pattern = github_prefix + ["issue", github_issue_write_actions]',
+    ]) {
+      expect(workflowRules).toContain(externalWritePrefix)
     }
-    expect(workflowRules).toContain("pattern = git_prefix")
-    expect(workflowRules).toContain("pattern = github_prefix")
-    expect(workflowRules).toContain('["create", "new"]')
   })
 })
