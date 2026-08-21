@@ -39,6 +39,7 @@ expect(!/\bmax_depth\b/.test(config), "Project config must not use max_depth")
 const agents = [
   ["planning-reviewer.toml", "planning_reviewer", "medium"],
   ["logic-reviewer.toml", "logic_reviewer", "high"],
+  ["architecture-reviewer.toml", "architecture_reviewer", "high"],
   ["security-reviewer.toml", "security_reviewer", "high"],
   ["test-reviewer.toml", "test_reviewer", "high"],
   ["ui-reviewer.toml", "ui_reviewer", "high"],
@@ -69,6 +70,21 @@ for (const [fileName, name, effort] of agents) {
       `${name} instructions must include the ${requiredTerm} output rule`,
     )
   }
+}
+
+for (const [fileName, requiredTerms] of [
+  ["test-reviewer.toml", ["Freeman and Pryce's outside-in TDD", "Kent Beck's Test Desiderata"]],
+  [
+    "architecture-reviewer.toml",
+    ["Parnas's information-hiding criterion", "Robert C. Martin's Dependency Rule"],
+  ],
+  ["ui-reviewer.toml", ["Luke Wroblewski's Mobile First", "Ethan Marcotte's Responsive Web Design"]],
+]) {
+  const content = read(`.codex/agents/${fileName}`)
+  for (const requiredTerm of requiredTerms) {
+    expect(content.includes(requiredTerm), `${fileName} must retain the method anchor: ${requiredTerm}`)
+  }
+  expect(content.includes("Repository audit"), `${fileName} must retain its explicit repository-audit mode`)
 }
 
 const securityReviewer = read(".codex/agents/security-reviewer.toml")

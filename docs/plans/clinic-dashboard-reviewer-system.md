@@ -12,7 +12,7 @@ AI reviewers do not run in CI. CI checks only the small repository contract for 
 2. Run `pnpm review:route --base origin/main --format json`.
 3. State every recommended and omitted reviewer with the route reason.
 4. Obtain one explicit approval for the consolidated run.
-5. Run `planning_reviewer` separately when planning or access decisions changed. Run the routed implementation reviewers in parallel.
+5. Run `planning_reviewer` separately when planning or access decisions changed. Run no more than four implementation reviewers concurrently; use a second read-only wave if all five are routed.
 6. Merge findings with the same root cause and present all findings before fixes.
 7. Apply reviewer-driven fixes only after explicit approval and validate them deterministically without a routine reviewer rerun.
 
@@ -22,13 +22,14 @@ The route JSON is temporary current-task context. It is not committed or stored 
 
 ## Reviewer ownership
 
-| Reviewer            | Reasoning | Ownership                                                                           |
-| ------------------- | --------- | ----------------------------------------------------------------------------------- |
-| `planning_reviewer` | medium    | Goal, scope, access, data, rollout, and exclusions                                  |
-| `logic_reviewer`    | high      | Domain correctness, state, mapping, async behavior, errors, and API behavior        |
-| `security_reviewer` | high      | Auth, tenant isolation, trust boundaries, secrets, privacy, and abuse               |
-| `test_reviewer`     | high      | Test layers, meaningful coverage, deterministic mocks, gaps, and false confidence   |
-| `ui_reviewer`       | high      | Responsive UI, accessibility, focus, themes, design-system use, and visual evidence |
+| Reviewer                | Reasoning | Ownership                                                                            |
+| ----------------------- | --------- | ------------------------------------------------------------------------------------ |
+| `planning_reviewer`     | medium    | Goal, scope, access, data, rollout, and exclusions                                   |
+| `logic_reviewer`        | high      | Domain correctness, state, mapping, async behavior, errors, and API behavior         |
+| `architecture_reviewer` | high      | Information hiding, module ownership, interfaces, and dependency direction           |
+| `security_reviewer`     | high      | Auth, tenant isolation, trust boundaries, secrets, privacy, and abuse                |
+| `test_reviewer`         | high      | Outside-in structure, Test Desiderata, test layers, gaps, and false confidence       |
+| `ui_reviewer`           | high      | Mobile First, responsive behavior, accessibility, focus, themes, and visual evidence |
 
 Every reviewer uses `sandbox_mode = "read-only"`. The parent task permission does not need to change, but the coordinator performs no repository or external writes during the active reviewer run.
 
@@ -42,11 +43,14 @@ The router scans changes since the merge-base with `origin/main`, including bran
 
 - Plans, project-profile, access, data, migration, and rollout decisions route to `planning_reviewer`.
 - Production TypeScript, server, controller, model, state, mapping, API, and executable tooling route to `logic_reviewer`.
+- Source modules, boundaries, dependency directions, and the frontend architecture contract route to `architecture_reviewer`.
 - Auth, API, server, environment, workflow, dependency, persistence, secrets, Codex command rules, reviewer configuration, proxy gateways, Next.js or Vercel configuration, and `.env` contracts route to `security_reviewer`.
 - Production behavior, tests, test configuration, fixtures, mocks, and Codex or reviewer contracts route to `test_reviewer`.
 - TSX, styles, stories, themes, branding, and visual assets route to `ui_reviewer`.
 
 The UI reviewer starts with existing Mobile, Light, Dark, and Storybook evidence. It uses a focused browser run only when evidence is missing, contradictory, or interaction-critical. Reviewers inherit relevant green validation and avoid full-suite reruns.
+
+An explicit repository audit selects one method reviewer at a time: test, architecture, or UI. The coordinator defines the paths and evidence in scope, and the reviewer states coverage and exclusions. Repository audits are not part of the default delivery gate.
 
 ## Gate policy
 
@@ -60,7 +64,7 @@ The UI reviewer starts with existing Mobile, Light, Dark, and Storybook evidence
 ## Verification
 
 - Routing tests cover empty, documentation-only, UI, logic, auth/API, workflow/dependency, cross-cutting, security-platform, rename/delete, untracked, and pnpm argument-forwarding cases.
-- Contract tests pin agent names, reasoning, read-only mode, role output rules, project concurrency, skill metadata, and package entry points.
+- Contract tests pin agent names, reasoning, read-only mode, method anchors, audit mode, role output rules, project concurrency, skill metadata, and package entry points.
 - `pnpm review:verify` runs inside `pnpm check`.
 - CI never starts AI reviewers.
 
