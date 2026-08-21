@@ -20,6 +20,7 @@ describe("review system contracts", () => {
   it.each([
     ["planning-reviewer.toml", "planning_reviewer", "medium"],
     ["logic-reviewer.toml", "logic_reviewer", "high"],
+    ["architecture-reviewer.toml", "architecture_reviewer", "high"],
     ["security-reviewer.toml", "security_reviewer", "high"],
     ["test-reviewer.toml", "test_reviewer", "high"],
     ["ui-reviewer.toml", "ui_reviewer", "high"],
@@ -34,6 +35,22 @@ describe("review system contracts", () => {
     expect(agent).toContain("minimal recommendation")
     expect(agent).toContain("style-only")
     expect(agent).toContain("metric-only")
+  })
+
+  it.each([
+    ["test-reviewer.toml", "Freeman and Pryce's outside-in TDD", "Kent Beck's Test Desiderata"],
+    [
+      "architecture-reviewer.toml",
+      "Parnas's information-hiding criterion",
+      "Robert C. Martin's Dependency Rule",
+    ],
+    ["ui-reviewer.toml", "Luke Wroblewski's Mobile First", "Ethan Marcotte's Responsive Web Design"],
+  ])("keeps the method anchors and audit mode in %s", (fileName, firstAnchor, secondAnchor) => {
+    const agent = read(`.codex/agents/${fileName}`)
+
+    expect(agent).toContain(firstAnchor)
+    expect(agent).toContain(secondAnchor)
+    expect(agent).toContain("Repository audit")
   })
 
   it("keeps the skill metadata", () => {

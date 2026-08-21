@@ -18,6 +18,14 @@ The current application uses server-side Supabase sessions and the authorized Pa
 - Never place Vercel tokens, real auth secrets, clinic data, or private endpoints in repository content or logs. Configurable passwords belong in environment variables.
 - Follow `docs/engineering/frontend-architecture.md` for frontend ownership, terminology, imports, props, Storybook, and test boundaries.
 
+## Engineering Method Anchors
+
+Use these public methods only for the stated concern. Repository-specific rules in this instruction hierarchy remain authoritative.
+
+- Testing: For changes to observable behavior and bug fixes, use Freeman and Pryce's outside-in TDD, then assess the resulting tests against Kent Beck's Test Desiderata. Do not apply this to docs-only, configuration-only, or exploratory work.
+- Architecture: When defining or changing module boundaries, use Parnas's information-hiding criterion and Robert C. Martin's Dependency Rule so source dependencies point toward the module that owns the higher-level policy.
+- UI: For frontend UI work, use Luke Wroblewski's Mobile First to set content and interaction priority before widening; separately apply Ethan Marcotte's Responsive Web Design through fluid grids, flexible images, and media queries.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # Next.js: ALWAYS read docs before coding

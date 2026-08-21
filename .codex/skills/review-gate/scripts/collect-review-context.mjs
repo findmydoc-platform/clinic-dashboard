@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url"
 export const REVIEWER_ORDER = [
   "planning_reviewer",
   "logic_reviewer",
+  "architecture_reviewer",
   "security_reviewer",
   "test_reviewer",
   "ui_reviewer",
@@ -14,6 +15,7 @@ export const REVIEWER_ORDER = [
 const REVIEWER_PHASE = {
   planning_reviewer: "planning",
   logic_reviewer: "implementation",
+  architecture_reviewer: "implementation",
   security_reviewer: "implementation",
   test_reviewer: "implementation",
   ui_reviewer: "implementation",
@@ -23,6 +25,8 @@ const OMITTED_REASONS = {
   planning_reviewer: "No plan, project-profile, access, data, migration, or rollout decision was detected.",
   logic_reviewer:
     "No production logic, state, mapping, server, controller, model, API, or executable tooling change was detected.",
+  architecture_reviewer:
+    "No source module, module boundary, dependency direction, or frontend architecture contract change was detected.",
   security_reviewer:
     "No auth, API, server, environment, workflow, dependency, persistence, secret, or Codex trust boundary was detected.",
   test_reviewer:
@@ -188,6 +192,21 @@ export function classifyReviewSurface(files) {
     productionLogicPaths,
   )
 
+  const architecturePaths = unique(
+    paths.filter(
+      (path) =>
+        path === "docs/engineering/frontend-architecture.md" ||
+        (isProductionSource(path) &&
+          /\.[cm]?[jt]sx?$/i.test(path) &&
+          /^src\/(app|components|features|lib)\//i.test(path)),
+    ),
+  )
+  addSignal(
+    "module-boundary",
+    "Source modules, module boundaries, dependency directions, or the frontend architecture contract changed.",
+    architecturePaths,
+  )
+
   const securityPaths = evidencePaths(paths, [
     /(^|\/)(auth|authorization|security|csrf|session|cookie|api|server|env|secrets?|middleware)(\/|[.-]|$)/i,
     /(^|\/)(supabase|payload|persistence|migration|database|privacy|tenant|clinic-domain)(\/|[.-]|$)/i,
@@ -243,6 +262,7 @@ export function classifyReviewSurface(files) {
   const reviewerReasons = {
     planning_reviewer: signals.filter((signal) => signal.id === "planning-decision"),
     logic_reviewer: signals.filter((signal) => signal.id === "behavioral-logic"),
+    architecture_reviewer: signals.filter((signal) => signal.id === "module-boundary"),
     security_reviewer: signals.filter((signal) => signal.id === "security-boundary"),
     test_reviewer: signals.filter((signal) => signal.id === "verification-surface"),
     ui_reviewer: signals.filter((signal) => signal.id === "user-interface"),
