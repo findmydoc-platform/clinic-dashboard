@@ -11,10 +11,9 @@ import {
   clinicProfileFixture,
   clinicGallerySnapshotFixture,
   clinicProfileSourceFixture,
-  createClinicProfileSourceCommandsFixture,
   clinicTreatmentSnapshotFixture,
-  createClinicProfileCommandsFixture,
   createClinicGalleryCommandsFixture,
+  createClinicProfileSourceCommandsFixture,
   createClinicTreatmentCommandsFixture,
   createDoctorProfileCommandsFixture,
   doctorDirectoryFixture,
@@ -439,7 +438,6 @@ export function ClinicDashboardWorkspaceHarness({
   showPrototypeModeToggle = false,
   start,
 }: ClinicDashboardWorkspaceHarnessProps) {
-  const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
   const [clinicGalleryCommands] = useState(() => createClinicGalleryCommandsFixture())
   const [clinicProfileSourceCommands] = useState(() =>
     createClinicProfileSourceCommandsFixture(profileSourceSnapshot ?? clinicProfileSourceFixture),
@@ -451,7 +449,6 @@ export function ClinicDashboardWorkspaceHarness({
     <>
       <ClinicDashboardWorkspaceComposition
         authenticatedContext={authenticatedClinicContextFixture}
-        clinicProfileCommands={clinicProfileCommands}
         clinicGalleryCommands={clinicGalleryCommands}
         clinicProfileSourceCommands={clinicProfileSourceCommands}
         clinicTreatmentCommands={clinicTreatmentCommands}

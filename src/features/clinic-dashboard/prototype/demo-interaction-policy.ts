@@ -49,12 +49,6 @@ const clinicDashboardDemoVisibilityPolicy = {
     presentation: "interactive",
     visualReference: "interactive",
   },
-  profileWrites: {
-    area: "Clinic profile and treatment writes",
-    issue: websiteIssue(1528),
-    presentation: "interactive",
-    visualReference: "interactive",
-  },
   reviewManagement: {
     area: "Review filtering, responses, appeals, notes, and pagination",
     issue: websiteIssue(1529),
@@ -102,7 +96,6 @@ export type ClinicDashboardDemoInteractionPolicy = Readonly<{
   canUseMessaging: boolean
   canViewDetailedPatientInquiry: boolean
   canSwitchLocations: boolean
-  profileManagement: VisibilityBehavior
   showCertificatesAccreditationsPlaceholder: boolean
   showNotifications: boolean
   showSupport: boolean
@@ -127,7 +120,6 @@ export function deriveClinicDashboardDemoInteractionPolicy(
     canUseMessaging: isInteractive(visibility.messaging),
     canViewDetailedPatientInquiry: isInteractive(visibility.inquiryProfile),
     canSwitchLocations: isInteractive(visibility.locationSwitching),
-    profileManagement: visibility.profileWrites,
     showCertificatesAccreditationsPlaceholder: visibility.certificatesAccreditationsPlaceholder !== "hidden",
     showNotifications: isInteractive(visibility.notifications),
     showSupport: isInteractive(visibility.support),
@@ -149,7 +141,6 @@ export function getClinicDashboardDemoInteractionPolicy(
     locationSwitching: getDemoVisibilityBehavior(prototypeMode, "locationSwitching"),
     messaging: getDemoVisibilityBehavior(prototypeMode, "messaging"),
     notifications: getDemoVisibilityBehavior(prototypeMode, "notifications"),
-    profileWrites: getDemoVisibilityBehavior(prototypeMode, "profileWrites"),
     reviewManagement: getDemoVisibilityBehavior(prototypeMode, "reviewManagement"),
     support: getDemoVisibilityBehavior(prototypeMode, "support"),
     subscriptionsPlaceholder: getDemoVisibilityBehavior(prototypeMode, "subscriptionsPlaceholder"),

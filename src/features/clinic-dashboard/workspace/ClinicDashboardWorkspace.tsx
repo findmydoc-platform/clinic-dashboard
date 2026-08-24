@@ -2,7 +2,6 @@
 
 import { useMemo, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { createClinicDashboardDemoClientAdapter } from "@/features/clinic-dashboard/demo/commands"
 import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
 import {
   createClinicProfileSourceApiCommands,
@@ -32,7 +31,6 @@ export function ClinicDashboardWorkspace({
 }: ClinicDashboardWorkspaceProps) {
   const router = useRouter()
   const [isSourceRefreshPending, startSourceRefresh] = useTransition()
-  const demoClientAdapter = useMemo(() => createClinicDashboardDemoClientAdapter(), [])
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
@@ -43,7 +41,6 @@ export function ClinicDashboardWorkspace({
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedContext}
-      clinicProfileCommands={demoClientAdapter.clinicProfileCommands}
       clinicGalleryCommands={clinicGalleryCommands}
       clinicProfileSourceCommands={clinicProfileSourceCommands}
       clinicTreatmentCommands={clinicTreatmentCommands}

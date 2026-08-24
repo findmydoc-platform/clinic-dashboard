@@ -104,12 +104,17 @@ export function useClinicProfileSourceController({
 
   const hasNewInitialSnapshot = initialSnapshotIdentity !== receivedInitialSnapshotIdentity
   const authoritativeUpdate = hasNewInitialSnapshot ? { snapshot: initialSnapshot } : pendingInitialSnapshot
+  const authoritativeUpdateMatchesCurrent =
+    authoritativeUpdate !== undefined &&
+    clinicProfileSnapshotIdentity(authoritativeUpdate.snapshot) === clinicProfileSnapshotIdentity(snapshot)
 
   if (hasNewInitialSnapshot) {
     setReceivedInitialSnapshotIdentity(initialSnapshotIdentity)
   }
 
-  if (authoritativeUpdate) {
+  if (authoritativeUpdateMatchesCurrent) {
+    if (pendingInitialSnapshot) setPendingInitialSnapshot(undefined)
+  } else if (authoritativeUpdate) {
     const canAdoptSnapshot = operation === "idle" && !isDirty && mode !== "conflict" && !unresolvedPublish
     if (canAdoptSnapshot) {
       const nextSnapshot = authoritativeUpdate.snapshot

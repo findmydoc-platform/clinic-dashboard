@@ -3,6 +3,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useClinicProfileSourceController } from "@/features/clinic-dashboard/clinic-profile/hooks/useClinicProfileSourceController"
+import type { ClinicProfileSnapshot } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source"
 import { ClinicProfileSourceCommandError } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source-commands"
 import {
   clinicProfileSourceDraftFixture,
@@ -89,6 +90,33 @@ describe("clinic profile source controller", () => {
       expect.objectContaining({ expectedDraftRevision: 1, expectedPublishedRevision: 4 }),
     )
     expect(onSnapshotChanged).toHaveBeenCalledWith(result.current.model.snapshot)
+  })
+
+  it("keeps success feedback when the authoritative refresh echoes the saved snapshot", async () => {
+    const commands = createClinicProfileSourceCommandsFixture()
+    let savedSnapshot: ClinicProfileSnapshot | undefined
+    const onSnapshotChanged = vi.fn((snapshot: ClinicProfileSnapshot) => {
+      savedSnapshot = snapshot
+    })
+    const hook = renderHook(
+      ({ initialSnapshot }) =>
+        useClinicProfileSourceController({ commands, initialSnapshot, onSnapshotChanged }),
+      { initialProps: { initialSnapshot: clinicProfileSourceFixture as ClinicProfileSnapshot | undefined } },
+    )
+
+    act(() => hook.result.current.actions.startEditing())
+    act(() => hook.result.current.actions.changeName("Saved clinic name"))
+    await act(async () => {
+      await hook.result.current.actions.saveDraft()
+    })
+
+    expect(savedSnapshot).toBeDefined()
+    expect(hook.result.current.model.statusMessage).toBe("Draft saved.")
+
+    act(() => hook.rerender({ initialSnapshot: savedSnapshot }))
+
+    expect(hook.result.current.model.statusMessage).toBe("Draft saved.")
+    expect(hook.result.current.model.snapshot).toBe(savedSnapshot)
   })
 
   it("updates an existing draft without trying to create another one", async () => {

@@ -1,6 +1,8 @@
 # Dashboard Lower Area Prototype Interaction Plan
 
 > **Planning record — 2026-07-15.** This plan extends the dashboard reporting-period work without duplicating its metric, funnel, or time-series implementation.
+>
+> **Partially superseded — 2026-08-24.** The Profile Progress task set, static percentage, certificate tasks, and doctor-profile destination below are historical. Source-backed profile completeness and actionable destinations are now owned by [clinic-dashboard#104](https://github.com/findmydoc-platform/clinic-dashboard/issues/104) and [PR #128](https://github.com/findmydoc-platform/clinic-dashboard/pull/128). The reporting and review-interaction decisions remain current.
 
 The required reporting contract is available on `main` through the Dashboard and Header Prototype Interaction implementation. This plan consumes that contract directly.
 

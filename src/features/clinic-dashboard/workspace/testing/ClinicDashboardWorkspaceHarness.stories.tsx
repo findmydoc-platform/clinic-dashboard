@@ -12,7 +12,6 @@ import {
   clinicProfileSourceFixture,
   clinicTreatmentSnapshotFixture,
   createClinicGalleryCommandsFixture,
-  createClinicProfileCommandsFixture,
   createClinicProfileSourceCommandsFixture,
   createClinicTreatmentCommandsFixture,
   createDoctorProfileCommandsFixture,
@@ -121,7 +120,6 @@ function ReadAfterWriteWorkspace({
   initialTreatmentSnapshot: ClinicTreatmentsSnapshot
   start?: ClinicDashboardWorkspaceStartState
 }>) {
-  const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
   const [clinicGalleryCommands] = useState(() =>
     createClinicGalleryCommandsFixture(clinicGallerySnapshotFixture),
   )
@@ -160,7 +158,6 @@ function ReadAfterWriteWorkspace({
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedClinicContextFixture}
-      clinicProfileCommands={clinicProfileCommands}
       clinicGalleryCommands={clinicGalleryCommands}
       clinicProfileSourceCommands={clinicProfileSourceCommands}
       clinicTreatmentCommands={clinicTreatmentCommands}

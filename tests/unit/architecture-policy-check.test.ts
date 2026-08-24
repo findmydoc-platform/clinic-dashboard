@@ -1302,7 +1302,7 @@ describe("architecture policy checker process fixtures", () => {
     expect(result.stdout).toContain("architecture governance: 0 findings")
   })
 
-  it("allows only the server provider and client adapter entries to consume the central demo source", () => {
+  it("allows only the server provider entry to consume the central demo source", () => {
     const fixtureRoot = createFixture({
       "src/app/page.tsx": `
         import { ClinicDashboardWorkspace } from "../features/clinic-dashboard/public"
@@ -1310,9 +1310,6 @@ describe("architecture policy checker process fixtures", () => {
         export default async function Page() {
           return ClinicDashboardWorkspace(await loadClinicDashboardWorkspaceInput())
         }
-      `,
-      "src/features/clinic-dashboard/demo/commands.ts": `
-        export const demoClientAdapter = { save: async () => undefined }
       `,
       "src/features/clinic-dashboard/demo/dataset.ts": `
         import type { ClinicDashboardWorkspaceInput } from "../workspace/model/workspace-input"
@@ -1335,10 +1332,6 @@ describe("architecture policy checker process fixtures", () => {
         export function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboardWorkspaceInput> {
           return demoProvider.loadWorkspace()
         }
-      `,
-      "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx": `
-        import { demoClientAdapter } from "../demo/commands"
-        export function ClinicDashboardWorkspace(input: unknown) { return { demoClientAdapter, input } }
       `,
       "src/features/clinic-dashboard/workspace/model/workspace-input.ts": `
         export type ClinicDashboardWorkspaceInput = Readonly<{ organizationId: string }>

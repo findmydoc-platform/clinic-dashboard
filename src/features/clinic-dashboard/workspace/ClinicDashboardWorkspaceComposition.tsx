@@ -7,10 +7,8 @@ import {
 } from "@/features/clinic-dashboard/auth/public"
 import {
   ClinicProfile,
-  type ClinicProfileCommands,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
-  type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
   type ClinicProfileSourceCommands,
   type ClinicTreatmentCommands,
@@ -63,7 +61,6 @@ export type ClinicDashboardWorkspaceStartState =
 
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
-  clinicProfileCommands: ClinicProfileCommands
   clinicGalleryCommands: ClinicGalleryCommands
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
@@ -83,7 +80,6 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
 
 export function ClinicDashboardWorkspaceComposition({
   authenticatedContext,
-  clinicProfileCommands,
   clinicGalleryCommands,
   clinicProfileSourceCommands,
   clinicTreatmentCommands,
@@ -100,9 +96,6 @@ export function ClinicDashboardWorkspaceComposition({
   start = {},
   workspaceInput,
 }: ClinicDashboardWorkspaceCompositionProps) {
-  const [savedProfileProjection, setSavedProfileProjection] = useState<
-    Readonly<{ locationId: string; profile: ClinicProfileDraft }> | undefined
-  >()
   const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
   const [galleryProjection, setGalleryProjection] = useState<ClinicGallerySnapshot>()
   const galleryNavigationRequestRef = useRef<((continuation: () => void) => void) | undefined>(undefined)
@@ -159,10 +152,6 @@ export function ClinicDashboardWorkspaceComposition({
     : workspaceInput.defaultLocationId
   const selectedLocation = getClinicDashboardLocation(workspaceInput.locations, effectiveLocationId)
   const selectedSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, selectedLocation.id)
-  const profileProjection =
-    savedProfileProjection?.locationId === selectedLocation.id
-      ? savedProfileProjection.profile
-      : selectedSnapshot.clinicProfile
   const effectiveGallerySnapshot = galleryProjection ?? workspaceInput.gallerySnapshot
   const effectiveGalleryStatus = galleryProjection ? "ready" : workspaceInput.galleryStatus
   const publishedGalleryItems =
@@ -170,7 +159,7 @@ export function ClinicDashboardWorkspaceComposition({
   const selectedProfile =
     effectiveGallerySnapshot || effectiveGalleryStatus !== "ready"
       ? {
-          ...profileProjection,
+          ...selectedSnapshot.clinicProfile,
           gallery: publishedGalleryItems.slice(0, 4).map((item, index) => ({
             alt: item.alt,
             id: item.id,
@@ -179,7 +168,7 @@ export function ClinicDashboardWorkspaceComposition({
           })),
           galleryTotal: publishedGalleryItems.length,
         }
-      : profileProjection
+      : selectedSnapshot.clinicProfile
   const coverImage = selectedProfile.gallery.find((image) => image.isCover) ?? selectedProfile.gallery[0]
 
   const dashboardController = useDashboardController({
@@ -214,7 +203,6 @@ export function ClinicDashboardWorkspaceComposition({
     const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
 
     continueAfterGalleryGuard(() => {
-      setSavedProfileProjection(undefined)
       setGalleryProjection(undefined)
       actions.selectLocation(locationId, nextLocation.name)
     })
@@ -286,7 +274,6 @@ export function ClinicDashboardWorkspaceComposition({
                 notification.locationId,
               )
               continueAfterGalleryGuard(() => {
-                setSavedProfileProjection(undefined)
                 setGalleryProjection(undefined)
                 actions.openNotification(notification, nextLocation.name)
               })
@@ -341,7 +328,6 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "profile"}>
         <ClinicProfile
-          commands={clinicProfileCommands}
           galleryCommands={clinicGalleryCommands}
           galleryManagement={galleryManagement}
           galleryStatus={effectiveGalleryStatus}
@@ -353,7 +339,6 @@ export function ClinicDashboardWorkspaceComposition({
           initialDialog={
             model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined
           }
-          initialProfile={selectedProfile}
           key={selectedLocation.id}
           onFocusHandled={actions.clearProfileFocusRequest}
           onGallerySaved={(snapshot) => {
@@ -366,13 +351,9 @@ export function ClinicDashboardWorkspaceComposition({
             if (source.status !== "ready") return
             setDoctorDirectoryProjection({ ...source, doctors })
           }}
-          onProfileSaved={(profile) =>
-            setSavedProfileProjection({ locationId: selectedLocation.id, profile })
-          }
           onSourceProfileChanged={onSourceRefresh}
           onTreatmentSaved={onSourceRefresh}
           onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
-          profileManagement={capabilities.profileManagement}
           sourceProfileManagement={sourceProfileManagement}
           sourceCommands={clinicProfileSourceCommands}
           sourceSnapshot={workspaceInput.profileSourceSnapshot}

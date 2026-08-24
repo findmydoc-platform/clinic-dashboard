@@ -12,7 +12,6 @@ const gateIds = [
   "inquiryProfile",
   "messaging",
   "notifications",
-  "profileWrites",
   "reviewManagement",
   "support",
   "subscriptionsPlaceholder",
@@ -51,7 +50,6 @@ describe("clinic dashboard visibility contract", () => {
       "read-only",
     )
     expect(getDemoVisibilityBehavior("presentation", "notifications")).toBe("interactive")
-    expect(getDemoVisibilityBehavior("presentation", "profileWrites")).toBe("interactive")
     expect(getDemoVisibilityBehavior("presentation", "support")).toBe("interactive")
     expect(getDemoVisibilityBehavior("presentation", "subscriptionsPlaceholder")).toBe("read-only")
     expect(getDemoVisibilityBehavior("presentation", "teamWrites")).toBe("interactive")

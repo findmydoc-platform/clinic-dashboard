@@ -4,7 +4,6 @@ import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
 import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
 import receptionImage from "@/assets/clinic-dashboard/reception.jpg"
 import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
-import type { ClinicProfileCommands } from "../model/clinic-profile-commands"
 import type { ClinicGalleryCommands } from "../model/clinic-gallery-commands"
 import type { ClinicGallerySnapshot } from "../model/clinic-gallery"
 import type { ClinicTreatmentCommands } from "../model/clinic-treatment-commands"
@@ -195,26 +194,6 @@ export function createClinicGalleryCommandsFixture(
       }
       snapshot = { ...snapshot, items: [...snapshot.items, media] }
       return media
-    },
-  }
-}
-
-export function createClinicProfileCommandsFixture(latencyMs = 0): ClinicProfileCommands {
-  let teamEntitySequence = 0
-
-  return {
-    createClinicProfileEntityId: () => {
-      teamEntitySequence += 1
-      return `team-fixture-${teamEntitySequence}`
-    },
-    saveClinicProfile: async (profile) => {
-      if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs))
-
-      return {
-        ...profile,
-        revision: profile.revision + 1,
-        updatedAt: fixtureTimestamp,
-      }
     },
   }
 }

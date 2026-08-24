@@ -2,16 +2,13 @@ import { useState, type ComponentProps } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { ClinicProfile } from "./ClinicProfile"
-import type { ClinicProfileCommands } from "./model/clinic-profile-commands"
 import {
   ClinicProfileSourceCommandError,
   type ClinicProfileSourceCommands,
 } from "./model/clinic-profile-source-commands"
 import {
-  clinicProfileFixture,
   clinicGallerySnapshotFixture,
   clinicTreatmentSnapshotFixture,
-  createClinicProfileCommandsFixture,
   createClinicGalleryCommandsFixture,
   createClinicTreatmentCommandsFixture,
 } from "./testing/clinic-profile.fixtures"
@@ -23,14 +20,12 @@ import {
 import { createDoctorProfileCommandsFixture, doctorDirectoryFixture } from "./testing/doctor-profile.fixtures"
 
 function ClinicProfileStoryFixture({
-  commands: _commands,
   galleryCommands: _galleryCommands,
   doctorCommands: _doctorCommands,
   sourceCommands: _sourceCommands,
   treatmentCommands: _treatmentCommands,
   ...props
 }: ComponentProps<typeof ClinicProfile>) {
-  const [commands] = useState<ClinicProfileCommands>(() => createClinicProfileCommandsFixture())
   const [galleryCommands] = useState(() => createClinicGalleryCommandsFixture(props.gallerySnapshot))
   const [doctorCommands] = useState(() => createDoctorProfileCommandsFixture())
   const [sourceCommands] = useState<ClinicProfileSourceCommands>(() =>
@@ -41,7 +36,6 @@ function ClinicProfileStoryFixture({
   return (
     <ClinicProfile
       {...props}
-      commands={commands}
       galleryCommands={galleryCommands}
       doctorCommands={doctorCommands}
       sourceCommands={sourceCommands}
@@ -51,14 +45,12 @@ function ClinicProfileStoryFixture({
 }
 
 function ClinicProfileProvidedSourceCommandsStoryFixture({
-  commands: _commands,
   galleryCommands: _galleryCommands,
   doctorCommands: _doctorCommands,
   sourceCommands,
   treatmentCommands: _treatmentCommands,
   ...props
 }: ComponentProps<typeof ClinicProfile>) {
-  const [commands] = useState<ClinicProfileCommands>(() => createClinicProfileCommandsFixture())
   const [galleryCommands] = useState(() => createClinicGalleryCommandsFixture(props.gallerySnapshot))
   const [doctorCommands] = useState(() => createDoctorProfileCommandsFixture())
   const [treatmentCommands] = useState(() => createClinicTreatmentCommandsFixture())
@@ -66,7 +58,6 @@ function ClinicProfileProvidedSourceCommandsStoryFixture({
   return (
     <ClinicProfile
       {...props}
-      commands={commands}
       galleryCommands={galleryCommands}
       doctorCommands={doctorCommands}
       sourceCommands={sourceCommands}
@@ -75,14 +66,8 @@ function ClinicProfileProvidedSourceCommandsStoryFixture({
   )
 }
 
-const renderOwnedClinicProfileCommands = {
-  createClinicProfileEntityId: (kind) => `${kind}-render-owned`,
-  saveClinicProfile: async (profile) => profile,
-} satisfies ClinicProfileCommands
-
 const meta = {
   args: {
-    commands: renderOwnedClinicProfileCommands,
     galleryCommands: createClinicGalleryCommandsFixture(),
     galleryManagement: "interactive",
     galleryStatus: "ready",
@@ -90,10 +75,8 @@ const meta = {
     doctorCommands: createDoctorProfileCommandsFixture(),
     doctorDirectory: doctorDirectoryFixture,
     doctorManagement: "interactive",
-    initialProfile: clinicProfileFixture,
     onFocusHandled: fn(),
     onTreatmentMissing: fn(),
-    profileManagement: "interactive",
     sourceProfileManagement: "interactive",
     sourceCommands: createClinicProfileSourceCommandsFixture(),
     sourceSnapshot: clinicProfileSourceFixture,
@@ -184,17 +167,6 @@ export const GalleryDestination: Story = {
   play: async ({ args, canvasElement }) => {
     const page = within(canvasElement)
     await waitFor(() => expect(page.getByRole("heading", { name: "Manage gallery" })).toHaveFocus())
-    await expect(args.onFocusHandled).toHaveBeenCalledOnce()
-  },
-}
-
-export const DoctorsDestination: Story = {
-  args: { focusTarget: "doctors" },
-  play: async ({ args, canvasElement }) => {
-    const page = within(canvasElement)
-    const doctors = page.getByRole("heading", { name: "Doctors" }).closest("section")
-    if (!doctors) throw new Error("Doctors section is required.")
-    await waitFor(() => expect(doctors).toHaveFocus())
     await expect(args.onFocusHandled).toHaveBeenCalledOnce()
   },
 }
@@ -380,7 +352,6 @@ function SaveFailureStoryFixture(props: ComponentProps<typeof ClinicProfile>) {
   return (
     <ClinicProfile
       {...props}
-      commands={createClinicProfileCommandsFixture()}
       doctorCommands={createDoctorProfileCommandsFixture()}
       sourceCommands={sourceCommands}
     />
@@ -462,7 +433,6 @@ export const SaveConflict: Story = {
   render: (args) => (
     <ClinicProfile
       {...args}
-      commands={createClinicProfileCommandsFixture()}
       doctorCommands={createDoctorProfileCommandsFixture()}
       sourceCommands={saveConflictCommands}
     />
@@ -489,7 +459,6 @@ export const PublishFailurePreservesReview: Story = {
   render: (args) => (
     <ClinicProfile
       {...args}
-      commands={createClinicProfileCommandsFixture()}
       doctorCommands={createDoctorProfileCommandsFixture()}
       sourceCommands={publishFailureCommands}
     />
@@ -521,7 +490,6 @@ export const PublishOutcomeUnresolved: Story = {
   render: (args) => (
     <ClinicProfile
       {...args}
-      commands={createClinicProfileCommandsFixture()}
       doctorCommands={createDoctorProfileCommandsFixture()}
       sourceCommands={unresolvedPublishCommands}
     />

@@ -10,12 +10,7 @@ export type {
 } from "./model/dashboard-view-model"
 export type { DashboardProfileTask } from "./model/profile-tasks"
 export { createDashboardProfileProgress } from "./model/profile-progress"
-export type {
-  DashboardProfileAreaId,
-  DashboardProfileProgressInput,
-  DashboardProfileProgressReady,
-  DashboardProfileProgressState,
-} from "./model/profile-progress"
+export type { DashboardProfileProgressInput, DashboardProfileProgressState } from "./model/profile-progress"
 export {
   createProfileViewsCsvExport,
   createProfileViewsCsvFilename,

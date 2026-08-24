@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageHeading } from "@/components/ui/page-heading"
 import type { ClinicGalleryLoadStatus } from "../../model/clinic-gallery"
-import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "../../model/clinic-profile"
+import type { ClinicGalleryItem, ClinicProfileFocusTarget } from "../../model/clinic-profile"
 import type {
   ClinicProfileChangeSet,
   ClinicProfileValidationErrors,
@@ -36,12 +36,9 @@ export type ClinicProfileScreenModel = Readonly<{
   doctorDirectory: DoctorDirectorySnapshot
   doctorManagement: ClinicProfileManagementAccess
   focusTarget?: ClinicProfileFocusTarget
+  gallery: readonly ClinicGalleryItem[]
   galleryStatus: ClinicGalleryLoadStatus
-  legacyIsDirty: boolean
-  legacyProfile: ClinicProfileDraft
-  legacySaveState: "idle" | "saved" | "saving"
-  legacyStatusMessage: string
-  profileManagement: ClinicProfileManagementAccess
+  galleryTotal: number
   sourceProfileManagement: ClinicProfileManagementAccess
   source: Readonly<{
     changeSet?: ClinicProfileChangeSet
@@ -69,8 +66,6 @@ export type ClinicProfileScreenActions = Readonly<{
   onFocusHandled: () => void
   onGalleryOpen: () => void
   onLanguagesChange: (languages: ClinicProfileDraftInput["supportedLanguages"]) => void
-  onLegacyCancel: () => void
-  onLegacySave: () => void
   onNameChange: (name: string) => void
   onOpeningHoursEdit: () => void
   onProfileCancel: () => void
@@ -91,14 +86,12 @@ type ClinicProfileScreenProps = Readonly<{
 export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps) {
   const basicsRef = useRef<HTMLDivElement>(null)
   const conflictRef = useRef<HTMLDivElement>(null)
-  const doctorsRef = useRef<HTMLElement>(null)
   const reviewReturnFocusRef = useRef<HTMLButtonElement>(null)
   const previousSourceModeRef = useRef(model.source.mode)
   const canManageProfile = isClinicProfileManagementInteractive(model.sourceProfileManagement)
   const canManageDoctors = isClinicProfileManagementInteractive(model.doctorManagement)
   const canManageTreatments = isClinicProfileManagementInteractive(model.treatmentManagement)
   const sourceBusy = model.source.operation !== "idle"
-  const legacyBusy = model.legacySaveState === "saving"
   const { onFocusHandled } = actions
 
   useEffect(() => {
@@ -108,9 +101,6 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
     const frame = requestAnimationFrame(() => {
       let target: HTMLElement | null = null
       switch (focusTarget) {
-        case "doctors":
-          target = doctorsRef.current
-          break
         case "conflict":
           target = model.source.mode === "conflict" ? conflictRef.current : null
           break
@@ -219,7 +209,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
   ) : null
 
   return (
-    <div aria-busy={sourceBusy || legacyBusy} className="space-y-6 pb-6">
+    <div aria-busy={sourceBusy} className="space-y-6 pb-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="mb-1 text-sm text-[var(--foreground)]">
@@ -268,12 +258,12 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
       ) : null}
 
       <p aria-live="polite" className="min-h-5 text-sm text-[var(--foreground)]" role="status">
-        {model.source.statusMessage || model.legacyStatusMessage}
+        {model.source.statusMessage}
       </p>
 
       <ClinicProfileGallery
-        gallery={model.legacyProfile.gallery}
-        galleryTotal={model.legacyProfile.galleryTotal}
+        gallery={model.gallery}
+        galleryTotal={model.galleryTotal}
         onOpen={actions.onGalleryOpen}
         showAction={model.source.mode === "view"}
         status={model.galleryStatus}
@@ -307,7 +297,6 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             canManage={canManageDoctors}
             commands={model.doctorCommands}
             onDoctorsChange={actions.onDoctorsChange}
-            ref={doctorsRef}
             snapshot={model.doctorDirectory}
           />
           {isClinicProfileManagementVisible(model.treatmentManagement) ? (
@@ -337,22 +326,6 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
           />
         ) : null}
       </div>
-
-      {model.legacyIsDirty && model.source.mode === "view" ? (
-        <div className="fixed right-0 bottom-0 left-0 z-30 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] px-4 py-3 shadow-2xl backdrop-blur md:left-64">
-          <div className="mx-auto flex max-w-[100rem] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm font-bold text-[var(--secondary)]">Gallery changes not saved</span>
-            <div className="flex justify-end gap-2">
-              <Button disabled={legacyBusy} onClick={actions.onLegacyCancel} variant="outline">
-                Cancel
-              </Button>
-              <Button disabled={legacyBusy} onClick={actions.onLegacySave}>
-                {legacyBusy ? "Saving…" : "Save changes"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {model.source.mode === "edit" && model.source.isDirty ? (
         <div className="fixed right-0 bottom-0 left-0 z-30 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] px-4 py-3 shadow-2xl backdrop-blur md:left-64">
