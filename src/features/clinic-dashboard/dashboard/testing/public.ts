@@ -1,1 +1,8 @@
-export { dashboardFixture } from "./dashboard.fixtures"
+export {
+  dashboardFixture,
+  dashboardProfileProgressConflict,
+  dashboardProfileProgressDraft,
+  dashboardProfileProgressEmpty,
+  dashboardProfileProgressPublishReady,
+  dashboardProfileProgressReady,
+} from "./dashboard.fixtures"

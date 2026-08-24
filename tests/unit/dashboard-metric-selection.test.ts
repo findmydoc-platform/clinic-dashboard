@@ -9,7 +9,10 @@ import {
   dashboardSelectableMetricIds,
   isDashboardSelectableMetricId,
 } from "@/features/clinic-dashboard/dashboard/model/reporting"
-import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
+import {
+  dashboardFixture,
+  dashboardProfileProgressReady,
+} from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
 
 describe("dashboard metric selection", () => {
   it("keeps the eligible metric set explicit and excludes profile completion", () => {
@@ -25,12 +28,17 @@ describe("dashboard metric selection", () => {
   })
 
   it("uses profile views as the default dashboard selection", () => {
-    const model = createDashboardViewModel(dashboardFixture, "7 days", {
-      coverAlt: "Fixture clinic exterior",
-      coverImage: "/fixture-clinic-exterior.jpg",
-      location: "Mitte, Berlin",
-      name: "Berlin Health Clinic — Mitte",
-    })
+    const model = createDashboardViewModel(
+      dashboardFixture,
+      "7 days",
+      {
+        coverAlt: "Fixture clinic exterior",
+        coverImage: "/fixture-clinic-exterior.jpg",
+        location: "Mitte, Berlin",
+        name: "Berlin Health Clinic — Mitte",
+      },
+      dashboardProfileProgressReady,
+    )
 
     expect(model.selectedMetric.id).toBe("views")
     expect(model.selectedMetric.title).toBe("Profile views over time")

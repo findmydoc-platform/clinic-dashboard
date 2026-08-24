@@ -51,7 +51,9 @@ export type ClinicProfileProps = Readonly<{
   onGalleryNavigationRequestChange?: (request?: (continuation: () => void) => void) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   onProfileSaved?: (profile: ClinicProfileDraft) => void
+  onSourceProfileChanged?: (snapshot: ClinicProfileSnapshot) => void
   onTreatmentMissing?: () => void
+  onTreatmentSaved?: (snapshot: ClinicTreatmentsSnapshot) => void
   profileManagement: ClinicProfileManagementAccess
   sourceProfileManagement: ClinicProfileManagementAccess
   sourceCommands: ClinicProfileSourceCommands
@@ -78,7 +80,9 @@ export function ClinicProfile({
   onGalleryNavigationRequestChange,
   onDoctorsChange,
   onProfileSaved,
+  onSourceProfileChanged,
   onTreatmentMissing,
+  onTreatmentSaved,
   profileManagement,
   sourceProfileManagement,
   sourceCommands,
@@ -108,6 +112,7 @@ export function ClinicProfile({
     initialDialog,
     initialSnapshot: treatmentSnapshot,
     management: treatmentManagement,
+    onSaved: onTreatmentSaved,
   })
   const galleryController = useClinicGalleryController({
     commands: galleryCommands,
@@ -128,9 +133,16 @@ export function ClinicProfile({
   const source = useClinicProfileSourceController({
     commands: sourceCommands,
     initialSnapshot: sourceSnapshot,
+    onSnapshotChanged: onSourceProfileChanged,
   })
   const { actions: legacyActions, model: legacyModel } = legacy
   const { actions: sourceActions, model: sourceModel } = source
+  const openGallery = galleryController.actions.openGallery
+  const openTreatmentCreate = treatmentController.actions.openCreate
+  const requestProfileReview = sourceActions.requestReview
+  const setProfileDialog = sourceActions.setDialog
+  const setProfileMode = sourceActions.setMode
+  const startProfileEditing = sourceActions.startEditing
   const effectiveGalleryStatus = galleryController.model.snapshot ? "ready" : galleryStatus
   const isSavingFromLeaveDialog = sourceModel.confirmation === "leave" && sourceModel.operation === "saving"
 
@@ -141,6 +153,86 @@ export function ClinicProfile({
       ? resolveClinicProfileDraftInput(sourceModel.workingDraft, sourceModel.snapshot.availableCities)
       : sourceModel.published
   const treatments = treatmentController.model
+
+  useEffect(() => {
+    if (!focusTarget) return
+
+    switch (focusTarget) {
+      case "doctors":
+      case "conflict":
+        return
+      case "basic-information":
+      case "languages":
+        if (!isClinicProfileManagementInteractive(sourceProfileManagement) || !sourceModel.snapshot) {
+          return
+        }
+        if (sourceModel.mode === "view") startProfileEditing()
+        if (sourceModel.mode === "review") setProfileMode("edit")
+        return
+      case "address":
+      case "opening-hours": {
+        if (!isClinicProfileManagementInteractive(sourceProfileManagement) || !sourceModel.snapshot) {
+          return
+        }
+        if (sourceModel.mode === "view") {
+          startProfileEditing()
+          return
+        }
+        if (sourceModel.mode === "review") {
+          setProfileMode("edit")
+          return
+        }
+        if (sourceModel.mode !== "edit") return
+        setProfileDialog(focusTarget === "address" ? "address" : "hours")
+        onFocusHandled()
+        return
+      }
+      case "gallery":
+        if (!isClinicProfileManagementVisible(galleryManagement)) return
+        openGallery()
+        onFocusHandled()
+        return
+      case "treatments":
+        if (
+          !isClinicProfileManagementInteractive(treatmentManagement) ||
+          treatments.snapshot.status !== "ready"
+        ) {
+          return
+        }
+        openTreatmentCreate()
+        onFocusHandled()
+        return
+      case "review-publish":
+        if (!isClinicProfileManagementInteractive(sourceProfileManagement) || !sourceModel.snapshot) {
+          return
+        }
+        if (sourceModel.mode === "review") {
+          onFocusHandled()
+          return
+        }
+        if (sourceModel.mode !== "conflict") requestProfileReview()
+        return
+      default: {
+        const unreachableTarget: never = focusTarget
+        throw new Error(`Unknown clinic profile focus target: ${unreachableTarget}`)
+      }
+    }
+  }, [
+    focusTarget,
+    galleryManagement,
+    onFocusHandled,
+    openGallery,
+    openTreatmentCreate,
+    requestProfileReview,
+    setProfileDialog,
+    setProfileMode,
+    sourceModel.mode,
+    sourceModel.snapshot,
+    sourceProfileManagement,
+    startProfileEditing,
+    treatmentManagement,
+    treatments.snapshot.status,
+  ])
 
   const screenActions: ClinicProfileScreenActions = {
     onAddressEdit: () => sourceActions.setDialog("address"),

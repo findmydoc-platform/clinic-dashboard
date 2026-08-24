@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { createClinicDashboardDemoClientAdapter } from "@/features/clinic-dashboard/demo/commands"
 import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
 import {
@@ -29,15 +30,15 @@ export function ClinicDashboardWorkspace({
   showPrototypeModeToggle = false,
   workspaceInput,
 }: ClinicDashboardWorkspaceProps) {
-  const demoClientAdapter = useMemo(
-    () => createClinicDashboardDemoClientAdapter(workspaceInput),
-    [workspaceInput],
-  )
+  const router = useRouter()
+  const [isSourceRefreshPending, startSourceRefresh] = useTransition()
+  const demoClientAdapter = useMemo(() => createClinicDashboardDemoClientAdapter(), [])
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
   const reviewSourceCommands = useMemo(() => createReviewSourceApiCommands(), [])
   const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
+  const refreshSources = () => startSourceRefresh(() => router.refresh())
 
   return (
     <ClinicDashboardWorkspaceComposition
@@ -47,7 +48,8 @@ export function ClinicDashboardWorkspace({
       clinicProfileSourceCommands={clinicProfileSourceCommands}
       clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
-      projectDashboardAfterProfileSave={demoClientAdapter.projectDashboardAfterProfileSave}
+      isSourceRefreshPending={isSourceRefreshPending}
+      onSourceRefresh={refreshSources}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}
       prototypeMode={prototypeMode}
       reviewCommands={reviewSourceCommands}

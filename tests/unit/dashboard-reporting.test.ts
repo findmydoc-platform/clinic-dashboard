@@ -62,13 +62,8 @@ describe("dashboard reporting fixtures", () => {
       expect(snapshot.funnel.map(({ conversion }) => conversion)).toEqual(
         expectedConversions[snapshot.period],
       )
-      expect(snapshot.metrics.find(({ id }) => id === "completion")).toMatchObject({
-        progress: 82,
-        value: "82%",
-      })
+      expect(snapshot.metrics.map(({ id }) => id)).toEqual(["impressions", "views", "contacts", "inquiries"])
     }
-
-    expect(dashboardFixture.profileTasks).toHaveLength(4)
   })
 
   it("keeps lifetime reputation stable while period review activity changes", () => {
@@ -102,7 +97,6 @@ describe("dashboard reporting fixtures", () => {
           },
         },
         period: "7 days",
-        profileCompletion: 82,
         reviewActivity: "No new reviews in the last 7 days",
         totals: {
           contacts: 2,
@@ -131,7 +125,6 @@ describe("dashboard reporting fixtures", () => {
           },
         },
         period: "7 days",
-        profileCompletion: 82,
         reviewActivity: "No new reviews in the last 7 days",
         totals: {
           contacts: 2,

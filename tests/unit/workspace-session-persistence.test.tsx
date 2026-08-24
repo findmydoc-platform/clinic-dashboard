@@ -12,19 +12,21 @@ import { notificationsFixture } from "@/features/clinic-dashboard/workspace/test
 import { useClinicDashboardController } from "@/features/clinic-dashboard/workspace/useClinicDashboardController"
 
 const initialProfileTask = dashboardProfileTasks[0]
-const alternateProfileTask = dashboardProfileTasks[1]
 
-if (!initialProfileTask || !alternateProfileTask) {
-  throw new Error("The session persistence tests require two profile task fixtures.")
+if (!initialProfileTask) {
+  throw new Error("The session persistence tests require a profile task fixture.")
 }
 
-function renderController(persistNotificationReadStateInSession: boolean) {
+function renderController(
+  persistNotificationReadStateInSession: boolean,
+  options: Readonly<{ omitProfileTask?: boolean }> = {},
+) {
   return renderHook(() =>
     useClinicDashboardController({
       initialLocationId: "berlin-mitte",
       initialNotificationReadIds: [],
       initialNotificationsOpen: false,
-      initialProfileTask,
+      initialProfileTask: options.omitProfileTask ? undefined : initialProfileTask,
       initialSection: "dashboard",
       notifications: notificationsFixture,
       persistNotificationReadStateInSession,
@@ -102,6 +104,48 @@ describe("workspace session persistence", () => {
     expect(setItem).not.toHaveBeenCalled()
   })
 
+  it("supports a complete public profile without a selected task", () => {
+    const { result } = renderController(false, { omitProfileTask: true })
+
+    expect(result.current.model.selectedProfileTask).toBeUndefined()
+    expect(result.current.model.profileTaskOpen).toBe(false)
+
+    act(() => result.current.actions.selectLocation("future-location-123", "Future Clinic"))
+
+    expect(result.current.model.selectedProfileTask).toBeUndefined()
+    expect(result.current.model.profileTaskOpen).toBe(false)
+    expect(result.current.model.locationAnnouncement).toBe("Location changed to Future Clinic.")
+  })
+
+  it("closes a stale task when the next server read completes the profile", () => {
+    const { result, rerender } = renderHook(
+      ({ profileTask }: Readonly<{ profileTask?: typeof initialProfileTask }>) =>
+        useClinicDashboardController({
+          initialLocationId: "berlin-mitte",
+          initialNotificationReadIds: [],
+          initialNotificationsOpen: false,
+          initialProfileTask: profileTask,
+          initialSection: "dashboard",
+          notifications: notificationsFixture,
+          persistNotificationReadStateInSession: false,
+          prototypeMode: "presentation",
+        }),
+      {
+        initialProps: {
+          profileTask: initialProfileTask as typeof initialProfileTask | undefined,
+        },
+      },
+    )
+
+    act(() => result.current.actions.openProfileTask(initialProfileTask))
+    expect(result.current.model.profileTaskOpen).toBe(true)
+
+    rerender({ profileTask: undefined })
+
+    expect(result.current.model.selectedProfileTask).toBeUndefined()
+    expect(result.current.model.profileTaskOpen).toBe(false)
+  })
+
   it("opens one notification target, marks only it read, and resets location-scoped state", () => {
     const { result } = renderController(false)
     const notification = notificationsFixture[0]
@@ -110,7 +154,7 @@ describe("workspace session persistence", () => {
     act(() => result.current.actions.navigateToProfileTarget("gallery"))
     act(() => result.current.actions.openProfileTask(initialProfileTask))
     act(() => result.current.actions.openSupport())
-    act(() => result.current.actions.openNotification(notification, "Mitte", alternateProfileTask))
+    act(() => result.current.actions.openNotification(notification, "Mitte"))
 
     expect(result.current.model.activeSection).toBe("messages")
     expect(result.current.model.messageFocusTarget).toBe("heading")
@@ -135,9 +179,7 @@ describe("workspace session persistence", () => {
     act(() => result.current.actions.navigate("messages"))
     act(() => result.current.actions.openProfileTask(initialProfileTask))
     act(() => result.current.actions.openSupport())
-    act(() =>
-      result.current.actions.selectLocation("future-location-123", "Future Clinic", alternateProfileTask),
-    )
+    act(() => result.current.actions.selectLocation("future-location-123", "Future Clinic"))
 
     expect(result.current.model.activeSection).toBe("messages")
     expect(result.current.model.profileTaskOpen).toBe(false)

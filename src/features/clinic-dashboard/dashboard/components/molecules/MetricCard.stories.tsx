@@ -41,14 +41,14 @@ export const Progress: Story = {
   args: {
     metric: {
       id: "completion",
-      label: "Profile completion",
-      progress: 82,
-      value: "82%",
+      label: "Public profile completion",
+      progress: 67,
+      value: "67%",
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getByText("Profile completion").closest("button")).toBeNull()
+    await expect(canvas.getByText("Public profile completion").closest("button")).toBeNull()
   },
 }

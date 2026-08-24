@@ -1,6 +1,5 @@
 import {
   createDashboardReportingSnapshot,
-  type DashboardProfileTask,
   type DashboardReportingPeriod,
   type DashboardSelectableMetricId,
   type DashboardSnapshot,
@@ -91,21 +90,12 @@ type DemoReportingInput = Readonly<{
 }>
 
 type DemoDashboardInput = Readonly<{
-  profileCompletion: number
-  profileTasks: readonly DashboardProfileTask[]
   rating: DashboardSnapshot["rating"]
   reporting: Readonly<Record<DashboardReportingPeriod, DemoReportingInput>>
 }>
 
-export function createDemoDashboardSnapshot({
-  profileCompletion,
-  profileTasks,
-  rating,
-  reporting,
-}: DemoDashboardInput): DashboardSnapshot {
+export function createDemoDashboardSnapshot({ rating, reporting }: DemoDashboardInput): DashboardSnapshot {
   return {
-    profileCompletion,
-    profileTasks,
     rating,
     reporting: {
       "7 days": createDashboardReportingSnapshot({
@@ -116,7 +106,6 @@ export function createDemoDashboardSnapshot({
           series: reporting["7 days"].series,
         },
         period: "7 days",
-        profileCompletion,
       }),
       "30 days": createDashboardReportingSnapshot({
         ...reporting["30 days"],
@@ -126,7 +115,6 @@ export function createDemoDashboardSnapshot({
           series: reporting["30 days"].series,
         },
         period: "30 days",
-        profileCompletion,
       }),
       "90 days": createDashboardReportingSnapshot({
         ...reporting["90 days"],
@@ -136,7 +124,6 @@ export function createDemoDashboardSnapshot({
           series: reporting["90 days"].series,
         },
         period: "90 days",
-        profileCompletion,
       }),
     },
   }

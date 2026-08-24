@@ -89,7 +89,8 @@ type ClinicProfileScreenProps = Readonly<{
 }>
 
 export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps) {
-  const galleryRef = useRef<HTMLElement>(null)
+  const basicsRef = useRef<HTMLDivElement>(null)
+  const conflictRef = useRef<HTMLDivElement>(null)
   const doctorsRef = useRef<HTMLElement>(null)
   const reviewReturnFocusRef = useRef<HTMLButtonElement>(null)
   const previousSourceModeRef = useRef(model.source.mode)
@@ -101,10 +102,45 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
   const { onFocusHandled } = actions
 
   useEffect(() => {
-    if (!model.focusTarget) return
+    const focusTarget = model.focusTarget
+    if (!focusTarget) return
 
     const frame = requestAnimationFrame(() => {
-      const target = model.focusTarget === "gallery" ? galleryRef.current : doctorsRef.current
+      let target: HTMLElement | null = null
+      switch (focusTarget) {
+        case "doctors":
+          target = doctorsRef.current
+          break
+        case "conflict":
+          target = model.source.mode === "conflict" ? conflictRef.current : null
+          break
+        case "basic-information":
+          if (model.source.mode === "edit") {
+            const basicFields = basicsRef.current
+            const draft = model.source.workingDraft
+            target = !draft?.name.trim()
+              ? (basicFields?.querySelector<HTMLInputElement>("input") ?? null)
+              : !draft.descriptionText.trim()
+                ? (basicFields?.querySelector<HTMLTextAreaElement>("textarea") ?? null)
+                : (basicFields?.querySelector<HTMLInputElement>("input") ?? null)
+          }
+          break
+        case "languages":
+          if (model.source.mode === "edit") {
+            target = basicsRef.current?.querySelector<HTMLElement>('[role="combobox"]') ?? null
+          }
+          break
+        case "address":
+        case "gallery":
+        case "opening-hours":
+        case "review-publish":
+        case "treatments":
+          break
+        default: {
+          const unreachableTarget: never = focusTarget
+          throw new Error(`Unknown clinic profile focus target: ${unreachableTarget}`)
+        }
+      }
       if (!target) return
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -114,7 +150,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
     })
 
     return () => cancelAnimationFrame(frame)
-  }, [model.focusTarget, onFocusHandled])
+  }, [model.focusTarget, model.source.mode, model.source.workingDraft, onFocusHandled])
 
   useEffect(() => {
     const previousMode = previousSourceModeRef.current
@@ -210,8 +246,10 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
 
       {model.source.mode === "conflict" ? (
         <div
-          className="flex flex-col gap-4 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_28%,var(--background))] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-4 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_28%,var(--background))] px-4 py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:flex-row sm:items-center sm:justify-between"
+          ref={conflictRef}
           role="alert"
+          tabIndex={-1}
         >
           <div className="flex items-start gap-3">
             <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
@@ -237,7 +275,6 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
         gallery={model.legacyProfile.gallery}
         galleryTotal={model.legacyProfile.galleryTotal}
         onOpen={actions.onGalleryOpen}
-        ref={galleryRef}
         showAction={model.source.mode === "view"}
         status={model.galleryStatus}
       />
@@ -245,16 +282,18 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,0.8fr)]">
         <div className="min-w-0 space-y-6">
           {model.source.displayFields ? (
-            <ClinicProfileBasics
-              description={model.source.displayFields.descriptionText}
-              errors={model.source.validationErrors}
-              isEditing={model.source.mode === "edit"}
-              name={model.source.displayFields.name}
-              onDescriptionChange={actions.onDescriptionChange}
-              onLanguagesChange={actions.onLanguagesChange}
-              onNameChange={actions.onNameChange}
-              supportedLanguages={model.source.displayFields.supportedLanguages}
-            />
+            <div ref={basicsRef}>
+              <ClinicProfileBasics
+                description={model.source.displayFields.descriptionText}
+                errors={model.source.validationErrors}
+                isEditing={model.source.mode === "edit"}
+                name={model.source.displayFields.name}
+                onDescriptionChange={actions.onDescriptionChange}
+                onLanguagesChange={actions.onLanguagesChange}
+                onNameChange={actions.onNameChange}
+                supportedLanguages={model.source.displayFields.supportedLanguages}
+              />
+            </div>
           ) : (
             <Card className="p-6" role="alert">
               <h2 className="text-xl font-bold text-[var(--secondary)]">Profile unavailable</h2>

@@ -7,7 +7,6 @@ import {
 } from "@/features/clinic-dashboard/prototype/demo-interaction-policy"
 
 const hiddenVisibility = {
-  certificateTasks: "hidden",
   certificatesAccreditationsPlaceholder: "hidden",
   dashboardReporting: "hidden",
   inquiryProfile: "hidden",
@@ -28,7 +27,6 @@ const hiddenPolicy = {
   canViewDetailedPatientInquiry: false,
   canSwitchLocations: false,
   profileManagement: "hidden",
-  showCertificateTasks: false,
   showCertificatesAccreditationsPlaceholder: false,
   showNotifications: false,
   showSupport: false,
@@ -45,7 +43,6 @@ describe("clinic dashboard demo interaction policy", () => {
       canViewDetailedPatientInquiry: true,
       canSwitchLocations: true,
       profileManagement: "interactive",
-      showCertificateTasks: false,
       showCertificatesAccreditationsPlaceholder: true,
       showNotifications: true,
       showSupport: true,
@@ -54,17 +51,14 @@ describe("clinic dashboard demo interaction policy", () => {
     })
   })
 
-  it("keeps internal visual-reference additions separate", () => {
+  it("does not invent a separate task set for the internal visual reference", () => {
     const policy = getClinicDashboardDemoInteractionPolicy("visual-reference")
-    expect(policy).toEqual({
-      ...getClinicDashboardDemoInteractionPolicy("presentation"),
-      showCertificateTasks: true,
-    })
+    expect(policy).toEqual(getClinicDashboardDemoInteractionPolicy("presentation"))
+    expect(policy).not.toHaveProperty("showCertificateTasks")
     expect(policy).not.toHaveProperty("canExportReviews")
   })
 
   it.each([
-    ["certificateTasks", "showCertificateTasks"],
     ["locationSwitching", "canSwitchLocations"],
     ["notifications", "showNotifications"],
     ["support", "showSupport"],

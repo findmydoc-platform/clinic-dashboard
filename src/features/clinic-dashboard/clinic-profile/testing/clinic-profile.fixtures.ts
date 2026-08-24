@@ -219,8 +219,11 @@ export function createClinicProfileCommandsFixture(latencyMs = 0): ClinicProfile
   }
 }
 
-export function createClinicTreatmentCommandsFixture(latencyMs = 0): ClinicTreatmentCommands {
-  let snapshot: ClinicTreatmentsSnapshot = clinicTreatmentSnapshotFixture
+export function createClinicTreatmentCommandsFixture(
+  initialSnapshot: ClinicTreatmentsSnapshot = clinicTreatmentSnapshotFixture,
+  latencyMs = 0,
+): ClinicTreatmentCommands {
+  let snapshot: ClinicTreatmentsSnapshot = initialSnapshot
   const wait = async () => {
     if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs))
   }

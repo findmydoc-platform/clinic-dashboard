@@ -545,8 +545,7 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                 </div>
                 <h2 className="mt-5 text-xl font-bold text-[var(--secondary)]">Add your clinic photos</h2>
                 <p className="mt-2 text-sm leading-6">
-                  Start with the image that best represents the clinic. The first five images shape the first
-                  impression.
+                  Start with a clear image that represents the clinic, then add distinct supporting views.
                 </p>
                 {model.isInteractive ? (
                   <Button className="mt-5" onClick={() => actions.setAddOpen(true)}>

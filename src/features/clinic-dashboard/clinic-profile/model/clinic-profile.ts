@@ -1,4 +1,13 @@
-export type ClinicProfileFocusTarget = "doctors" | "gallery"
+export type ClinicProfileFocusTarget =
+  | "address"
+  | "basic-information"
+  | "conflict"
+  | "doctors"
+  | "gallery"
+  | "languages"
+  | "opening-hours"
+  | "review-publish"
+  | "treatments"
 
 export type ClinicProfileImageSource =
   | string

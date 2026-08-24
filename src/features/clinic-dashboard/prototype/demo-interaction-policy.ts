@@ -13,12 +13,6 @@ const websiteIssue = <Issue extends number>(issue: Issue) =>
   `https://github.com/findmydoc-platform/website/issues/${issue}` as const
 
 const clinicDashboardDemoVisibilityPolicy = {
-  certificateTasks: {
-    area: "Certificate task details",
-    issue: websiteIssue(1523),
-    presentation: "hidden",
-    visualReference: "interactive",
-  },
   certificatesAccreditationsPlaceholder: {
     area: "Certificates and accreditations placeholder",
     issue: websiteIssue(1523),
@@ -109,7 +103,6 @@ export type ClinicDashboardDemoInteractionPolicy = Readonly<{
   canViewDetailedPatientInquiry: boolean
   canSwitchLocations: boolean
   profileManagement: VisibilityBehavior
-  showCertificateTasks: boolean
   showCertificatesAccreditationsPlaceholder: boolean
   showNotifications: boolean
   showSupport: boolean
@@ -135,7 +128,6 @@ export function deriveClinicDashboardDemoInteractionPolicy(
     canViewDetailedPatientInquiry: isInteractive(visibility.inquiryProfile),
     canSwitchLocations: isInteractive(visibility.locationSwitching),
     profileManagement: visibility.profileWrites,
-    showCertificateTasks: isInteractive(visibility.certificateTasks),
     showCertificatesAccreditationsPlaceholder: visibility.certificatesAccreditationsPlaceholder !== "hidden",
     showNotifications: isInteractive(visibility.notifications),
     showSupport: isInteractive(visibility.support),
@@ -148,7 +140,6 @@ export function getClinicDashboardDemoInteractionPolicy(
   prototypeMode: ClinicDashboardPrototypeMode,
 ): ClinicDashboardDemoInteractionPolicy {
   return deriveClinicDashboardDemoInteractionPolicy({
-    certificateTasks: getDemoVisibilityBehavior(prototypeMode, "certificateTasks"),
     certificatesAccreditationsPlaceholder: getDemoVisibilityBehavior(
       prototypeMode,
       "certificatesAccreditationsPlaceholder",

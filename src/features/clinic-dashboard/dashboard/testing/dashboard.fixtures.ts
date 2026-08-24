@@ -1,51 +1,161 @@
+import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"
+import type {
+  ClinicGalleryMedia,
+  ClinicGallerySnapshot,
+  ClinicProfileCompletenessReady,
+  ClinicProfileDraftCompleteness,
+  ClinicTreatmentOffering,
+} from "@/features/clinic-dashboard/clinic-profile/public"
 import { createDashboardReportingSnapshot, type DashboardReportingSnapshots } from "../model/reporting"
 import type { DashboardViewModel } from "../model/dashboard-view-model"
 import type { DashboardSnapshot } from "../model/dashboard-snapshot"
 import { createDashboardMetricSelection } from "../model/dashboard-metric-selection"
-import type { DashboardProfileTask } from "../model/profile-tasks"
+import { createDashboardProfileProgress, type DashboardProfileProgressReady } from "../model/profile-progress"
 
-export const dashboardProfileTasks = [
-  {
-    actionLabel: "Review images",
-    description: "The public gallery does not yet cover every clinic area expected for a complete profile.",
-    destination: "gallery",
-    destinationLabel: "Open image gallery",
-    id: "missing-images",
-    label: "Missing images",
-    priority: "High",
-    visibility: "always",
-  },
-  {
-    actionLabel: "Review doctors",
-    description: "Two doctor profiles still need review before their public profiles are complete.",
-    destination: "doctors",
-    destinationLabel: "Open doctors",
-    id: "open-doctor-profiles",
-    label: "Open doctor profiles",
-    priority: "Medium",
-    visibility: "always",
-  },
-  {
-    actionLabel: "View details",
-    description: "Required certificates have not yet been added to the clinic profile.",
-    id: "certificates-required",
-    label: "Certificates required",
-    priority: "High",
-    visibility: "full-interface",
-  },
-] as const satisfies readonly DashboardProfileTask[]
+const galleryItems = [
+  { alt: "Exterior", id: "image-1", status: "published", url: "/1.jpg" },
+  { alt: "Reception", id: "image-2", status: "published", url: "/2.jpg" },
+  { alt: "Treatment room", id: "image-3", status: "published", url: "/3.jpg" },
+] as const satisfies readonly ClinicGalleryMedia[]
 
-const dashboardFixtureProfileTasks: readonly DashboardProfileTask[] = [
-  ...dashboardProfileTasks,
-  {
-    actionLabel: "View details",
-    description: "One certificate is approaching its expiry date and needs review.",
-    id: "certificate-expiry",
-    label: "Certificate expiry",
-    priority: "Low",
-    visibility: "full-interface",
+const gallerySnapshot = {
+  constraints: {
+    acceptedMimeTypes: ["image/jpeg"],
+    maxConcurrentUploads: 3,
+    maxFileBytes: 5_000_000,
+    maxItems: 20,
+    maxPixels: 20_000_000,
   },
-]
+  items: galleryItems,
+  revision: 1,
+} as const satisfies ClinicGallerySnapshot
+
+const profileAreas = [
+  { complete: true, id: "basic-information", missingFields: [] },
+  { complete: true, id: "address", missingFields: [] },
+  { complete: true, id: "languages", missingFields: [] },
+  { complete: true, id: "opening-hours", missingFields: [] },
+] as const satisfies ClinicProfileCompletenessReady["areas"]
+
+const noDraft = {
+  changedAreas: [],
+  completedAreaCount: 4,
+  missingAreas: [],
+  state: "none",
+} as const satisfies ClinicProfileDraftCompleteness
+
+const treatmentOffering = {
+  active: true,
+  id: "offering-1",
+  price: 1_200,
+  revision: "1",
+  treatment: { descriptionText: "Treatment", id: "treatment-1", name: "Treatment" },
+} as const satisfies ClinicTreatmentOffering
+
+function requireReadyProgress(
+  result: ReturnType<typeof createDashboardProfileProgress>,
+): DashboardProfileProgressReady {
+  if (result.status !== "ready") throw new Error("Expected ready dashboard profile fixture")
+  return result
+}
+
+function createProfileProgressFixture({
+  draft = noDraft,
+  images = galleryItems,
+  publishedAreas = profileAreas,
+  treatments = [treatmentOffering],
+}: Readonly<{
+  draft?: ClinicProfileDraftCompleteness
+  images?: readonly ClinicGalleryMedia[]
+  publishedAreas?: ClinicProfileCompletenessReady["areas"]
+  treatments?: readonly ClinicTreatmentOffering[]
+}> = {}) {
+  return requireReadyProgress(
+    createDashboardProfileProgress({
+      gallery: {
+        snapshot: { ...gallerySnapshot, items: images },
+        status: "ready",
+      },
+      profile: {
+        draft,
+        published: {
+          areas: publishedAreas,
+          completedAreaCount: publishedAreas.filter((area) => area.complete).length,
+          status: "ready",
+        },
+      },
+      taskActionability: {
+        canEditGallery: true,
+        canEditProfile: true,
+        canEditTreatments: true,
+      },
+      treatments: { catalogue: [], offerings: treatments, status: "ready" },
+    }),
+  )
+}
+
+export const dashboardProfileProgressReady = createProfileProgressFixture({
+  images: [galleryItems[0]],
+  treatments: [],
+})
+
+export const dashboardProfileProgressComplete = createProfileProgressFixture()
+
+export const dashboardProfileProgressEmpty = createProfileProgressFixture({
+  images: [],
+  publishedAreas: [
+    { complete: false, id: "basic-information", missingFields: ["name", "descriptionText"] },
+    {
+      complete: false,
+      id: "address",
+      missingFields: ["address.street", "address.houseNumber", "address.cityId", "address.zipCode"],
+    },
+    { complete: false, id: "languages", missingFields: ["supportedLanguages"] },
+    {
+      complete: false,
+      id: "opening-hours",
+      missingFields: ["openingHours.monday", "openingHours.tuesday"],
+    },
+  ],
+  treatments: [],
+})
+
+export const dashboardProfileProgressDraft = createProfileProgressFixture({
+  draft: {
+    changedAreas: ["basic-information", "languages"],
+    completedAreaCount: 2,
+    missingAreas: ["address", "opening-hours"],
+    state: "incomplete",
+  },
+})
+
+export const dashboardProfileProgressPublishReady = createProfileProgressFixture({
+  draft: {
+    changedAreas: ["basic-information", "opening-hours"],
+    completedAreaCount: 4,
+    missingAreas: [],
+    state: "publish-ready",
+  },
+})
+
+export const dashboardProfileProgressConflict = createProfileProgressFixture({
+  draft: {
+    changedAreas: ["address"],
+    completedAreaCount: 4,
+    missingAreas: [],
+    state: "conflict",
+  },
+})
+
+export const dashboardProfileProgressError = {
+  message: "Public profile progress is temporarily unavailable.",
+  reason: "gallery-unavailable",
+  status: "error",
+} as const
+
+export const dashboardProfileProgressLoading = { status: "loading" } as const
+
+export const dashboardProfileTasks = dashboardProfileProgressEmpty.tasks
 
 const reporting = createDashboardReportingSnapshot({
   changes: {
@@ -74,7 +184,6 @@ const reporting = createDashboardReportingSnapshot({
     },
   },
   period: "7 days",
-  profileCompletion: 82,
   reviewActivity: "1 new review in the last 7 days",
   totals: {
     contacts: 12,
@@ -106,7 +215,6 @@ const reportingSnapshots = {
       },
     },
     period: "30 days",
-    profileCompletion: 82,
     reviewActivity: "5 new reviews in the last 30 days",
     totals: {
       contacts: 42,
@@ -135,7 +243,6 @@ const reportingSnapshots = {
       },
     },
     period: "90 days",
-    profileCompletion: 82,
     reviewActivity: "17 new reviews in the last 90 days",
     totals: {
       contacts: 118,
@@ -148,8 +255,6 @@ const reportingSnapshots = {
 } satisfies DashboardReportingSnapshots
 
 export const dashboardFixture = {
-  profileCompletion: 82,
-  profileTasks: dashboardFixtureProfileTasks,
   rating: {
     categories: ["Hair transplant", "Dental implants", "Laser eye surgery"],
     count: 1_248,
@@ -167,8 +272,7 @@ export const dashboardViewModel = {
     name: "Berlin Health Clinic — Mitte",
     ratingLabel: "4.8 ★",
   },
-  profileCompletion: "82%",
-  profileTasks: dashboardProfileTasks,
+  profileProgress: dashboardProfileProgressReady,
   rating: {
     categories: ["Hair transplant", "Dental implants", "Laser eye surgery"],
     count: 1_248,
@@ -178,4 +282,3 @@ export const dashboardViewModel = {
   reporting: reportingSnapshots["7 days"],
   selectedMetric: createDashboardMetricSelection(reportingSnapshots["7 days"], "views"),
 } satisfies DashboardViewModel
-import exteriorImage from "@/assets/clinic-dashboard/exterior.jpg"

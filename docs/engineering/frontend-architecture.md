@@ -48,7 +48,6 @@ src/
         loader.ts
         notifications.ts
         organization.ts
-        profile-projection.ts
         reporting.ts
         assets/
           locations/
@@ -69,7 +68,6 @@ src/
           molecules/
             ClinicDashboardNavigation.tsx
         model/
-          profile-save-projection.ts
           workspace-input.ts
 
       prototype/
@@ -88,6 +86,8 @@ src/
         hooks/
           useDashboardController.ts
         model/
+        server/
+          public.ts
         testing/
 
       messages/
@@ -161,6 +161,8 @@ src/
         hooks/
           useClinicProfileController.ts
         model/
+        server/
+          public.ts
         testing/
 
       support/
@@ -183,23 +185,23 @@ Do not create generic `shared`, `common`, `misc`, `helpers`, `services`, or `rep
 
 ## Import Matrix
 
-| Source                         | May import                                                                                                                              | Must not import                                                                                       |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `app/**`                       | providers, `features/clinic-dashboard/public.ts`, root `server.ts`, and the exact auth `server/public.ts` entry for auth/session routes | other feature internals, provider implementations, demo-source details, fixtures                      |
-| Server entry                   | central data-provider composition, private workspace provider, workspace input, demo loader, and inquiry server contract                | concrete domain providers, components, browser adapters, demo client commands, fixtures               |
-| Data-provider composition      | environment contract, domain provider contracts, and concrete Controlled/Payload providers                                              | components, browser adapters, route implementations, fixtures                                         |
-| Domain provider contract       | same-domain serializable models                                                                                                         | React, Next.js UI, routes, browser adapters, Storybook                                                |
-| Domain provider implementation | its domain contract, transport validation, domain models, and server environment                                                        | UI, routes, browser adapters, Storybook                                                               |
-| Workspace provider             | the private workspace input type                                                                                                        | live-domain contracts, components, browser adapters, runtime client commands, fixtures                |
-| Demo source                    | other `demo/**` modules, sibling `public.ts` contracts, and named private workspace input, validation, and projection contracts         | app routes, components, Storybook, tests, browser storage                                             |
-| Workspace                      | feature `public.ts` contracts, demo client adapter at the client entry, workspace model, shared UI                                      | raw demo data, other private feature leaf components, test fixtures, live-domain providers            |
-| Feature components             | same-feature public model types, same-feature lower visual layers, shared UI                                                            | runtime demo data or commands, fixtures, browser adapters, server providers, sibling internals        |
-| Feature hooks                  | React, same-feature model, named command contracts/adapters                                                                             | runtime demo data or commands, unrelated feature internals, test fixtures, route or server code       |
-| Feature model                  | TypeScript-only types and pure functions                                                                                                | React, Next.js, components, hooks, providers, DOM, storage                                            |
-| Browser command implementation | same-origin capability routes and serializable model types                                                                              | server provider contracts or implementations, React components, Storybook                             |
-| `components/ui/**`             | React, Radix/shadcn dependencies, design tokens, domain-neutral utilities                                                               | app, features, domain models, runtime demo sources, fixtures                                          |
-| React providers                | provider libraries and domain-neutral configuration                                                                                     | Clinic Dashboard feature behavior                                                                     |
-| Stories/testing                | public components, public contracts, independent fixtures and command fakes, Storybook/test APIs                                        | runtime demo data or commands; server providers except exact contract, adapter, and composition tests |
+| Source                         | May import                                                                                                                                               | Must not import                                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `app/**`                       | providers, `features/clinic-dashboard/public.ts`, root `server.ts`, and the exact auth `server/public.ts` entry for auth/session routes                  | other feature internals, provider implementations, demo-source details, fixtures                      |
+| Server entry                   | central data-provider composition, private workspace provider, workspace input, demo loader, and narrow domain or aggregate `server/public.ts` contracts | concrete domain providers, components, browser adapters, demo client commands, fixtures               |
+| Data-provider composition      | environment contract, domain provider contracts, and concrete Controlled/Payload providers                                                               | components, browser adapters, route implementations, fixtures                                         |
+| Domain provider contract       | same-domain serializable models                                                                                                                          | React, Next.js UI, routes, browser adapters, Storybook                                                |
+| Domain provider implementation | its domain contract, transport validation, domain models, and server environment                                                                         | UI, routes, browser adapters, Storybook                                                               |
+| Workspace provider             | the private workspace input type                                                                                                                         | live-domain contracts, components, browser adapters, runtime client commands, fixtures                |
+| Demo source                    | other `demo/**` modules, sibling `public.ts` contracts, and named private workspace input, validation, and projection contracts                          | app routes, components, Storybook, tests, browser storage                                             |
+| Workspace                      | feature `public.ts` contracts, demo client adapter at the client entry, workspace model, shared UI                                                       | raw demo data, other private feature leaf components, test fixtures, live-domain providers            |
+| Feature components             | same-feature public model types, same-feature lower visual layers, shared UI                                                                             | runtime demo data or commands, fixtures, browser adapters, server providers, sibling internals        |
+| Feature hooks                  | React, same-feature model, named command contracts/adapters                                                                                              | runtime demo data or commands, unrelated feature internals, test fixtures, route or server code       |
+| Feature model                  | TypeScript-only types and pure functions                                                                                                                 | React, Next.js, components, hooks, providers, DOM, storage                                            |
+| Browser command implementation | same-origin capability routes and serializable model types                                                                                               | server provider contracts or implementations, React components, Storybook                             |
+| `components/ui/**`             | React, Radix/shadcn dependencies, design tokens, domain-neutral utilities                                                                                | app, features, domain models, runtime demo sources, fixtures                                          |
+| React providers                | provider libraries and domain-neutral configuration                                                                                                      | Clinic Dashboard feature behavior                                                                     |
+| Stories/testing                | public components, public contracts, independent fixtures and command fakes, Storybook/test APIs                                                         | runtime demo data or commands; server providers except exact contract, adapter, and composition tests |
 
 Each feature area exposes a small `public.ts` with explicit named exports. General `public.ts` contracts never export runtime demo data, provider implementations, or command implementations, and `export *` is forbidden. Sibling features use these contracts rather than importing another feature's internals. The server provider/loader, central data-provider composition, private live-domain contracts, and client demo-adapter entries are the narrow private exceptions described below; they are not public API.
 
@@ -341,7 +343,7 @@ Extract a named pure module when logic expresses a business rule, performs a tra
 
 `*.fixtures.ts` is Storybook/test-only. Stories and tests own independent feature-local fixture values and command fakes; they never import `demo/**`. Dataset contract tests exercise the server loader rather than reaching into the raw source. Production code never imports fixtures.
 
-Runtime demo command implementations remain client-side under `demo/commands.ts` because functions cannot cross the Server Component boundary. Only `ClinicDashboardWorkspace` imports the demo client adapter. Review and treatment commands use their source-backed browser adapters instead. Feature UI, screens, shells, and controllers receive narrow feature command contracts. Profile completion projection is a pure generic workspace rule configured by private demo rules; no feature component knows those values.
+Runtime demo command implementations remain client-side under `demo/commands.ts` because functions cannot cross the Server Component boundary. Only `ClinicDashboardWorkspace` imports the demo client adapter. Review and treatment commands use their source-backed browser adapters instead. Feature UI, screens, shells, and controllers receive narrow feature command contracts. Public profile completion is evaluated from the clinic-bound profile, gallery, and treatment sources during server workspace assembly through server-safe feature entries. The serialized result is atomic, independent of reporting periods, and never recalculated from demo profile mutations in the browser. Its percentage reflects all readable sources, while its task list includes only destinations backed by the authenticated clinic user's matching edit capability.
 
 The only private cross-area exceptions are: `server.ts` importing the central data-provider composition, demo workspace provider, workspace contract, and live-domain server contracts; the central composition importing exact live-domain contracts and concrete providers; exact provider contract and adapter tests importing those private modules; approved doctor, inquiry, and review BFF routes importing the root server entry; `demo/loader.ts` implementing the workspace provider; demo builders importing the private workspace input type; `ClinicDashboardWorkspace` importing the demo client adapter; and the existing `PrototypeModeSwitch` composition. All other cross-area imports use the owning area's `public.ts`.
 

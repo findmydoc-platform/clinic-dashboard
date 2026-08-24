@@ -1,37 +1,6 @@
 import { createDemoDashboardSnapshot } from "../../reporting"
 
 export const antalyaLaraDashboard = createDemoDashboardSnapshot({
-  profileCompletion: 64,
-  profileTasks: [
-    {
-      actionLabel: "Review cover",
-      description: "Review and confirm a different cover image for the new location.",
-      destination: "gallery",
-      destinationLabel: "Open image gallery",
-      id: "antalya-lara-gallery-review",
-      label: "Confirm launch cover",
-      priority: "High",
-      visibility: "always",
-    },
-    {
-      actionLabel: "Review doctors",
-      description: "Add the remaining practitioner details for the new location.",
-      destination: "doctors",
-      destinationLabel: "Open doctors",
-      id: "antalya-lara-doctor-details",
-      label: "Complete doctor profiles",
-      priority: "High",
-      visibility: "always",
-    },
-    {
-      actionLabel: "View details",
-      description: "Required location certificates have not yet been uploaded.",
-      id: "antalya-lara-certificates-required",
-      label: "Certificates required",
-      priority: "High",
-      visibility: "full-interface",
-    },
-  ],
   rating: {
     categories: ["General dermatology", "Skin analysis", "Preventive consultations"],
     count: 92,
