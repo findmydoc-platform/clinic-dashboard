@@ -4,7 +4,15 @@ import { expect, fn, userEvent, within } from "storybook/test"
 import { DashboardPeriodControl } from "../molecules/DashboardPeriodControl"
 import { createDashboardMetricSelection } from "../../model/dashboard-metric-selection"
 import type { DashboardSelectableMetricId } from "../../model/reporting"
-import { dashboardFixture, dashboardViewModel } from "../../testing/dashboard.fixtures"
+import {
+  dashboardFixture,
+  dashboardProfileProgressConflict,
+  dashboardProfileProgressDraft,
+  dashboardProfileProgressError,
+  dashboardProfileProgressLoading,
+  dashboardProfileProgressPublishReady,
+  dashboardViewModel,
+} from "../../testing/dashboard.fixtures"
 import { DashboardScreen } from "./DashboardScreen"
 
 const meta = {
@@ -51,32 +59,30 @@ async function expectFullCapabilities(canvasElement: HTMLElement) {
 
   await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
   await expect(canvas.getByRole("button", { name: "Download profile views" })).toBeInTheDocument()
-  await expect(
-    canvas.getByRole("button", { name: "View details for Certificates required" }),
-  ).toBeInTheDocument()
+  await expect(canvas.getByRole("button", { name: "View details for Add clinic images" })).toBeInTheDocument()
   await expect(canvas.getByRole("region", { name: "Dashboard clinic location summary" })).toBeInTheDocument()
 }
 
 async function expectPresentationCapabilities(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
 
-  await expect(canvas.getByRole("button", { name: "Review images" })).toBeInTheDocument()
-  await expect(canvas.queryByRole("button", { name: /^View details/ })).not.toBeInTheDocument()
+  await expect(canvas.getByRole("button", { name: "View details for Add clinic images" })).toBeInTheDocument()
   await expect(canvas.queryByRole("button", { name: "Download profile views" })).not.toBeInTheDocument()
   await expect(canvas.queryByRole("button", { name: "Open preview" })).not.toBeInTheDocument()
 }
 
-function getLowerDashboardColumns(canvasElement: HTMLElement) {
-  const grid = canvasElement.querySelector<HTMLElement>("[data-dashboard-lower-grid]")
+function getDashboardLayout(canvasElement: HTMLElement) {
+  const grid = canvasElement.querySelector<HTMLElement>("[data-dashboard-content-grid]")
+  const profile = canvasElement.querySelector<HTMLElement>("[data-dashboard-profile-progress]")
+  const funnel = canvasElement.querySelector<HTMLElement>("[data-dashboard-funnel]")
+  const metricPanel = canvasElement.querySelector<HTMLElement>("[data-dashboard-metric-panel]")
+  const summary = canvasElement.querySelector<HTMLElement>("[data-dashboard-summary-column]")
 
-  if (!grid || grid.children.length !== 3) {
-    throw new Error("Expected the three-column lower dashboard grid")
+  if (!grid || !profile || !funnel || !metricPanel || !summary) {
+    throw new Error("Expected the responsive dashboard content grid")
   }
 
-  return {
-    columns: Array.from(grid.children, (child) => child.getBoundingClientRect()),
-    grid,
-  }
+  return { funnel, grid, metricPanel, profile, summary }
 }
 
 function getMetricPanelLayout(canvasElement: HTMLElement) {
@@ -96,20 +102,25 @@ export const FullCapabilities: Story = {
   args: {
     actions: {
       onMetricSelect: fn(),
+      onProfileProgressRetry: fn(),
       onProfileTaskOpen: fn(),
       onProfileViewsDownload: fn(),
       onReviewsOpen: fn(),
     },
     canDownloadProfileViews: true,
     model: dashboardViewModel,
-    showCertificateTasks: true,
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
 
     await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
-    await userEvent.click(canvas.getByRole("button", { name: "Review images" }))
-    await expect(args.actions.onProfileTaskOpen).toHaveBeenCalledWith(dashboardViewModel.profileTasks[0])
+    await userEvent.click(canvas.getByRole("button", { name: "View details for Add clinic images" }))
+    if (dashboardViewModel.profileProgress.status !== "ready") {
+      throw new Error("Expected ready dashboard fixture")
+    }
+    await expect(args.actions.onProfileTaskOpen).toHaveBeenCalledWith(
+      dashboardViewModel.profileProgress.tasks[0],
+    )
     await userEvent.click(canvas.getByRole("button", { name: "Download profile views" }))
     await expect(args.actions.onProfileViewsDownload).toHaveBeenCalledOnce()
     await userEvent.click(canvas.getByRole("button", { name: "View reviews" }))
@@ -121,13 +132,13 @@ export const PresentationCapabilities: Story = {
   args: {
     actions: {
       onMetricSelect: fn(),
+      onProfileProgressRetry: fn(),
       onProfileTaskOpen: fn(),
       onProfileViewsDownload: fn(),
       onReviewsOpen: fn(),
     },
     canDownloadProfileViews: false,
     model: dashboardViewModel,
-    showCertificateTasks: false,
   },
   play: async ({ canvasElement }) => {
     await expectPresentationCapabilities(canvasElement)
@@ -140,13 +151,15 @@ export const Desktop1440Layout: Story = {
   play: async ({ canvasElement }) => {
     await expectFullCapabilities(canvasElement)
 
-    const { columns, grid } = getLowerDashboardColumns(canvasElement)
-    const [leftColumn, chartColumn, rightColumn] = columns
+    const { funnel, grid, metricPanel, profile, summary } = getDashboardLayout(canvasElement)
+    const lowerColumns = [profile, metricPanel, summary].map((column) => column.getBoundingClientRect())
+    const [leftColumn, chartColumn, rightColumn] = lowerColumns
 
-    const columnBottoms = columns.map((column) => column.bottom)
+    const columnBottoms = lowerColumns.map((column) => column.bottom)
     const { chart, summaryItems } = getMetricPanelLayout(canvasElement)
 
     await expect(getComputedStyle(grid).alignItems).toBe("stretch")
+    await expect(profile.getBoundingClientRect().top).toBeGreaterThan(funnel.getBoundingClientRect().bottom)
     await expect(Math.abs(chartColumn.top - leftColumn.top)).toBeLessThanOrEqual(0.5)
     await expect(Math.abs(rightColumn.top - leftColumn.top)).toBeLessThanOrEqual(0.5)
     await expect(Math.max(...columnBottoms) - Math.min(...columnBottoms)).toBeLessThanOrEqual(0.5)
@@ -170,10 +183,17 @@ export const NarrowViewport: Story = {
   play: async ({ canvasElement }) => {
     await expectFullCapabilities(canvasElement)
 
-    const { columns, grid } = getLowerDashboardColumns(canvasElement)
-    const [profileColumn, chartColumn, summaryColumn] = columns
+    const canvas = within(canvasElement)
+    const metrics = canvas.getByRole("region", { name: "Dashboard metrics" }).getBoundingClientRect()
+    const { funnel, grid, metricPanel, profile, summary } = getDashboardLayout(canvasElement)
+    const profileColumn = profile.getBoundingClientRect()
+    const funnelColumn = funnel.getBoundingClientRect()
+    const chartColumn = metricPanel.getBoundingClientRect()
+    const summaryColumn = summary.getBoundingClientRect()
 
-    await expect(chartColumn.top).toBeGreaterThan(profileColumn.bottom)
+    await expect(profileColumn.top).toBeGreaterThan(metrics.bottom)
+    await expect(funnelColumn.top).toBeGreaterThan(profileColumn.bottom)
+    await expect(chartColumn.top).toBeGreaterThan(funnelColumn.bottom)
     await expect(summaryColumn.top).toBeGreaterThan(chartColumn.bottom)
     await expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth)
     const chartViewport = canvasElement.querySelector<HTMLElement>("[data-chart-viewport]")
@@ -200,7 +220,7 @@ export const FunnelControlsChart: Story = {
     const profileViewsButton = funnel.getByRole("button", { name: "Profile views 848" })
 
     await expect(metricCards.queryAllByRole("button")).toHaveLength(0)
-    await expect(metricCards.getByText("Profile completion").closest("button")).toBeNull()
+    await expect(metricCards.getByText("Public profile completion").closest("button")).toBeNull()
     await expect(metricCards.getByText("Profile views").closest("button")).toBeNull()
     await expect(profileViewsButton).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByRole("heading", { level: 2, name: "Profile views over time" })).toBeVisible()
@@ -233,9 +253,11 @@ export const FunnelControlsChart: Story = {
     await expect(canvas.getByRole("heading", { level: 2, name: "Contacts over time" })).toBeVisible()
 
     await userEvent.click(canvas.getByRole("button", { name: "30 days" }))
+    await expect(canvas.getAllByText("67%")).toHaveLength(2)
     await expect(contactsButton).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByText("-2.1% vs. previous 30 days")).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "90 days" }))
+    await expect(canvas.getAllByText("67%")).toHaveLength(2)
     await expect(contactsButton).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByText("+4.4% vs. previous 90 days")).toBeVisible()
   },
@@ -244,4 +266,51 @@ export const FunnelControlsChart: Story = {
 export const DarkFunnelSelection: Story = {
   ...FunnelControlsChart,
   globals: { theme: "dark" },
+}
+
+export const CompleteProfileDraft: Story = {
+  args: {
+    ...FullCapabilities.args,
+    model: { ...dashboardViewModel, profileProgress: dashboardProfileProgressDraft },
+  },
+}
+
+export const PublishProfileChanges: Story = {
+  args: {
+    ...FullCapabilities.args,
+    model: { ...dashboardViewModel, profileProgress: dashboardProfileProgressPublishReady },
+  },
+}
+
+export const ReviewProfileChanges: Story = {
+  args: {
+    ...FullCapabilities.args,
+    model: { ...dashboardViewModel, profileProgress: dashboardProfileProgressConflict },
+  },
+  globals: { theme: "dark" },
+}
+
+export const ProfileProgressLoading: Story = {
+  args: {
+    ...FullCapabilities.args,
+    model: { ...dashboardViewModel, profileProgress: dashboardProfileProgressLoading },
+  },
+}
+
+export const ProfileProgressError: Story = {
+  args: {
+    ...FullCapabilities.args,
+    model: { ...dashboardViewModel, profileProgress: dashboardProfileProgressError },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const metricCards = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
+
+    await expect(canvas.getByText("Public profile completion")).toBeVisible()
+    await expect(canvas.getAllByText("—")).toHaveLength(2)
+    await expect(metricCards.getByText("Impressions")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Profile views 848" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Retry" }))
+    await expect(args.actions.onProfileProgressRetry).toHaveBeenCalledOnce()
+  },
 }

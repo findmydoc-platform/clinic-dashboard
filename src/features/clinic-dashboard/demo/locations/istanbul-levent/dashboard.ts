@@ -1,45 +1,6 @@
 import { createDemoDashboardSnapshot } from "../../reporting"
 
 export const istanbulLeventDashboard = createDemoDashboardSnapshot({
-  profileCompletion: 82,
-  profileTasks: [
-    {
-      actionLabel: "Review cover",
-      description: "Review and confirm a different cover image for the public clinic profile.",
-      destination: "gallery",
-      destinationLabel: "Open image gallery",
-      id: "istanbul-levent-missing-images",
-      label: "Confirm cover image",
-      priority: "High",
-      visibility: "always",
-    },
-    {
-      actionLabel: "Review doctors",
-      description: "Two doctor profiles still need review before their public profiles are complete.",
-      destination: "doctors",
-      destinationLabel: "Open doctors",
-      id: "istanbul-levent-open-doctor-profiles",
-      label: "Open doctor profiles",
-      priority: "Medium",
-      visibility: "always",
-    },
-    {
-      actionLabel: "View details",
-      description: "Required certificates have not yet been added to this location.",
-      id: "istanbul-levent-certificates-required",
-      label: "Certificates required",
-      priority: "High",
-      visibility: "full-interface",
-    },
-    {
-      actionLabel: "View details",
-      description: "One certificate is approaching its expiry date and needs review.",
-      id: "istanbul-levent-certificate-expiry",
-      label: "Certificate expiry",
-      priority: "Low",
-      visibility: "full-interface",
-    },
-  ],
   rating: {
     categories: ["Hair transplant", "Dermatology", "Skin analysis"],
     count: 1_248,

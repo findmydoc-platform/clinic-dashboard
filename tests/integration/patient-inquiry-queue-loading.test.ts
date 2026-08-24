@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { clinicProfileSourceFixture } from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile-source.fixtures"
 
 const serverMocks = vi.hoisted(() => ({
   composeDataProviders: vi.fn(),
@@ -28,6 +29,9 @@ vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
 vi.mock("@/features/clinic-dashboard/messages/server/public", () => ({
   handlePatientInquiryStatusUpdate: vi.fn(),
 }))
+vi.mock("@/features/clinic-dashboard/clinic-profile/server/clinic-gallery-dto", () => ({
+  toDashboardClinicGallerySnapshot: vi.fn((snapshot) => snapshot),
+}))
 
 import { loadClinicDashboardWorkspaceInput } from "@/features/clinic-dashboard/server"
 
@@ -44,8 +48,53 @@ const workspace = {
   locations: [],
   notifications: [],
   organization: { id: "clinic-1", name: "Clinic One" },
+  profileProgress: {
+    message: "Public profile progress is temporarily unavailable.",
+    reason: "profile-unavailable",
+    status: "error",
+  },
   treatmentSnapshot: { catalogue: [], offerings: [], status: "temporarily-unavailable" },
 } as const
+
+const gallerySnapshot = {
+  constraints: {
+    acceptedMimeTypes: ["image/jpeg"],
+    maxConcurrentUploads: 3,
+    maxFileBytes: 4_194_304,
+    maxItems: 12,
+    maxPixels: 50_000_000,
+  },
+  items: [
+    { alt: "Clinic exterior", id: "image-1", status: "published", url: "https://media.example/1.jpg" },
+    { alt: "Reception", id: "image-2", status: "published", url: "https://media.example/2.jpg" },
+    { alt: "Treatment room", id: "image-3", status: "published", url: "https://media.example/3.jpg" },
+  ],
+  revision: 2,
+} as const
+
+const treatmentSnapshot = {
+  catalogue: [],
+  offerings: [
+    {
+      active: true,
+      id: "offering-1",
+      price: 3_900,
+      revision: "revision-1",
+      treatment: {
+        descriptionText: "A published treatment.",
+        id: "treatment-1",
+        name: "Published treatment",
+      },
+    },
+  ],
+  status: "ready",
+} as const
+
+function arrangeReadyProfileProgressSources() {
+  serverMocks.loadProfile.mockResolvedValue({ ok: true, value: clinicProfileSourceFixture })
+  serverMocks.loadGallery.mockResolvedValue({ ok: true, value: gallerySnapshot })
+  serverMocks.loadTreatments.mockResolvedValue({ ok: true, value: treatmentSnapshot })
+}
 
 describe("Patient inquiry queue server loading", () => {
   beforeEach(() => {
@@ -54,6 +103,7 @@ describe("Patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
         capabilities: [
+          "clinic-gallery:view",
           "clinic-profile:view",
           "clinic-profile:edit",
           "clinic-treatments:view",
@@ -110,6 +160,10 @@ describe("Patient inquiry queue server loading", () => {
 
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
+      profileProgress: {
+        reason: "profile-unavailable",
+        status: "error",
+      },
     })
     expect(serverMocks.composeDataProviders).not.toHaveBeenCalled()
   })
@@ -154,6 +208,148 @@ describe("Patient inquiry queue server loading", () => {
     expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("access-token", "clinic-1")
     expect(serverMocks.loadQueue).toHaveBeenCalledOnce()
   })
+
+  it("evaluates one tenant-bound profile progress snapshot from the three successful source reads", async () => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: { inquiries: [], status: "ready" } })
+    arrangeReadyProfileProgressSources()
+
+    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+      profileProgress: {
+        completedAreaCount: 6,
+        percent: 100,
+        status: "ready",
+        tasks: [],
+        totalAreaCount: 6,
+      },
+    })
+    expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("access-token", "clinic-1")
+    expect(serverMocks.loadProfile).toHaveBeenCalledOnce()
+    expect(serverMocks.loadGallery).toHaveBeenCalledOnce()
+    expect(serverMocks.loadTreatments).toHaveBeenCalledOnce()
+  })
+
+  it("keeps profile progress visible without exposing dead tasks to a view-only user", async () => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: ["clinic-gallery:view", "clinic-profile:view", "clinic-treatments:view"],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+        principal: {
+          displayName: "View Only",
+          email: "view-only@example.com",
+          id: "principal-view-only",
+        },
+      },
+      status: "approved",
+    })
+    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: { inquiries: [], status: "ready" } })
+    serverMocks.loadProfile.mockResolvedValue({
+      ok: true,
+      value: {
+        ...clinicProfileSourceFixture,
+        published: { ...clinicProfileSourceFixture.published, name: "" },
+      },
+    })
+    serverMocks.loadGallery.mockResolvedValue({
+      ok: true,
+      value: { ...gallerySnapshot, items: gallerySnapshot.items.slice(0, 1) },
+    })
+    serverMocks.loadTreatments.mockResolvedValue({
+      ok: true,
+      value: { catalogue: [], offerings: [], status: "ready" },
+    })
+
+    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+      profileProgress: {
+        completedAreaCount: 3,
+        percent: 50,
+        status: "ready",
+        tasks: [],
+      },
+    })
+  })
+
+  it.each([
+    ["clinic-profile:edit", "basic-information"],
+    ["clinic-gallery:edit", "clinic-images"],
+    ["clinic-treatments:edit", "treatments"],
+  ] as const)("includes only the task backed by %s", async (editCapability, expectedTaskId) => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: [
+          "clinic-gallery:view",
+          "clinic-profile:view",
+          "clinic-treatments:view",
+          editCapability,
+        ],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+        principal: {
+          displayName: "Scoped Editor",
+          email: "scoped-editor@example.com",
+          id: "principal-scoped-editor",
+        },
+      },
+      status: "approved",
+    })
+    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: { inquiries: [], status: "ready" } })
+    serverMocks.loadProfile.mockResolvedValue({
+      ok: true,
+      value: {
+        ...clinicProfileSourceFixture,
+        published: { ...clinicProfileSourceFixture.published, name: "" },
+      },
+    })
+    serverMocks.loadGallery.mockResolvedValue({
+      ok: true,
+      value: { ...gallerySnapshot, items: gallerySnapshot.items.slice(0, 1) },
+    })
+    serverMocks.loadTreatments.mockResolvedValue({
+      ok: true,
+      value: { catalogue: [], offerings: [], status: "ready" },
+    })
+
+    const input = await loadClinicDashboardWorkspaceInput()
+
+    expect(input.profileProgress).toMatchObject({
+      completedAreaCount: 3,
+      percent: 50,
+      status: "ready",
+    })
+    if (input.profileProgress.status !== "ready") throw new Error("Expected ready profile progress")
+    expect(input.profileProgress.tasks.map((task) => task.id)).toEqual([expectedTaskId])
+  })
+
+  it.each([
+    ["profile", "profile-unavailable"],
+    ["gallery", "gallery-unavailable"],
+    ["treatments", "treatments-unavailable"],
+  ] as const)(
+    "returns one atomic error without partial progress when the %s source fails",
+    async (source, expectedReason) => {
+      serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+      serverMocks.loadQueue.mockResolvedValue({ ok: true, value: { inquiries: [], status: "ready" } })
+      arrangeReadyProfileProgressSources()
+      const failingRead = {
+        gallery: serverMocks.loadGallery,
+        profile: serverMocks.loadProfile,
+        treatments: serverMocks.loadTreatments,
+      }[source]
+      failingRead.mockRejectedValue(new Error(`${source} unavailable`))
+
+      const input = await loadClinicDashboardWorkspaceInput()
+
+      expect(input.profileProgress).toEqual({
+        message: "Public profile progress is temporarily unavailable.",
+        reason: expectedReason,
+        status: "error",
+      })
+      expect(input.profileProgress).not.toHaveProperty("areas")
+      expect(input.profileProgress).not.toHaveProperty("tasks")
+      expect(input.inquiryQueue).toEqual({ inquiries: [], status: "ready" })
+    },
+  )
 
   it("projects the verified doctor directory independently from the inquiry queue", async () => {
     const doctorDirectory = {
@@ -201,6 +397,7 @@ describe("Patient inquiry queue server loading", () => {
     const input = await loadClinicDashboardWorkspaceInput()
 
     expect(input.profileSourceSnapshot).toBeUndefined()
+    expect(input.profileProgress).toMatchObject({ reason: "profile-unavailable", status: "error" })
     expect(serverMocks.loadProfile).not.toHaveBeenCalled()
   })
 
@@ -220,6 +417,29 @@ describe("Patient inquiry queue server loading", () => {
       galleryStatus: "temporarily-unavailable",
     })
     expect(serverMocks.loadGallery).toHaveBeenCalledOnce()
+  })
+
+  it("returns one atomic error when gallery access is forbidden", async () => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: ["clinic-profile:view", "clinic-treatments:view"],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+      },
+      status: "approved",
+    })
+    serverMocks.loadProfile.mockResolvedValue({ ok: true, value: clinicProfileSourceFixture })
+    serverMocks.loadTreatments.mockResolvedValue({ ok: true, value: treatmentSnapshot })
+    serverMocks.loadQueue.mockResolvedValue({ error: "temporarily-unavailable", ok: false })
+
+    const input = await loadClinicDashboardWorkspaceInput()
+
+    expect(input.profileProgress).toEqual({
+      message: "Public profile progress is temporarily unavailable.",
+      reason: "gallery-unavailable",
+      status: "error",
+    })
+    expect(serverMocks.loadGallery).not.toHaveBeenCalled()
   })
 
   it("marks a verified live gallery snapshot ready", async () => {
@@ -255,7 +475,7 @@ describe("Patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: ["clinic-profile:view"],
+        capabilities: ["clinic-gallery:view", "clinic-profile:view"],
         clinic: { id: "clinic-1", name: "Clinic One" },
       },
       status: "approved",
@@ -264,8 +484,11 @@ describe("Patient inquiry queue server loading", () => {
       error: "temporarily-unavailable",
       ok: false,
     })
+    serverMocks.loadProfile.mockResolvedValue({ ok: true, value: clinicProfileSourceFixture })
+    serverMocks.loadGallery.mockResolvedValue({ ok: true, value: gallerySnapshot })
 
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+      profileProgress: { reason: "treatments-unavailable", status: "error" },
       treatmentSnapshot: { catalogue: [], offerings: [], status: "forbidden" },
     })
     expect(serverMocks.loadTreatments).not.toHaveBeenCalled()

@@ -3,7 +3,10 @@
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useDashboardController } from "@/features/clinic-dashboard/dashboard/hooks/useDashboardController"
-import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
+import {
+  dashboardFixture,
+  dashboardProfileProgressReady,
+} from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
 import { downloadTextFile } from "@/lib/browser/download-text-file"
 
 vi.mock("@/lib/browser/download-text-file", () => ({
@@ -32,6 +35,7 @@ function renderDashboardController(canExportProfileViews: boolean) {
         location: "Mitte, Berlin",
         name: "Berlin Health Clinic — Mitte",
       },
+      profileProgress: dashboardProfileProgressReady,
       snapshot: dashboardFixture,
     }),
   )

@@ -54,6 +54,66 @@ afterEach(() => {
 })
 
 describe("clinic gallery controller", () => {
+  it("adopts a refreshed authoritative gallery when no local changes are pending", () => {
+    const initial = snapshot([media("initial")])
+    const refreshed = { ...snapshot([media("refreshed")]), revision: initial.revision + 1 }
+    const commands = createCommands(initial)
+    const hook = renderHook(
+      ({ initialSnapshot }) =>
+        useClinicGalleryController({ commands, initialSnapshot, management: "interactive" }),
+      { initialProps: { initialSnapshot: initial as ClinicGallerySnapshot | undefined } },
+    )
+
+    act(() => hook.rerender({ initialSnapshot: refreshed }))
+
+    expect(hook.result.current.model.snapshot).toBe(refreshed)
+    expect(hook.result.current.model.items.map((item) => item.id)).toEqual(["refreshed"])
+  })
+
+  it("keeps unsaved gallery edits until the editor discards them", async () => {
+    const initial = snapshot([media("initial")])
+    const refreshed = { ...snapshot([media("refreshed")]), revision: initial.revision + 1 }
+    const commands = createCommands(initial)
+    const hook = renderHook(
+      ({ initialSnapshot }) =>
+        useClinicGalleryController({ commands, initialSnapshot, management: "interactive" }),
+      { initialProps: { initialSnapshot: initial as ClinicGallerySnapshot | undefined } },
+    )
+
+    act(() => hook.result.current.actions.openGallery())
+    act(() => hook.result.current.actions.updateItem("initial", { alt: "Unsaved local alt text" }))
+    act(() => hook.rerender({ initialSnapshot: refreshed }))
+
+    expect(hook.result.current.model.snapshot).toBe(initial)
+    expect(hook.result.current.model.items[0]?.alt).toBe("Unsaved local alt text")
+    expect(hook.result.current.model.isDirty).toBe(true)
+
+    act(() => hook.result.current.actions.requestClose())
+    await act(async () => hook.result.current.actions.closeWithoutSaving())
+
+    expect(hook.result.current.model.snapshot).toBe(refreshed)
+    expect(hook.result.current.model.items[0]?.id).toBe("refreshed")
+  })
+
+  it("becomes usable when an initial gallery error is replaced by a ready snapshot", () => {
+    const ready = snapshot([media("ready")])
+    const commands = createCommands(ready)
+    const hook = renderHook(
+      ({ initialSnapshot }) =>
+        useClinicGalleryController({ commands, initialSnapshot, management: "interactive" }),
+      { initialProps: { initialSnapshot: undefined as ClinicGallerySnapshot | undefined } },
+    )
+
+    expect(hook.result.current.model.snapshot).toBeUndefined()
+
+    act(() => hook.rerender({ initialSnapshot: ready }))
+    act(() => hook.result.current.actions.openGallery())
+
+    expect(hook.result.current.model.snapshot).toBe(ready)
+    expect(hook.result.current.model.items[0]?.id).toBe("ready")
+    expect(commands.loadGallery).not.toHaveBeenCalled()
+  })
+
   it("rejects images over the pixel limit before uploading", async () => {
     stubImageDimensions(10_000, 5_001)
     const commands = createCommands()

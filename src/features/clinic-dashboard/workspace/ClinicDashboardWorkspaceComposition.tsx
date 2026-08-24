@@ -7,10 +7,8 @@ import {
 } from "@/features/clinic-dashboard/auth/public"
 import {
   ClinicProfile,
-  type ClinicProfileCommands,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
-  type ClinicProfileDraft,
   type ClinicProfileFocusTarget,
   type ClinicProfileSourceCommands,
   type ClinicTreatmentCommands,
@@ -22,7 +20,6 @@ import {
   DashboardScreen,
   ProfileTaskDialog,
   type DashboardReportingPeriod,
-  type DashboardSnapshot,
   useDashboardController,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { InquiryQueue } from "@/features/clinic-dashboard/messages/public"
@@ -64,7 +61,6 @@ export type ClinicDashboardWorkspaceStartState =
 
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
-  clinicProfileCommands: ClinicProfileCommands
   clinicGalleryCommands: ClinicGalleryCommands
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
@@ -72,16 +68,10 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
   initialReportingPeriod?: DashboardReportingPeriod
+  isSourceRefreshPending: boolean
+  onSourceRefresh: () => void
   persistNotificationReadStateInSession: boolean
   prototypeMode: ClinicDashboardPrototypeMode
-  projectDashboardAfterProfileSave: (
-    input: Readonly<{
-      initialProfile: ClinicProfileDraft
-      locationId: string
-      savedProfile: ClinicProfileDraft
-      snapshot: DashboardSnapshot
-    }>,
-  ) => DashboardSnapshot
   reviewCommands: ReviewSourceCommands
   showPrototypeModeToggle: boolean
   start?: ClinicDashboardWorkspaceStartState
@@ -90,7 +80,6 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
 
 export function ClinicDashboardWorkspaceComposition({
   authenticatedContext,
-  clinicProfileCommands,
   clinicGalleryCommands,
   clinicProfileSourceCommands,
   clinicTreatmentCommands,
@@ -98,17 +87,15 @@ export function ClinicDashboardWorkspaceComposition({
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
   initialReportingPeriod = "30 days",
+  isSourceRefreshPending,
+  onSourceRefresh,
   persistNotificationReadStateInSession,
   prototypeMode,
-  projectDashboardAfterProfileSave,
   reviewCommands,
   showPrototypeModeToggle,
   start = {},
   workspaceInput,
 }: ClinicDashboardWorkspaceCompositionProps) {
-  const [savedProfileProjection, setSavedProfileProjection] = useState<
-    Readonly<{ locationId: string; profile: ClinicProfileDraft }> | undefined
-  >()
   const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
   const [galleryProjection, setGalleryProjection] = useState<ClinicGallerySnapshot>()
   const galleryNavigationRequestRef = useRef<((continuation: () => void) => void) | undefined>(undefined)
@@ -125,9 +112,10 @@ export function ClinicDashboardWorkspaceComposition({
   }
 
   getClinicDashboardLocation(workspaceInput.locations, workspaceInput.defaultLocationId)
-  const defaultSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, workspaceInput.defaultLocationId)
-  const initialProfileTask = defaultSnapshot.dashboard.profileTasks[0]
-  if (!initialProfileTask) throw new Error("The clinic dashboard requires at least one profile task.")
+  const profileProgress = isSourceRefreshPending
+    ? ({ status: "loading" } as const)
+    : workspaceInput.profileProgress
+  const initialProfileTask = profileProgress.status === "ready" ? profileProgress.tasks[0] : undefined
 
   const controller = useClinicDashboardController({
     initialLocationId: workspaceInput.defaultLocationId,
@@ -164,44 +152,23 @@ export function ClinicDashboardWorkspaceComposition({
     : workspaceInput.defaultLocationId
   const selectedLocation = getClinicDashboardLocation(workspaceInput.locations, effectiveLocationId)
   const selectedSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, selectedLocation.id)
-  const profileProjection =
-    savedProfileProjection?.locationId === selectedLocation.id
-      ? savedProfileProjection.profile
-      : selectedSnapshot.clinicProfile
   const effectiveGallerySnapshot = galleryProjection ?? workspaceInput.gallerySnapshot
   const effectiveGalleryStatus = galleryProjection ? "ready" : workspaceInput.galleryStatus
+  const publishedGalleryItems =
+    effectiveGallerySnapshot?.items.filter((item) => item.status === "published") ?? []
   const selectedProfile =
     effectiveGallerySnapshot || effectiveGalleryStatus !== "ready"
       ? {
-          ...profileProjection,
-          gallery:
-            effectiveGallerySnapshot?.items.slice(0, 4).map((item, index) => ({
-              alt: item.alt,
-              id: item.id,
-              isCover: index === 0,
-              src: item.thumbnailUrl ?? item.url,
-            })) ?? [],
-          galleryTotal: effectiveGallerySnapshot?.items.length ?? 0,
+          ...selectedSnapshot.clinicProfile,
+          gallery: publishedGalleryItems.slice(0, 4).map((item, index) => ({
+            alt: item.alt,
+            id: item.id,
+            isCover: index === 0,
+            src: item.thumbnailUrl ?? item.url,
+          })),
+          galleryTotal: publishedGalleryItems.length,
         }
-      : profileProjection
-  const profileProjectedDashboard =
-    savedProfileProjection?.locationId === selectedLocation.id
-      ? projectDashboardAfterProfileSave({
-          initialProfile: selectedSnapshot.clinicProfile,
-          locationId: selectedLocation.id,
-          savedProfile: savedProfileProjection.profile,
-          snapshot: selectedSnapshot.dashboard,
-        })
-      : selectedSnapshot.dashboard
-  const projectedDashboardSnapshot =
-    effectiveGallerySnapshot && effectiveGallerySnapshot.items.length > 0
-      ? projectDashboardAfterProfileSave({
-          initialProfile: selectedSnapshot.clinicProfile,
-          locationId: selectedLocation.id,
-          savedProfile: selectedProfile,
-          snapshot: profileProjectedDashboard,
-        })
-      : profileProjectedDashboard
+      : selectedSnapshot.clinicProfile
   const coverImage = selectedProfile.gallery.find((image) => image.isCover) ?? selectedProfile.gallery[0]
 
   const dashboardController = useDashboardController({
@@ -212,7 +179,8 @@ export function ClinicDashboardWorkspaceComposition({
       location: selectedLocation.location,
       name: selectedProfile.name,
     },
-    snapshot: projectedDashboardSnapshot,
+    profileProgress,
+    snapshot: selectedSnapshot.dashboard,
   })
 
   const accountInitials = authenticatedContext.principal.displayName
@@ -233,14 +201,10 @@ export function ClinicDashboardWorkspaceComposition({
 
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
     const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
-    const nextSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, locationId)
-    const nextProfileTask = nextSnapshot.dashboard.profileTasks[0]
-    if (!nextProfileTask) throw new Error(`Clinic location ${locationId} requires a profile task.`)
 
     continueAfterGalleryGuard(() => {
-      setSavedProfileProjection(undefined)
       setGalleryProjection(undefined)
-      actions.selectLocation(locationId, nextLocation.name, nextProfileTask)
+      actions.selectLocation(locationId, nextLocation.name)
     })
   }
 
@@ -309,15 +273,9 @@ export function ClinicDashboardWorkspaceComposition({
                 workspaceInput.locations,
                 notification.locationId,
               )
-              const nextSnapshot = getClinicDashboardLocationSnapshot(workspaceInput, notification.locationId)
-              const nextProfileTask = nextSnapshot.dashboard.profileTasks[0]
-              if (!nextProfileTask) {
-                throw new Error(`Clinic location ${notification.locationId} requires a profile task.`)
-              }
               continueAfterGalleryGuard(() => {
-                setSavedProfileProjection(undefined)
                 setGalleryProjection(undefined)
-                actions.openNotification(notification, nextLocation.name, nextProfileTask)
+                actions.openNotification(notification, nextLocation.name)
               })
             }}
             onOpenChange={actions.setNotificationsOpen}
@@ -334,22 +292,22 @@ export function ClinicDashboardWorkspaceComposition({
       </p>
 
       <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
-        <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, doctors, clinic
-        treatments, gallery, patient inquiries and reviews are live. Dashboard cards and charts are local
-        examples.
+        <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, public profile
+        progress, doctors, clinic treatments, gallery, patient inquiries and reviews are live. Performance
+        cards and charts are local examples.
       </div>
 
       {activeSection === "dashboard" ? (
         <DashboardScreen
           actions={{
             onMetricSelect: dashboardController.actions.selectMetric,
+            onProfileProgressRetry: onSourceRefresh,
             onProfileTaskOpen: actions.openProfileTask,
             onProfileViewsDownload: dashboardController.actions.exportProfileViews,
             onReviewsOpen: actions.navigateToReviews,
           }}
           canDownloadProfileViews={capabilities.canUseDashboardReporting}
           model={dashboardController.model.viewModel}
-          showCertificateTasks={capabilities.showCertificateTasks}
         />
       ) : null}
       <div hidden={activeSection !== "messages"}>
@@ -370,7 +328,6 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "profile"}>
         <ClinicProfile
-          commands={clinicProfileCommands}
           galleryCommands={clinicGalleryCommands}
           galleryManagement={galleryManagement}
           galleryStatus={effectiveGalleryStatus}
@@ -382,21 +339,21 @@ export function ClinicDashboardWorkspaceComposition({
           initialDialog={
             model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined
           }
-          initialProfile={selectedProfile}
           key={selectedLocation.id}
           onFocusHandled={actions.clearProfileFocusRequest}
-          onGallerySaved={setGalleryProjection}
+          onGallerySaved={(snapshot) => {
+            setGalleryProjection(snapshot)
+            onSourceRefresh()
+          }}
           onGalleryNavigationRequestChange={setGalleryNavigationRequest}
           onDoctorsChange={(doctors) => {
             const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
             if (source.status !== "ready") return
             setDoctorDirectoryProjection({ ...source, doctors })
           }}
-          onProfileSaved={(profile) =>
-            setSavedProfileProjection({ locationId: selectedLocation.id, profile })
-          }
+          onSourceProfileChanged={onSourceRefresh}
+          onTreatmentSaved={onSourceRefresh}
           onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
-          profileManagement={capabilities.profileManagement}
           sourceProfileManagement={sourceProfileManagement}
           sourceCommands={clinicProfileSourceCommands}
           sourceSnapshot={workspaceInput.profileSourceSnapshot}
@@ -419,12 +376,14 @@ export function ClinicDashboardWorkspaceComposition({
         />
       ) : null}
 
-      <ProfileTaskDialog
-        onOpenChange={actions.setProfileTaskOpen}
-        onProfileDestinationOpen={openProfileDestination}
-        open={model.profileTaskOpen}
-        task={model.selectedProfileTask}
-      />
+      {model.selectedProfileTask ? (
+        <ProfileTaskDialog
+          onOpenChange={actions.setProfileTaskOpen}
+          onProfileDestinationOpen={openProfileDestination}
+          open={model.profileTaskOpen}
+          task={model.selectedProfileTask}
+        />
+      ) : null}
       {capabilities.showSupport && model.supportOpen ? (
         <SupportRequestDialog onOpenChange={actions.setSupportOpen} open />
       ) : null}

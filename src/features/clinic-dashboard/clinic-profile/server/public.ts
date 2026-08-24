@@ -1,6 +1,12 @@
 import "server-only"
 
 export {
+  evaluateClinicProfileCompleteness,
+  evaluateClinicProfileDraftCompleteness,
+} from "../model/clinic-profile-completeness"
+export type { ClinicTreatmentsSnapshot } from "../model/clinic-treatment"
+
+export {
   handleClinicGalleryDiscard,
   handleClinicGalleryImage,
   handleClinicGalleryRead,

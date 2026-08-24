@@ -3,6 +3,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useClinicProfileSourceController } from "@/features/clinic-dashboard/clinic-profile/hooks/useClinicProfileSourceController"
+import type { ClinicProfileSnapshot } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source"
 import { ClinicProfileSourceCommandError } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source-commands"
 import {
   clinicProfileSourceDraftFixture,
@@ -13,13 +14,62 @@ import {
 describe("clinic profile source controller", () => {
   afterEach(cleanup)
 
+  it("starts in conflict when a persisted draft targets an older published revision", () => {
+    const conflictingSnapshot = {
+      ...clinicProfileSourceDraftFixture,
+      published: {
+        ...clinicProfileSourceDraftFixture.published,
+        revision: clinicProfileSourceDraftFixture.published.revision + 1,
+      },
+    }
+    const commands = createClinicProfileSourceCommandsFixture(conflictingSnapshot)
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: conflictingSnapshot }),
+    )
+
+    expect(result.current.model.mode).toBe("conflict")
+    expect(result.current.model.workingDraft?.name).toBe(conflictingSnapshot.draft?.name)
+    expect(result.current.model.isDirty).toBe(false)
+    expect(result.current.model.statusMessage).toContain("changed elsewhere")
+  })
+
+  it("keeps a reloaded snapshot in conflict while its draft still targets an older revision", async () => {
+    const conflictingSnapshot = {
+      ...clinicProfileSourceDraftFixture,
+      published: {
+        ...clinicProfileSourceDraftFixture.published,
+        revision: clinicProfileSourceDraftFixture.published.revision + 1,
+      },
+    }
+    const commands = {
+      ...createClinicProfileSourceCommandsFixture(conflictingSnapshot),
+      loadSnapshot: vi.fn(async () => conflictingSnapshot),
+    }
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({ commands, initialSnapshot: conflictingSnapshot }),
+    )
+
+    await act(async () => {
+      await result.current.actions.reloadLatest()
+    })
+
+    expect(result.current.model.mode).toBe("conflict")
+    expect(result.current.model.workingDraft?.name).toBe(conflictingSnapshot.draft?.name)
+    expect(result.current.model.statusMessage).toContain("changed elsewhere")
+  })
+
   it("guards local edits and saves them independently as a persistent draft", async () => {
     const persistedCommands = createClinicProfileSourceCommandsFixture()
     const createDraft = vi.fn(persistedCommands.createDraft)
     const saveDraft = vi.fn(persistedCommands.saveDraft)
     const commands = { ...persistedCommands, createDraft, saveDraft }
+    const onSnapshotChanged = vi.fn()
     const { result } = renderHook(() =>
-      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceFixture }),
+      useClinicProfileSourceController({
+        commands,
+        initialSnapshot: clinicProfileSourceFixture,
+        onSnapshotChanged,
+      }),
     )
 
     act(() => result.current.actions.startEditing())
@@ -39,6 +89,34 @@ describe("clinic profile source controller", () => {
     expect(saveDraft).toHaveBeenCalledWith(
       expect.objectContaining({ expectedDraftRevision: 1, expectedPublishedRevision: 4 }),
     )
+    expect(onSnapshotChanged).toHaveBeenCalledWith(result.current.model.snapshot)
+  })
+
+  it("keeps success feedback when the authoritative refresh echoes the saved snapshot", async () => {
+    const commands = createClinicProfileSourceCommandsFixture()
+    let savedSnapshot: ClinicProfileSnapshot | undefined
+    const onSnapshotChanged = vi.fn((snapshot: ClinicProfileSnapshot) => {
+      savedSnapshot = snapshot
+    })
+    const hook = renderHook(
+      ({ initialSnapshot }) =>
+        useClinicProfileSourceController({ commands, initialSnapshot, onSnapshotChanged }),
+      { initialProps: { initialSnapshot: clinicProfileSourceFixture as ClinicProfileSnapshot | undefined } },
+    )
+
+    act(() => hook.result.current.actions.startEditing())
+    act(() => hook.result.current.actions.changeName("Saved clinic name"))
+    await act(async () => {
+      await hook.result.current.actions.saveDraft()
+    })
+
+    expect(savedSnapshot).toBeDefined()
+    expect(hook.result.current.model.statusMessage).toBe("Draft saved.")
+
+    act(() => hook.rerender({ initialSnapshot: savedSnapshot }))
+
+    expect(hook.result.current.model.statusMessage).toBe("Draft saved.")
+    expect(hook.result.current.model.snapshot).toBe(savedSnapshot)
   })
 
   it("updates an existing draft without trying to create another one", async () => {
@@ -160,8 +238,13 @@ describe("clinic profile source controller", () => {
         throw new ClinicProfileSourceCommandError("unknown", "Response lost.")
       },
     }
+    const onSnapshotChanged = vi.fn()
     const { result } = renderHook(() =>
-      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceFixture }),
+      useClinicProfileSourceController({
+        commands,
+        initialSnapshot: clinicProfileSourceFixture,
+        onSnapshotChanged,
+      }),
     )
 
     act(() => result.current.actions.startEditing())
@@ -174,6 +257,7 @@ describe("clinic profile source controller", () => {
     expect(result.current.model.mode).toBe("view")
     expect(result.current.model.confirmation).toBeNull()
     expect(result.current.model.snapshot?.draft?.name).toBe("Saved after timeout")
+    expect(onSnapshotChanged).toHaveBeenCalledWith(result.current.model.snapshot)
   })
 
   it("continues the first save after an unknown draft creation is reconciled", async () => {
@@ -339,6 +423,26 @@ describe("clinic profile source controller", () => {
     )
   })
 
+  it("reports the authoritative snapshot after the profile is published", async () => {
+    const commands = createClinicProfileSourceCommandsFixture(clinicProfileSourceDraftFixture)
+    const onSnapshotChanged = vi.fn()
+    const { result } = renderHook(() =>
+      useClinicProfileSourceController({
+        commands,
+        initialSnapshot: clinicProfileSourceDraftFixture,
+        onSnapshotChanged,
+      }),
+    )
+
+    act(() => result.current.actions.requestReview())
+    await act(async () => {
+      await result.current.actions.publishDraft()
+    })
+
+    expect(onSnapshotChanged).toHaveBeenCalledWith(result.current.model.snapshot)
+    expect(result.current.model.snapshot?.draft).toBeUndefined()
+  })
+
   it("enters conflict when an unknown publish reloads a different published profile", async () => {
     const foreignSnapshot = {
       ...clinicProfileSourceDraftFixture,
@@ -442,8 +546,13 @@ describe("clinic profile source controller", () => {
         throw new ClinicProfileSourceCommandError("unknown", "Response lost.")
       },
     }
+    const onSnapshotChanged = vi.fn()
     const { result } = renderHook(() =>
-      useClinicProfileSourceController({ commands, initialSnapshot: clinicProfileSourceDraftFixture }),
+      useClinicProfileSourceController({
+        commands,
+        initialSnapshot: clinicProfileSourceDraftFixture,
+        onSnapshotChanged,
+      }),
     )
 
     act(() => result.current.actions.startEditing())
@@ -454,6 +563,53 @@ describe("clinic profile source controller", () => {
     expect(result.current.model.mode).toBe("view")
     expect(result.current.model.snapshot?.draft).toBeUndefined()
     expect(result.current.model.statusMessage).toBe("Draft discarded.")
+    expect(onSnapshotChanged).toHaveBeenCalledWith(result.current.model.snapshot)
+  })
+
+  it("adopts a refreshed authoritative snapshot after an initial source error", () => {
+    const commands = createClinicProfileSourceCommandsFixture(clinicProfileSourceFixture)
+    const hook = renderHook(
+      ({ initialSnapshot }) => useClinicProfileSourceController({ commands, initialSnapshot }),
+      { initialProps: { initialSnapshot: undefined as typeof clinicProfileSourceFixture | undefined } },
+    )
+
+    expect(hook.result.current.model.isUnavailable).toBe(true)
+
+    act(() => hook.rerender({ initialSnapshot: clinicProfileSourceFixture }))
+    act(() => hook.result.current.actions.startEditing())
+
+    expect(hook.result.current.model.isUnavailable).toBe(false)
+    expect(hook.result.current.model.mode).toBe("edit")
+    expect(hook.result.current.model.workingDraft?.name).toBe(clinicProfileSourceFixture.published.name)
+  })
+
+  it("does not replace unsaved profile values when an authoritative refresh arrives", () => {
+    const commands = createClinicProfileSourceCommandsFixture(clinicProfileSourceFixture)
+    const refreshedSnapshot = {
+      ...clinicProfileSourceFixture,
+      published: {
+        ...clinicProfileSourceFixture.published,
+        name: "Externally updated clinic",
+        revision: clinicProfileSourceFixture.published.revision + 1,
+      },
+    }
+    const hook = renderHook(
+      ({ initialSnapshot }) => useClinicProfileSourceController({ commands, initialSnapshot }),
+      { initialProps: { initialSnapshot: clinicProfileSourceFixture } },
+    )
+
+    act(() => hook.result.current.actions.startEditing())
+    act(() => hook.result.current.actions.changeName("Unsaved local clinic"))
+    act(() => hook.rerender({ initialSnapshot: refreshedSnapshot }))
+
+    expect(hook.result.current.model.snapshot?.published.name).toBe(clinicProfileSourceFixture.published.name)
+    expect(hook.result.current.model.workingDraft?.name).toBe("Unsaved local clinic")
+    expect(hook.result.current.model.isDirty).toBe(true)
+
+    act(() => hook.result.current.actions.leaveWithoutSaving())
+
+    expect(hook.result.current.model.snapshot).toBe(refreshedSnapshot)
+    expect(hook.result.current.model.published?.name).toBe("Externally updated clinic")
   })
 
   it("reconciles a draft that was already discarded elsewhere", async () => {

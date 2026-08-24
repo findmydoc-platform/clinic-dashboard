@@ -1,6 +1,8 @@
 # Clinic Dashboard Demo Experience And Transient Flows
 
 > **Approved implementation plan — 2026-07-20.** This plan turns the multi-location foundation into a presentation-ready demo while keeping all new mutations transient and synthetic.
+>
+> **Partially superseded — 2026-08-24.** The local profile projection and legacy client profile-command path are superseded by the source-backed profile, gallery, treatment, and completeness contracts delivered in [clinic-dashboard#104](https://github.com/findmydoc-platform/clinic-dashboard/issues/104) and [PR #128](https://github.com/findmydoc-platform/clinic-dashboard/pull/128). The explicit provider selection and no-silent-fallback decisions remain current.
 
 ## User Outcome And Audience
 
