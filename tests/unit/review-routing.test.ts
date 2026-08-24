@@ -30,7 +30,7 @@ describe("review routing", () => {
     const result = classifyReviewSurface([])
 
     expect(result.recommendedReviewers).toEqual([])
-    expect(result.omittedReviewers).toHaveLength(5)
+    expect(result.omittedReviewers).toHaveLength(6)
   })
 
   it("does not route ordinary documentation-only changes", () => {
@@ -42,12 +42,17 @@ describe("review routing", () => {
   })
 
   it("routes UI-only changes to UI and test review", () => {
-    expect(recommended(changed("src/components/ui/ClinicCard.tsx"))).toEqual(["test_reviewer", "ui_reviewer"])
+    expect(recommended(changed("src/components/ui/ClinicCard.tsx"))).toEqual([
+      "architecture_reviewer",
+      "test_reviewer",
+      "ui_reviewer",
+    ])
   })
 
   it("routes domain logic changes to logic and test review", () => {
     expect(recommended(changed("src/features/inquiries/model/inquiry-status.ts"))).toEqual([
       "logic_reviewer",
+      "architecture_reviewer",
       "test_reviewer",
     ])
   })
@@ -55,6 +60,7 @@ describe("review routing", () => {
   it("routes auth and API changes to logic, security, and test review", () => {
     expect(recommended(changed("src/app/api/auth/session/route.ts"))).toEqual([
       "logic_reviewer",
+      "architecture_reviewer",
       "security_reviewer",
       "test_reviewer",
     ])
@@ -73,11 +79,12 @@ describe("review routing", () => {
     ["Vercel platform config", "vercel.json", ["security_reviewer"]],
     ["root environment contract", ".env.example", ["security_reviewer"]],
     ["nested environment contract", "config/.env.preview", ["security_reviewer"]],
+    ["Codex command policy", ".codex/rules/safety.rules", ["security_reviewer", "test_reviewer"]],
   ])("routes %s through security review", (_label, file, expected) => {
     expect(recommended(changed(file))).toEqual(expected)
   })
 
-  it("routes a cross-cutting change to all five reviewers", () => {
+  it("routes a cross-cutting change to all six reviewers", () => {
     expect(
       recommended(
         changed(
@@ -86,7 +93,14 @@ describe("review routing", () => {
           "src/components/ui/InquiryCard.tsx",
         ),
       ),
-    ).toEqual(["planning_reviewer", "logic_reviewer", "security_reviewer", "test_reviewer", "ui_reviewer"])
+    ).toEqual([
+      "planning_reviewer",
+      "logic_reviewer",
+      "architecture_reviewer",
+      "security_reviewer",
+      "test_reviewer",
+      "ui_reviewer",
+    ])
   })
 
   it("preserves renames and deletions from git name-status output", () => {

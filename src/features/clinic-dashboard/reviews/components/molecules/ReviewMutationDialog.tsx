@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { RatingStars } from "@/components/ui/rating-stars"
-import type { ClinicReview } from "../../model/review"
+import type { ClinicReviewRecord } from "../../model/review-source"
 import type { ReviewMutationResult } from "../../model/reviews-view-model"
 
 type ReviewMutationDialogProps = Readonly<{
@@ -13,7 +13,7 @@ type ReviewMutationDialogProps = Readonly<{
   isSubmitDisabled: boolean
   onClose: () => void
   onSubmit: () => Promise<ReviewMutationResult>
-  review: ClinicReview
+  review: ClinicReviewRecord
   submitLabel: string
   title: string
 }>
@@ -70,7 +70,9 @@ export function ReviewMutationDialog({
             <strong>{review.author}</strong>
             <RatingStars value={review.rating} />
           </div>
-          <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">{review.body}</p>
+          <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">
+            {review.publicText ?? "The original review text is not available."}
+          </p>
         </article>
         {children}
         {submitError ? (

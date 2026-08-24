@@ -4,8 +4,8 @@ import type { DashboardMetricSelection } from "./dashboard-metric-selection"
 import type { DashboardReportingSnapshot, DashboardSelectableMetricId } from "./reporting"
 
 export type DashboardLocationSummary = Readonly<{
-  coverAlt: string
-  coverImage: ClinicProfileImageSource
+  coverAlt?: string
+  coverImage?: ClinicProfileImageSource
   location: string
   name: string
 }>

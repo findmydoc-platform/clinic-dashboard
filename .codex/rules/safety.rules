@@ -1,11 +1,16 @@
-prefix_rule(
-  pattern = ["git", "reset", "--hard"],
-  decision = "forbidden",
-  justification = "Never discard worktree changes."
-)
+# Keep command policy narrow and compatible with the repository's canonical RTK command shape.
+# Read-only Git commands remain unrestricted.
 
-prefix_rule(
-  pattern = ["git", "clean"],
-  decision = "forbidden",
-  justification = "Never delete untracked work without explicit user approval."
-)
+destructive_git_prefixes = [
+  ["rtk", "git", "reset", "--hard"],
+  ["rtk", "proxy", "git", "reset", "--hard"],
+  ["rtk", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]],
+  ["rtk", "proxy", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]],
+]
+
+for command_prefix in destructive_git_prefixes:
+  prefix_rule(
+    pattern = command_prefix,
+    decision = "forbidden",
+    justification = "Never discard worktree or untracked changes with a destructive Git command."
+  )

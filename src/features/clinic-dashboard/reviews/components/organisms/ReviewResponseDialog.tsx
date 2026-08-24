@@ -1,26 +1,27 @@
-import type { ClinicReview } from "../../model/review"
-import type { ReviewResponseSubmission } from "../../model/review-dialog"
+import type { ClinicReviewRecord } from "../../model/review-source"
 import type { ReviewMutationResult } from "../../model/reviews-view-model"
 import { ReviewTextMutationDialog } from "../molecules/ReviewTextMutationDialog"
 
-type ReviewResponseDialogProps = Readonly<{
+export function ReviewResponseDialog({
+  onClose,
+  onSubmit,
+  review,
+}: Readonly<{
   onClose: () => void
-  onSubmit: (submission: ReviewResponseSubmission) => Promise<ReviewMutationResult>
-  review: ClinicReview
-}>
-
-export function ReviewResponseDialog({ onClose, onSubmit, review }: ReviewResponseDialogProps) {
+  onSubmit: (body: string) => Promise<ReviewMutationResult>
+  review: ClinicReviewRecord
+}>) {
   return (
     <ReviewTextMutationDialog
-      description="Save a local moderation preview. Any published response stays unchanged. Nothing is submitted or sent."
-      initialValue={review.pendingResponse?.response ?? review.publishedResponse}
-      label="Response for moderation"
+      description="Submit a clinic response for platform moderation. A published response stays visible until its replacement is approved."
+      initialValue={review.response?.pending?.body ?? review.response?.published?.body}
+      label="Clinic response"
       onClose={onClose}
-      onSubmit={(response) => onSubmit({ response })}
+      onSubmit={onSubmit}
       placeholder="Thank the patient and address their feedback…"
       review={review}
-      submitLabel="Save moderation preview"
-      title="Respond to review"
+      submitLabel="Submit for moderation"
+      title={review.response?.pending ? "Edit pending response" : "Respond to review"}
     />
   )
 }

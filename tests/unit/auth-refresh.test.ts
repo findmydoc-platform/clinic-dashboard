@@ -65,7 +65,12 @@ describe("bootstrap session refresh", () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+            capabilities: [
+              "clinic-profile:view",
+              "clinic-profile:edit",
+              "clinic-treatments:view",
+              "clinic-treatments:edit",
+            ],
             clinic: { id: "clinic-1", name: "Clinic One" },
             principal: { displayName: "Alex", email: "alex@example.com", id: "staff-1" },
             status: "approved",

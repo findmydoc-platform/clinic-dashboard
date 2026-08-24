@@ -51,6 +51,7 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
       medicalSpecialties: [],
       status: "temporarily-unavailable",
     },
+    galleryStatus: "temporarily-unavailable",
     inquiryQueue: {
       inquiries: [
         createDemoInquiry(istanbulLeventPatientInquiry, "2026-07-26T07:45:00.000Z", "26 July 2026", "09:45"),
@@ -85,7 +86,33 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
     },
     notifications: clinicDashboardDemoNotifications,
     organization: clinicDashboardDemoOrganization,
-    treatmentCatalogue: clinicDashboardDemoTreatmentCatalogue,
+    treatmentSnapshot: {
+      catalogue: clinicDashboardDemoTreatmentCatalogue,
+      offerings: [
+        {
+          active: true,
+          id: "demo-offering-hair-transplant",
+          price: 3900,
+          revision: "2026-08-01T08:00:00.000Z",
+          treatment: clinicDashboardDemoTreatmentCatalogue[3],
+        },
+        {
+          active: false,
+          id: "demo-offering-dermatology-consultation",
+          price: 150,
+          revision: "2026-08-01T08:00:00.000Z",
+          treatment: clinicDashboardDemoTreatmentCatalogue[4],
+        },
+        {
+          active: true,
+          id: "demo-offering-skin-analysis",
+          price: 0,
+          revision: "2026-08-01T08:00:00.000Z",
+          treatment: clinicDashboardDemoTreatmentCatalogue[2],
+        },
+      ],
+      status: "ready",
+    },
   }
 
   assertClinicDashboardNotificationTargets(

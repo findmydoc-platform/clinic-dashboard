@@ -47,6 +47,13 @@ export const LoginSuccess: Story = {
       password: "password123",
     })
     await expect(args.navigateAction).toHaveBeenCalledWith("/")
+    await expect(canvas.getByRole("button", { name: "Opening dashboard…" })).toBeDisabled()
+    await expect(canvas.getByRole("status")).toHaveTextContent("Signed in. Opening your dashboard.")
+    await expect(canvas.getByRole("textbox", { name: "Email address" })).toBeDisabled()
+    await expect(canvas.getByLabelText("Password")).toBeDisabled()
+    const resetLink = canvas.getByRole("link", { name: "Forgot your password?" })
+    await expect(resetLink).toHaveAttribute("aria-disabled", "true")
+    await expect(resetLink).toHaveAttribute("tabindex", "-1")
   },
 }
 

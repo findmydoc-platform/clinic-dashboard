@@ -11,7 +11,14 @@ export const workspaceAccountFixture = {
 } as const
 
 export const authenticatedClinicContextFixture = {
-  capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+  capabilities: [
+    "clinic-profile:view",
+    "clinic-profile:edit",
+    "clinic-gallery:view",
+    "clinic-gallery:edit",
+    "clinic-treatments:view",
+    "clinic-treatments:edit",
+  ],
   clinic: { id: "berlin-health-group", name: "Berlin Health Group" },
   principal: {
     displayName: "Sarah Schmidt",

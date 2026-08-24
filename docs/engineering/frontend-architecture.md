@@ -131,17 +131,25 @@ src/
       reviews/
         public.ts
         Reviews.tsx
+        browser/
+          review-source-api.ts
         components/
           molecules/
           organisms/
             ReviewAppealDialog.tsx
             ReviewHistoryDialog.tsx
-            ReviewNoteDialog.tsx
             ReviewResponseDialog.tsx
         hooks/
           useReviewsController.ts
         model/
-          review-dialog.ts
+          review-source.ts
+          review-source-commands.ts
+          review-source-schema.ts
+        server/
+          actions.ts
+          controlled-reviews.ts
+          payload-reviews.ts
+          review-provider.ts
         testing/
 
       clinic-profile/
@@ -329,15 +337,15 @@ Extract a named pure module when logic expresses a business rule, performs a tra
 
 `ClinicDashboardWorkspaceInput` is a private, provisional, serializable contract. It does not identify its technical source. `ClinicDashboardWorkspaceProvider` is the private server-side `loadWorkspace()` boundary for the remaining fixture-backed workspace; it does not own live business domains. `src/features/clinic-dashboard/server.ts` loads that workspace, resolves the verified session token, and asks the centrally composed live-domain providers for the clinic-scoped doctor directory and inquiry queue. Provider failures fail visibly in their owning area and never silently fall back to demo records. The App Router page passes the assembled serializable data to the interactive workspace.
 
-`ClinicDashboardDataProviders` is a static server-only map with one explicit key per approved live domain. The central composition is the only production module that imports its concrete Controlled and Payload implementations or selects between them. The `doctors` and `inquiries` providers bind the session access token request-locally. Doctor reads and writes are also scoped to the clinic ID from the authorized bootstrap; browser input never chooses the clinic. Controlled implementations return deterministic synthetic data and reset after reload; Payload implementations validate and minimize website-owned responses. [ADR 0003](../adr/0003-domain-data-provider-composition.md) defines the extension and security rules.
+`ClinicDashboardDataProviders` is a static server-only map with one explicit key per approved live domain. The central composition is the only production module that imports its concrete Controlled and Payload implementations or selects between them. The `doctors`, `inquiries`, `reviews`, and `treatments` providers bind the session access token request-locally. Doctor and treatment reads and writes are also scoped to the clinic ID from the authorized bootstrap; review access is enforced by the website contract for that same authenticated clinic. Browser input never chooses the clinic. Controlled implementations return deterministic synthetic data. Stateful Controlled providers preserve mutations across request-scoped composition in process-local test state and expose explicit test reset boundaries; they reset on server restart and are impossible to select in Preview or Production. Payload implementations validate and minimize website-owned responses. [ADR 0003](../adr/0003-domain-data-provider-composition.md) defines the extension and security rules.
 
 `*.fixtures.ts` is Storybook/test-only. Stories and tests own independent feature-local fixture values and command fakes; they never import `demo/**`. Dataset contract tests exercise the server loader rather than reaching into the raw source. Production code never imports fixtures.
 
-Runtime demo command implementations remain client-side under `demo/commands.ts` because functions cannot cross the Server Component boundary. Only `ClinicDashboardWorkspace` imports the demo client adapter. Feature UI, screens, shells, and controllers receive narrow feature command contracts. Profile completion projection is a pure generic workspace rule configured by private demo rules; no feature component knows those values.
+Runtime demo command implementations remain client-side under `demo/commands.ts` because functions cannot cross the Server Component boundary. Only `ClinicDashboardWorkspace` imports the demo client adapter. Review and treatment commands use their source-backed browser adapters instead. Feature UI, screens, shells, and controllers receive narrow feature command contracts. Profile completion projection is a pure generic workspace rule configured by private demo rules; no feature component knows those values.
 
-The only private cross-area exceptions are: `server.ts` importing the central data-provider composition, demo workspace provider, workspace contract, and live-domain server contracts; the central composition importing exact live-domain contracts and concrete providers; exact provider contract and adapter tests importing those private modules; approved doctor and inquiry BFF routes importing the root server entry; `demo/loader.ts` implementing the workspace provider; demo builders importing the private workspace input type; `ClinicDashboardWorkspace` importing the demo client adapter; and the existing `PrototypeModeSwitch` composition. All other cross-area imports use the owning area's `public.ts`.
+The only private cross-area exceptions are: `server.ts` importing the central data-provider composition, demo workspace provider, workspace contract, and live-domain server contracts; the central composition importing exact live-domain contracts and concrete providers; exact provider contract and adapter tests importing those private modules; approved doctor, inquiry, and review BFF routes importing the root server entry; `demo/loader.ts` implementing the workspace provider; demo builders importing the private workspace input type; `ClinicDashboardWorkspace` importing the demo client adapter; and the existing `PrototypeModeSwitch` composition. All other cross-area imports use the owning area's `public.ts`.
 
-Screens receive view models. Controllers receive the smallest command contract they need. The production page starts directly in the polished `presentation` mode and does not render a mode switch. `visual-reference` and the switch remain internal Storybook/QA tools. Only notification read IDs may survive in `sessionStorage`. Inquiry status is persisted by the website-owned Payload contract in normal mode; Controlled mode keeps the returned change in browser state until reload. Timeline system events are intentionally session-local. Profile, message, review, and support demo changes reset on reload or location change. Further Payload integrations and Dashboard-owned persistence remain out of scope until separately planned.
+Screens receive view models. Controllers receive the smallest command contract they need. The production page starts directly in the polished `presentation` mode and does not render a mode switch. `visual-reference` and the switch remain internal Storybook/QA tools. Only notification read IDs may survive in `sessionStorage`. Inquiry status and review workflows are persisted by website-owned Payload contracts in normal mode; Controlled mode keeps returned changes in browser state until reload. Timeline system events are intentionally session-local. Profile, message, and support demo changes reset on reload or location change. Further Payload integrations and Dashboard-owned persistence remain out of scope until separately planned.
 
 Browser effects use narrow named adapters. Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
 

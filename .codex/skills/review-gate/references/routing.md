@@ -3,19 +3,22 @@
 ## Review phases
 
 - `planning_reviewer` runs separately and early for plans, project-profile decisions, access boundaries, data decisions, or rollout decisions.
-- Implementation reviewers run after validation, in parallel, with at most four roles: `logic_reviewer`, `security_reviewer`, `test_reviewer`, and `ui_reviewer`.
+- Implementation reviewers run after validation, with at most four concurrent roles: `logic_reviewer`, `architecture_reviewer`, `security_reviewer`, `test_reviewer`, and `ui_reviewer`. If all five are routed, use a second read-only wave under the same approval.
 
 ## Signals
 
-| Surface                                                                                 | Reviewer            |
-| --------------------------------------------------------------------------------------- | ------------------- |
-| Plans, ADRs, project profile, access, data, migration, or rollout decisions             | `planning_reviewer` |
-| Production TypeScript, server, controller, model, state, mapping, or API behavior       | `logic_reviewer`    |
-| Auth, API, server, environment, workflow, dependency, persistence, or secret boundaries | `security_reviewer` |
-| Production behavior, tests, test configuration, fixtures, or mocks                      | `test_reviewer`     |
-| TSX, styles, stories, themes, branding, or visual assets                                | `ui_reviewer`       |
+| Surface                                                                                      | Reviewer                |
+| -------------------------------------------------------------------------------------------- | ----------------------- |
+| Plans, ADRs, project profile, access, data, migration, or rollout decisions                  | `planning_reviewer`     |
+| Production TypeScript, server, controller, model, state, mapping, or API behavior            | `logic_reviewer`        |
+| Source modules, boundaries, dependency directions, or the frontend architecture contract     | `architecture_reviewer` |
+| Auth, API, server, environment, workflow, dependency, persistence, or Codex trust boundaries | `security_reviewer`     |
+| Production behavior, tests, test configuration, fixtures, mocks, or Codex contracts          | `test_reviewer`         |
+| TSX, styles, stories, themes, branding, or visual assets                                     | `ui_reviewer`           |
 
 The router uses path and filename signals. Its temporary JSON recommendation is deterministic, but the main agent must state the reasons and may add a reviewer only when concrete diff evidence exposes a missed risk. Any added reviewer requires the same user approval.
+
+Explicit repository audits do not depend on a changed-path signal. Select one of `test_reviewer`, `architecture_reviewer`, or `ui_reviewer`, name the repository paths and evidence in scope, and require coverage and exclusions in the result.
 
 ## Evidence and execution
 

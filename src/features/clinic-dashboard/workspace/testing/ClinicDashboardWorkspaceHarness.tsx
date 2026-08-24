@@ -1,10 +1,16 @@
 "use client"
 
 import { useState } from "react"
+import { Toaster } from "@/components/ui/sonner"
 import {
   clinicProfileFixture,
-  clinicTreatmentCatalogueFixture,
+  clinicGallerySnapshotFixture,
+  clinicProfileSourceFixture,
+  createClinicProfileSourceCommandsFixture,
+  clinicTreatmentSnapshotFixture,
   createClinicProfileCommandsFixture,
+  createClinicGalleryCommandsFixture,
+  createClinicTreatmentCommandsFixture,
   createDoctorProfileCommandsFixture,
   doctorDirectoryFixture,
 } from "@/features/clinic-dashboard/clinic-profile/testing/public"
@@ -26,7 +32,8 @@ import {
 import { messagesFixture, patientInquiryFixture } from "@/features/clinic-dashboard/messages/testing/public"
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import {
-  createReviewCommandsFixture,
+  createReviewSourceCommandsFixture,
+  reviewSourceSnapshotFixture,
   reviewsFixture,
 } from "@/features/clinic-dashboard/reviews/testing/public"
 import type { ClinicDashboardWorkspaceProps } from "../ClinicDashboardWorkspace"
@@ -273,6 +280,8 @@ const potsdamProfile = {
 export const clinicDashboardWorkspaceFixture = {
   account: workspaceAccountFixture,
   defaultLocationId: "berlin-mitte",
+  galleryStatus: "ready",
+  gallerySnapshot: clinicGallerySnapshotFixture,
   doctorDirectory: doctorDirectoryFixture,
   inquiryQueue: {
     inquiries: [
@@ -287,6 +296,8 @@ export const clinicDashboardWorkspaceFixture = {
     ],
     status: "ready",
   },
+  profileSourceSnapshot: clinicProfileSourceFixture,
+  reviewSourceSnapshot: reviewSourceSnapshotFixture,
   locations: workspaceLocationFixtures,
   locationSnapshots: {
     "berlin-charlottenburg": {
@@ -394,7 +405,7 @@ export const clinicDashboardWorkspaceFixture = {
   },
   notifications: notificationsFixture,
   organization: workspaceOrganizationFixture,
-  treatmentCatalogue: clinicTreatmentCatalogueFixture,
+  treatmentSnapshot: clinicTreatmentSnapshotFixture,
 } satisfies ClinicDashboardWorkspaceInput
 
 export function ClinicDashboardWorkspaceHarness({
@@ -406,34 +417,43 @@ export function ClinicDashboardWorkspaceHarness({
   start,
 }: ClinicDashboardWorkspaceHarnessProps) {
   const [clinicProfileCommands] = useState(() => createClinicProfileCommandsFixture())
+  const [clinicGalleryCommands] = useState(() => createClinicGalleryCommandsFixture())
+  const [clinicProfileSourceCommands] = useState(() => createClinicProfileSourceCommandsFixture())
+  const [clinicTreatmentCommands] = useState(() => createClinicTreatmentCommandsFixture())
   const [doctorProfileCommands] = useState(() => createDoctorProfileCommandsFixture())
-  const [reviewCommands] = useState(() => createReviewCommandsFixture())
+  const [reviewCommands] = useState(() => createReviewSourceCommandsFixture())
   return (
-    <ClinicDashboardWorkspaceComposition
-      authenticatedContext={authenticatedClinicContextFixture}
-      clinicProfileCommands={clinicProfileCommands}
-      doctorProfileCommands={doctorProfileCommands}
-      initialNotificationReadIds={notificationState?.readIds}
-      initialNotificationsOpen={notificationState?.isOpen}
-      initialReportingPeriod={reportingPeriod}
-      persistNotificationReadStateInSession={persistNotificationReadStateInSession}
-      prototypeMode={prototypeMode}
-      projectDashboardAfterProfileSave={({ initialProfile, savedProfile, snapshot }) => {
-        const coverChanged =
-          initialProfile.gallery.find(({ isCover }) => isCover)?.id !==
-          savedProfile.gallery.find(({ isCover }) => isCover)?.id
-        return {
-          ...snapshot,
-          profileCompletion: Math.min(snapshot.profileCompletion + (coverChanged ? 4 : 0), 100),
-          profileTasks: snapshot.profileTasks.filter(
-            ({ destination }) => !(destination === "gallery" && coverChanged),
-          ),
-        }
-      }}
-      reviewCommands={reviewCommands}
-      showPrototypeModeToggle={showPrototypeModeToggle}
-      start={start}
-      workspaceInput={clinicDashboardWorkspaceFixture}
-    />
+    <>
+      <ClinicDashboardWorkspaceComposition
+        authenticatedContext={authenticatedClinicContextFixture}
+        clinicProfileCommands={clinicProfileCommands}
+        clinicGalleryCommands={clinicGalleryCommands}
+        clinicProfileSourceCommands={clinicProfileSourceCommands}
+        clinicTreatmentCommands={clinicTreatmentCommands}
+        doctorProfileCommands={doctorProfileCommands}
+        initialNotificationReadIds={notificationState?.readIds}
+        initialNotificationsOpen={notificationState?.isOpen}
+        initialReportingPeriod={reportingPeriod}
+        persistNotificationReadStateInSession={persistNotificationReadStateInSession}
+        prototypeMode={prototypeMode}
+        projectDashboardAfterProfileSave={({ initialProfile, savedProfile, snapshot }) => {
+          const coverChanged =
+            initialProfile.gallery.find(({ isCover }) => isCover)?.id !==
+            savedProfile.gallery.find(({ isCover }) => isCover)?.id
+          return {
+            ...snapshot,
+            profileCompletion: Math.min(snapshot.profileCompletion + (coverChanged ? 4 : 0), 100),
+            profileTasks: snapshot.profileTasks.filter(
+              ({ destination }) => !(destination === "gallery" && coverChanged),
+            ),
+          }
+        }}
+        reviewCommands={reviewCommands}
+        showPrototypeModeToggle={showPrototypeModeToggle}
+        start={start}
+        workspaceInput={clinicDashboardWorkspaceFixture}
+      />
+      <Toaster position="top-right" richColors />
+    </>
   )
 }

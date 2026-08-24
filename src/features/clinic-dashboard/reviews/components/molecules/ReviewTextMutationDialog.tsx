@@ -3,7 +3,7 @@
 import { useRef, useState } from "react"
 import { Field } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
-import type { ClinicReview } from "../../model/review"
+import type { ClinicReviewRecord } from "../../model/review-source"
 import type { ReviewMutationResult } from "../../model/reviews-view-model"
 import { ReviewMutationDialog } from "./ReviewMutationDialog"
 
@@ -14,7 +14,7 @@ type ReviewTextMutationDialogProps = Readonly<{
   onClose: () => void
   onSubmit: (value: string) => Promise<ReviewMutationResult>
   placeholder: string
-  review: ClinicReview
+  review: ClinicReviewRecord
   submitLabel: string
   title: string
 }>
@@ -70,6 +70,7 @@ export function ReviewTextMutationDialog({
           <Textarea
             {...controlProps}
             className="min-h-36"
+            maxLength={2000}
             onValueChange={(nextValue) => {
               setValue(nextValue)
               setValueError("")

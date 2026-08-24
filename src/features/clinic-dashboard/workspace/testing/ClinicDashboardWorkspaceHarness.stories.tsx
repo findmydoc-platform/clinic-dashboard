@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { ClinicDashboardWorkspaceHarness } from "./public"
 
 const productionArgs = {
@@ -53,9 +53,9 @@ export const VisualReferenceLocationSwitching: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
     await expect(canvas.getByRole("heading", { name: "Lukas Weber" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
-    await expect(canvas.getByText("Eva Fixture")).toBeInTheDocument()
+    await expect(canvas.getByText("Maya K.")).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
-    await expect(canvas.getByDisplayValue("Berlin Health Clinic — Charlottenburg")).toBeInTheDocument()
+    await expect(canvas.getByText("Medicana International Istanbul")).toBeInTheDocument()
     await expect(
       canvas.getByRole("button", { name: "Open account menu for Sarah Schmidt" }),
     ).toBeInTheDocument()
@@ -298,9 +298,9 @@ export const PotsdamWorkspaceContent: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
     await expect(canvas.getByRole("heading", { name: "Lukas Weber" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
-    await expect(canvas.getByText("Greta Fixture")).toBeInTheDocument()
+    await expect(canvas.getByText("Maya K.")).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
-    await expect(canvas.getByDisplayValue("Berlin Health Clinic — Potsdam")).toBeInTheDocument()
+    await expect(canvas.getByText("Medicana International Istanbul")).toBeInTheDocument()
   },
 }
 
@@ -325,7 +325,68 @@ export const DemoBadgeAndFourImageGallery: Story = {
 
     await expect(canvas.getAllByText("Mixed data")[0]).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
-    await expect(canvas.getByRole("button", { name: "View all images" })).toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Manage gallery" })).toBeInTheDocument()
+  },
+}
+
+export const GallerySaveReturnsWithToast: Story = {
+  args: { prototypeMode: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+
+    await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Manage gallery" }))
+
+    const editor = await page.findByRole("region", { name: "Manage gallery" })
+    await userEvent.type(
+      within(editor).getByRole("textbox", { name: "Caption (optional)" }),
+      "A welcoming reception for patients.",
+    )
+    await userEvent.click(within(editor).getByRole("button", { name: "Save and return" }))
+
+    await expect(canvas.getByRole("heading", { name: "Clinic profile" })).toBeVisible()
+    await waitFor(() =>
+      expect(page.getAllByText("Gallery saved.").some((element) => element.getClientRects().length > 0)).toBe(
+        true,
+      ),
+    )
+  },
+}
+
+export const GalleryLocationSwitchUsesLeaveGuard: Story = {
+  args: { prototypeMode: "visual-reference" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const page = within(canvasElement.ownerDocument.body)
+    const locationSelector = canvas.getByRole("button", { name: /Switch clinic location/ })
+
+    await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Manage gallery" }))
+    const editor = await page.findByRole("region", { name: "Manage gallery" })
+    await userEvent.type(
+      within(editor).getByRole("textbox", { name: "Caption (optional)" }),
+      "Unsaved location-specific caption",
+    )
+
+    await userEvent.click(locationSelector)
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
+    )
+
+    const leaveDialog = await page.findByRole("alertdialog", { name: "Save changes before leaving?" })
+    await waitFor(() => expect(leaveDialog).toBeVisible())
+    await expect(within(leaveDialog).getByText(/Continue only after saving or discarding them/)).toBeVisible()
+    await expect(locationSelector).toHaveAccessibleName(
+      /Current location: Demo data · Berlin Health Clinic — Mitte/,
+    )
+
+    await userEvent.click(within(leaveDialog).getByRole("button", { name: "Discard changes" }))
+    await waitFor(() =>
+      expect(locationSelector).toHaveAccessibleName(
+        /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
+      ),
+    )
   },
 }
 
@@ -337,13 +398,12 @@ export const FourImageGalleryDark: Story = {
     const page = within(canvasElement.ownerDocument.body)
 
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
-    await userEvent.click(canvas.getByRole("button", { name: "View all images" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Manage gallery" }))
 
-    const dialog = await page.findByRole("dialog", { name: "Edit clinic images" })
+    const editor = await page.findByRole("region", { name: "Manage gallery" })
     await expect(canvasElement.ownerDocument.documentElement).toHaveClass("dark")
-    await expect(within(dialog).getAllByRole("img")).toHaveLength(4)
-    await expect(within(dialog).getByLabelText("Current cover image")).toBeVisible()
-    await expect(within(dialog).getAllByRole("button", { name: "Set cover" })).toHaveLength(3)
-    await expect(within(dialog).getByRole("button", { name: "Done" })).toBeVisible()
+    await expect(within(editor).getAllByText("Main image")[0]).toBeVisible()
+    await expect(within(editor).getByRole("button", { name: "More image actions" })).toBeVisible()
+    await expect(within(editor).getByRole("button", { name: "Save and return" })).toBeDisabled()
   },
 }

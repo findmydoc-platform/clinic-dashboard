@@ -37,17 +37,17 @@ expect(!/\bmax_threads\b/.test(config), "Project config must not use max_threads
 expect(!/\bmax_depth\b/.test(config), "Project config must not use max_depth")
 
 const agents = [
-  ["planning-reviewer.toml", "planning_reviewer", "gpt-5.6-terra", "medium"],
-  ["logic-reviewer.toml", "logic_reviewer", "gpt-5.6-sol", "high"],
-  ["security-reviewer.toml", "security_reviewer", "gpt-5.6-sol", "high"],
-  ["test-reviewer.toml", "test_reviewer", "gpt-5.6-terra", "high"],
-  ["ui-reviewer.toml", "ui_reviewer", "gpt-5.6-terra", "high"],
+  ["planning-reviewer.toml", "planning_reviewer", "medium"],
+  ["logic-reviewer.toml", "logic_reviewer", "high"],
+  ["architecture-reviewer.toml", "architecture_reviewer", "high"],
+  ["security-reviewer.toml", "security_reviewer", "high"],
+  ["test-reviewer.toml", "test_reviewer", "high"],
+  ["ui-reviewer.toml", "ui_reviewer", "high"],
 ]
 
-for (const [fileName, name, model, effort] of agents) {
+for (const [fileName, name, effort] of agents) {
   const content = read(`.codex/agents/${fileName}`)
   expectPattern(content, new RegExp(`^name = "${name}"$`, "m"), `${name} must keep its contract name`)
-  expectPattern(content, new RegExp(`^model = "${model}"$`, "m"), `${name} must use ${model}`)
   expectPattern(
     content,
     new RegExp(`^model_reasoning_effort = "${effort}"$`, "m"),
@@ -70,6 +70,21 @@ for (const [fileName, name, model, effort] of agents) {
       `${name} instructions must include the ${requiredTerm} output rule`,
     )
   }
+}
+
+for (const [fileName, requiredTerms] of [
+  ["test-reviewer.toml", ["Freeman and Pryce's outside-in TDD", "Kent Beck's Test Desiderata"]],
+  [
+    "architecture-reviewer.toml",
+    ["Parnas's information-hiding criterion", "Robert C. Martin's Dependency Rule"],
+  ],
+  ["ui-reviewer.toml", ["Luke Wroblewski's Mobile First", "Ethan Marcotte's Responsive Web Design"]],
+]) {
+  const content = read(`.codex/agents/${fileName}`)
+  for (const requiredTerm of requiredTerms) {
+    expect(content.includes(requiredTerm), `${fileName} must retain the method anchor: ${requiredTerm}`)
+  }
+  expect(content.includes("Repository audit"), `${fileName} must retain its explicit repository-audit mode`)
 }
 
 const securityReviewer = read(".codex/agents/security-reviewer.toml")
@@ -107,7 +122,6 @@ expect(!skill.includes("TODO"), "Review Gate skill must not contain initializer 
 const rootInstructions = read("AGENTS.md")
 const reviewerPlan = read("docs/plans/clinic-dashboard-reviewer-system.md")
 for (const [name, content] of [
-  ["AGENTS.md", rootInstructions],
   ["Review Gate skill", skill],
   ["Reviewer system plan", reviewerPlan],
 ]) {
@@ -122,8 +136,18 @@ for (const [name, content] of [
   )
 }
 expect(
-  rootInstructions.includes('sandbox_mode = "read-only"'),
-  "AGENTS.md must use reviewer sandbox_mode as the write boundary",
+  rootInstructions.includes("$review-gate") && rootInstructions.includes("authoritative source"),
+  "AGENTS.md must delegate reviewer workflow details to the Review Gate skill",
+)
+expect(
+  rootInstructions.includes("explicit user approval"),
+  "AGENTS.md must retain the user-approval boundary for AI reviewers",
+)
+expect(
+  !rootInstructions.includes('sandbox_mode = "read-only"') &&
+    !rootInstructions.includes("Severity 7-10") &&
+    !rootInstructions.includes("planning_reviewer"),
+  "AGENTS.md must not duplicate Review Gate execution details",
 )
 expect(
   skill.includes('sandbox_mode = "read-only"'),
@@ -136,6 +160,32 @@ expect(
 const openAiYaml = read(".codex/skills/review-gate/agents/openai.yaml")
 expect(openAiYaml.includes("$review-gate"), "Review Gate default prompt must mention $review-gate")
 read(".codex/skills/review-gate/references/routing.md")
+
+const safetyRules = read(".codex/rules/safety.rules")
+for (const destructivePrefix of [
+  '["rtk", "git", "reset", "--hard"]',
+  '["rtk", "proxy", "git", "reset", "--hard"]',
+  '["rtk", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]]',
+  '["rtk", "proxy", "git", "clean", ["-f", "-fd", "-df", "-fx", "-xf", "-fdx", "-dfx"]]',
+]) {
+  expect(
+    safetyRules.includes(destructivePrefix),
+    `Safety rules must retain the destructive command prefix: ${destructivePrefix}`,
+  )
+}
+
+const workflowRules = read(".codex/rules/workflow.rules")
+for (const externalWritePrefix of [
+  '["rtk", "git", "push"]',
+  '["rtk", "proxy", "git", "push"]',
+  'pattern = github_prefix + ["pr", github_pull_request_write_actions]',
+  'pattern = github_prefix + ["issue", github_issue_write_actions]',
+]) {
+  expect(
+    workflowRules.includes(externalWritePrefix),
+    `Workflow rules must retain the external write prefix: ${externalWritePrefix}`,
+  )
+}
 
 if (failures.length > 0) {
   process.stderr.write(`Review system verification failed:\n- ${failures.join("\n- ")}\n`)

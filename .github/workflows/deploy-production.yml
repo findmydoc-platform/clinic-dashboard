@@ -77,7 +77,7 @@ jobs:
         run: pnpm build
 
       - name: Pull Vercel production settings
-        run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" pull --yes --environment=production --git-branch=main --token="$VERCEL_TOKEN"
+        run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" pull --yes --environment=production --token="$VERCEL_TOKEN"
 
       - name: Build Vercel production
         run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" build --prod

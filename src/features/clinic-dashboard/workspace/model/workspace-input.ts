@@ -1,7 +1,10 @@
 import type {
+  ClinicGalleryLoadStatus,
   ClinicProfileDraft,
+  ClinicGallerySnapshot,
+  ClinicProfileSnapshot,
+  ClinicTreatmentsSnapshot,
   DoctorDirectorySnapshot,
-  MasterTreatment,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardSnapshot } from "@/features/clinic-dashboard/dashboard/public"
 import type {
@@ -9,7 +12,7 @@ import type {
   PatientInquiryProfile,
   PatientInquiryQueueSnapshot,
 } from "@/features/clinic-dashboard/messages/public"
-import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
+import type { ReviewsSnapshot, ReviewsSourceSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import type { ClinicDashboardLocation, ClinicDashboardLocationId } from "./locations"
 import type { ClinicDashboardNotification } from "./notifications"
 
@@ -48,7 +51,11 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
   }>
   defaultLocationId: ClinicDashboardLocationId
   doctorDirectory: DoctorDirectorySnapshot
+  galleryStatus: ClinicGalleryLoadStatus
+  gallerySnapshot?: ClinicGallerySnapshot
   inquiryQueue: PatientInquiryQueueSnapshot
+  profileSourceSnapshot?: ClinicProfileSnapshot
+  reviewSourceSnapshot?: ReviewsSourceSnapshot
   locations: readonly ClinicDashboardLocation[]
   locationSnapshots: Readonly<Record<ClinicDashboardLocationId, ClinicDashboardLocationSnapshot>>
   notifications: readonly ClinicDashboardNotification[]
@@ -56,7 +63,7 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
     id: string
     name: string
   }>
-  treatmentCatalogue: readonly MasterTreatment[]
+  treatmentSnapshot: ClinicTreatmentsSnapshot
 }>
 
 export function getClinicDashboardLocationSnapshot(

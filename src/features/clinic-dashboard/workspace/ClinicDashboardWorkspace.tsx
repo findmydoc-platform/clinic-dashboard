@@ -3,8 +3,14 @@
 import { useMemo } from "react"
 import { createClinicDashboardDemoClientAdapter } from "@/features/clinic-dashboard/demo/commands"
 import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
-import { createDoctorProfileApiCommands } from "@/features/clinic-dashboard/clinic-profile/public"
+import {
+  createClinicProfileSourceApiCommands,
+  createClinicGalleryApiCommands,
+  createClinicTreatmentApiCommands,
+  createDoctorProfileApiCommands,
+} from "@/features/clinic-dashboard/clinic-profile/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
+import { createReviewSourceApiCommands } from "@/features/clinic-dashboard/reviews/public"
 import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceComposition"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
 
@@ -28,16 +34,23 @@ export function ClinicDashboardWorkspace({
     [workspaceInput],
   )
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
+  const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
+  const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
+  const reviewSourceCommands = useMemo(() => createReviewSourceApiCommands(), [])
+  const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
 
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedContext}
       clinicProfileCommands={demoClientAdapter.clinicProfileCommands}
+      clinicGalleryCommands={clinicGalleryCommands}
+      clinicProfileSourceCommands={clinicProfileSourceCommands}
+      clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
       projectDashboardAfterProfileSave={demoClientAdapter.projectDashboardAfterProfileSave}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}
       prototypeMode={prototypeMode}
-      reviewCommands={demoClientAdapter.reviewCommands}
+      reviewCommands={reviewSourceCommands}
       showPrototypeModeToggle={showPrototypeModeToggle}
       workspaceInput={workspaceInput}
     />

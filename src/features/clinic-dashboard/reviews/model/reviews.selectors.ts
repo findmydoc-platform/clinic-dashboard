@@ -4,7 +4,6 @@ import { paginateClinicReviews } from "./review-pagination"
 import { projectClinicReviewForPresentation } from "./review"
 import type { ReviewsSnapshot } from "./reviews-snapshot"
 import { createReviewsState, type ReviewsState } from "./reviews.reducer"
-import type { ReviewsViewModel } from "./reviews-view-model"
 
 const reviewPageSize = 3
 
@@ -35,7 +34,7 @@ export function selectReviewsViewModel(
   state: ReviewsState,
   snapshot: ReviewsSnapshot,
   showManagement: boolean,
-): ReviewsViewModel {
+) {
   const projectedState = showManagement
     ? state
     : createReviewsState(snapshot.items.map(projectClinicReviewForPresentation))

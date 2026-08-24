@@ -100,31 +100,25 @@ test("switches complete location snapshots and resets local demo changes", async
     page.getByRole("button", { name: "Change inquiry status. Current status: In review" }),
   ).toBeVisible()
 
-  await page.getByRole("button", { name: "Reviews" }).click()
-  await expect(page.getByText("Melis Güneş")).toBeVisible()
+  await page.getByRole("button", { exact: true, name: "Reviews" }).click()
+  await expect(page.getByText("Maya K.")).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByLabel("Clinic name")).toHaveValue("Avenora Clinic — Antalya")
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveCount(0)
 
   await locationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  const clinicName = page.getByLabel("Clinic name")
-  await expect(clinicName).toHaveValue("Avenora Clinic — İzmir")
-  await clinicName.fill("Locally edited İzmir clinic")
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
   await locationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
-  await expect(clinicName).toHaveValue("Avenora Clinic — Antalya")
-  await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await expect(clinicName).toHaveValue("Avenora Clinic — İzmir")
-  await expect(page.getByText("Locally edited İzmir clinic")).toHaveCount(0)
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
   await page.getByRole("button", { name: "Clinic profile" }).click()
-  await page.getByLabel("Clinic name").fill("Active local clinic name before reload")
-  await expect(page.getByLabel("Clinic name")).toHaveValue("Active local clinic name before reload")
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
 
   await page.reload()
 
@@ -148,13 +142,64 @@ test("switches complete location snapshots and resets local demo changes", async
   ).toBeVisible()
   await expect(page.getByText("Status changed from Submitted to In review · 11:08")).toHaveCount(0)
   await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByLabel("Clinic name")).toHaveValue("Avenora Clinic — İzmir")
-  await expect(page.getByText("Active local clinic name before reload")).toHaveCount(0)
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
 })
 
-test("deep-links across locations and projects a saved profile until reload", async ({ page }) => {
+test("manages review responses, appeals, filters, and history through the authenticated BFF", async ({
+  page,
+}) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
+  await page.getByRole("button", { exact: true, name: "Reviews" }).click()
+
+  await page.getByLabel("Visibility").selectOption("removed")
+  await page.getByRole("button", { name: "Apply" }).click()
+  await expect(page.getByText("Review text removed")).toBeVisible()
+
+  await page.getByLabel("Visibility").selectOption("all")
+  await page.getByRole("button", { name: "Apply" }).click()
+  const review = page.getByRole("region", { name: "Review by Maya K., Dentistry" })
+  const pendingResponseReview = page.getByRole("region", {
+    name: "Review by Anonymous patient, Hair transplant",
+  })
+
+  await expect(review.getByRole("button", { name: /response/i })).toHaveCount(0)
+  await pendingResponseReview.getByRole("button", { name: "Edit pending response" }).click()
+  const responseDialog = page.getByRole("dialog", { name: "Edit pending response" })
+  await responseDialog
+    .getByLabel("Clinic response")
+    .fill("Thank you for the detailed feedback. We have shared it with our clinic team.")
+  await responseDialog.getByRole("button", { name: "Submit for moderation" }).click()
+  await expect(
+    pendingResponseReview.getByText(
+      "Thank you for the detailed feedback. We have shared it with our clinic team.",
+    ),
+  ).toBeVisible()
+
+  await review.getByRole("button", { name: "Submit appeal" }).click()
+  const appealDialog = page.getByRole("dialog", { name: "Submit review appeal" })
+  await appealDialog.getByLabel("Reason").selectOption("incorrect_clinic")
+  await appealDialog
+    .getByLabel("Appeal details")
+    .fill("The appointment described in this review belongs to another clinic location.")
+  await appealDialog.getByRole("button", { name: "Submit appeal" }).click()
+  await expect(review.getByText("Appeal · Incorrect clinic")).toBeVisible()
+  await expect(review.getByText("Submitted", { exact: true })).toBeVisible()
+
+  await review.getByRole("button", { name: "View history" }).click()
+  const historyDialog = page.getByRole("dialog", { name: "Review history" })
+  await expect(historyDialog.getByRole("heading", { name: "Publication history" })).toBeVisible()
+  await expect(historyDialog.getByRole("heading", { name: "Clinic response" })).toBeVisible()
+  await expect(historyDialog.getByRole("heading", { name: "Appeal history" })).toBeVisible()
+})
+
+test("deep-links across locations and persists gallery curation across reload", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  const receptionAlt = `Reception at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
+  const consultationAlt = `Consultation room at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
 
   await page.getByRole("button", { name: "Notifications, 4 new notifications" }).click()
   await page.getByRole("button", { name: /New message from Leyla Demir/ }).click()
@@ -165,24 +210,112 @@ test("deep-links across locations and projects a saved profile until reload", as
   await expect(page.getByText("Opened messages at Avenora Clinic — İzmir.")).toBeVisible()
 
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  const clinicName = page.getByRole("textbox", { name: "Clinic name" })
-  await clinicName.fill("Avenora Clinic — İzmir Presentation")
 
   const gallery = page.getByRole("region", { name: "Clinic image gallery" })
-  await gallery.getByRole("button", { name: "View all images" }).click()
-  const galleryDialog = page.getByRole("dialog", { name: "Edit clinic images" })
-  await galleryDialog.getByRole("button", { name: "Set cover" }).first().click()
-  await galleryDialog.getByRole("button", { name: "Done" }).click()
-  await page
-    .getByRole("group", { name: "Profile page actions" })
-    .getByRole("button", { name: "Save changes" })
+  await gallery.getByRole("button", { name: "Manage gallery" }).click()
+  const galleryEditor = page.getByRole("region", { name: "Manage gallery" })
+  await galleryEditor.getByRole("button", { name: "Add images" }).first().click()
+  const firstAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
+  const firstUploadResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      response.request().method() === "POST",
+  )
+  const imageBuffer = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64",
+  )
+  await firstAddImagesDialog
+    .locator('input[type="file"][aria-label="Choose clinic images"]')
+    .setInputFiles({ buffer: imageBuffer, mimeType: "image/png", name: "izmir-reception.png" })
+  expect((await firstUploadResponse).status()).toBe(201)
+  await expect(firstAddImagesDialog).toBeHidden()
+  await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(receptionAlt)
+
+  await galleryEditor.getByRole("button", { name: "Add images" }).first().click()
+  const secondAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
+  const secondUploadResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      response.request().method() === "POST",
+  )
+  await secondAddImagesDialog
+    .locator('input[type="file"][aria-label="Choose clinic images"]')
+    .setInputFiles({ buffer: imageBuffer, mimeType: "image/png", name: "izmir-consultation.png" })
+  expect((await secondUploadResponse).status()).toBe(201)
+  await expect(secondAddImagesDialog).toBeHidden()
+  await galleryEditor.getByRole("textbox", { name: "Alt text" }).fill(consultationAlt)
+
+  const firstReorderHandle = galleryEditor.getByRole("button", {
+    name: "Reorder image 1. Drag or use arrow keys.",
+  })
+  const secondGalleryItem = galleryEditor
+    .getByRole("button", { name: `Edit image 2: ${consultationAlt}` })
+    .locator("xpath=ancestor::li")
+  const firstHandleBounds = await firstReorderHandle.boundingBox()
+  const secondItemBounds = await secondGalleryItem.boundingBox()
+  if (!firstHandleBounds || !secondItemBounds) throw new Error("Gallery reorder geometry is required.")
+  await page.mouse.move(
+    firstHandleBounds.x + firstHandleBounds.width / 2,
+    firstHandleBounds.y + firstHandleBounds.height / 2,
+  )
+  await page.mouse.down()
+  await page.mouse.move(
+    secondItemBounds.x + secondItemBounds.width - 2,
+    secondItemBounds.y + secondItemBounds.height / 2,
+    { steps: 6 },
+  )
+  await page.mouse.up()
+  await expect(galleryEditor.getByRole("status")).toHaveText("Image moved to position 2 of 2.")
+  await expect(galleryEditor.getByRole("button", { name: `Edit image 1: ${consultationAlt}` })).toBeVisible()
+
+  const movedReceptionHandle = galleryEditor.getByRole("button", {
+    name: "Reorder image 2. Drag or use arrow keys.",
+  })
+  await movedReceptionHandle.focus()
+  await page.keyboard.press("ArrowLeft")
+  await expect(galleryEditor.getByRole("button", { name: `Edit image 1: ${receptionAlt}` })).toBeVisible()
+
+  const saveResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await galleryEditor.getByRole("button", { name: "Save and return" }).click()
+  expect((await saveResponse).status()).toBe(200)
+  await expect(galleryEditor).toBeHidden()
+
+  await gallery.getByRole("button", { name: "Manage gallery" }).click()
+  const reopenedEditor = page.getByRole("region", { name: "Manage gallery" })
+  await reopenedEditor
+    .getByRole("button", { name: new RegExp(`Edit image \\d+: ${consultationAlt}`) })
     .click()
-  await expect(page.getByText("Profile saved as revision 2.")).toBeVisible()
+  await reopenedEditor.getByRole("button", { name: "Set as main image" }).click()
+  await reopenedEditor.getByRole("button", { name: new RegExp(`Edit image \\d+: ${receptionAlt}`) }).click()
+  await reopenedEditor.getByRole("button", { name: "More image actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
+  const removalDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
+  const removalResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await removalDialog.getByRole("button", { name: "Remove image and save" }).click()
+  expect((await removalResponse).status()).toBe(200)
+  await expect(reopenedEditor).toBeHidden()
+
+  await page.reload()
+  const persistedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
+  await persistedLocationSelector.click()
+  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  const persistedGallery = page.getByRole("region", { name: "Clinic image gallery" })
+  await expect(persistedGallery.getByRole("img", { name: consultationAlt })).toBeVisible()
+  await expect(persistedGallery.getByRole("img", { name: receptionAlt })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })
-  await expect(clinicPreview.getByText("Avenora Clinic — İzmir Presentation")).toBeVisible()
-  await expect(clinicPreview.getByRole("img", { name: "Reception at Avenora Clinic — İzmir" })).toBeVisible()
+  await expect(clinicPreview.getByText("Avenora Clinic — İzmir")).toBeVisible()
+  await expect(clinicPreview.getByRole("img", { name: consultationAlt })).toBeVisible()
   await expect(page.getByText("94%", { exact: true }).first()).toBeVisible()
   await expect(page.getByRole("button", { name: "Review images" })).toHaveCount(0)
 
@@ -196,7 +329,82 @@ test("deep-links across locations and projects a saved profile until reload", as
   await reloadedLocationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveValue("Avenora Clinic — İzmir")
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+
+  const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })
+  await cleanupGallery.getByRole("button", { name: "Manage gallery" }).click()
+  const cleanupEditor = page.getByRole("region", { name: "Manage gallery" })
+  await cleanupEditor.getByRole("button", { name: "More image actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await cleanupEditor.getByRole("button", { name: "Save and return" }).click()
+  const cleanupDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
+  const cleanupResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await cleanupDialog.getByRole("button", { name: "Remove image and save" }).click()
+  expect((await cleanupResponse).status()).toBe(200)
+  await expect(cleanupEditor).toBeHidden()
+})
+
+test("saves, resumes, reviews and publishes the authenticated clinic profile draft", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveCount(0)
+  await page.getByRole("button", { name: "Edit profile" }).click()
+
+  const clinicName = page.getByRole("textbox", { name: "Clinic name" })
+  await clinicName.fill("Bosphorus International Clinic")
+  await page.getByRole("button", { name: "Save draft" }).first().click()
+  await expect(page.getByText("Draft saved.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Review & publish" })).toBeEnabled()
+
+  await page.reload()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await expect(page.getByText("Published profile is shown.")).toBeVisible()
+  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Continue editing" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Review & publish" })).toBeEnabled()
+  await page.getByRole("button", { name: "Review & publish" }).click()
+  const review = page.getByRole("dialog", { name: "Review and publish" })
+  await expect(review.getByText("1 changed field across 1 section")).toBeVisible()
+  await review.getByRole("button", { name: "Publish changes" }).click()
+
+  await expect(page.getByText("Bosphorus International Clinic")).toBeVisible()
+  await expect(page.getByText("Clinic profile published.")).toBeVisible()
+  await expect(page.getByText("Published profile is shown.")).toHaveCount(0)
+})
+
+test("guards local profile edits and confirms persistent draft deletion separately", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await signIn(page)
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await page.getByRole("button", { name: /^(?:Edit profile|Continue editing)$/ }).click()
+
+  const description = page.getByRole("textbox", { name: "Description" })
+  await description.fill("A locally edited clinic description.")
+  await page.getByRole("button", { name: "Cancel editing" }).first().click()
+  const leaveDialog = page.getByRole("alertdialog", { name: "Leave profile editing?" })
+  await expect(leaveDialog.getByRole("button", { name: "Leave without saving" })).toBeVisible()
+  await leaveDialog.getByRole("button", { name: "Keep editing" }).click()
+  await expect(description).toHaveValue("A locally edited clinic description.")
+
+  await page.getByRole("button", { name: "Cancel editing" }).first().click()
+  const saveAndLeaveDialog = page.getByRole("alertdialog", { name: "Leave profile editing?" })
+  await saveAndLeaveDialog.getByRole("button", { name: "Save draft and leave" }).click()
+  await expect(saveAndLeaveDialog).toHaveCount(0)
+  await expect(page.getByText("Published profile is shown.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Review & publish" })).toBeEnabled()
+  await page.getByRole("button", { name: "Continue editing" }).click()
+  await page.getByRole("button", { name: "Discard draft" }).click()
+  const discardDialog = page.getByRole("alertdialog", { name: "Discard saved draft?" })
+  await discardDialog.getByRole("button", { name: "Discard draft" }).click()
+
+  await expect(page.getByText("Draft discarded.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Edit profile" })).toBeVisible()
 })
 
 test("routes dashboard tasks into their owning workspace sections", async ({ page }) => {

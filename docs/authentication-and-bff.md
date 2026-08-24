@@ -80,15 +80,20 @@ Storybook.
 
 The Dashboard owns these same-origin contracts:
 
-| Route                      | Method | Contract                                                                                                                                                                                                                |
-| -------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/login`          | `POST` | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                               |
-| `/auth/callback`           | `GET`  | Validate TokenHash, flow type, and exact destination without consuming the token; redirect only to the configured Dashboard origin and confirmation page.                                                               |
-| `/api/auth/callback`       | `POST` | Validate CSRF and exact origin, call `verifyOtp` once, establish cookies, verify clinic account eligibility, issue a short-lived flow-and-subject-bound completion grant, and return only the allowed completion route. |
-| `/api/auth/password/reset` | `POST` | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                                                                              |
-| Invite/reset completion    | `POST` | Require the verified session and matching one-use completion grant, enforce the eight-character matching password rule, clear the grant, update the password, sign out, and return to normal login.                     |
-| `/api/auth/logout`         | `POST` | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                             |
-| `/api/dashboard/bootstrap` | `GET`  | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                        |
+| Route                              | Method                   | Contract                                                                                                                                                                                                                |
+| ---------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/login`                  | `POST`                   | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                               |
+| `/auth/callback`                   | `GET`                    | Validate TokenHash, flow type, and exact destination without consuming the token; redirect only to the configured Dashboard origin and confirmation page.                                                               |
+| `/api/auth/callback`               | `POST`                   | Validate CSRF and exact origin, call `verifyOtp` once, establish cookies, verify clinic account eligibility, issue a short-lived flow-and-subject-bound completion grant, and return only the allowed completion route. |
+| `/api/auth/password/reset`         | `POST`                   | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                                                                              |
+| Invite/reset completion            | `POST`                   | Require the verified session and matching one-use completion grant, enforce the eight-character matching password rule, clear the grant, update the password, sign out, and return to normal login.                     |
+| `/api/auth/logout`                 | `POST`                   | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                             |
+| `/api/dashboard/bootstrap`         | `GET`                    | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                        |
+| `/api/dashboard/clinic-treatments` | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                   |
+| `/api/dashboard/gallery`           | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                      |
+| `/api/dashboard/gallery/media`     | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                       |
+| `/api/dashboard/gallery/discard`   | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                  |
+| `/api/dashboard/gallery/image`     | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                           |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
 is unnecessary unless a later UI flow demonstrates the need. Callback and login failures return sanitized error codes;
@@ -144,7 +149,13 @@ A redirect response fails without sending the Bearer token to the redirect targe
 The Dashboard consumes this synchronized bootstrap contract:
 
 ```ts
-type ClinicDashboardCapability = "clinic-profile:view" | "clinic-profile:edit"
+type ClinicDashboardCapability =
+  | "clinic-profile:view"
+  | "clinic-profile:edit"
+  | "clinic-gallery:view"
+  | "clinic-gallery:edit"
+  | "clinic-treatments:view"
+  | "clinic-treatments:edit"
 
 type ClinicDashboardBootstrapDTO = {
   principal: {
@@ -161,9 +172,10 @@ type ClinicDashboardBootstrapDTO = {
 }
 ```
 
-The capability list contains each value exactly once in the order shown. It is a UI projection for profile display and
-editing controls, not a replacement for Payload authorization. Each later read or mutation must still authorize the
-current principal, clinic, document, and fields.
+The capability list accepts independent subsets and contains each included value exactly once. The current Website
+bootstrap returns all six values in the order shown. It is a UI projection for feature controls, not a replacement for
+Payload authorization. Each later read or mutation must still authorize the current principal, clinic, document, and
+fields.
 
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
 Supabase identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
@@ -174,6 +186,34 @@ status write; the browser and Route Handler do not observe that sequence. The ad
 projects only the approved inquiry fields. Its Controlled implementation is selected by the existing local test mode,
 uses the same provider contract, and is impossible to enable in Preview or Production. No Payload failure selects
 Controlled data.
+
+The clinic-treatment domain uses one private `ClinicTreatmentProvider` for `loadTreatments()`, `createTreatment()`, and
+`updateTreatment()`. Its Payload adapter targets only the focused `GET`, `POST`, and `PATCH`
+`/api/clinic-dashboard/treatments` contract. The Website endpoint derives the clinic from the approved principal,
+returns plain-text central treatment descriptions, creates offerings inactive, and permits updates only to the EUR
+price and active status after an optimistic revision check. Browser code uses the same-origin BFF with private no-store
+responses and never sends a clinic identifier.
+
+The Dashboard snapshot maps Website `priceEUR` to the UI's fixed-EUR `price` field and preserves each ISO `revision`.
+Create sends only `{ treatmentId, priceEUR }`. Update sends `{ offeringId, expectedRevision, priceEUR, active }`; stale
+revisions and serializable update conflicts map to `409 CLINIC_TREATMENT_CONFLICT`, reload the latest offering, and keep the dialog open so the user can
+review and resubmit unsaved values. The adapter validates the focused DTO and never depends on generic Payload
+collection paths, query grammar, depth, relationship expansion, or collection response envelopes.
+
+The clinic-gallery domain uses one private `ClinicGalleryProvider` for snapshot reads, one-file draft uploads,
+atomic ordered saves, draft discard, and authorized image streaming. Its Payload adapter targets only the focused
+`/api/clinic-dashboard/gallery`, `/media`, and `/discard` contracts. The Website derives the clinic from the approved
+principal and returns `{ items, revision, constraints }`; the first ordered item is the public main image. Save sends
+only `{ expectedRevision, items: [{ mediaId, alt, captionText? }] }` and maps a stale revision to
+`409 CLINIC_GALLERY_CONFLICT` while preserving local editor state.
+
+The browser may upload at most three files concurrently, one file per request, within the returned 12-item, 4 MiB,
+50 MP, and MIME constraints. Uploaded drafts remain private until save. Dashboard media responses replace every
+upstream file URL with `/api/dashboard/gallery/image` plus an authenticated-encryption token that keeps the upstream
+origin and path opaque. That endpoint re-authorizes the session and capability, opens the token server-side, and lets
+the Payload adapter accept only the configured Payload origin and `/api/clinicMedia/file/**` path. Gallery responses
+and image streams remain private and `no-store`. Browser code never receives a Bearer token, a direct upstream media
+URL, or performs a cross-origin Payload request.
 
 ## Error and UI State Mapping
 
@@ -236,7 +276,8 @@ deduplication during one server render is allowed.
 
 When an authorized Dashboard command changes data rendered on the public website, Payload still executes the existing
 public revalidation contract for the affected surfaces. The private BFF response does not suppress, replace, or defer
-that invalidation. This architecture introduces no new cache class, tag family, owner, or event.
+that invalidation. Transactional treatment updates trigger the existing plan only after commit. This architecture
+introduces no new cache class, tag family, owner, or event.
 
 Client libraries may keep transient component state for interaction quality, but that state is not authoritative and
 must be discarded or reconciled after mutations, permission changes, or session failure.
@@ -253,6 +294,12 @@ The architecture remains valid only while the following properties hold:
 - Contract-test the bootstrap DTO and every stable error mapping against the synchronized website contract.
 - Run the same patient-inquiry provider contract against Controlled and Payload implementations, including queue shape,
   allowed changes, unknown IDs, and conflicting transitions.
+- Run the clinic-treatment provider contract against Controlled and Payload implementations, including request-scoped
+  persistence, tenant isolation, inactive creation, duplicate assignment, EUR validation, optimistic update conflicts,
+  and private/no-store response semantics.
+- Run the clinic-gallery provider contract against Controlled and Payload implementations, including revision
+  conflicts, ordered main-image semantics, upload limits, three-request concurrency, draft discard, tenant isolation,
+  exact media-proxy origin/path validation, and private/no-store response semantics.
 - Verify composition selects Controlled only in local test mode, selects Payload otherwise, rejects missing tokens, and
   fails closed in Preview and Production.
 - Verify architecture process fixtures reject concrete providers, private provider contracts, or mode selection in UI,
@@ -275,4 +322,5 @@ The architecture remains valid only while the following properties hold:
 - A Dashboard database, durable copy of Payload data, shared authenticated cache, or service-role credential.
 - Stable pull-request-number aliases or a callback relay application.
 - Portal session transfer or a clinic login form in the portal.
-- Capability-specific business features beyond the approved patient-inquiry domain.
+- Capability-specific business features beyond the approved patient-inquiry, clinic-treatment, and clinic-gallery
+  domains.

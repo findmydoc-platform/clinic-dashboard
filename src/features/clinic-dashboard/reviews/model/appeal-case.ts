@@ -1,4 +1,4 @@
-export const reviewAppealReasons = ["Incorrect clinic", "Inappropriate content", "Privacy concern"] as const
+const reviewAppealReasons = ["Incorrect clinic", "Inappropriate content", "Privacy concern"] as const
 
 export const reviewAppealCaseStatuses = ["submitted", "under-review"] as const
 export const reviewAppealEventTypes = ["appeal-submitted", "appeal-status-changed"] as const

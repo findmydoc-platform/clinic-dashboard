@@ -5,8 +5,12 @@ const serverMocks = vi.hoisted(() => ({
   getClinicDashboardAccess: vi.fn(),
   getClinicDashboardAccessToken: vi.fn(),
   loadDirectory: vi.fn(),
+  loadGallery: vi.fn(),
+  loadProfile: vi.fn(),
+  loadTreatments: vi.fn(),
   loadWorkspace: vi.fn(),
   loadQueue: vi.fn(),
+  loadReviews: vi.fn(),
 }))
 
 vi.mock("@/features/clinic-dashboard/data-provider-composition", () => ({
@@ -40,7 +44,7 @@ const workspace = {
   locations: [],
   notifications: [],
   organization: { id: "clinic-1", name: "Clinic One" },
-  treatmentCatalogue: [],
+  treatmentSnapshot: { catalogue: [], offerings: [], status: "temporarily-unavailable" },
 } as const
 
 describe("Patient inquiry queue server loading", () => {
@@ -49,6 +53,12 @@ describe("Patient inquiry queue server loading", () => {
     serverMocks.loadWorkspace.mockResolvedValue(workspace)
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
+        capabilities: [
+          "clinic-profile:view",
+          "clinic-profile:edit",
+          "clinic-treatments:view",
+          "clinic-treatments:edit",
+        ],
         clinic: { id: "clinic-1", name: "Clinic One" },
       },
       status: "approved",
@@ -57,6 +67,19 @@ describe("Patient inquiry queue server loading", () => {
       error: "temporarily-unavailable",
       ok: false,
     })
+    serverMocks.loadProfile.mockResolvedValue({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+    serverMocks.loadGallery.mockResolvedValue({ error: "unavailable", ok: false })
+    serverMocks.loadReviews.mockResolvedValue({
+      error: "unavailable",
+      ok: false,
+    })
+    serverMocks.loadTreatments.mockResolvedValue({
+      ok: true,
+      value: { catalogue: [], offerings: [], status: "ready" },
+    })
     serverMocks.composeDataProviders.mockReturnValue({
       doctors: {
         loadDirectory: serverMocks.loadDirectory,
@@ -64,6 +87,20 @@ describe("Patient inquiry queue server loading", () => {
       inquiries: {
         changeStatus: vi.fn(),
         loadQueue: serverMocks.loadQueue,
+      },
+      gallery: {
+        loadGallery: serverMocks.loadGallery,
+      },
+      profile: {
+        loadSnapshot: serverMocks.loadProfile,
+      },
+      reviews: {
+        loadReviews: serverMocks.loadReviews,
+      },
+      treatments: {
+        createTreatment: vi.fn(),
+        loadTreatments: serverMocks.loadTreatments,
+        updateTreatment: vi.fn(),
       },
     })
   })
@@ -145,5 +182,92 @@ describe("Patient inquiry queue server loading", () => {
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({ doctorDirectory })
     expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("access-token", "clinic-1")
     expect(serverMocks.loadDirectory).toHaveBeenCalledOnce()
+  })
+
+  it("does not load source-backed profile data without the view capability", async () => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: ["clinic-profile:edit"],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+      },
+      status: "approved",
+    })
+    serverMocks.loadQueue.mockResolvedValue({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+
+    const input = await loadClinicDashboardWorkspaceInput()
+
+    expect(input.profileSourceSnapshot).toBeUndefined()
+    expect(serverMocks.loadProfile).not.toHaveBeenCalled()
+  })
+
+  it("marks the gallery unavailable without serializing fixture images when its live read fails", async () => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: ["clinic-gallery:view"],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+      },
+      status: "approved",
+    })
+    serverMocks.loadQueue.mockResolvedValue({ error: "temporarily-unavailable", ok: false })
+
+    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+      gallerySnapshot: undefined,
+      galleryStatus: "temporarily-unavailable",
+    })
+    expect(serverMocks.loadGallery).toHaveBeenCalledOnce()
+  })
+
+  it("marks a verified live gallery snapshot ready", async () => {
+    const gallerySnapshot = {
+      constraints: {
+        acceptedMimeTypes: ["image/png"],
+        maxConcurrentUploads: 3,
+        maxFileBytes: 4_194_304,
+        maxItems: 12,
+        maxPixels: 50_000_000,
+      },
+      items: [],
+      revision: 2,
+    } as const
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: ["clinic-gallery:view"],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+      },
+      status: "approved",
+    })
+    serverMocks.loadGallery.mockResolvedValue({ ok: true, value: gallerySnapshot })
+    serverMocks.loadQueue.mockResolvedValue({ error: "temporarily-unavailable", ok: false })
+
+    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+      gallerySnapshot,
+      galleryStatus: "ready",
+    })
+  })
+
+  it("does not load or serialize treatments without the view capability", async () => {
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: {
+        capabilities: ["clinic-profile:view"],
+        clinic: { id: "clinic-1", name: "Clinic One" },
+      },
+      status: "approved",
+    })
+    serverMocks.loadQueue.mockResolvedValue({
+      error: "temporarily-unavailable",
+      ok: false,
+    })
+
+    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+      treatmentSnapshot: { catalogue: [], offerings: [], status: "forbidden" },
+    })
+    expect(serverMocks.loadTreatments).not.toHaveBeenCalled()
   })
 })

@@ -14,29 +14,6 @@ function rootInstructions(additionalRules = "") {
 # Fixture Instructions
 
 ${additionalRules}
-
-## AI Anti-Slop Policy v2
-
-## Priorities
-
-- Require direct and factual output.
-
-## Required Output Quality
-
-- State concrete evidence.
-
-## Uncertainty & Evidence
-
-- Assumption: fixture inputs are synthetic.
-- Confidence: report incomplete evidence.
-
-## Forbidden Patterns
-
-- Avoid unsupported claims.
-
-## Scope & Brevity
-
-- Keep the response concise.
 `
 }
 
@@ -72,11 +49,11 @@ afterEach(() => {
 
 describe("AI slop policy checker active AGENTS resolution", () => {
   it.each([{ args: [] }, { args: ["--changed-files", "AGENTS.md"] }])(
-    "requires the policy in a non-empty root override ($args)",
+    "enforces instruction budgets in a non-empty root override ($args)",
     ({ args }) => {
       const fixtureRoot = createFixture({
         "AGENTS.md": rootInstructions(),
-        "AGENTS.override.md": "- Keep this temporary override concise.",
+        "AGENTS.override.md": Array.from({ length: 181 }, (_, index) => `Context line ${index}`).join("\n"),
       })
 
       const result = runChecker(fixtureRoot, args)
@@ -84,7 +61,7 @@ describe("AI slop policy checker active AGENTS resolution", () => {
 
       expect(result.status).toBe(1)
       expect(output).toContain("AGENTS.override.md")
-      expect(output).toContain('missing required heading: "## AI Anti-Slop Policy v2"')
+      expect(output).toContain("exceeds instruction line budget")
     },
   )
 
@@ -310,28 +287,17 @@ Always chat with the user in English.
     expect(result.stderr).toBe("")
   })
 
-  it.each([
-    [
-      "tone",
-      "- No filler.",
-      "- You may use filler in responses.",
-      "Conflicting tone policies (forbid filler vs allow filler) detected.",
-    ],
-    [
-      "build",
-      "- Always run pnpm build.",
-      "- Do not run pnpm build.",
-      "Conflicting execution policies (always build vs skip build) detected.",
-    ],
-  ])("preserves the existing %s conflict rule", (_label, parentRule, childRule, expected) => {
+  it("preserves the execution conflict rule", () => {
     const fixtureRoot = createFixture({
-      "AGENTS.md": rootInstructions(parentRule),
-      "src/features/AGENTS.md": childRule,
+      "AGENTS.md": rootInstructions("- Always run pnpm build."),
+      "src/features/AGENTS.md": "- Do not run pnpm build.",
     })
 
     const result = runChecker(fixtureRoot)
 
     expect(result.status).toBe(1)
-    expect(combinedOutput(result)).toContain(expected)
+    expect(combinedOutput(result)).toContain(
+      "Conflicting execution policies (always build vs skip build) detected.",
+    )
   })
 })

@@ -1,11 +1,60 @@
-prefix_rule(
-  pattern = ["git", "commit"],
-  decision = "prompt",
-  justification = "Commits require explicit user approval."
-)
+# Prompt only for canonical commands that write to a remote repository or GitHub resource.
+# Read-only Git and GitHub commands remain unrestricted.
 
-prefix_rule(
-  pattern = ["gh", "pr", "create"],
-  decision = "prompt",
-  justification = "Pull request creation requires explicit user approval."
-)
+external_git_write_prefixes = [
+  ["rtk", "git", "push"],
+  ["rtk", "proxy", "git", "push"],
+]
+
+github_command_prefixes = [
+  ["rtk", "gh"],
+  ["rtk", "proxy", "gh"],
+]
+
+github_pull_request_write_actions = [
+  "close",
+  "comment",
+  "create",
+  "edit",
+  "lock",
+  "merge",
+  "ready",
+  "reopen",
+  "review",
+  "unlock",
+  "update-branch",
+]
+
+github_issue_write_actions = [
+  "close",
+  "comment",
+  "create",
+  "delete",
+  "edit",
+  "lock",
+  "pin",
+  "reopen",
+  "transfer",
+  "unlock",
+  "unpin",
+]
+
+for command_prefix in external_git_write_prefixes:
+  prefix_rule(
+    pattern = command_prefix,
+    decision = "prompt",
+    justification = "Pushing changes writes to a remote repository and requires explicit approval."
+  )
+
+for github_prefix in github_command_prefixes:
+  prefix_rule(
+    pattern = github_prefix + ["pr", github_pull_request_write_actions],
+    decision = "prompt",
+    justification = "Changing a GitHub pull request requires explicit approval."
+  )
+
+  prefix_rule(
+    pattern = github_prefix + ["issue", github_issue_write_actions],
+    decision = "prompt",
+    justification = "Changing a GitHub issue requires explicit approval."
+  )

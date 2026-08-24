@@ -73,8 +73,7 @@ export const NotificationOpensReviewAtItsLocation: Story = {
     await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
       /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
     )
-    const review = canvas.getByRole("region", { name: "Review by Eva Fixture" })
-    await waitFor(() => expect(review).toHaveFocus())
+    await waitFor(() => expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toHaveFocus())
     await expect(canvas.queryByRole("dialog", { name: /review response/i })).not.toBeInTheDocument()
     await expect(canvas.getByText("Opened review at Berlin Health Clinic — Charlottenburg.")).toBeVisible()
   },
@@ -91,21 +90,22 @@ export const ProfileSaveProjectsIntoDashboard: Story = {
 
     const gallery = canvas.getByRole("region", { name: "Clinic image gallery" })
     await waitFor(() => expect(gallery).toHaveFocus())
-    await userEvent.click(within(gallery).getByRole("button", { name: "View all images" }))
-    const galleryDialog = canvas.getByRole("dialog", { name: "Edit clinic images" })
-    await userEvent.click(within(galleryDialog).getAllByRole("button", { name: "Set cover" })[0]!)
-    await userEvent.click(within(galleryDialog).getByRole("button", { name: "Done" }))
-
-    const clinicName = canvas.getByRole("textbox", { name: "Clinic name" })
-    await userEvent.clear(clinicName)
-    await userEvent.type(clinicName, "Berlin Health Clinic — Mitte Demo")
-    const profileActions = within(canvas.getByRole("group", { name: "Profile page actions" }))
-    await userEvent.click(profileActions.getByRole("button", { name: "Save changes" }))
-    await expect(await canvas.findByText("Profile saved as revision 2.")).toBeVisible()
+    await userEvent.click(within(gallery).getByRole("button", { name: "Manage gallery" }))
+    const galleryEditor = canvas.getByRole("region", { name: "Manage gallery" })
+    await userEvent.click(
+      within(galleryEditor).getByRole("button", {
+        name: "Edit image 2: Berlin Health Clinic exterior",
+      }),
+    )
+    await userEvent.click(within(galleryEditor).getByRole("button", { name: "Set as main image" }))
+    await userEvent.click(within(galleryEditor).getByRole("button", { name: "Save and return" }))
+    await waitFor(() =>
+      expect(canvas.queryByRole("region", { name: "Manage gallery" })).not.toBeInTheDocument(),
+    )
 
     await userEvent.click(canvas.getByRole("button", { name: "Dashboard" }))
     const preview = canvas.getByRole("region", { name: "Dashboard clinic location summary" })
-    await expect(within(preview).getByText("Berlin Health Clinic — Mitte Demo")).toBeVisible()
+    await expect(within(preview).getByText("Berlin Health Clinic — Mitte")).toBeVisible()
     await expect(within(preview).getByRole("img", { name: "Berlin Health Clinic exterior" })).toBeVisible()
     await expect(canvas.getAllByText("86%")[0]).toBeVisible()
     await expect(canvas.queryByRole("button", { name: "Review images" })).not.toBeInTheDocument()

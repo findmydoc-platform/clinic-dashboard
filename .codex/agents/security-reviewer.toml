@@ -1,6 +1,5 @@
 name = "security_reviewer"
 description = "Reviews realistic product risks in auth, tenant isolation, trust boundaries, secrets, privacy, and abuse paths."
-model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 

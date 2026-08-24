@@ -1,43 +1,39 @@
-import { Clock3, FileClock, Flag, MessageSquareReply, Pencil, StickyNote } from "lucide-react"
+import { FileClock, Flag, MessageSquareReply, ShieldCheck } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { RatingStars } from "@/components/ui/rating-stars"
-import { cn } from "@/lib/utils"
-import type { ClinicReview } from "../../model/review"
+import type { ClinicReviewRecord } from "../../model/review-source"
+import {
+  canSubmitReviewResponse,
+  reviewAppealReasonLabel,
+  reviewAppealStatusLabel,
+  reviewPublicMeasureLabel,
+  reviewResponseStatusLabel,
+} from "../../model/review-source"
 
-type ReviewCardProps = Readonly<{
+type Props = Readonly<{
   onAppealOpen: (reviewId: string) => void
   onHistoryOpen: (reviewId: string) => void
-  onNoteOpen: (reviewId: string) => void
   onResponseOpen: (reviewId: string) => void
-  review: ClinicReview
+  review: ClinicReviewRecord
   showManagement: boolean
 }>
 
-export function ReviewCard({
-  onAppealOpen,
-  onHistoryOpen,
-  onNoteOpen,
-  onResponseOpen,
-  review,
-  showManagement,
-}: ReviewCardProps) {
-  const responseActionLabel = review.pendingResponse
-    ? "Edit pending response"
-    : review.publishedResponse
-      ? "Edit response"
-      : "Respond"
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric" }).format(
+    new Date(value),
+  )
+}
 
+export function ReviewCard({ onAppealOpen, onHistoryOpen, onResponseOpen, review, showManagement }: Props) {
+  const isUnavailable = review.withdrawalState === "withdrawn" || review.publicMeasure === "removed"
+  const canSubmitResponse = canSubmitReviewResponse(review)
+  const responseLabel = review.response?.pending ? "Edit pending response" : "Respond"
   return (
     <Card
-      aria-label={`Review by ${review.author}`}
-      className={cn(
-        "p-5 sm:p-6",
-        review.status === "Under review" &&
-          "border-[color-mix(in_srgb,var(--destructive)_45%,var(--background))] bg-[color-mix(in_srgb,var(--destructive)_6%,var(--background))]",
-      )}
-      data-review-status={review.status}
+      aria-label={`Review by ${review.author}, ${review.treatment.label}`}
+      className="p-5 sm:p-6"
       data-review-id={review.id}
       tabIndex={-1}
     >
@@ -46,83 +42,115 @@ export function ReviewCard({
           <Avatar initials={review.initials} />
           <div>
             <h2 className="font-bold">{review.author}</h2>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--foreground)]">
               <RatingStars value={review.rating} />
-              <span className="text-xs text-[var(--foreground)]">{review.age}</span>
+              <time dateTime={review.reviewDate}>{formatDate(review.reviewDate)}</time>
+              <span>{review.treatment.label}</span>
             </div>
           </div>
         </div>
-        <span
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-bold",
-            review.status === "Answered"
-              ? "bg-[color-mix(in_srgb,var(--accent)_28%,var(--background))]"
-              : review.status === "Open"
-                ? "bg-[var(--warning)]"
-                : "bg-[var(--error)]",
-          )}
-        >
-          {review.status}
+        <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-[var(--foreground)]">
+          <ShieldCheck aria-hidden="true" className="size-4" /> Approved review
         </span>
       </div>
-      <span className="mt-5 inline-block rounded bg-[var(--surface)] px-2 py-1 text-[10px] font-bold tracking-wide uppercase">
-        {review.treatment}
-      </span>
-      <p className="mt-4 text-sm leading-6">{review.body}</p>
-      {review.publishedResponse ? (
-        <div className="mt-5 border-l-4 border-[var(--primary)] bg-[var(--surface)] p-4">
-          <div className="text-xs font-bold text-[var(--foreground)]">Published clinic response</div>
-          <p className="mt-2 text-sm italic">{review.publishedResponse}</p>
-        </div>
-      ) : null}
-      {showManagement && review.pendingResponse ? (
-        <div className="mt-5 rounded-lg border border-[color-mix(in_srgb,var(--warning)_70%,var(--border))] bg-[color-mix(in_srgb,var(--warning)_35%,var(--background))] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-[var(--secondary)]">
-              <Clock3 aria-hidden="true" className="size-4" /> Pending moderation
-            </div>
-            <time className="text-xs text-[var(--foreground)]" dateTime={review.pendingResponse.submittedAt}>
-              Saved {review.pendingResponse.submittedAt.replace("T", " ").replace(".000Z", " UTC")}
-            </time>
+
+      <div className="mt-5">
+        {isUnavailable ? (
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+            <p className="font-bold">
+              {review.withdrawalState === "withdrawn" ? "Review withdrawn" : "Review text removed"}
+            </p>
+            <p className="mt-1 text-sm text-[var(--foreground)]">
+              The original review text is not available to the clinic.
+            </p>
           </div>
-          <p className="mt-2 text-sm italic">{review.pendingResponse.response}</p>
-        </div>
+        ) : review.publicMeasure === "placeholder" ? (
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+            <p className="font-bold">Review text replaced</p>
+            <p className="mt-1 text-sm text-[var(--foreground)]">
+              {review.publicNotice ?? "The written content is not publicly available."}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm leading-6">{review.publicText}</p>
+        )}
+        {review.publicMeasure !== "none" &&
+        review.publicMeasure !== "removed" &&
+        review.publicMeasure !== "placeholder" ? (
+          <div className="mt-4 border-l-2 border-[var(--primary)] pl-4 text-sm">
+            <strong>{reviewPublicMeasureLabel(review.publicMeasure)}</strong>
+            {review.publicNotice ? (
+              <p className="mt-1 text-[var(--foreground)]">{review.publicNotice}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      {review.response ? (
+        <section
+          aria-label={`Clinic response for ${review.author}, ${review.treatment.label}`}
+          className="mt-5 space-y-3 border-l-4 border-[var(--primary)] bg-[var(--surface)] p-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-bold">Clinic response</h3>
+            <span className="text-xs font-bold text-[var(--foreground)]">
+              {reviewResponseStatusLabel(review.response.status)}
+            </span>
+          </div>
+          {review.response.published ? (
+            <p className="text-sm leading-6">{review.response.published.body}</p>
+          ) : null}
+          {review.response.pending ? (
+            <div className="border-t border-[var(--border)] pt-3">
+              <p className="text-xs font-bold text-[var(--foreground)]">
+                Pending revision · submitted {formatDate(review.response.pending.submittedAt)}
+              </p>
+              <p className="mt-2 text-sm leading-6">{review.response.pending.body}</p>
+            </div>
+          ) : null}
+        </section>
       ) : null}
-      {showManagement ? (
-        <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--border)] pt-4">
-          {review.status === "Under review" ? (
-            <Button disabled size="small" variant="ghost">
-              <MessageSquareReply aria-hidden="true" className="size-4" /> Responses locked
-            </Button>
-          ) : (
-            <Button
-              onClick={() => onResponseOpen(review.id)}
-              size="small"
-              variant={review.publishedResponse || review.pendingResponse ? "ghost" : "primary"}
-            >
-              {review.publishedResponse || review.pendingResponse ? (
-                <Pencil aria-hidden="true" className="size-4" />
-              ) : (
-                <MessageSquareReply aria-hidden="true" className="size-4" />
-              )}
-              {responseActionLabel}
-            </Button>
-          )}
-          {review.status !== "Under review" ? (
-            <Button onClick={() => onNoteOpen(review.id)} size="small" variant="ghost">
-              <StickyNote aria-hidden="true" className="size-4" /> Internal note
-            </Button>
+
+      {review.appeal ? (
+        <section aria-label="Review appeal" className="mt-5 rounded-lg border border-[var(--border)] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-bold">Appeal · {reviewAppealReasonLabel(review.appeal.reason)}</h3>
+            <span className="text-xs font-bold text-[var(--foreground)]">
+              {reviewAppealStatusLabel(review.appeal.status)}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6">{review.appeal.details}</p>
+          {review.appeal.decisionReason ? (
+            <p className="mt-3 border-t border-[var(--border)] pt-3 text-sm text-[var(--foreground)]">
+              Decision: {review.appeal.decisionReason}
+            </p>
           ) : null}
-          {review.status === "Open" && !review.appealCase ? (
-            <Button onClick={() => onAppealOpen(review.id)} size="small" variant="ghost">
-              <Flag aria-hidden="true" className="size-4" /> Appeal
-            </Button>
-          ) : null}
-          <Button onClick={() => onHistoryOpen(review.id)} size="small" variant="ghost">
-            <FileClock aria-hidden="true" className="size-4" /> History
+        </section>
+      ) : null}
+
+      <div className="mt-5 flex flex-col gap-2 border-t border-[var(--border)] pt-4 sm:flex-row sm:flex-wrap">
+        {showManagement && canSubmitResponse ? (
+          <Button
+            className="sm:w-auto"
+            onClick={() => onResponseOpen(review.id)}
+            size="small"
+            variant={review.response ? "outline" : "primary"}
+          >
+            <MessageSquareReply aria-hidden="true" className="size-4" />
+            {responseLabel}
           </Button>
-        </div>
-      ) : null}
+        ) : null}
+        {showManagement && !review.appeal ? (
+          <Button className="sm:w-auto" onClick={() => onAppealOpen(review.id)} size="small" variant="ghost">
+            <Flag aria-hidden="true" className="size-4" />
+            Submit appeal
+          </Button>
+        ) : null}
+        <Button className="sm:w-auto" onClick={() => onHistoryOpen(review.id)} size="small" variant="ghost">
+          <FileClock aria-hidden="true" className="size-4" />
+          View history
+        </Button>
+      </div>
     </Card>
   )
 }
