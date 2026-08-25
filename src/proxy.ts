@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 import {
+  createClinicDashboardLoginPathForRequest,
   createProxySupabaseClient,
   hasControlledSession,
 } from "@/features/clinic-dashboard/auth/server/public"
@@ -62,7 +63,11 @@ export async function proxy(request: NextRequest) {
 
   if (hasSession) return response
 
-  const loginUrl = new URL("/login", request.nextUrl.origin)
+  const loginPath = createClinicDashboardLoginPathForRequest(
+    request.nextUrl.pathname,
+    request.nextUrl.searchParams.getAll("inquiry"),
+  )
+  const loginUrl = new URL(loginPath, request.nextUrl.origin)
   const redirect = copyResponseState(response, NextResponse.redirect(loginUrl))
   applyPrivateResponseHeaders(redirect.headers)
   return redirect

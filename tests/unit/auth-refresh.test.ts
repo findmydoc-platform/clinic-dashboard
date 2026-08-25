@@ -3,7 +3,10 @@ import { resolveMutableClinicDashboardAccess } from "@/features/clinic-dashboard
 
 function response(status: number, code: string) {
   return new Response(JSON.stringify({ error: { code } }), {
-    headers: { "cache-control": "private, no-store", vary: "Authorization" },
+    headers: {
+      "cache-control": "private, no-store",
+      vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+    },
     status,
   })
 }
@@ -75,7 +78,12 @@ describe("bootstrap session refresh", () => {
             principal: { displayName: "Alex", email: "alex@example.com", id: "staff-1" },
             status: "approved",
           }),
-          { headers: { "cache-control": "private, no-store", vary: "Authorization" } },
+          {
+            headers: {
+              "cache-control": "private, no-store",
+              vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+            },
+          },
         ),
       )
     vi.stubGlobal("fetch", fetcher)
@@ -88,6 +96,7 @@ describe("bootstrap session refresh", () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
     expect(fetcher.mock.calls[0]?.[1]?.headers).toMatchObject({
       Authorization: "Bearer initial-access-token",
+      "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
     })
     expect(fetcher.mock.calls[1]?.[1]?.headers).toMatchObject({
       Authorization: "Bearer refreshed-access-token",

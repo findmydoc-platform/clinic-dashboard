@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
+import { expect, within } from "storybook/test"
 import { authenticatedClinicContextFixture } from "./testing/workspace.fixtures"
 import { clinicDashboardWorkspaceFixture } from "./testing/public"
 import { ClinicDashboardWorkspace } from "./ClinicDashboardWorkspace"
@@ -22,4 +23,12 @@ export const Default: Story = {}
 
 export const VisualReference: Story = {
   args: { prototypeMode: "visual-reference" },
+}
+
+export const InquiryDeepLinkOpensInquiries: Story = {
+  args: { focusInquiryId: "inquiry-lukas-weber" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Inquiries" })).toHaveAttribute("aria-current", "page")
+  },
 }

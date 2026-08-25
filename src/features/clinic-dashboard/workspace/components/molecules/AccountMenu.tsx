@@ -17,7 +17,7 @@ type AccountMenuProps = Readonly<{
   initials: string
   initialOpen?: boolean
   name: string
-  onSignOut?: () => Promise<Readonly<{ message?: string; ok: boolean }>>
+  onSignOut?: () => Promise<Readonly<{ cancelled?: boolean; message?: string; ok: boolean }>>
   role: string
 }>
 
@@ -46,6 +46,10 @@ export function AccountMenu({
     setSignOutPending(true)
     try {
       const result = await onSignOut()
+      if (result.cancelled) {
+        setSignOutPending(false)
+        return
+      }
       if (!result.ok) {
         shouldFocusSignOutErrorRef.current = true
         setOpen(false)

@@ -7,7 +7,7 @@ export type ClinicDashboardNavigationItem = Readonly<{
 
 export const clinicDashboardNavigationItems = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "messages", label: "Messages" },
+  { id: "messages", label: "Inquiries" },
   { id: "reviews", label: "Reviews" },
   { id: "profile", label: "Clinic profile" },
   { id: "subscriptions", label: "Subscriptions" },

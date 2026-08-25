@@ -7,6 +7,8 @@ import { createReadOnlySupabaseClient } from "./supabase-client"
 
 const CONTROLLED_SESSION_COOKIE = "clinic_dashboard_controlled_session"
 const CONTROLLED_SESSION_VALUE = "controlled-clinic-staff"
+const CONTROLLED_CONTACT_REAUTH_COOKIE = "clinic_dashboard_controlled_contact_reauth"
+const CONTROLLED_CONTACT_REAUTH_MAX_AGE_SECONDS = 300
 
 type CookieSource = Readonly<{
   get: (name: string) => Readonly<{ value: string }> | undefined
@@ -78,6 +80,45 @@ export function setControlledSessionCookie(response: NextResponse) {
     secure: false,
     value: CONTROLLED_SESSION_VALUE,
   })
+}
+
+export function setControlledContactReauthenticationCookie(response: NextResponse) {
+  response.cookies.set({
+    httpOnly: true,
+    maxAge: CONTROLLED_CONTACT_REAUTH_MAX_AGE_SECONDS,
+    name: CONTROLLED_CONTACT_REAUTH_COOKIE,
+    path: "/",
+    sameSite: "lax",
+    secure: false,
+    value: String(Math.floor(Date.now() / 1_000)),
+  })
+}
+
+export function clearControlledContactReauthenticationCookie(response: NextResponse) {
+  response.cookies.set({
+    httpOnly: true,
+    maxAge: 0,
+    name: CONTROLLED_CONTACT_REAUTH_COOKIE,
+    path: "/",
+    sameSite: "lax",
+    secure: false,
+    value: "",
+  })
+}
+
+function hasFreshControlledContactReauthentication(cookieSource: Pick<CookieSource, "get">) {
+  if (!isControlledAuthTestMode()) return false
+  const issuedAt = Number(cookieSource.get(CONTROLLED_CONTACT_REAUTH_COOKIE)?.value)
+  const now = Math.floor(Date.now() / 1_000)
+  return (
+    Number.isSafeInteger(issuedAt) &&
+    issuedAt <= now &&
+    now - issuedAt <= CONTROLLED_CONTACT_REAUTH_MAX_AGE_SECONDS
+  )
+}
+
+export function isControlledContactReauthenticationRequired(cookieSource: Pick<CookieSource, "get">) {
+  return isControlledAuthTestMode() && !hasFreshControlledContactReauthentication(cookieSource)
 }
 
 export function clearControlledSessionCookie(response: NextResponse) {

@@ -1,10 +1,25 @@
 import "server-only"
 
-export { handlePatientInquiryStatusUpdate } from "./actions"
+export {
+  handleInquiryAttachmentDownload,
+  handleInquiryAttachmentDraftCreate,
+  handleInquiryAttachmentDraftDiscard,
+  handleInquiryAttachmentDraftFinalize,
+  handleInquiryAttachmentDraftUpload,
+  handleInquiryAttachmentPreview,
+  handleInquiryContactReveal,
+  handleInquiryDetailLoad,
+  handleInquiryMessageSend,
+  handleInquiryNoteAdd,
+  handleInquiryQueueLoad,
+  handleInquiryReadPositionChange,
+  handleInquiryStateChange,
+} from "./actions"
 export type {
-  PatientInquiryChangeError,
+  InquiryAttachmentContent,
+  InquiryAttachmentDraftUpload,
+  PatientInquiryAttachmentDraftUpload,
+  PatientInquiryAttachmentDraftUploadFactory,
   PatientInquiryProvider,
   PatientInquiryProviderFactory,
-  PatientInquiryProviderResult,
-  PatientInquiryReadError,
 } from "./patient-inquiry-provider"

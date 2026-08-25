@@ -2,6 +2,8 @@
 
 import { useCallback, useRef, useState } from "react"
 import {
+  createClinicDashboardLoginPath,
+  createClinicDashboardReturnTarget,
   submitClinicDashboardAuthAction,
   type AuthenticatedClinicContext,
 } from "@/features/clinic-dashboard/auth/public"
@@ -71,6 +73,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   doctorProfileCommands: DoctorProfileCommands
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
+  focusInquiryId?: string
   initialReportingPeriod?: DashboardReportingPeriod
   persistNotificationReadStateInSession: boolean
   prototypeMode: ClinicDashboardPrototypeMode
@@ -95,6 +98,7 @@ export function ClinicDashboardWorkspaceComposition({
   clinicProfileSourceCommands,
   clinicTreatmentCommands,
   doctorProfileCommands,
+  focusInquiryId,
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
   initialReportingPeriod = "30 days",
@@ -111,6 +115,10 @@ export function ClinicDashboardWorkspaceComposition({
   >()
   const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
   const [galleryProjection, setGalleryProjection] = useState<ClinicGallerySnapshot>()
+  const [hasUnsavedInquiryDrafts, setHasUnsavedInquiryDrafts] = useState(false)
+  const [inquiryUnreadCount, setInquiryUnreadCount] = useState(
+    workspaceInput.inquiryQueue.status === "ready" ? workspaceInput.inquiryQueue.unreadCount : 0,
+  )
   const galleryNavigationRequestRef = useRef<((continuation: () => void) => void) | undefined>(undefined)
   const setGalleryNavigationRequest = useCallback((request?: (continuation: () => void) => void) => {
     galleryNavigationRequestRef.current = request
@@ -134,7 +142,7 @@ export function ClinicDashboardWorkspaceComposition({
     initialNotificationReadIds,
     initialNotificationsOpen,
     initialProfileTask,
-    initialSection: start.section ?? "dashboard",
+    initialSection: focusInquiryId ? "messages" : (start.section ?? "dashboard"),
     notifications: workspaceInput.notifications,
     persistNotificationReadStateInSession,
     prototypeMode,
@@ -223,6 +231,12 @@ export function ClinicDashboardWorkspaceComposition({
     .join("")
 
   const signOut = async () => {
+    if (
+      hasUnsavedInquiryDrafts &&
+      !window.confirm("Sign out and discard all unsent inquiry replies, internal notes and attachments?")
+    ) {
+      return { cancelled: true, ok: false }
+    }
     const result = await submitClinicDashboardAuthAction("/api/auth/logout", {})
     if (result.ok && result.body.redirectTo === "/login") {
       window.location.assign("/login")
@@ -230,6 +244,11 @@ export function ClinicDashboardWorkspaceComposition({
     }
     return { message: "Sign out failed. Please try again.", ok: false }
   }
+
+  const handleInquirySessionLoss = useCallback((inquiryId?: string) => {
+    const returnTarget = createClinicDashboardReturnTarget(inquiryId)
+    window.location.assign(createClinicDashboardLoginPath(returnTarget))
+  }, [])
 
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
     const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
@@ -299,6 +318,7 @@ export function ClinicDashboardWorkspaceComposition({
           : undefined
       }
       items={navigationItems}
+      inquiryUnreadCount={inquiryUnreadCount}
       notificationCenter={
         capabilities.showNotifications ? (
           <NotificationCenter
@@ -333,11 +353,13 @@ export function ClinicDashboardWorkspaceComposition({
         {model.locationAnnouncement}
       </p>
 
-      <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
-        <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, doctors, clinic
-        treatments, gallery, patient inquiries and reviews are live. Dashboard cards and charts are local
-        examples.
-      </div>
+      {activeSection !== "messages" ? (
+        <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
+          <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, doctors, clinic
+          treatments, gallery, patient inquiries and reviews are live. Dashboard cards and charts are local
+          examples.
+        </div>
+      ) : null}
 
       {activeSection === "dashboard" ? (
         <DashboardScreen
@@ -355,7 +377,12 @@ export function ClinicDashboardWorkspaceComposition({
       <div hidden={activeSection !== "messages"}>
         <InquiryQueue
           focusHeading={model.messageFocusTarget === "heading"}
+          focusInquiryId={focusInquiryId}
+          isActive={activeSection === "messages"}
+          onDraftPresenceChange={setHasUnsavedInquiryDrafts}
           onFocusHandled={actions.clearMessageFocusRequest}
+          onSessionLost={handleInquirySessionLoss}
+          onUnreadCountChange={setInquiryUnreadCount}
           snapshot={workspaceInput.inquiryQueue}
         />
       </div>

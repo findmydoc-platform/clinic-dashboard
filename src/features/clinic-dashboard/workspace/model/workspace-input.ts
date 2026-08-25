@@ -7,11 +7,7 @@ import type {
   DoctorDirectorySnapshot,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardSnapshot } from "@/features/clinic-dashboard/dashboard/public"
-import type {
-  MessagesSnapshot,
-  PatientInquiryProfile,
-  PatientInquiryQueueSnapshot,
-} from "@/features/clinic-dashboard/messages/public"
+import type { PatientInquiryQueueSnapshot } from "@/features/clinic-dashboard/messages/public"
 import type { ReviewsSnapshot, ReviewsSourceSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import type { ClinicDashboardLocation, ClinicDashboardLocationId } from "./locations"
 import type { ClinicDashboardNotification } from "./notifications"
@@ -30,8 +26,6 @@ type ClinicDashboardSerializableImage =
 export type ClinicDashboardLocationSnapshot = Readonly<{
   clinicProfile: ClinicProfileDraft
   dashboard: DashboardSnapshot
-  messages: MessagesSnapshot
-  patientInquiry: PatientInquiryProfile
   reviews: ReviewsSnapshot
 }>
 

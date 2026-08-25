@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { composeClinicDashboardDataProviders } from "@/features/clinic-dashboard/data-provider-composition"
+import { resetControlledPatientInquiryProvider } from "@/features/clinic-dashboard/messages/server/controlled-inquiries"
 
 const localEnvironment = {
   CSRF_SIGNING_SECRET: "0123456789abcdef0123456789abcdef", // pragma: allowlist secret
@@ -46,6 +47,7 @@ describe("Clinic Dashboard data provider composition", () => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
+    resetControlledPatientInquiryProvider()
   })
 
   it("selects the deterministic inquiry adapter for a verified controlled session", async () => {
@@ -57,29 +59,45 @@ describe("Clinic Dashboard data provider composition", () => {
     const result = await composeClinicDashboardDataProviders(
       "controlled-access-token",
       "controlled-clinic",
-    ).inquiries.loadQueue()
+    ).inquiries.loadQueue({ lifecycle: "open", unreadOnly: false })
 
     expect(result).toMatchObject({
       ok: true,
       value: {
-        inquiries: [{ id: "inquiry-lukas-weber", status: "submitted" }],
+        inquiries: expect.arrayContaining([expect.objectContaining({ id: "inquiry-lukas-weber" })]),
       },
     })
     expect(fetcher).not.toHaveBeenCalled()
   })
 
   it("selects the Payload inquiry adapter outside controlled mode", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ docs: [] }))
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        changeCursor: "change-0",
+        items: [],
+        unchanged: false,
+        unreadCount: 0,
+      }),
+    )
     vi.stubGlobal("fetch", fetcher)
 
     await expect(
-      composeClinicDashboardDataProviders("access-token", "clinic-1").inquiries.loadQueue(),
+      composeClinicDashboardDataProviders("access-token", "clinic-1").inquiries.loadQueue({
+        lifecycle: "open",
+        unreadOnly: false,
+      }),
     ).resolves.toEqual({
       ok: true,
-      value: { inquiries: [], status: "ready" },
+      value: {
+        changeCursor: "change-0",
+        inquiries: [],
+        status: "ready",
+        unchanged: false,
+        unreadCount: 0,
+      },
     })
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(
-      "https://preview.findmydoc.eu/api/patientClinicInquiries",
+      "https://preview.findmydoc.eu/api/clinic-dashboard/inquiries",
     )
   })
 

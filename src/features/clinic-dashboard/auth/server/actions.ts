@@ -7,8 +7,10 @@ import { clearCsrfCookie, getValidatedMutationOrigin, validateMutationRequest } 
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
 import {
   clinicDashboardEmailDestinations,
+  parseClinicDashboardReturnTarget,
   type ClinicDashboardAccessResult,
   type ClinicDashboardAuthErrorCode,
+  type ClinicDashboardReturnTarget,
 } from "../model/auth"
 import { resolveAccessForSession, resolveMutableClinicDashboardAccess } from "./access"
 import {
@@ -23,9 +25,11 @@ import {
 import { fetchClinicDashboardBootstrap } from "./payload-bootstrap"
 import {
   clearControlledSessionCookie,
+  clearControlledContactReauthenticationCookie,
   getClinicDashboardSession,
   readVerifiedSupabaseSession,
   setControlledSessionCookie,
+  setControlledContactReauthenticationCookie,
 } from "./session"
 import {
   clearDashboardAuthCookies,
@@ -33,11 +37,15 @@ import {
   type RouteSupabaseClient,
 } from "./supabase-client"
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  next: z.literal("/"),
-  password: z.string().min(1),
-})
+const loginSchema = z
+  .object({
+    email: z.string().email(),
+    next: z.string().min(1).max(128),
+    password: z.string().min(1),
+  })
+  .strict()
+
+const reauthenticationSchema = z.object({ password: z.string().min(1) }).strict()
 
 const resetRequestSchema = z.object({
   email: z.string().email(),
@@ -90,8 +98,8 @@ function rejectedMutation(request: NextRequest) {
   return validateMutationRequest(request) ? undefined : errorResponse("REQUEST_REJECTED", 403)
 }
 
-function accessRedirect(access: ClinicDashboardAccessResult) {
-  if (access.status === "approved") return "/"
+function accessRedirect(access: ClinicDashboardAccessResult, returnTarget: ClinicDashboardReturnTarget) {
+  if (access.status === "approved") return returnTarget
   if (access.status === "denied") return "/access"
   if (access.status === "temporarily-unavailable") return "/access?state=temporarily-unavailable"
   return undefined
@@ -116,6 +124,8 @@ export async function handleClinicDashboardLogin(request: NextRequest) {
 
   const parsed = loginSchema.safeParse(await readJson(request))
   if (!parsed.success) return clearCompletionGrant(errorResponse("INVALID_INPUT", 400))
+  const returnTarget = parseClinicDashboardReturnTarget(parsed.data.next)
+  if (!returnTarget) return clearCompletionGrant(errorResponse("INVALID_INPUT", 400))
 
   if (isControlledAuthTestMode()) {
     const environment = validateEnvironment()
@@ -126,7 +136,7 @@ export async function handleClinicDashboardLogin(request: NextRequest) {
       return clearCompletionGrant(errorResponse("INVALID_CREDENTIALS", 401))
     }
 
-    const response = privateJson({ redirectTo: "/" })
+    const response = privateJson({ redirectTo: returnTarget })
     setControlledSessionCookie(response)
     clearCsrfCookie(response)
     clearCompletionGrantCookie(response)
@@ -154,7 +164,7 @@ export async function handleClinicDashboardLogin(request: NextRequest) {
   }
 
   const access = await resolveMutableClinicDashboardAccess(routeClient.client)
-  const redirectTo = accessRedirect(access)
+  const redirectTo = accessRedirect(access, returnTarget)
   if (redirectTo) {
     const response = privateJson({ redirectTo })
     clearCsrfCookie(response)
@@ -168,6 +178,83 @@ export async function handleClinicDashboardLogin(request: NextRequest) {
     routeClient,
     request,
   )
+}
+
+export async function handleClinicDashboardReauthenticate(request: NextRequest) {
+  const rejected = rejectedMutation(request)
+  if (rejected) return rejected
+
+  const parsed = reauthenticationSchema.safeParse(await readJson(request))
+  if (!parsed.success) return errorResponse("INVALID_INPUT", 400)
+
+  if (isControlledAuthTestMode()) {
+    const environment = validateEnvironment()
+    const session = await getClinicDashboardSession(request.cookies)
+    if (!session?.isClinicAccount) return errorResponse("ACCOUNT_UNAVAILABLE", 401)
+    const access = await resolveAccessForSession(session).catch(
+      () => ({ status: "temporarily-unavailable" }) as const,
+    )
+    if (access.status === "temporarily-unavailable") {
+      return errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503)
+    }
+    if (access.status !== "approved" || !access.context.capabilities.includes("clinic-inquiries:view")) {
+      return errorResponse("REQUEST_REJECTED", 403)
+    }
+    if (parsed.data.password !== environment.CLINIC_DASHBOARD_TEST_PASSWORD) {
+      return errorResponse("INVALID_CREDENTIALS", 401)
+    }
+    const response = privateJson({ reauthenticated: true })
+    setControlledContactReauthenticationCookie(response)
+    return response
+  }
+
+  const routeClient = createRouteSupabaseClient(request)
+  const currentAccess = await resolveMutableClinicDashboardAccess(routeClient.client).catch(
+    () => ({ status: "temporarily-unavailable" }) as const,
+  )
+  if (currentAccess.status === "temporarily-unavailable") {
+    return applyClient(errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503), routeClient)
+  }
+  if (currentAccess.status === "unauthenticated" || currentAccess.status === "unauthorized") {
+    return applyClient(errorResponse("ACCOUNT_UNAVAILABLE", 401), routeClient)
+  }
+  if (
+    currentAccess.status !== "approved" ||
+    !currentAccess.context.capabilities.includes("clinic-inquiries:view")
+  ) {
+    return applyClient(errorResponse("REQUEST_REJECTED", 403), routeClient)
+  }
+
+  const currentSession = await readVerifiedSupabaseSession(routeClient.client).catch(() => undefined)
+  if (!currentSession?.isClinicAccount) {
+    return applyClient(errorResponse("ACCOUNT_UNAVAILABLE", 401), routeClient)
+  }
+
+  let signInError: Readonly<{ status?: number }> | null = null
+  try {
+    const result = await routeClient.client.auth.signInWithPassword({
+      email: currentSession.email,
+      password: parsed.data.password,
+    })
+    signInError = result.error
+  } catch {
+    return applyClient(errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503), routeClient)
+  }
+  if (signInError) {
+    const response =
+      signInError.status === 400 || signInError.status === 401
+        ? errorResponse("INVALID_CREDENTIALS", 401)
+        : errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503)
+    return applyClient(response, routeClient)
+  }
+
+  const refreshedSession = await readVerifiedSupabaseSession(routeClient.client).catch(() => undefined)
+  if (!refreshedSession?.isClinicAccount || refreshedSession.subject !== currentSession.subject) {
+    await routeClient.client.auth.signOut({ scope: "local" }).catch(() => undefined)
+    return applyClientAndClear(errorResponse("ACCOUNT_UNAVAILABLE", 401), routeClient, request)
+  }
+
+  return applyClient(privateJson({ reauthenticated: true }), routeClient)
 }
 
 export async function handleClinicDashboardPasswordResetRequest(request: NextRequest) {
@@ -365,6 +452,7 @@ export async function handleClinicDashboardLogout(request: NextRequest) {
 
   if (isControlledAuthTestMode()) {
     const response = privateJson({ redirectTo: "/login" })
+    clearControlledContactReauthenticationCookie(response)
     clearControlledSessionCookie(response)
     clearCsrfCookie(response)
     clearCompletionGrantCookie(response)

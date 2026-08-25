@@ -33,7 +33,7 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   await page.keyboard.press("Enter")
   await expect(page.locator("#clinic-dashboard-main")).toBeFocused()
 
-  for (const section of ["Messages", "Reviews", "Clinic profile", "Subscriptions", "Credentials"] as const) {
+  for (const section of ["Inquiries", "Reviews", "Clinic profile", "Subscriptions", "Credentials"] as const) {
     await page.getByRole("button", { exact: true, name: section }).click()
     await expect(
       page.getByRole("heading", {
@@ -54,6 +54,27 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
     service: "clinic-dashboard",
     status: "ok",
   })
+})
+
+test("opens safe inquiry deep links and fails closed for foreign or unsafe identifiers", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await page.goto("/?inquiry=inquiry-lukas-weber")
+  await expect(page).toHaveURL(/\/login\?next=/)
+  expect(new URL(page.url()).searchParams.get("next")).toBe("/?inquiry=inquiry-lukas-weber")
+  await page.getByLabel("Email address").fill("clinic-staff@example.com")
+  await page.getByLabel("Password").fill(testDashboardPassword)
+  await page.getByRole("button", { name: "Sign in" }).click()
+  await expect(page).toHaveURL(`${testDashboardOrigin}/?inquiry=inquiry-lukas-weber`)
+  await expect(page.getByRole("button", { name: "Inquiries" })).toHaveAttribute("aria-current", "page")
+  await expect(page.getByRole("region", { name: "Inquiry from Lukas Weber" })).toBeVisible()
+
+  await page.goto("/?inquiry=inquiry-foreign-clinic")
+  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Select an inquiry" })).toBeVisible()
+  await expect(page.getByText("inquiry-foreign-clinic")).toHaveCount(0)
+
+  await page.goto("/?inquiry=unsafe%2Finquiry")
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
 })
 
 test("switches complete location snapshots and resets local demo changes", async ({ page }) => {
@@ -82,23 +103,14 @@ test("switches complete location snapshots and resets local demo changes", async
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
-  await page.getByRole("button", { name: "Messages" }).click()
-  await expect(page.getByRole("heading", { name: "Lukas Weber" })).toBeVisible()
-  await expect(page.getByRole("textbox", { name: "Write a message" })).toHaveCount(0)
-  await page.getByRole("button", { name: "Change inquiry status. Current status: Submitted" }).click()
-  await page.getByRole("menuitem", { name: "In review" }).click()
-  await expect(
-    page.getByRole("button", { name: "Change inquiry status. Current status: In review" }),
-  ).toBeVisible()
-  await expect(page.getByText("Status changed from Submitted to In review · 11:08")).toBeVisible()
+  await page.getByRole("button", { exact: true, name: "Inquiries" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Select an inquiry" })).toBeVisible()
 
   await locationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Lukas Weber" })).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "Change inquiry status. Current status: In review" }),
-  ).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Select an inquiry" })).toBeVisible()
 
   await page.getByRole("button", { exact: true, name: "Reviews" }).click()
   await expect(page.getByText("Maya K.")).toBeVisible()
@@ -136,13 +148,181 @@ test("switches complete location snapshots and resets local demo changes", async
   const reloadedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
   await reloadedLocationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await page.getByRole("button", { name: "Messages" }).click()
-  await expect(
-    page.getByRole("button", { name: "Change inquiry status. Current status: Submitted" }),
-  ).toBeVisible()
-  await expect(page.getByText("Status changed from Submitted to In review · 11:08")).toHaveCount(0)
+  await page.getByRole("button", { exact: true, name: "Inquiries" }).click()
+  await expect(page.getByRole("heading", { name: "Select an inquiry" })).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile" }).click()
   await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+})
+
+test("works an inquiry end to end and guards an unsent draft before sign out", async ({ page }) => {
+  await page.setViewportSize({ height: 960, width: 1440 })
+  await signIn(page)
+
+  await page.getByRole("button", { exact: true, name: "Inquiries" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Select an inquiry" })).toBeVisible()
+
+  await page.getByRole("button", { name: /Aylin Kaya/ }).click()
+  const detail = page.getByRole("region", { name: "Inquiry from Aylin Kaya" })
+  await expect(detail.getByText("Guest inquiry · No chat")).toBeVisible()
+  await expect(detail.getByRole("textbox", { name: "Reply to patient" })).toHaveCount(0)
+
+  const status = detail.getByRole("combobox", { name: "Inquiry status" })
+  await status.selectOption("in_review")
+  await expect(status).toHaveValue("in_review")
+
+  const note = detail.getByRole("textbox", { name: "Internal note" })
+  await note.fill("Synthetic note from the inquiry browser journey.")
+  await detail.getByRole("button", { name: "Add note" }).click()
+  await expect(detail.getByText("Synthetic note from the inquiry browser journey.")).toBeVisible()
+  await expect(note).toHaveValue("")
+
+  await page.getByRole("button", { name: /Lukas Weber/ }).click()
+  const reply = page.getByRole("textbox", { name: "Reply to patient" })
+  await reply.fill("Unsent synthetic reply kept for the draft guard.")
+
+  let logoutRequests = 0
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/auth/logout") logoutRequests += 1
+  })
+  let confirmationMessage = ""
+  page.once("dialog", async (dialog) => {
+    confirmationMessage = dialog.message()
+    await dialog.dismiss()
+  })
+  await page.getByRole("button", { name: /Open account menu/ }).click()
+  await page.getByRole("menuitem", { name: "Sign out" }).click()
+
+  await expect.poll(() => confirmationMessage).toContain("discard all unsent inquiry")
+  expect(logoutRequests).toBe(0)
+  await expect(page).toHaveURL(/\/$/)
+  await expect(reply).toHaveValue("Unsent synthetic reply kept for the draft guard.")
+
+  await reply.fill("")
+})
+
+test("uploads and sends a synthetic reply attachment through the controlled BFF", async ({ page }) => {
+  await page.setViewportSize({ height: 960, width: 1440 })
+  await signIn(page)
+
+  const attachmentRequests: string[] = []
+  page.on("request", (request) => {
+    const url = new URL(request.url())
+    if (
+      url.pathname.startsWith("/api/dashboard/inquiries/attachments/drafts") ||
+      url.pathname === "/api/dashboard/inquiries/messages"
+    ) {
+      attachmentRequests.push(`${request.method()} ${url.pathname}`)
+    }
+  })
+
+  await page.getByRole("button", { exact: true, name: "Inquiries" }).click()
+  await page.getByRole("button", { name: /Lukas Weber/ }).click()
+  const detail = page.getByRole("region", { name: "Inquiry from Lukas Weber" })
+  const status = detail.getByRole("combobox", { name: "Inquiry status" })
+  await status.selectOption("in_review")
+  await expect(status).toHaveValue("in_review")
+
+  await detail.getByLabel("Choose reply attachment").setInputFiles({
+    buffer: Buffer.from("%PDF-1.4\nSynthetic treatment plan\n%%EOF", "utf8"),
+    mimeType: "application/pdf",
+    name: "synthetic-treatment-plan.pdf",
+  })
+  await expect(detail.getByText("synthetic-treatment-plan.pdf", { exact: true })).toBeVisible()
+  await expect(detail.getByText("application/pdf · 39 B")).toBeVisible()
+
+  const reply = detail.getByRole("textbox", { name: "Reply to patient" })
+  await reply.fill("Synthetic reply with a controlled attachment.")
+  await detail.getByRole("button", { name: "Send reply" }).click()
+
+  await expect(detail.getByText("Synthetic reply with a controlled attachment.")).toBeVisible()
+  await expect(detail.getByText("synthetic-treatment-plan.pdf", { exact: true })).toBeVisible()
+  await expect(status).toHaveValue("contacted")
+  expect(attachmentRequests).toEqual(
+    expect.arrayContaining([
+      "POST /api/dashboard/inquiries/attachments/drafts",
+      "PUT /api/dashboard/inquiries/attachments/drafts/upload",
+      "POST /api/dashboard/inquiries/attachments/drafts/finalize",
+      "POST /api/dashboard/inquiries/messages",
+    ]),
+  )
+
+  await page.reload()
+  await page.getByRole("button", { exact: true, name: "Inquiries" }).click()
+  await page.getByRole("button", { name: /Lukas Weber/ }).click()
+  const reloadedDetail = page.getByRole("region", { name: "Inquiry from Lukas Weber" })
+  await expect(reloadedDetail.getByText("Synthetic reply with a controlled attachment.")).toBeVisible()
+  await expect(reloadedDetail.getByText("synthetic-treatment-plan.pdf", { exact: true })).toBeVisible()
+  await expect(reloadedDetail.getByRole("combobox", { name: "Inquiry status" })).toHaveValue("contacted")
+})
+
+test("keeps the inquiry list and detail separate at 320 pixels", async ({ page }) => {
+  await page.setViewportSize({ height: 760, width: 320 })
+  await signIn(page)
+
+  await page.getByRole("button", { name: "Open navigation" }).click()
+  await page
+    .getByRole("dialog", { name: "Clinic navigation" })
+    .getByRole("button", { exact: true, name: "Inquiries" })
+    .click()
+  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true)
+
+  const inquiry = page.getByRole("button", { name: /Lukas Weber/ })
+  await inquiry.click()
+  await expect(page.getByRole("region", { name: "Inquiry from Lukas Weber" })).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeHidden()
+  await page.getByRole("button", { name: "Back to inquiries" }).click()
+  await expect(inquiry).toBeFocused()
+  await expect(page.getByRole("region", { name: "Inquiry from Lukas Weber" })).toBeHidden()
+})
+
+test("reauthenticates once before revealing protected inquiry contact details", async ({ page }) => {
+  await page.setViewportSize({ height: 960, width: 1440 })
+  await signIn(page)
+
+  let revealAttempts = 0
+  await page.route("**/api/dashboard/inquiries/contact/reveal", async (route) => {
+    revealAttempts += 1
+    if (revealAttempts === 1) {
+      await route.fulfill({
+        body: JSON.stringify({ error: { code: "reauthentication-required" } }),
+        contentType: "application/json",
+        status: 401,
+      })
+      return
+    }
+    await route.continue()
+  })
+
+  await page.getByRole("button", { exact: true, name: "Inquiries" }).click()
+  await page.getByRole("button", { name: "spam" }).click()
+  await page.getByRole("button", { name: /Unknown sender/ }).click()
+  await page.getByText("Inquiry details", { exact: true }).click()
+  await page.getByText("Protected contact details", { exact: true }).click()
+
+  const note = page.getByRole("textbox", { name: "Internal note" })
+  await note.fill("Synthetic protected-contact context remains unsent.")
+  await page.getByRole("button", { name: "Reveal contact details" }).click()
+
+  const dialog = page.getByRole("dialog", { name: "Confirm your identity" })
+  await expect(dialog).toBeVisible()
+  const password = dialog.getByLabel("Password")
+  await password.fill("wrong-synthetic-password")
+  await dialog.getByRole("button", { name: "Confirm and reveal" }).click()
+  await expect(dialog.getByRole("alert")).toContainText("password was not accepted")
+  await expect(note).toHaveValue("Synthetic protected-contact context remains unsent.")
+
+  await password.fill(testDashboardPassword)
+  await dialog.getByRole("button", { name: "Confirm and reveal" }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText("protected.sender@example.test")).toBeVisible()
+  await expect(note).toHaveValue("Synthetic protected-contact context remains unsent.")
+  expect(revealAttempts).toBe(2)
+
+  await note.fill("")
 })
 
 test("manages review responses, appeals, filters, and history through the authenticated BFF", async ({
@@ -206,8 +386,8 @@ test("deep-links across locations and persists gallery curation across reload", 
 
   const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
   await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
-  await expect(page.getByRole("heading", { level: 1, name: "Messages" })).toBeFocused()
-  await expect(page.getByText("Opened messages at Avenora Clinic — İzmir.")).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeFocused()
+  await expect(page.getByText("Opened inquiries at Avenora Clinic — İzmir.")).toBeVisible()
 
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
 

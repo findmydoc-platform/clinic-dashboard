@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import { Building2, FileText, LayoutDashboard, MessageSquare, ReceiptText, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -18,23 +19,29 @@ const navigationIcons = {
 type ClinicDashboardNavigationProps = Readonly<{
   activeSection: ClinicDashboardSection
   items: readonly ClinicDashboardNavigationItem[]
+  inquiryUnreadCount?: number
   onSectionSelect: (section: ClinicDashboardSection) => void
 }>
 
 export function ClinicDashboardNavigation({
   activeSection,
   items,
+  inquiryUnreadCount = 0,
   onSectionSelect,
 }: ClinicDashboardNavigationProps) {
+  const unreadDescriptionId = useId()
   return (
     <nav aria-label="Clinic workspace" className="flex flex-col gap-2">
       {items.map((item) => {
         const Icon = navigationIcons[item.id]
         const isActive = item.id === activeSection
+        const showUnreadCount = item.id === "messages" && inquiryUnreadCount > 0
 
         return (
           <Button
             aria-current={isActive ? "page" : undefined}
+            aria-describedby={showUnreadCount ? unreadDescriptionId : undefined}
+            aria-label={item.label}
             className={cn("relative h-auto min-h-11 w-full justify-start gap-3", isActive && "pl-5")}
             key={item.id}
             onClick={() => onSectionSelect(item.id)}
@@ -48,6 +55,19 @@ export function ClinicDashboardNavigation({
             ) : null}
             <Icon aria-hidden="true" className="size-5 shrink-0" />
             <span className="min-w-0 flex-1 text-left break-words whitespace-normal">{item.label}</span>
+            {showUnreadCount ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--primary)] px-1.5 py-0.5 text-[11px] leading-none font-bold text-white tabular-nums"
+                >
+                  {inquiryUnreadCount}
+                </span>
+                <span className="sr-only" id={unreadDescriptionId}>
+                  {inquiryUnreadCount} unread inquiry activities
+                </span>
+              </>
+            ) : null}
           </Button>
         )
       })}

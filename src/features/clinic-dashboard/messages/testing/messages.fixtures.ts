@@ -1,130 +1,268 @@
-import lukasWeberAvatar from "@/assets/clinic-dashboard/lukas-weber.jpg"
-import markusWeberAvatar from "@/assets/clinic-dashboard/markus-weber.jpg"
-import sarahSchmidtAvatar from "@/assets/clinic-dashboard/sarah-schmidt.jpg"
-import {
-  getPatientInquiryStatusTransitions,
-  type PatientInquiry,
-  type PatientInquiryQueueSnapshot,
-} from "../model/inquiries"
-import type { MessagesSnapshot, PatientInquiryProfile } from "../model/messages"
+import type { PatientInquiry, PatientInquiryDetail, PatientInquiryQueueSnapshot } from "../model/inquiries"
 
-export const messagesFixture = {
-  activeConversationId: "lukas-weber",
-  conversations: [
-    {
-      avatar: lukasWeberAvatar,
-      doctor: {
-        id: "doctor-anna-keller",
-        initials: "AK",
-        name: "Dr Anna Keller",
-        specialty: "Hair restoration",
+const defaultActions = {
+  canAddInternalNote: true,
+  canChangeHandlingStatus: true,
+  canChangeLifecycle: true,
+  canMarkRead: true,
+  canMarkUnread: true,
+  canReply: true,
+  canRevealContact: false,
+} as const
+
+export const inquiryDetailFixtures = {
+  guest: {
+    actions: { ...defaultActions, canReply: false },
+    changeCursor: "cursor-aylin-1",
+    contact: { state: "collapsed" },
+    contactWindow: "Mornings",
+    conversation: { kind: "guest" },
+    createdAt: "2026-08-24T08:12:00.000Z",
+    handlingStatus: "submitted",
+    id: "inquiry-aylin-kaya",
+    interest: "Dental veneers and full smile reconstruction",
+    lastActivityAt: "2026-08-24T08:18:00.000Z",
+    lastActivityLabel: "10:18",
+    lastActivityPreview:
+      "Guest inquiry. Review treatment fit now; wait for verified patient access before replying.",
+    latestActivityKind: "internal-note",
+    lifecycle: "open",
+    originalRequest:
+      "I would like to understand the consultation process for dental veneers and whether an initial estimate is possible.",
+    originalRequestPreview: "I would like to understand the consultation process for dental veneers.",
+    patient: { initials: "AK", kind: "guest", name: "Aylin Kaya" },
+    receivedLabel: "10:12",
+    revision: 1,
+    timeline: [
+      {
+        authorName: "Sarah Schmidt",
+        body: "Guest inquiry. Review treatment fit now; wait for verified patient access before replying.",
+        createdAt: "2026-08-24T08:18:00.000Z",
+        id: "aylin-note",
+        kind: "internal-note",
+        timeLabel: "10:18",
       },
-      id: "lukas-weber",
-      initials: "LW",
-      name: "Lukas Weber",
-      preview: "Hello, I am interested in a hair transplant…",
-      section: "New inquiries",
-      time: "10:45",
-      treatment: { name: "Hair transplant" },
-      unread: 1,
-    },
-    {
-      avatar: markusWeberAvatar,
-      doctor: {
-        id: "doctor-anna-keller",
-        initials: "AK",
-        name: "Dr Anna Keller",
-        specialty: "Hair restoration",
+    ],
+    treatmentTimeline: "Within one month",
+    unread: { count: 1, isUnread: true },
+  },
+  open: {
+    actions: defaultActions,
+    changeCursor: "cursor-lukas-4",
+    contact: { email: "l.weber@example.com", phone: "+49 000 0000001", state: "full" },
+    contactWindow: "Weekdays after 16:00",
+    conversation: { id: "conversation-lukas", kind: "bound" },
+    createdAt: "2026-08-24T08:45:00.000Z",
+    handlingStatus: "contacted",
+    id: "inquiry-lukas-weber",
+    interest: "Hair transplant",
+    lastActivityAt: "2026-08-24T09:02:00.000Z",
+    lastActivityLabel: "11:02",
+    lastActivityPreview: "Here are the requested photos. I hope they help with the initial assessment.",
+    latestActivityKind: "external-message",
+    lifecycle: "open",
+    originalRequest:
+      "I am interested in a hair transplant and would like to know which documents I should prepare for an initial consultation.",
+    originalRequestPreview:
+      "I am interested in a hair transplant and would like to know which documents to prepare.",
+    patient: { initials: "LW", kind: "verified", name: "Lukas Weber" },
+    receivedLabel: "10:45",
+    revision: 4,
+    timeline: [
+      {
+        authorName: "Sarah Schmidt",
+        body: "Patient prefers a first assessment by message before scheduling a call.",
+        createdAt: "2026-08-24T08:49:00.000Z",
+        id: "lukas-note",
+        kind: "internal-note",
+        timeLabel: "10:49",
       },
-      id: "markus-schmidt",
-      initials: "MS",
-      name: "Markus Schmidt",
-      preview: "Thank you for the information. I will review…",
-      section: "Recent chats",
-      time: "Yesterday",
-    },
-    {
-      avatar: sarahSchmidtAvatar,
-      doctor: {
-        id: "doctor-marie-vogel",
-        initials: "MV",
-        name: "Dr Marie Vogel",
-        specialty: "Dermatology",
+      {
+        author: { kind: "clinic", label: "Clinic", staffName: "Dr Anna Keller" },
+        body: "Hello Mr Weber, thank you for your interest. For an initial assessment we normally need photos of the affected areas.",
+        createdAt: "2026-08-24T08:52:00.000Z",
+        id: "lukas-clinic",
+        kind: "external-message",
+        timeLabel: "10:52",
       },
-      id: "sarah-meyer",
-      initials: "SM",
-      name: "Sarah Meyer",
-      preview: "Thursday afternoon is my preferred contact window…",
-      section: "Recent chats",
-      time: "Mon",
+      {
+        attachment: {
+          id: "attachment-1",
+          mimeType: "application/pdf",
+          name: "assessment-photos.pdf",
+          sizeBytes: 720_000,
+        },
+        author: { kind: "patient", label: "Patient" },
+        body: "Here are the requested photos. I hope they help with the initial assessment.",
+        createdAt: "2026-08-24T09:02:00.000Z",
+        id: "lukas-patient-file",
+        kind: "external-message",
+        timeLabel: "11:02",
+      },
+    ],
+    treatmentTimeline: "Within 3–6 months",
+    unread: { count: 2, isUnread: true },
+  },
+} as const satisfies Record<string, PatientInquiryDetail>
+
+export const closedInquiryFixture = {
+  ...inquiryDetailFixtures.open,
+  actions: { ...defaultActions, canReply: false },
+  changeCursor: "cursor-markus-3",
+  contact: { state: "collapsed" },
+  conversation: { id: "conversation-markus", kind: "bound" },
+  handlingStatus: "contacted",
+  id: "inquiry-markus-schmidt",
+  interest: "Rhinoplasty",
+  lastActivityAt: "2026-08-21T13:07:00.000Z",
+  lastActivityLabel: "Monday",
+  lastActivityPreview: "Conversation closed by Sarah Schmidt.",
+  latestActivityKind: "system-event",
+  lifecycle: "closed",
+  originalRequest: "Could you tell me whether a consultation can be held remotely before I travel?",
+  originalRequestPreview: "Could you tell me whether a consultation can be held remotely?",
+  patient: { initials: "MS", kind: "verified", name: "Markus Schmidt" },
+  receivedLabel: "Monday",
+  revision: 3,
+  timeline: [
+    {
+      actorName: "Sarah Schmidt",
+      body: "Conversation closed by Sarah Schmidt.",
+      createdAt: "2026-08-21T13:07:00.000Z",
+      id: "markus-closed",
+      kind: "system-event",
+      timeLabel: "Monday, 15:07",
     },
   ],
-  dateLabel: "Today, October 12",
-  messages: [
+  treatmentTimeline: "Within 6 months",
+  unread: { count: 0, isUnread: false },
+} as const satisfies PatientInquiryDetail
+
+export const deletedPatientInquiryFixture = {
+  ...inquiryDetailFixtures.open,
+  actions: { ...defaultActions, canReply: false, canRevealContact: false },
+  changeCursor: "cursor-deleted-patient-1",
+  contact: { state: "unavailable" },
+  conversation: { id: "conversation-deleted-patient", kind: "deleted-patient" },
+  id: "inquiry-deleted-patient",
+  lastActivityPreview: "The allowed conversation history remains available.",
+  patient: { kind: "deleted", name: "Deleted patient" },
+  timeline: [
     {
-      body: "Hello, I am interested in a hair transplant at your clinic. Which documents should I prepare for an initial consultation?",
-      id: "message-1",
-      sender: "patient",
-      time: "10:45",
+      author: { kind: "patient", label: "Patient" },
+      body: "The allowed conversation history remains available.",
+      contentState: "available",
+      createdAt: "2026-08-24T09:02:00.000Z",
+      id: "deleted-patient-retained-message",
+      kind: "external-message",
+      timeLabel: "24 Aug, 11:02",
     },
     {
-      body: "Hello Mr Weber, thank you for your interest. For an initial assessment we normally need photos of the affected areas.",
-      id: "message-2",
-      read: "Read 10:52",
-      sender: "doctor",
-      time: "10:52",
-    },
-    {
-      attachment: {
-        name: "assessment-photos.pdf",
-        size: 720_000,
-        type: "application/pdf",
-      },
-      body: "Here are the requested photos. I hope they help with the initial assessment.",
-      id: "message-3",
-      sender: "patient",
-      time: "11:02",
+      authorName: "Sarah Schmidt",
+      body: "Clinic-only history remains available after patient identity deletion.",
+      contentState: "available",
+      createdAt: "2026-08-24T09:04:00.000Z",
+      id: "deleted-patient-retained-note",
+      kind: "internal-note",
+      timeLabel: "24 Aug, 11:04",
     },
   ],
-} satisfies MessagesSnapshot
+} as const satisfies PatientInquiryDetail
 
-export const patientInquiryFixture = {
-  contactWindow: "Weekdays after 16:00",
-  email: "l.weber@example.com",
-  id: "inquiry-lukas-weber",
-  interest: "Hair transplant",
-  message: "I am interested in a hair transplant and would like to know which documents to prepare.",
-  name: "Lukas Weber",
-  phone: "+49 000 0000001",
-  treatmentTimeline: "Within 3–6 months",
-} satisfies PatientInquiryProfile
+export const hardDeletedPackageInquiryFixture = {
+  ...deletedPatientInquiryFixture,
+  actions: {
+    canAddInternalNote: false,
+    canChangeHandlingStatus: false,
+    canChangeLifecycle: false,
+    canMarkRead: false,
+    canMarkUnread: false,
+    canReply: false,
+    canRevealContact: false,
+  },
+  changeCursor: "cursor-hard-deleted-package-1",
+  id: "inquiry-hard-deleted-package",
+  lastActivityPreview: "Message deleted",
+  originalRequest: "",
+  originalRequestContentState: "hard-deleted",
+  timeline: [
+    {
+      author: { kind: "patient", label: "Patient" },
+      body: "",
+      contentState: "hard-deleted",
+      createdAt: "2026-08-24T09:02:00.000Z",
+      id: "hard-deleted-message",
+      kind: "external-message",
+      timeLabel: "24 Aug, 11:02",
+    },
+    {
+      contentState: "hard-deleted",
+      createdAt: "2026-08-24T09:04:00.000Z",
+      id: "hard-deleted-note",
+      kind: "internal-note",
+      timeLabel: "24 Aug, 11:04",
+    },
+  ],
+} as const satisfies PatientInquiryDetail
+
+export const spamInquiryFixture = {
+  ...closedInquiryFixture,
+  actions: { ...closedInquiryFixture.actions, canRevealContact: true },
+  changeCursor: "cursor-spam-2",
+  contact: { state: "masked" },
+  conversation: { kind: "guest" },
+  handlingStatus: "spam",
+  id: "inquiry-spam-sender",
+  interest: "Unrelated promotion",
+  lastActivityAt: "2026-08-08T06:14:00.000Z",
+  lastActivityLabel: "8 Aug",
+  lastActivityPreview: "Marked as Spam and conversation closed.",
+  originalRequest: "Promotional content unrelated to patient care.",
+  originalRequestPreview: "Promotional content unrelated to patient care.",
+  patient: { initials: "?", kind: "guest", name: "Unknown sender" },
+  revision: 2,
+  timeline: [
+    {
+      actorName: "Sarah Schmidt",
+      body: "Marked as Spam and conversation closed.",
+      createdAt: "2026-08-08T06:14:00.000Z",
+      id: "spam-event",
+      kind: "system-event",
+      timeLabel: "8 Aug, 08:14",
+    },
+  ],
+  treatmentTimeline: "Not applicable",
+} as const satisfies PatientInquiryDetail
+
+const openSummaries: readonly PatientInquiry[] = [
+  inquiryDetailFixtures.open,
+  inquiryDetailFixtures.guest,
+  {
+    ...inquiryDetailFixtures.open,
+    changeCursor: "cursor-sarah-2",
+    conversation: { id: "conversation-sarah", kind: "bound" },
+    handlingStatus: "in_review",
+    id: "inquiry-sarah-meyer",
+    interest: "Skin analysis",
+    lastActivityAt: "2026-08-23T14:42:00.000Z",
+    lastActivityLabel: "Yesterday",
+    lastActivityPreview: "Status changed from Submitted to In review.",
+    latestActivityKind: "system-event",
+    originalRequestPreview: "I have recurring irritation and would like to request a first assessment.",
+    patient: { initials: "SM", kind: "verified", name: "Sarah Meyer" },
+    receivedLabel: "Yesterday",
+    revision: 2,
+    treatmentTimeline: "Flexible",
+    unread: { count: 0, isUnread: false },
+  },
+  closedInquiryFixture,
+  spamInquiryFixture,
+]
 
 export const inquiryQueueFixture = {
-  inquiries: [
-    {
-      ...patientInquiryFixture,
-      availableTransitions: getPatientInquiryStatusTransitions("submitted"),
-      createdAt: "2026-07-26T08:54:00.000Z",
-      dateLabel: "26 July 2026",
-      status: "submitted",
-      timeLabel: "10:54",
-    },
-  ],
+  changeCursor: "queue-cursor-1",
+  inquiries: openSummaries,
   status: "ready",
+  unchanged: false,
+  unreadCount: openSummaries.reduce((total, inquiry) => total + (inquiry.unread.isUnread ? 1 : 0), 0),
 } satisfies PatientInquiryQueueSnapshot
-
-export const secondaryInquiryFixture = {
-  availableTransitions: getPatientInquiryStatusTransitions("submitted"),
-  contactWindow: "Mornings",
-  createdAt: "2026-07-26T08:12:00.000Z",
-  dateLabel: "26 July 2026",
-  email: "a.kaya@example.com",
-  id: "inquiry-aylin-kaya",
-  interest: "Dental veneers",
-  message: "I would like to understand the consultation process for dental veneers.",
-  name: "Aylin Kaya",
-  phone: "+49 000 0000002",
-  status: "submitted",
-  timeLabel: "10:12",
-  treatmentTimeline: "Within one month",
-} satisfies PatientInquiry

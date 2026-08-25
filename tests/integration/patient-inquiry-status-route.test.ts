@@ -1,72 +1,83 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  handleInquiryAttachmentDraftCreate,
+  handleInquiryAttachmentDraftFinalize,
+  handleInquiryAttachmentDraftUpload,
+  handleInquiryAttachmentPreview,
+  handleInquiryContactReveal,
+  handleInquiryDetailLoad,
+  handleInquiryMessageSend,
+  handleInquiryQueueLoad,
+  handleInquiryStateChange,
+} from "@/features/clinic-dashboard/server"
+import { handleClinicDashboardReauthenticate } from "@/features/clinic-dashboard/auth/server/public"
+import { resetControlledPatientInquiryProvider } from "@/features/clinic-dashboard/messages/server/controlled-inquiries"
 import { createCsrfToken } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
-import { patientInquiryStatusValues } from "@/features/clinic-dashboard/messages/model/inquiries"
 
-const accessMocks = vi.hoisted(() => ({
-  resolveClinicDashboardMutationAccess: vi.fn(),
-}))
+const sessionCookie = "clinic_dashboard_controlled_session=controlled-clinic-staff"
 
-vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
-  getClinicDashboardAccess: vi.fn(),
-  getClinicDashboardAccessToken: vi.fn(),
-  resolveClinicDashboardMutationAccess: accessMocks.resolveClinicDashboardMutationAccess,
-}))
-
-import { handlePatientInquiryStatusUpdate } from "@/features/clinic-dashboard/server"
-
-const upstreamInquiry = {
-  createdAt: "2026-07-26T08:54:00.000Z",
-  email: "l.weber@example.com",
-  fullName: "Lukas Weber",
-  id: "inquiry-1",
-  message: "I would like to know which documents to prepare.",
-  phoneNumber: "+49 000 0000001",
-  preferredContactWindow: "afternoon",
-  status: "submitted",
-  treatment: { id: "treatment-1", name: "Hair transplant" },
-  treatmentTimeline: "within_one_month",
-  updatedAt: "2026-07-26T08:54:00.000Z",
-}
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    headers: { "content-type": "application/json" },
-    status,
-  })
-}
-
-function statusRequest(status: string) {
-  const url = "http://localhost:3000/api/dashboard/inquiries/inquiry-1/status"
-  const unsignedRequest = new NextRequest(url, {
-    body: JSON.stringify({ status }),
-    headers: { "content-type": "application/json", origin: "http://localhost:3000" },
-    method: "PATCH",
-  })
-  const token = createCsrfToken(unsignedRequest)
-
-  return new NextRequest(url, {
-    body: JSON.stringify({ status }),
+function signedRequest(url: string, method: "PATCH" | "POST" | "PUT", body: unknown, cookie = sessionCookie) {
+  const base = new NextRequest(url, {
+    body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
-      cookie: `clinic_dashboard_csrf=${token}`,
+      cookie,
+      origin: "http://localhost:3000",
+    },
+    method,
+  })
+  const token = createCsrfToken(base)
+  return new NextRequest(url, {
+    body: JSON.stringify(body),
+    headers: {
+      "content-type": "application/json",
+      cookie: `${cookie}; clinic_dashboard_csrf=${token}`,
       [CLINIC_DASHBOARD_CSRF_HEADER]: token,
       origin: "http://localhost:3000",
     },
-    method: "PATCH",
+    method,
   })
 }
 
-function expectPrivate(response: Response) {
-  expect(response.headers.get("cache-control")).toBe("private, no-store")
-  expect(response.headers.get("pragma")).toBe("no-cache")
-  expect(response.headers.get("expires")).toBe("0")
-  expect(response.headers.get("vary")).toBe("Cookie")
+function readRequest(url: string, session = true) {
+  return new NextRequest(url, {
+    headers: session ? { cookie: sessionCookie } : undefined,
+  })
 }
 
-describe("Patient inquiry status BFF boundary", () => {
+function signedBinaryRequest(url: string, body: Uint8Array, mimeType: string) {
+  const headers = {
+    "content-length": String(body.byteLength),
+    "content-type": mimeType,
+    cookie: sessionCookie,
+    origin: "http://localhost:3000",
+  }
+  const base = new NextRequest(url, { headers, method: "PUT" })
+  const token = createCsrfToken(base)
+  const requestBody = body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer
+  return new NextRequest(url, {
+    body: requestBody,
+    headers: {
+      ...headers,
+      cookie: `${sessionCookie}; clinic_dashboard_csrf=${token}`,
+      [CLINIC_DASHBOARD_CSRF_HEADER]: token,
+    },
+    method: "PUT",
+  })
+}
+
+function requireResponse(response: Response | undefined): Response {
+  expect(response).toBeDefined()
+  if (!response) throw new Error("Expected a BFF response")
+  return response
+}
+
+describe("patient inquiry BFF integration", () => {
   beforeEach(() => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")
     vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
     vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
     vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
@@ -74,122 +85,263 @@ describe("Patient inquiry status BFF boundary", () => {
     vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
     vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
-    accessMocks.resolveClinicDashboardMutationAccess.mockResolvedValue({
-      accessToken: "access-token",
-      applyToResponse: (response: Response) => {
-        response.headers.set("x-session-applied", "true")
-        response.headers.append(
-          "set-cookie",
-          "clinic-dashboard-auth=refreshed-session; HttpOnly; Path=/; SameSite=Lax",
-        )
-        return response
-      },
-      clinicId: "clinic-1",
-      status: "approved",
-    })
+    resetControlledPatientInquiryProvider()
   })
 
   afterEach(() => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
-    vi.unstubAllGlobals()
+    resetControlledPatientInquiryProvider()
   })
 
-  it("checks the current own-clinic state before persisting an allowed transition", async () => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          doc: {
-            ...upstreamInquiry,
-            status: "in_review",
-            updatedAt: "2026-07-26T09:08:00.000Z",
-          },
+  it("persists an idempotent reply across request-scoped provider composition", async () => {
+    const detailResponse = requireResponse(
+      await handleInquiryDetailLoad(
+        readRequest("http://localhost:3000/api/dashboard/inquiries/detail?inquiryId=inquiry-lukas-weber"),
+      ),
+    )
+    const detailBody = (await detailResponse.json()) as { inquiry: { revision: number } }
+    const message = {
+      expectedRevision: detailBody.inquiry.revision,
+      idempotencyKey: "integration-message-0001",
+      inquiryId: "inquiry-lukas-weber",
+      text: "This persists across requests.",
+    }
+    const first = requireResponse(
+      await handleInquiryMessageSend(
+        signedRequest("http://localhost:3000/api/dashboard/inquiries/messages", "POST", message),
+      ),
+    )
+    expect(first.status).toBe(200)
+
+    const replay = requireResponse(
+      await handleInquiryMessageSend(
+        signedRequest("http://localhost:3000/api/dashboard/inquiries/messages", "POST", message),
+      ),
+    )
+    await expect(replay.json()).resolves.toMatchObject({ replayed: true })
+
+    const reread = requireResponse(
+      await handleInquiryDetailLoad(
+        readRequest("http://localhost:3000/api/dashboard/inquiries/detail?inquiryId=inquiry-lukas-weber"),
+      ),
+    )
+    await expect(reread.json()).resolves.toMatchObject({
+      inquiry: {
+        lastActivityPreview: "This persists across requests.",
+        revision: detailBody.inquiry.revision + 1,
+      },
+    })
+  })
+
+  it("persists a controlled attachment uploaded through the protected same-origin route", async () => {
+    const bytes = new TextEncoder().encode("%PDF-1.4\nSynthetic attachment\n%%EOF")
+    const draftResponse = requireResponse(
+      await handleInquiryAttachmentDraftCreate(
+        signedRequest("http://localhost:3000/api/dashboard/inquiries/attachments/drafts", "POST", {
+          fileName: "synthetic-treatment-plan.pdf",
+          inquiryId: "inquiry-lukas-weber",
+          mimeType: "application/pdf",
+          sizeBytes: bytes.byteLength,
         }),
-      )
-    vi.stubGlobal("fetch", fetcher)
+      ),
+    )
+    expect(draftResponse.status).toBe(200)
+    const draft = (await draftResponse.json()) as {
+      draftId: string
+      upload: { url: string }
+    }
+    expect(draft.upload.url).toBe(
+      `/api/dashboard/inquiries/attachments/drafts/upload?draftId=${draft.draftId}`,
+    )
 
-    const response = await handlePatientInquiryStatusUpdate(statusRequest("in_review"), "inquiry-1")
+    const uploadResponse = requireResponse(
+      await handleInquiryAttachmentDraftUpload(
+        signedBinaryRequest(
+          new URL(draft.upload.url, "http://localhost:3000").toString(),
+          bytes,
+          "application/pdf",
+        ),
+      ),
+    )
+    expect(uploadResponse.status).toBe(200)
+    await expect(uploadResponse.json()).resolves.toEqual({ uploaded: true })
 
+    const finalizeResponse = requireResponse(
+      await handleInquiryAttachmentDraftFinalize(
+        signedRequest("http://localhost:3000/api/dashboard/inquiries/attachments/drafts/finalize", "POST", {
+          draftId: draft.draftId,
+          inquiryId: "inquiry-lukas-weber",
+        }),
+      ),
+    )
+    expect(finalizeResponse.status).toBe(200)
+
+    const messageResponse = requireResponse(
+      await handleInquiryMessageSend(
+        signedRequest("http://localhost:3000/api/dashboard/inquiries/messages", "POST", {
+          attachmentDraftId: draft.draftId,
+          expectedRevision: 4,
+          idempotencyKey: "integration-attachment-message-0001",
+          inquiryId: "inquiry-lukas-weber",
+          text: "Synthetic attachment persisted.",
+        }),
+      ),
+    )
+    expect(messageResponse.status).toBe(200)
+    const messageBody = (await messageResponse.json()) as {
+      inquiry: { timeline: { attachment?: { id: string; name: string } }[] }
+    }
+    const attachment = messageBody.inquiry.timeline.at(-1)?.attachment
+    expect(attachment).toMatchObject({ name: "synthetic-treatment-plan.pdf" })
+
+    const previewResponse = requireResponse(
+      await handleInquiryAttachmentPreview(
+        readRequest(
+          `http://localhost:3000/api/dashboard/inquiries/attachments/preview?attachmentId=${attachment?.id}`,
+        ),
+      ),
+    )
+    expect(previewResponse.status).toBe(200)
+    await expect(previewResponse.arrayBuffer()).resolves.toEqual(bytes.buffer)
+  })
+
+  it("rejects controlled attachment bytes without same-origin CSRF verification", async () => {
+    const response = requireResponse(
+      await handleInquiryAttachmentDraftUpload(
+        new NextRequest(
+          "http://localhost:3000/api/dashboard/inquiries/attachments/drafts/upload?draftId=draft-1",
+          {
+            body: "safe",
+            headers: {
+              "content-length": "4",
+              "content-type": "application/pdf",
+              cookie: sessionCookie,
+              origin: "http://localhost:3000",
+            },
+            method: "PUT",
+          },
+        ),
+      ),
+    )
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual({ error: { code: "access-denied" } })
+  })
+
+  it("paginates the authoritative queue without duplicates", async () => {
+    const first = requireResponse(
+      await handleInquiryQueueLoad(
+        readRequest("http://localhost:3000/api/dashboard/inquiries?lifecycle=all&unreadOnly=false"),
+      ),
+    )
+    const firstBody = (await first.json()) as { inquiries: { id: string }[]; nextCursor?: string }
+    const second = requireResponse(
+      await handleInquiryQueueLoad(
+        readRequest(
+          `http://localhost:3000/api/dashboard/inquiries?lifecycle=all&unreadOnly=false&cursor=${firstBody.nextCursor}`,
+        ),
+      ),
+    )
+    const secondBody = (await second.json()) as { inquiries: { id: string }[] }
+    const ids = [...firstBody.inquiries, ...secondBody.inquiries].map(({ id }) => id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).toHaveLength(4)
+  })
+
+  it("keeps the actor-personal unread count on an unchanged first-page poll", async () => {
+    const first = requireResponse(
+      await handleInquiryQueueLoad(
+        readRequest("http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false"),
+      ),
+    )
+    const firstBody = (await first.json()) as {
+      changeCursor: string
+      unreadCount: number
+    }
+    const unchanged = requireResponse(
+      await handleInquiryQueueLoad(
+        readRequest(
+          `http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false&knownChangeCursor=${firstBody.changeCursor}`,
+        ),
+      ),
+    )
+
+    await expect(unchanged.json()).resolves.toEqual({
+      changeCursor: firstBody.changeCursor,
+      inquiries: [],
+      status: "ready",
+      unchanged: true,
+      unreadCount: firstBody.unreadCount,
+    })
+  })
+
+  it("removes spam while keeping the conversation closed", async () => {
+    const response = requireResponse(
+      await handleInquiryStateChange(
+        signedRequest("http://localhost:3000/api/dashboard/inquiries/state", "PATCH", {
+          action: "remove-spam",
+          expectedRevision: 3,
+          inquiryId: "inquiry-spam-sender",
+        }),
+      ),
+    )
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
-      changedAt: "11:08",
-      inquiry: { id: "inquiry-1", status: "in_review" },
+      inquiry: { handlingStatus: "submitted", lifecycle: "closed" },
     })
-    expect(fetcher).toHaveBeenCalledTimes(2)
-    expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
-      cache: "no-store",
-      redirect: "error",
-    })
-    expect(fetcher.mock.calls[1]?.[1]).toMatchObject({
-      body: '{"status":"in_review"}',
-      cache: "no-store",
-      method: "PATCH",
-      redirect: "error",
-    })
-    expect(response.headers.get("x-session-applied")).toBe("true")
-    expect(response.headers.get("set-cookie")).toContain("clinic-dashboard-auth=refreshed-session")
-    expectPrivate(response)
   })
 
-  it.each(patientInquiryStatusValues)("rejects a %s status no-op without PATCH", async (status) => {
-    const fetcher = vi.fn<typeof fetch>(async () =>
-      jsonResponse({
-        ...upstreamInquiry,
-        status,
-      }),
+  it("serves attachment preview bytes privately without redirecting", async () => {
+    const response = requireResponse(
+      await handleInquiryAttachmentPreview(
+        readRequest(
+          "http://localhost:3000/api/dashboard/inquiries/attachments/preview?attachmentId=attachment-lukas-1",
+        ),
+      ),
     )
-    vi.stubGlobal("fetch", fetcher)
-
-    const response = await handlePatientInquiryStatusUpdate(statusRequest(status), "inquiry-1")
-
-    expect(response.status).toBe(409)
-    await expect(response.json()).resolves.toEqual({ code: "INQUIRY_STATUS_CONFLICT" })
-    expect(fetcher).toHaveBeenCalledOnce()
-    expectPrivate(response)
+    expect(response.status).toBe(200)
+    expect(response.headers.get("location")).toBeNull()
+    expect(response.headers.get("cache-control")).toBe("private, no-store")
+    expect(response.headers.get("content-disposition")).toContain("inline")
   })
 
-  it.each([
-    [401, 401, "INQUIRY_UNAUTHORIZED"],
-    [403, 403, "INQUIRY_ACCESS_DENIED"],
-    [404, 404, "INQUIRY_NOT_FOUND"],
-    [409, 409, "INQUIRY_STATUS_CONFLICT"],
-    [500, 503, "INQUIRY_SERVICE_UNAVAILABLE"],
-  ] as const)(
-    "maps an upstream %i response to a private %i response",
-    async (upstreamStatus, expectedStatus, code) => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => jsonResponse({ error: "upstream rejected request" }, upstreamStatus)),
-      )
-
-      const response = await handlePatientInquiryStatusUpdate(statusRequest("in_review"), "inquiry-1")
-
-      expect(response.status).toBe(expectedStatus)
-      await expect(response.json()).resolves.toEqual({ code })
-      expectPrivate(response)
-    },
-  )
-
-  it.each([
-    ["unauthenticated", 401, "INQUIRY_UNAUTHORIZED"],
-    ["unauthorized", 401, "INQUIRY_UNAUTHORIZED"],
-    ["denied", 403, "INQUIRY_ACCESS_DENIED"],
-    ["temporarily-unavailable", 503, "INQUIRY_SERVICE_UNAVAILABLE"],
-  ] as const)("maps %s access to a private %i response", async (status, expectedStatus, code) => {
-    const fetcher = vi.fn()
-    vi.stubGlobal("fetch", fetcher)
-    accessMocks.resolveClinicDashboardMutationAccess.mockResolvedValue({
-      applyToResponse: (response: Response) => response,
-      status,
+  it("requires an explicit fresh password step-up before revealing masked contact data", async () => {
+    const revealUrl = "http://localhost:3000/api/dashboard/inquiries/contact/reveal"
+    const revealBody = { inquiryId: "inquiry-spam-sender" }
+    const initial = requireResponse(
+      await handleInquiryContactReveal(signedRequest(revealUrl, "POST", revealBody)),
+    )
+    expect(initial.status).toBe(401)
+    await expect(initial.json()).resolves.toEqual({
+      error: { code: "reauthentication-required" },
     })
 
-    const response = await handlePatientInquiryStatusUpdate(statusRequest("in_review"), "inquiry-1")
+    const reauthenticated = await handleClinicDashboardReauthenticate(
+      signedRequest("http://localhost:3000/api/auth/reauthenticate", "POST", { password: "test-password" }),
+    )
+    expect(reauthenticated.status).toBe(200)
+    const reauthCookie = reauthenticated.headers.get("set-cookie")?.split(";", 1)[0]
+    expect(reauthCookie).toBeTruthy()
 
-    expect(response.status).toBe(expectedStatus)
-    await expect(response.json()).resolves.toEqual({ code })
-    expect(fetcher).not.toHaveBeenCalled()
-    expectPrivate(response)
+    const revealed = requireResponse(
+      await handleInquiryContactReveal(
+        signedRequest(revealUrl, "POST", revealBody, `${sessionCookie}; ${reauthCookie}`),
+      ),
+    )
+    expect(revealed.status).toBe(200)
+    await expect(revealed.json()).resolves.toMatchObject({
+      inquiry: { contact: { state: "full" } },
+    })
+  })
+
+  it("returns an unauthorized safe union without a verified session", async () => {
+    const response = requireResponse(
+      await handleInquiryQueueLoad(
+        readRequest("http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false", false),
+      ),
+    )
+    expect(response.status).toBe(401)
+    await expect(response.json()).resolves.toEqual({ error: { code: "unauthorized" } })
   })
 })

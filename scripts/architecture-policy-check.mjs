@@ -90,6 +90,14 @@ function isPatientInquiryProviderAdapterTarget(target) {
   )
 }
 
+function isMessageRenderComponentSource(file) {
+  return /^src\/features\/clinic-dashboard\/messages\/components\//u.test(file)
+}
+
+function isMessageBrowserAdapterTarget(target) {
+  return /^src\/features\/clinic-dashboard\/messages\/browser\//u.test(target)
+}
+
 function isPatientInquiryProviderContractSource(file) {
   return /^src\/features\/clinic-dashboard\/messages\/server\/patient-inquiry-provider\.[cm]?[jt]s$/u.test(
     file,
@@ -122,7 +130,9 @@ function isAllowedClinicDashboardWorkspaceProviderImport(file) {
 function isAllowedClinicDashboardServerImport(file) {
   return (
     file === "src/app/page.tsx" ||
-    file === "src/app/api/dashboard/inquiries/[inquiryId]/status/route.ts" ||
+    /^src\/app\/api\/dashboard\/inquiries(?:\/(?:detail|messages|notes|state|read-position|contact\/reveal|attachments\/(?:download|preview|drafts(?:\/(?:finalize|discard|upload))?)))?\/route\.ts$/u.test(
+      file,
+    ) ||
     file === "src/app/api/dashboard/clinic-treatments/route.ts" ||
     /^src\/app\/api\/dashboard\/gallery(?:\/(?:discard|image|media))?\/route\.ts$/u.test(file) ||
     /^src\/app\/api\/dashboard\/reviews(?:\/\[reviewId\]\/(?:appeal|history|response))?\/route\.ts$/u.test(
@@ -151,6 +161,8 @@ function isAllowedClinicDashboardDataProviderCompositionImport(file) {
 function isAllowedPatientInquiryProviderAdapterImport(file) {
   return (
     isClinicDashboardDataProviderCompositionSource(file) ||
+    file === "tests/unit/data-provider-composition.test.ts" ||
+    file === "tests/integration/patient-inquiry-status-route.test.ts" ||
     file === "tests/unit/patient-inquiry-provider-contract.test.ts" ||
     file === "tests/unit/patient-inquiry-payload.test.ts"
   )
@@ -959,6 +971,7 @@ function collectFindings() {
       const patientInquiryProviderContractImport = reachableTargets.some(
         isPatientInquiryProviderContractTarget,
       )
+      const messageBrowserAdapterImport = reachableTargets.some(isMessageBrowserAdapterTarget)
       const serverImport = isClinicDashboardServerTarget(target)
       const workspaceProviderImport = isClinicDashboardWorkspaceProviderTarget(target)
       const sourceArea = getFeatureArea(file)
@@ -1107,6 +1120,17 @@ function collectFindings() {
             file,
             reference.moduleSpecifier,
             "The patient-inquiry provider interface is private server-only infrastructure and must not enter UI, App Router, or Storybook modules.",
+          ),
+        )
+      }
+
+      if (messageBrowserAdapterImport && isMessageRenderComponentSource(file)) {
+        findings.push(
+          createFinding(
+            "message-browser-adapter-ui-boundary",
+            file,
+            reference.moduleSpecifier,
+            "Message render components must receive render-ready attachment access values instead of importing browser adapters.",
           ),
         )
       }

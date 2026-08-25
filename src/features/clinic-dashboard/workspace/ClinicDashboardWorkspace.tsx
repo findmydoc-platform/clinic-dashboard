@@ -16,6 +16,7 @@ import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
 
 export type ClinicDashboardWorkspaceProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
+  focusInquiryId?: string
   persistNotificationReadStateInSession?: boolean
   prototypeMode: ClinicDashboardPrototypeMode
   showPrototypeModeToggle?: boolean
@@ -24,15 +25,13 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
 
 export function ClinicDashboardWorkspace({
   authenticatedContext,
+  focusInquiryId,
   persistNotificationReadStateInSession = false,
   prototypeMode,
   showPrototypeModeToggle = false,
   workspaceInput,
 }: ClinicDashboardWorkspaceProps) {
-  const demoClientAdapter = useMemo(
-    () => createClinicDashboardDemoClientAdapter(workspaceInput),
-    [workspaceInput],
-  )
+  const demoClientAdapter = useMemo(() => createClinicDashboardDemoClientAdapter(), [])
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
@@ -47,6 +46,7 @@ export function ClinicDashboardWorkspace({
       clinicProfileSourceCommands={clinicProfileSourceCommands}
       clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
+      focusInquiryId={focusInquiryId}
       projectDashboardAfterProfileSave={demoClientAdapter.projectDashboardAfterProfileSave}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}
       prototypeMode={prototypeMode}

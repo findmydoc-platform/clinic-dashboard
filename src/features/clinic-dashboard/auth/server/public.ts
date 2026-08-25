@@ -8,6 +8,7 @@ export {
   handleClinicDashboardLogin,
   handleClinicDashboardLogout,
   handleClinicDashboardPasswordCompletion,
+  handleClinicDashboardReauthenticate,
   handleClinicDashboardPasswordResetRequest,
 } from "./actions"
 export {
@@ -17,6 +18,7 @@ export {
   setPendingEmailCallbackCookie,
   validateEmailCallbackRequest,
 } from "./callback"
-export { hasControlledSession } from "./session"
+export { hasControlledSession, isControlledContactReauthenticationRequired } from "./session"
 export { resolveClinicDashboardMutationAccess, resolveClinicDashboardRouteAccess } from "./route-access"
 export { createProxySupabaseClient } from "./supabase-client"
+export { createClinicDashboardLoginPathForRequest } from "../model/auth"

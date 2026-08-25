@@ -21,8 +21,19 @@ export const DashboardActive: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page")
-    await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Inquiries" }))
     await expect(args.onSectionSelect).toHaveBeenCalledWith("messages")
+  },
+}
+
+export const UnreadInquiryBadge: Story = {
+  args: { inquiryUnreadCount: 12 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const inquiries = canvas.getByRole("button", { name: "Inquiries" })
+
+    await expect(canvas.getByText("12")).toBeVisible()
+    await expect(inquiries).toHaveAccessibleDescription("12 unread inquiry activities")
   },
 }
 

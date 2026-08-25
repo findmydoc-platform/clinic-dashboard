@@ -1,6 +1,7 @@
 import "server-only"
 
 import { isControlledAuthTestMode, validateEnvironment } from "@/lib/env"
+import { CLINIC_DASHBOARD_CONTRACT_HEADER_NAME, clinicDashboardContractHeaders } from "../../payload-contract"
 import {
   authenticatedClinicContextSchema,
   type AuthenticatedClinicContext,
@@ -21,6 +22,8 @@ const controlledAuthenticatedClinicContext = {
     "clinic-gallery:edit",
     "clinic-treatments:view",
     "clinic-treatments:edit",
+    "clinic-inquiries:view",
+    "clinic-inquiries:edit",
   ],
   clinic: {
     id: "controlled-clinic",
@@ -36,10 +39,18 @@ const controlledAuthenticatedClinicContext = {
 
 function hasPrivateBootstrapHeaders(response: Response) {
   const cacheControl = response.headers.get("cache-control")?.toLowerCase() ?? ""
-  const vary = response.headers.get("vary")?.toLowerCase() ?? ""
+  const varyFields = new Set(
+    (response.headers.get("vary") ?? "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  )
 
   return (
-    cacheControl.includes("private") && cacheControl.includes("no-store") && vary.includes("authorization")
+    cacheControl.includes("private") &&
+    cacheControl.includes("no-store") &&
+    varyFields.has("authorization") &&
+    varyFields.has(CLINIC_DASHBOARD_CONTRACT_HEADER_NAME.toLowerCase())
   )
 }
 
@@ -73,6 +84,7 @@ export async function fetchClinicDashboardBootstrap(
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${accessToken}`,
+        ...clinicDashboardContractHeaders(),
       },
       redirect: "error",
       signal: AbortSignal.timeout(5_000),

@@ -105,6 +105,30 @@ describe("controlled authentication route contract", () => {
     expectPrivate(invalid)
   })
 
+  it("returns only a canonical inquiry target after login", async () => {
+    const accepted = await handleClinicDashboardLogin(
+      mutationRequest("/api/auth/login", {
+        email: "clinic-staff@example.com",
+        next: "/?inquiry=inquiry-lukas-weber",
+        password: "test-password",
+      }),
+    )
+    expect(accepted.status).toBe(200)
+    await expect(accepted.json()).resolves.toEqual({ redirectTo: "/?inquiry=inquiry-lukas-weber" })
+
+    for (const next of ["//attacker.example", "https://attacker.example", "/?inquiry=x&clinic=other"]) {
+      const rejected = await handleClinicDashboardLogin(
+        mutationRequest("/api/auth/login", {
+          email: "clinic-staff@example.com",
+          next,
+          password: "test-password",
+        }),
+      )
+      expect(rejected.status).toBe(400)
+      await expect(rejected.json()).resolves.toEqual({ code: "INVALID_INPUT" })
+    }
+  })
+
   it("returns the neutral reset response for every syntactically valid email", async () => {
     for (const email of ["clinic-staff@example.com", "unknown@example.com"]) {
       const response = await handleClinicDashboardPasswordResetRequest(

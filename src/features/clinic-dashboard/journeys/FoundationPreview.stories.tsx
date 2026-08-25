@@ -45,7 +45,7 @@ export const PresentationSupportFlowIsAvailable: Story = {
   },
 }
 
-export const NotificationOpensMessagesAtItsLocation: Story = {
+export const NotificationOpensInquiriesAtItsLocation: Story = {
   args: { prototypeMode: "presentation" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -53,11 +53,11 @@ export const NotificationOpensMessagesAtItsLocation: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Notifications, 2 new notifications" }))
     await userEvent.click(canvas.getByRole("button", { name: /New message from Lukas Weber/ }))
 
-    await waitFor(() => expect(canvas.getByRole("heading", { level: 1, name: "Messages" })).toHaveFocus())
+    await waitFor(() => expect(canvas.getByRole("heading", { level: 1, name: "Inquiries" })).toHaveFocus())
     await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
       /Current location: Demo data · Berlin Health Clinic — Mitte/,
     )
-    await expect(canvas.getByText("Opened messages at Berlin Health Clinic — Mitte.")).toBeVisible()
+    await expect(canvas.getByText("Opened inquiries at Berlin Health Clinic — Mitte.")).toBeVisible()
   },
 }
 
@@ -153,7 +153,7 @@ export const MobileNavigation: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getByRole("heading", { level: 1, name: "Messages" })).toBeInTheDocument()
+    await expect(canvas.getByRole("heading", { level: 1, name: "Inquiries" })).toBeInTheDocument()
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
     await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
     const navigation = await canvas.findByRole("dialog", { name: "Clinic navigation" })

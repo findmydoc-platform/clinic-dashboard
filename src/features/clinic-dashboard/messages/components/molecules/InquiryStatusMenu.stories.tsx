@@ -1,56 +1,31 @@
 import { useState } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, within } from "storybook/test"
+import type { InquiryHandlingStatus } from "../../model/inquiries"
 import { InquiryStatusMenu } from "./InquiryStatusMenu"
 
-function ControlledInquiryStatusMenu() {
-  const [open, setOpen] = useState(false)
+type EditableStatus = Exclude<InquiryHandlingStatus, "spam">
 
+function StatusHarness({ initialStatus = "submitted" }: Readonly<{ initialStatus?: EditableStatus }>) {
+  const [status, setStatus] = useState<EditableStatus>(initialStatus)
   return (
     <InquiryStatusMenu
-      availableTransitions={["in_review", "contacted", "closed", "spam"]}
-      currentStatus="submitted"
+      currentStatus={status}
       isDisabled={false}
       isUpdating={false}
-      onOpenChange={setOpen}
-      onStatusChange={() => setOpen(false)}
-      open={open}
-    />
-  )
-}
-
-function PendingInquiryStatusMenu() {
-  const [open, setOpen] = useState(false)
-  const [updating, setUpdating] = useState(false)
-
-  return (
-    <InquiryStatusMenu
-      availableTransitions={["in_review", "contacted", "closed", "spam"]}
-      currentStatus="submitted"
-      isDisabled={updating}
-      isUpdating={updating}
-      onOpenChange={setOpen}
-      onStatusChange={() => {
-        setOpen(false)
-        setUpdating(true)
-      }}
-      open={open}
+      onStatusChange={setStatus}
     />
   )
 }
 
 const meta = {
   args: {
-    availableTransitions: ["in_review", "contacted", "closed", "spam"],
     currentStatus: "submitted",
     isDisabled: false,
     isUpdating: false,
-    onOpenChange: () => undefined,
     onStatusChange: () => undefined,
-    open: false,
   },
   component: InquiryStatusMenu,
-  render: () => <ControlledInquiryStatusMenu />,
   tags: ["domain:messages", "layer:molecule", "status:stable"],
   title: "Clinic Dashboard/Messages/Molecules/Inquiry Status Menu",
 } satisfies Meta<typeof InquiryStatusMenu>
@@ -58,31 +33,27 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Closed: Story = { args: {} }
-
-export const Updating: Story = {
-  render: (args) => <InquiryStatusMenu {...args} isDisabled isUpdating />,
-}
-
-export const FocusPreservedWhenUpdateStarts: Story = {
+export const Default: Story = {
+  render: () => <StatusHarness />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const page = within(canvasElement.ownerDocument.body)
-    const trigger = canvas.getByRole("button", {
-      name: "Change inquiry status. Current status: Submitted",
-    })
-
-    trigger.focus()
-    await userEvent.keyboard("{Enter}")
-    await userEvent.click(await page.findByRole("menuitem", { name: "In review" }))
-
-    await expect(trigger).toHaveFocus()
-    await expect(trigger).toHaveAttribute("aria-busy", "true")
-    await expect(trigger).toHaveAttribute("aria-disabled", "true")
+    const select = canvas.getByRole("combobox", { name: "Inquiry status" })
+    await userEvent.selectOptions(select, "in_review")
+    await expect(select).toHaveValue("in_review")
   },
-  render: () => <PendingInquiryStatusMenu />,
 }
 
-export const Terminal: Story = {
-  render: (args) => <InquiryStatusMenu {...args} availableTransitions={[]} currentStatus="closed" />,
+export const Updating: Story = { args: { isUpdating: true } }
+
+export const Disabled: Story = { args: { currentStatus: "contacted", isDisabled: true } }
+
+export const ContactedCanReturnToInReview: Story = {
+  render: () => <StatusHarness initialStatus="contacted" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const select = canvas.getByRole("combobox", { name: "Inquiry status" })
+    await expect(canvas.queryByRole("option", { name: "Submitted" })).not.toBeInTheDocument()
+    await userEvent.selectOptions(select, "in_review")
+    await expect(select).toHaveValue("in_review")
+  },
 }

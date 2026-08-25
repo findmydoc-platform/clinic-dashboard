@@ -13,8 +13,14 @@ import { createPayloadClinicProfileProvider } from "./clinic-profile/server/payl
 import { createPayloadClinicGalleryProvider } from "./clinic-profile/server/payload-clinic-gallery"
 import { createPayloadDoctorProfileProvider } from "./clinic-profile/server/payload-doctor-profiles"
 import { createPayloadClinicTreatmentProvider } from "./clinic-profile/server/payload-clinic-treatments"
-import { createControlledPatientInquiryProvider } from "./messages/server/controlled-inquiries"
-import type { PatientInquiryProvider } from "./messages/server/patient-inquiry-provider"
+import {
+  createControlledPatientInquiryAttachmentDraftUpload,
+  createControlledPatientInquiryProvider,
+} from "./messages/server/controlled-inquiries"
+import type {
+  PatientInquiryAttachmentDraftUpload,
+  PatientInquiryProvider,
+} from "./messages/server/patient-inquiry-provider"
 import { createPayloadPatientInquiryProvider } from "./messages/server/payload-inquiries"
 import { createControlledReviewProvider } from "./reviews/server/controlled-reviews"
 import { createPayloadReviewProvider } from "./reviews/server/payload-reviews"
@@ -24,6 +30,7 @@ export type ClinicDashboardDataProviders = Readonly<{
   doctors: DoctorProfileProvider
   gallery: ClinicGalleryProvider
   inquiries: PatientInquiryProvider
+  inquiryAttachmentDraftUpload?: PatientInquiryAttachmentDraftUpload
   profile: ClinicProfileProvider
   reviews: ReviewProvider
   treatments: ClinicTreatmentProvider
@@ -51,8 +58,11 @@ export function composeClinicDashboardDataProviders(
       ? createControlledClinicGalleryProvider(clinicId)
       : createPayloadClinicGalleryProvider(accessToken, clinicId),
     inquiries: controlled
-      ? createControlledPatientInquiryProvider()
-      : createPayloadPatientInquiryProvider(accessToken),
+      ? createControlledPatientInquiryProvider(clinicId)
+      : createPayloadPatientInquiryProvider(accessToken, clinicId),
+    ...(controlled
+      ? { inquiryAttachmentDraftUpload: createControlledPatientInquiryAttachmentDraftUpload(clinicId) }
+      : {}),
     profile: controlled
       ? createControlledClinicProfileProvider()
       : createPayloadClinicProfileProvider(accessToken, clinicId),

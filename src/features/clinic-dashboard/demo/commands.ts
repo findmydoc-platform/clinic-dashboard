@@ -1,6 +1,4 @@
 import type { ClinicProfileCommands } from "@/features/clinic-dashboard/clinic-profile/public"
-import type { MessageCommands } from "@/features/clinic-dashboard/messages/public"
-import type { ClinicDashboardWorkspaceInput } from "../workspace/model/workspace-input"
 import { projectDemoDashboardAfterProfileSave } from "./profile-projection"
 
 const demoTimestamp = "2026-07-19T10:00:00.000Z"
@@ -23,26 +21,12 @@ const clinicProfileDemoCommands: ClinicProfileCommands = {
 
 export type ClinicDashboardDemoClientAdapter = Readonly<{
   clinicProfileCommands: ClinicProfileCommands
-  messageCommands: MessageCommands
   projectDashboardAfterProfileSave: typeof projectDemoDashboardAfterProfileSave
 }>
 
-export function createClinicDashboardDemoClientAdapter(
-  workspaceInput: ClinicDashboardWorkspaceInput,
-): ClinicDashboardDemoClientAdapter {
+export function createClinicDashboardDemoClientAdapter(): ClinicDashboardDemoClientAdapter {
   return {
     clinicProfileCommands: clinicProfileDemoCommands,
-    messageCommands: {
-      sendMessage: async ({ attachment, body, conversationId }) =>
-        resolveDemoValue({
-          attachment,
-          body: body.trim(),
-          id: `local-message-${conversationId}-${globalThis.crypto.randomUUID()}`,
-          read: "Read 11:08",
-          sender: "doctor" as const,
-          time: "11:08",
-        }),
-    },
     projectDashboardAfterProfileSave: projectDemoDashboardAfterProfileSave,
   }
 }
