@@ -279,7 +279,9 @@ export const SaveConflictPreservesLocalChanges: Story = {
     })
     secondHandle.focus()
     await userEvent.keyboard("{ArrowLeft}")
-    await userEvent.click(within(gallery).getByRole("button", { name: "Save and return" }))
+    const save = within(gallery).getByRole("button", { name: "Save and return" })
+    await waitFor(() => expect(save).toBeEnabled())
+    await userEvent.click(save)
     await waitFor(() => expect(within(gallery).getByText("Gallery changed elsewhere")).toBeVisible())
     await expect(within(gallery).getByText(/Your local values remain visible/)).toBeVisible()
     await expect(within(gallery).getByRole("button", { name: "More image actions" })).toBeVisible()
@@ -457,6 +459,9 @@ export const MobileSaveAndLeaveGuard: Story = {
     const documentPage = within(canvasElement.ownerDocument.body)
     await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
     const gallery = getGallery(canvasElement.ownerDocument.body)
+    await waitFor(() =>
+      expect(within(gallery).getByRole("heading", { name: "Manage gallery" })).toHaveFocus(),
+    )
     await userEvent.type(
       within(gallery).getByRole("textbox", { name: "Caption (optional)" }),
       "Mobile gallery caption",
