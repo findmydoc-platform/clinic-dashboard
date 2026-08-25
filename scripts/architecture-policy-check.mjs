@@ -52,10 +52,6 @@ function isClinicDashboardDemoImport(reference) {
   return isClinicDashboardDemoTarget(importTarget(reference))
 }
 
-function isClinicDashboardDemoCommandTarget(target) {
-  return /^src\/features\/clinic-dashboard\/demo\/commands(?:\.[cm]?[jt]sx?)?$/u.test(target)
-}
-
 function isClinicDashboardServerSource(file) {
   return /^src\/features\/clinic-dashboard\/server\.[cm]?[jt]s$/u.test(file)
 }
@@ -178,6 +174,10 @@ function isAllowedPatientInquiryProviderContractImport(file) {
   )
 }
 
+function isWorkspaceCompositionSource(file) {
+  return /^src\/features\/clinic-dashboard\/workspace\/ClinicDashboardWorkspace\.[cm]?[jt]sx?$/u.test(file)
+}
+
 function isAllowedControlledModeSelection(file) {
   return (
     file === "src/lib/env.ts" ||
@@ -191,7 +191,7 @@ function isControlledModeSelectorTarget(target) {
 }
 
 function isDemoPrivateWorkspaceContractTarget(target) {
-  return /^src\/features\/clinic-dashboard\/workspace\/model\/(?:notifications|profile-save-projection|workspace-input)(?:\.[cm]?[jt]s)?$/u.test(
+  return /^src\/features\/clinic-dashboard\/workspace\/model\/(?:notifications|workspace-input)(?:\.[cm]?[jt]s)?$/u.test(
     target,
   )
 }
@@ -487,14 +487,6 @@ function hasCommonJsPublicExport(sourceFile) {
   return found
 }
 
-function isWorkspaceCompositionSource(file) {
-  return /^src\/features\/clinic-dashboard\/workspace\/ClinicDashboardWorkspace\.[cm]?[jt]sx?$/u.test(file)
-}
-
-function isDemoCommandCompositionSource(file) {
-  return /^src\/features\/clinic-dashboard\/workspace\/ClinicDashboardWorkspace\.[cm]?[jt]sx?$/u.test(file)
-}
-
 function isAllowedClinicDashboardDemoImport(file, reference) {
   const target = importTarget(reference)
 
@@ -506,7 +498,7 @@ function isAllowedClinicDashboardDemoImport(file, reference) {
     return /^src\/features\/clinic-dashboard\/demo\/loader\.ts$/u.test(target)
   }
 
-  return isDemoCommandCompositionSource(file) && isClinicDashboardDemoCommandTarget(target)
+  return false
 }
 
 function isPrototypeDataMapperSource(file) {
@@ -1075,7 +1067,7 @@ function collectFindings() {
             "runtime-demo-source-boundary",
             file,
             reference.moduleSpecifier,
-            "Runtime demo sources may be imported only within demo, by the server loader entry, or as the demo client adapter at the client composition entry.",
+            "Runtime demo sources may be imported only within demo or by the server loader entry.",
           ),
         )
       }

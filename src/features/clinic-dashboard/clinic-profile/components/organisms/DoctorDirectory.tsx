@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useState } from "react"
+import { useState } from "react"
 import { Pencil, UserPlus } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -29,10 +29,7 @@ function initials(doctor: DoctorProfile) {
   return `${doctor.firstName[0] ?? ""}${doctor.lastName[0] ?? ""}`.toUpperCase()
 }
 
-export const DoctorDirectory = forwardRef<HTMLElement, DoctorDirectoryProps>(function DoctorDirectory(
-  { canManage, commands, onDoctorsChange, snapshot },
-  ref,
-) {
+export function DoctorDirectory({ canManage, commands, onDoctorsChange, snapshot }: DoctorDirectoryProps) {
   const [doctors, setDoctors] = useState(() => sortDoctors(snapshot.doctors))
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile>()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -71,13 +68,7 @@ export const DoctorDirectory = forwardRef<HTMLElement, DoctorDirectoryProps>(fun
 
   return (
     <>
-      <Card
-        aria-labelledby="doctor-directory-heading"
-        className="scroll-mt-6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        id="clinic-profile-doctors"
-        ref={ref}
-        tabIndex={-1}
-      >
+      <Card aria-labelledby="doctor-directory-heading">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5">
           <div>
             <h2 className="text-xl font-bold text-[var(--secondary)]" id="doctor-directory-heading">
@@ -177,4 +168,4 @@ export const DoctorDirectory = forwardRef<HTMLElement, DoctorDirectoryProps>(fun
       ) : null}
     </>
   )
-})
+}

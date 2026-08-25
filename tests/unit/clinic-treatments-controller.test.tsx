@@ -4,11 +4,107 @@ import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useClinicTreatmentsController } from "@/features/clinic-dashboard/clinic-profile/hooks/useClinicTreatmentsController"
 import { ClinicTreatmentCommandError } from "@/features/clinic-dashboard/clinic-profile/model/clinic-treatment-commands"
+import type { ClinicTreatmentsSnapshot } from "@/features/clinic-dashboard/clinic-profile/model/clinic-treatment"
 import { clinicTreatmentSnapshotFixture } from "@/features/clinic-dashboard/clinic-profile/testing/public"
 
 afterEach(cleanup)
 
 describe("clinic treatments controller", () => {
+  it("adopts a ready snapshot after an initial source error", () => {
+    const commands = {
+      createTreatment: vi.fn(),
+      loadTreatments: vi.fn(),
+      updateTreatment: vi.fn(),
+    }
+    const unavailable = { catalogue: [], offerings: [], status: "temporarily-unavailable" } as const
+    const hook = renderHook(
+      ({ initialSnapshot }) =>
+        useClinicTreatmentsController({
+          commands,
+          initialSnapshot,
+          management: "interactive",
+        }),
+      { initialProps: { initialSnapshot: unavailable as ClinicTreatmentsSnapshot } },
+    )
+
+    act(() => hook.rerender({ initialSnapshot: clinicTreatmentSnapshotFixture }))
+    act(() => hook.result.current.actions.openCreate())
+
+    expect(hook.result.current.model.snapshot).toBe(clinicTreatmentSnapshotFixture)
+    expect(hook.result.current.model.dialogOpen).toBe(true)
+    expect(hook.result.current.model.availableTreatments.length).toBeGreaterThan(0)
+  })
+
+  it("does not replace the selected treatment while its editor is open", () => {
+    const offering = clinicTreatmentSnapshotFixture.offerings[0]!
+    const refreshedSnapshot = {
+      ...clinicTreatmentSnapshotFixture,
+      offerings: clinicTreatmentSnapshotFixture.offerings.map((current) =>
+        current.id === offering.id ? { ...current, price: current.price + 100 } : current,
+      ),
+    } satisfies ClinicTreatmentsSnapshot
+    const commands = {
+      createTreatment: vi.fn(),
+      loadTreatments: vi.fn(),
+      updateTreatment: vi.fn(),
+    }
+    const hook = renderHook(
+      ({ initialSnapshot }) =>
+        useClinicTreatmentsController({
+          commands,
+          initialSnapshot,
+          management: "interactive",
+        }),
+      { initialProps: { initialSnapshot: clinicTreatmentSnapshotFixture as ClinicTreatmentsSnapshot } },
+    )
+
+    act(() => hook.result.current.actions.openOffering(offering))
+    act(() => hook.rerender({ initialSnapshot: refreshedSnapshot }))
+
+    expect(hook.result.current.model.snapshot).toBe(clinicTreatmentSnapshotFixture)
+    expect(hook.result.current.model.selectedOffering?.price).toBe(offering.price)
+
+    act(() => hook.result.current.actions.setDialogOpen(false))
+
+    expect(hook.result.current.model.snapshot).toBe(refreshedSnapshot)
+    expect(hook.result.current.model.snapshot.offerings[0]?.price).toBe(offering.price + 100)
+  })
+
+  it("reports the authoritative snapshot after a treatment is saved", async () => {
+    const offering = clinicTreatmentSnapshotFixture.offerings[0]
+    const updatedOffering = { ...offering, active: !offering.active }
+    const onSaved = vi.fn()
+    const commands = {
+      createTreatment: vi.fn(),
+      loadTreatments: vi.fn(),
+      updateTreatment: vi.fn(async () => updatedOffering),
+    }
+    const hook = renderHook(() =>
+      useClinicTreatmentsController({
+        commands,
+        initialSnapshot: clinicTreatmentSnapshotFixture,
+        management: "interactive",
+        onSaved,
+      }),
+    )
+
+    act(() => hook.result.current.actions.openOffering(offering))
+    await act(async () => {
+      await hook.result.current.actions.save({
+        active: updatedOffering.active,
+        price: updatedOffering.price,
+        treatmentId: updatedOffering.treatment.id,
+      })
+    })
+
+    expect(onSaved).toHaveBeenCalledWith({
+      ...clinicTreatmentSnapshotFixture,
+      offerings: clinicTreatmentSnapshotFixture.offerings.map((current) =>
+        current.id === updatedOffering.id ? updatedOffering : current,
+      ),
+    })
+  })
+
   it("sends the selected offering revision with an update", async () => {
     const offering = clinicTreatmentSnapshotFixture.offerings[0]
     const commands = {

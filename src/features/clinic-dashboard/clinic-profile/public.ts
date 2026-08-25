@@ -3,7 +3,14 @@ export { createClinicGalleryApiCommands } from "./browser/clinic-gallery-api"
 export { createClinicProfileSourceApiCommands } from "./browser/clinic-profile-api"
 export { createDoctorProfileApiCommands } from "./browser/doctor-profile-api"
 export { createClinicTreatmentApiCommands } from "./browser/clinic-treatment-api"
-export type { ClinicProfileCommands } from "./model/clinic-profile-commands"
+export {
+  evaluateClinicProfileDraftCompleteness,
+  evaluateClinicProfileCompleteness,
+  type ClinicProfileCompletenessMissingFieldId,
+  type ClinicProfileCompletenessReady,
+  type ClinicProfileCompletenessResult,
+  type ClinicProfileDraftCompleteness,
+} from "./model/clinic-profile-completeness"
 export type { ClinicGalleryCommands } from "./model/clinic-gallery-commands"
 export type {
   ClinicGalleryConstraints,

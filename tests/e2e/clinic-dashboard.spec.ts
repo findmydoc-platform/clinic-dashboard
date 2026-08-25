@@ -84,13 +84,17 @@ test("switches complete location snapshots and resets local demo changes", async
   const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
   const dashboardLocation = page.getByRole("region", { name: "Dashboard clinic location summary" })
   const dashboardMetrics = page.getByRole("region", { name: "Dashboard metrics" })
+  const publicProfileProgress = page.getByRole("progressbar", {
+    name: "Public profile progress: 83%",
+  })
 
   await expect(locationSelector).toHaveAccessibleName(
     /Current location: Demo data · Avenora Clinic — İstanbul/,
   )
   await expect(dashboardMetrics.getByText("18,420")).toBeVisible()
-  await expect(dashboardMetrics.getByText("82%")).toBeVisible()
+  await expect(publicProfileProgress).toBeVisible()
   await page.getByRole("button", { name: "90 days" }).click()
+  await expect(publicProfileProgress).toBeVisible()
   await page.locator('[data-funnel-stage="impressions"]').click()
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
@@ -99,7 +103,7 @@ test("switches complete location snapshots and resets local demo changes", async
   await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
   await expect(dashboardLocation.getByText("Alsancak, İzmir")).toBeVisible()
   await expect(dashboardMetrics.getByText("35,920")).toBeVisible()
-  await expect(dashboardMetrics.getByText("91%")).toBeVisible()
+  await expect(publicProfileProgress).toBeVisible()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
@@ -127,6 +131,7 @@ test("switches complete location snapshots and resets local demo changes", async
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
+  await expect(publicProfileProgress).toBeVisible()
   await expect(page.getByText("Impressions over time")).toBeVisible()
 
   await page.getByRole("button", { name: "Clinic profile" }).click()
@@ -142,6 +147,7 @@ test("switches complete location snapshots and resets local demo changes", async
   ).toBeVisible()
   await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "false")
+  await expect(publicProfileProgress).toBeVisible()
   await expect(page.getByText("Profile views over time")).toBeVisible()
   await expect(page.getByText("Impressions over time")).toHaveCount(0)
 
@@ -376,10 +382,12 @@ test("manages review responses, appeals, filters, and history through the authen
 test("deep-links across locations and persists gallery curation across reload", async ({
   page,
 }, testInfo) => {
+  testInfo.setTimeout(90_000)
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
   const receptionAlt = `Reception at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
   const consultationAlt = `Consultation room at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
+  const exteriorAlt = `Exterior at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
 
   await page.getByRole("button", { name: "Notifications, 4 new notifications" }).click()
   await page.getByRole("button", { name: /New message from Leyla Demir/ }).click()
@@ -464,24 +472,71 @@ test("deep-links across locations and persists gallery curation across reload", 
   expect((await saveResponse).status()).toBe(200)
   await expect(galleryEditor).toBeHidden()
 
-  await gallery.getByRole("button", { name: "Manage gallery" }).click()
+  await page.getByRole("button", { name: "Dashboard" }).click()
+  await expect(page.getByRole("progressbar", { name: "Public profile progress: 83%" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "View details for Add clinic images" })).toBeVisible()
+
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await page
+    .getByRole("region", { name: "Clinic image gallery" })
+    .getByRole("button", { name: "Manage gallery" })
+    .click()
   const reopenedEditor = page.getByRole("region", { name: "Manage gallery" })
-  await reopenedEditor
+  await reopenedEditor.getByRole("button", { name: "Add images" }).first().click()
+  const thirdAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
+  const thirdUploadResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      response.request().method() === "POST",
+  )
+  await thirdAddImagesDialog
+    .locator('input[type="file"][aria-label="Choose clinic images"]')
+    .setInputFiles({ buffer: imageBuffer, mimeType: "image/png", name: "izmir-exterior.png" })
+  expect((await thirdUploadResponse).status()).toBe(201)
+  await expect(thirdAddImagesDialog).toBeHidden()
+  await reopenedEditor.getByRole("textbox", { name: "Alt text" }).fill(exteriorAlt)
+
+  const completeGalleryResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+  )
+  await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
+  expect((await completeGalleryResponse).status()).toBe(200)
+  await expect(reopenedEditor).toBeHidden()
+
+  await page.getByRole("button", { name: "Dashboard" }).click()
+  await expect(page.getByRole("progressbar", { name: "Public profile progress: 100%" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "View details for Add clinic images" })).toHaveCount(0)
+
+  await page.reload()
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  await expect(page.getByRole("progressbar", { name: "Public profile progress: 100%" })).toBeVisible()
+
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await page
+    .getByRole("region", { name: "Clinic image gallery" })
+    .getByRole("button", { name: "Manage gallery" })
+    .click()
+  const curationEditor = page.getByRole("region", { name: "Manage gallery" })
+  await curationEditor
     .getByRole("button", { name: new RegExp(`Edit image \\d+: ${consultationAlt}`) })
     .click()
-  await reopenedEditor.getByRole("button", { name: "Set as main image" }).click()
-  await reopenedEditor.getByRole("button", { name: new RegExp(`Edit image \\d+: ${receptionAlt}`) }).click()
-  await reopenedEditor.getByRole("button", { name: "More image actions" }).click()
+  await curationEditor.getByRole("button", { name: "Set as main image" }).click()
+  await curationEditor.getByRole("button", { name: new RegExp(`Edit image \\d+: ${receptionAlt}`) }).click()
+  await curationEditor.getByRole("button", { name: "More image actions" }).click()
   await page.getByRole("menuitem", { name: "Remove image" }).click()
-  await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
-  const removalDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
+  await curationEditor.getByRole("button", { name: new RegExp(`Edit image \\d+: ${exteriorAlt}`) }).click()
+  await curationEditor.getByRole("button", { name: "More image actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await curationEditor.getByRole("button", { name: "Save and return" }).click()
+  const removalDialog = page.getByRole("alertdialog", { name: "Remove 2 images and save?" })
   const removalResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
   )
-  await removalDialog.getByRole("button", { name: "Remove image and save" }).click()
+  await removalDialog.getByRole("button", { name: "Remove 2 and save" }).click()
   expect((await removalResponse).status()).toBe(200)
-  await expect(reopenedEditor).toBeHidden()
+  await expect(curationEditor).toBeHidden()
 
   await page.reload()
   const persistedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
@@ -491,13 +546,14 @@ test("deep-links across locations and persists gallery curation across reload", 
   const persistedGallery = page.getByRole("region", { name: "Clinic image gallery" })
   await expect(persistedGallery.getByRole("img", { name: consultationAlt })).toBeVisible()
   await expect(persistedGallery.getByRole("img", { name: receptionAlt })).toHaveCount(0)
+  await expect(persistedGallery.getByRole("img", { name: exteriorAlt })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Dashboard" }).click()
   const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })
   await expect(clinicPreview.getByText("Avenora Clinic — İzmir")).toBeVisible()
   await expect(clinicPreview.getByRole("img", { name: consultationAlt })).toBeVisible()
-  await expect(page.getByText("94%", { exact: true }).first()).toBeVisible()
-  await expect(page.getByRole("button", { name: "Review images" })).toHaveCount(0)
+  await expect(page.getByRole("progressbar", { name: "Public profile progress: 83%" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "View details for Add clinic images" })).toBeVisible()
 
   await page.reload()
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
@@ -595,19 +651,18 @@ test("routes dashboard tasks into their owning workspace sections", async ({ pag
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeFocused()
 
   await page.getByRole("button", { name: "Dashboard" }).click()
-  await page.getByRole("button", { name: "Review cover" }).click()
-  const imageDialog = page.getByRole("dialog", { name: "Confirm cover image" })
+  await page.getByRole("button", { name: "View details for Add clinic images" }).click()
+  const imageDialog = page.getByRole("dialog", { name: "Add clinic images" })
   await expect(imageDialog).toBeVisible()
-  await imageDialog.getByRole("button", { name: "Open image gallery" }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeVisible()
-  await expect(page.locator("#clinic-profile-gallery")).toBeFocused()
+  await expect(imageDialog.getByRole("heading", { name: "Why this matters" })).toBeVisible()
+  await expect(imageDialog.getByRole("heading", { name: "What is missing" })).toBeVisible()
+  await expect(imageDialog.getByText("1 main image")).toBeVisible()
+  await expect(imageDialog.getByText("2 supporting images")).toBeVisible()
+  await imageDialog.getByRole("button", { name: "Edit clinic images" }).click()
 
-  await page.getByRole("button", { name: "Dashboard" }).click()
-  await page.getByRole("button", { name: "Review doctors" }).click()
-  const doctorsDialog = page.getByRole("dialog", { name: "Open doctor profiles" })
-  await expect(doctorsDialog).toBeVisible()
-  await doctorsDialog.getByRole("button", { name: "Open doctors" }).click()
-  await expect(page.locator("#clinic-profile-doctors")).toBeFocused()
+  const galleryEditor = page.getByRole("region", { name: "Manage gallery" })
+  await expect(galleryEditor).toBeVisible()
+  await expect(galleryEditor.getByRole("heading", { name: "Manage gallery" })).toBeFocused()
 })
 
 test("persists doctor creation and editing through the authenticated BFF", async ({ page }) => {

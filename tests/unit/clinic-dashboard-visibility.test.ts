@@ -7,13 +7,11 @@ import {
 import { isClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/prototype-mode"
 
 const gateIds = [
-  "certificateTasks",
   "certificatesAccreditationsPlaceholder",
   "dashboardReporting",
   "inquiryProfile",
   "messaging",
   "notifications",
-  "profileWrites",
   "reviewManagement",
   "support",
   "subscriptionsPlaceholder",
@@ -48,12 +46,10 @@ describe("clinic dashboard visibility contract", () => {
     )
 
     expect(getDemoVisibilityBehavior("presentation", "messaging")).toBe("interactive")
-    expect(getDemoVisibilityBehavior("presentation", "certificateTasks")).toBe("hidden")
     expect(getDemoVisibilityBehavior("presentation", "certificatesAccreditationsPlaceholder")).toBe(
       "read-only",
     )
     expect(getDemoVisibilityBehavior("presentation", "notifications")).toBe("interactive")
-    expect(getDemoVisibilityBehavior("presentation", "profileWrites")).toBe("interactive")
     expect(getDemoVisibilityBehavior("presentation", "support")).toBe("interactive")
     expect(getDemoVisibilityBehavior("presentation", "subscriptionsPlaceholder")).toBe("read-only")
     expect(getDemoVisibilityBehavior("presentation", "teamWrites")).toBe("interactive")

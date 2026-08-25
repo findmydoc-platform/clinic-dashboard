@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { createClinicDashboardDemoClientAdapter } from "@/features/clinic-dashboard/demo/commands"
+import { useMemo, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
 import {
   createClinicProfileSourceApiCommands,
@@ -31,23 +31,25 @@ export function ClinicDashboardWorkspace({
   showPrototypeModeToggle = false,
   workspaceInput,
 }: ClinicDashboardWorkspaceProps) {
-  const demoClientAdapter = useMemo(() => createClinicDashboardDemoClientAdapter(), [])
+  const router = useRouter()
+  const [isSourceRefreshPending, startSourceRefresh] = useTransition()
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
   const reviewSourceCommands = useMemo(() => createReviewSourceApiCommands(), [])
   const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
+  const refreshSources = () => startSourceRefresh(() => router.refresh())
 
   return (
     <ClinicDashboardWorkspaceComposition
       authenticatedContext={authenticatedContext}
-      clinicProfileCommands={demoClientAdapter.clinicProfileCommands}
       clinicGalleryCommands={clinicGalleryCommands}
       clinicProfileSourceCommands={clinicProfileSourceCommands}
       clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
       focusInquiryId={focusInquiryId}
-      projectDashboardAfterProfileSave={demoClientAdapter.projectDashboardAfterProfileSave}
+      isSourceRefreshPending={isSourceRefreshPending}
+      onSourceRefresh={refreshSources}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}
       prototypeMode={prototypeMode}
       reviewCommands={reviewSourceCommands}

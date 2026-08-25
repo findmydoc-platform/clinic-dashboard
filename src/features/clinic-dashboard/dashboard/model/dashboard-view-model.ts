@@ -1,6 +1,7 @@
 import type { ClinicProfileImageSource } from "@/features/clinic-dashboard/clinic-profile/public"
-import type { DashboardProfileTask } from "./profile-tasks"
 import type { DashboardMetricSelection } from "./dashboard-metric-selection"
+import type { DashboardProfileProgressState } from "./profile-progress"
+import type { DashboardProfileTask } from "./profile-tasks"
 import type { DashboardReportingSnapshot, DashboardSelectableMetricId } from "./reporting"
 
 export type DashboardLocationSummary = Readonly<{
@@ -15,8 +16,7 @@ export type DashboardViewModel = Readonly<{
     Readonly<{
       ratingLabel: string
     }>
-  profileCompletion: string
-  profileTasks: readonly DashboardProfileTask[]
+  profileProgress: DashboardProfileProgressState
   rating: Readonly<{
     categories: readonly string[]
     count: number
@@ -29,6 +29,7 @@ export type DashboardViewModel = Readonly<{
 
 export type DashboardActions = Readonly<{
   onMetricSelect: (metricId: DashboardSelectableMetricId) => void
+  onProfileProgressRetry: () => void
   onProfileTaskOpen: (task: DashboardProfileTask) => void
   onProfileViewsDownload: () => void
   onReviewsOpen: () => void

@@ -1,37 +1,6 @@
 import { createDemoDashboardSnapshot } from "../../reporting"
 
 export const izmirAlsancakDashboard = createDemoDashboardSnapshot({
-  profileCompletion: 91,
-  profileTasks: [
-    {
-      actionLabel: "Review doctors",
-      description: "One specialist biography is ready for a final content review.",
-      destination: "doctors",
-      destinationLabel: "Open doctors",
-      id: "izmir-alsancak-doctor-review",
-      label: "Review doctor biography",
-      priority: "Medium",
-      visibility: "always",
-    },
-    {
-      actionLabel: "Review images",
-      description: "Confirm the new cover image before the next public profile update.",
-      destination: "gallery",
-      destinationLabel: "Open image gallery",
-      id: "izmir-alsancak-cover-review",
-      label: "Confirm cover image",
-      priority: "Low",
-      visibility: "always",
-    },
-    {
-      actionLabel: "View details",
-      description: "One accreditation record is waiting for verification.",
-      id: "izmir-alsancak-accreditation-review",
-      label: "Accreditation review",
-      priority: "Medium",
-      visibility: "full-interface",
-    },
-  ],
   rating: {
     categories: ["Aesthetic dentistry", "Dermatology", "Preventive care"],
     count: 486,

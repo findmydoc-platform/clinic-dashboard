@@ -49,6 +49,11 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
     },
     notifications: clinicDashboardDemoNotifications,
     organization: clinicDashboardDemoOrganization,
+    profileProgress: {
+      message: "Public profile progress is temporarily unavailable.",
+      reason: "profile-unavailable",
+      status: "error",
+    },
     treatmentSnapshot: {
       catalogue: clinicDashboardDemoTreatmentCatalogue,
       offerings: [

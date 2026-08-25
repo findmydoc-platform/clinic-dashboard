@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageHeading } from "@/components/ui/page-heading"
 import type { ClinicGalleryLoadStatus } from "../../model/clinic-gallery"
-import type { ClinicProfileDraft, ClinicProfileFocusTarget } from "../../model/clinic-profile"
+import type { ClinicGalleryItem, ClinicProfileFocusTarget } from "../../model/clinic-profile"
 import type {
   ClinicProfileChangeSet,
   ClinicProfileValidationErrors,
@@ -36,12 +36,9 @@ export type ClinicProfileScreenModel = Readonly<{
   doctorDirectory: DoctorDirectorySnapshot
   doctorManagement: ClinicProfileManagementAccess
   focusTarget?: ClinicProfileFocusTarget
+  gallery: readonly ClinicGalleryItem[]
   galleryStatus: ClinicGalleryLoadStatus
-  legacyIsDirty: boolean
-  legacyProfile: ClinicProfileDraft
-  legacySaveState: "idle" | "saved" | "saving"
-  legacyStatusMessage: string
-  profileManagement: ClinicProfileManagementAccess
+  galleryTotal: number
   sourceProfileManagement: ClinicProfileManagementAccess
   source: Readonly<{
     changeSet?: ClinicProfileChangeSet
@@ -69,8 +66,6 @@ export type ClinicProfileScreenActions = Readonly<{
   onFocusHandled: () => void
   onGalleryOpen: () => void
   onLanguagesChange: (languages: ClinicProfileDraftInput["supportedLanguages"]) => void
-  onLegacyCancel: () => void
-  onLegacySave: () => void
   onNameChange: (name: string) => void
   onOpeningHoursEdit: () => void
   onProfileCancel: () => void
@@ -89,22 +84,53 @@ type ClinicProfileScreenProps = Readonly<{
 }>
 
 export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps) {
-  const galleryRef = useRef<HTMLElement>(null)
-  const doctorsRef = useRef<HTMLElement>(null)
+  const basicsRef = useRef<HTMLDivElement>(null)
+  const conflictRef = useRef<HTMLDivElement>(null)
   const reviewReturnFocusRef = useRef<HTMLButtonElement>(null)
   const previousSourceModeRef = useRef(model.source.mode)
   const canManageProfile = isClinicProfileManagementInteractive(model.sourceProfileManagement)
   const canManageDoctors = isClinicProfileManagementInteractive(model.doctorManagement)
   const canManageTreatments = isClinicProfileManagementInteractive(model.treatmentManagement)
   const sourceBusy = model.source.operation !== "idle"
-  const legacyBusy = model.legacySaveState === "saving"
   const { onFocusHandled } = actions
 
   useEffect(() => {
-    if (!model.focusTarget) return
+    const focusTarget = model.focusTarget
+    if (!focusTarget) return
 
     const frame = requestAnimationFrame(() => {
-      const target = model.focusTarget === "gallery" ? galleryRef.current : doctorsRef.current
+      let target: HTMLElement | null = null
+      switch (focusTarget) {
+        case "conflict":
+          target = model.source.mode === "conflict" ? conflictRef.current : null
+          break
+        case "basic-information":
+          if (model.source.mode === "edit") {
+            const basicFields = basicsRef.current
+            const draft = model.source.workingDraft
+            target = !draft?.name.trim()
+              ? (basicFields?.querySelector<HTMLInputElement>("input") ?? null)
+              : !draft.descriptionText.trim()
+                ? (basicFields?.querySelector<HTMLTextAreaElement>("textarea") ?? null)
+                : (basicFields?.querySelector<HTMLInputElement>("input") ?? null)
+          }
+          break
+        case "languages":
+          if (model.source.mode === "edit") {
+            target = basicsRef.current?.querySelector<HTMLElement>('[role="combobox"]') ?? null
+          }
+          break
+        case "address":
+        case "gallery":
+        case "opening-hours":
+        case "review-publish":
+        case "treatments":
+          break
+        default: {
+          const unreachableTarget: never = focusTarget
+          throw new Error(`Unknown clinic profile focus target: ${unreachableTarget}`)
+        }
+      }
       if (!target) return
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -114,7 +140,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
     })
 
     return () => cancelAnimationFrame(frame)
-  }, [model.focusTarget, onFocusHandled])
+  }, [model.focusTarget, model.source.mode, model.source.workingDraft, onFocusHandled])
 
   useEffect(() => {
     const previousMode = previousSourceModeRef.current
@@ -183,7 +209,7 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
   ) : null
 
   return (
-    <div aria-busy={sourceBusy || legacyBusy} className="space-y-6 pb-6">
+    <div aria-busy={sourceBusy} className="space-y-6 pb-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="mb-1 text-sm text-[var(--foreground)]">
@@ -210,8 +236,10 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
 
       {model.source.mode === "conflict" ? (
         <div
-          className="flex flex-col gap-4 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_28%,var(--background))] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-4 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_28%,var(--background))] px-4 py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:flex-row sm:items-center sm:justify-between"
+          ref={conflictRef}
           role="alert"
+          tabIndex={-1}
         >
           <div className="flex items-start gap-3">
             <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
@@ -230,14 +258,13 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
       ) : null}
 
       <p aria-live="polite" className="min-h-5 text-sm text-[var(--foreground)]" role="status">
-        {model.source.statusMessage || model.legacyStatusMessage}
+        {model.source.statusMessage}
       </p>
 
       <ClinicProfileGallery
-        gallery={model.legacyProfile.gallery}
-        galleryTotal={model.legacyProfile.galleryTotal}
+        gallery={model.gallery}
+        galleryTotal={model.galleryTotal}
         onOpen={actions.onGalleryOpen}
-        ref={galleryRef}
         showAction={model.source.mode === "view"}
         status={model.galleryStatus}
       />
@@ -245,16 +272,18 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,0.8fr)]">
         <div className="min-w-0 space-y-6">
           {model.source.displayFields ? (
-            <ClinicProfileBasics
-              description={model.source.displayFields.descriptionText}
-              errors={model.source.validationErrors}
-              isEditing={model.source.mode === "edit"}
-              name={model.source.displayFields.name}
-              onDescriptionChange={actions.onDescriptionChange}
-              onLanguagesChange={actions.onLanguagesChange}
-              onNameChange={actions.onNameChange}
-              supportedLanguages={model.source.displayFields.supportedLanguages}
-            />
+            <div ref={basicsRef}>
+              <ClinicProfileBasics
+                description={model.source.displayFields.descriptionText}
+                errors={model.source.validationErrors}
+                isEditing={model.source.mode === "edit"}
+                name={model.source.displayFields.name}
+                onDescriptionChange={actions.onDescriptionChange}
+                onLanguagesChange={actions.onLanguagesChange}
+                onNameChange={actions.onNameChange}
+                supportedLanguages={model.source.displayFields.supportedLanguages}
+              />
+            </div>
           ) : (
             <Card className="p-6" role="alert">
               <h2 className="text-xl font-bold text-[var(--secondary)]">Profile unavailable</h2>
@@ -268,7 +297,6 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             canManage={canManageDoctors}
             commands={model.doctorCommands}
             onDoctorsChange={actions.onDoctorsChange}
-            ref={doctorsRef}
             snapshot={model.doctorDirectory}
           />
           {isClinicProfileManagementVisible(model.treatmentManagement) ? (
@@ -298,22 +326,6 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
           />
         ) : null}
       </div>
-
-      {model.legacyIsDirty && model.source.mode === "view" ? (
-        <div className="fixed right-0 bottom-0 left-0 z-30 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] px-4 py-3 shadow-2xl backdrop-blur md:left-64">
-          <div className="mx-auto flex max-w-[100rem] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm font-bold text-[var(--secondary)]">Gallery changes not saved</span>
-            <div className="flex justify-end gap-2">
-              <Button disabled={legacyBusy} onClick={actions.onLegacyCancel} variant="outline">
-                Cancel
-              </Button>
-              <Button disabled={legacyBusy} onClick={actions.onLegacySave}>
-                {legacyBusy ? "Saving…" : "Save changes"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {model.source.mode === "edit" && model.source.isDirty ? (
         <div className="fixed right-0 bottom-0 left-0 z-30 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_96%,transparent)] px-4 py-3 shadow-2xl backdrop-blur md:left-64">

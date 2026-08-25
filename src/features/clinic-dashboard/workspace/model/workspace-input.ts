@@ -6,7 +6,10 @@ import type {
   ClinicTreatmentsSnapshot,
   DoctorDirectorySnapshot,
 } from "@/features/clinic-dashboard/clinic-profile/public"
-import type { DashboardSnapshot } from "@/features/clinic-dashboard/dashboard/public"
+import type {
+  DashboardProfileProgressState,
+  DashboardSnapshot,
+} from "@/features/clinic-dashboard/dashboard/public"
 import type { PatientInquiryQueueSnapshot } from "@/features/clinic-dashboard/messages/public"
 import type { ReviewsSnapshot, ReviewsSourceSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import type { ClinicDashboardLocation, ClinicDashboardLocationId } from "./locations"
@@ -57,6 +60,7 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
     id: string
     name: string
   }>
+  profileProgress: DashboardProfileProgressState
   treatmentSnapshot: ClinicTreatmentsSnapshot
 }>
 

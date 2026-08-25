@@ -26,9 +26,9 @@ const expectedLocationReporting = {
 } as const
 
 const expectedProfiles = {
-  "antalya-lara": [64, 4.9, 92],
-  "istanbul-levent": [82, 4.8, 1_248],
-  "izmir-alsancak": [91, 4.6, 486],
+  "antalya-lara": [4.9, 92],
+  "istanbul-levent": [4.8, 1_248],
+  "izmir-alsancak": [4.6, 486],
 } as const
 
 function containsFunction(value: unknown): boolean {
@@ -142,11 +142,9 @@ describe("clinic dashboard demo workspace input", () => {
       expect(snapshot).toBeDefined()
       if (!snapshot) continue
 
-      expect([
-        snapshot.dashboard.profileCompletion,
-        snapshot.dashboard.rating.value,
-        snapshot.dashboard.rating.count,
-      ]).toEqual(profileExpectation)
+      expect([snapshot.dashboard.rating.value, snapshot.dashboard.rating.count]).toEqual(profileExpectation)
+      expect(snapshot.dashboard).not.toHaveProperty("profileCompletion")
+      expect(snapshot.dashboard).not.toHaveProperty("profileTasks")
       expect(snapshot.reviews.rating).toBe(snapshot.dashboard.rating.value)
       expect(snapshot.reviews.total).toBe(snapshot.dashboard.rating.count)
       expect(snapshot.reviews.distribution.reduce((total, entry) => total + entry.count, 0)).toBe(

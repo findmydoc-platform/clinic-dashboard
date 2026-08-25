@@ -14,15 +14,17 @@ Each document must contain:
 
 Read .codex/project-profile.toml before creating the document. Do not repeat completed bootstrap questions.
 
-## Current Plans
+## Plan Index
+
+Planning records preserve the decision at implementation time. A record that is no longer fully current keeps its original body and carries a dated supersession note near the title.
 
 - [Dashboard Domain Provider Composition Plan](./dashboard-domain-provider-composition.md)
-- [Clinic Dashboard Demo Experience And Transient Flows](./clinic-dashboard-demo-experience-and-transient-flows.md)
+- [Clinic Dashboard Demo Experience And Transient Flows](./clinic-dashboard-demo-experience-and-transient-flows.md) — partially superseded for profile projection and client profile commands
 - [Clinic Dashboard Demo Mode and Multi-Location Data](./clinic-dashboard-demo-mode-and-multi-location-data.md)
 - [Clinic Dashboard Meeting Improvements Plan](./clinic-dashboard-meeting-improvements.md)
 - [Frontend Architecture, Storybook, and AI Drift Reduction Plan](./frontend-architecture-storybook-and-ai-drift.md)
 - [Clinic Dashboard Prototype and Capability Visibility Plan](./clinic-dashboard-prototype-and-capability-visibility.md)
 - [Dashboard and Header Prototype Interaction Plan](./dashboard-header-prototype-interactions.md)
-- [Dashboard Lower Area Prototype Interaction Plan](./dashboard-lower-prototype-interactions.md)
+- [Dashboard Lower Area Prototype Interaction Plan](./dashboard-lower-prototype-interactions.md) — partially superseded for Profile Progress
 - [Review Responses, Appeals, and Publication History](./review-responses-appeals-and-publication-history.md)
 - [Clinic Gallery Management](./clinic-gallery-management.md)

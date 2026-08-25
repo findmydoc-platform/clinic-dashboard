@@ -1,4 +1,12 @@
-export type ClinicProfileFocusTarget = "doctors" | "gallery"
+export type ClinicProfileFocusTarget =
+  | "address"
+  | "basic-information"
+  | "conflict"
+  | "gallery"
+  | "languages"
+  | "opening-hours"
+  | "review-publish"
+  | "treatments"
 
 export type ClinicProfileImageSource =
   | string
@@ -19,8 +27,6 @@ export type ClinicTeamMember = Readonly<{
   name: string
   specialty: string
 }>
-
-export type ClinicTeamMemberInput = Readonly<Omit<ClinicTeamMember, "id">>
 
 export type ClinicOpeningHours = Readonly<{
   days: string
@@ -52,18 +58,3 @@ export type ClinicProfileDraft = Readonly<{
   team: readonly ClinicTeamMember[]
   updatedAt: string
 }>
-
-export function cloneClinicProfile(profile: ClinicProfileDraft): ClinicProfileDraft {
-  return {
-    ...profile,
-    address: { ...profile.address },
-    gallery: profile.gallery.map((item) => ({ ...item })),
-    openingHours: profile.openingHours.map((entry) => ({ ...entry })),
-    specialties: [...profile.specialties],
-    team: profile.team.map((member) => ({ ...member })),
-  }
-}
-
-export function isClinicProfileDirty(saved: ClinicProfileDraft, draft: ClinicProfileDraft) {
-  return JSON.stringify(saved) !== JSON.stringify(draft)
-}

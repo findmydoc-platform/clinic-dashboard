@@ -30,6 +30,10 @@ type RemovedItem = Readonly<{
 type Operation = "discarding" | "idle" | "loading" | "saving" | "uploading"
 type MessageTone = "error" | "info"
 
+function clinicGallerySnapshotIdentity(snapshot: ClinicGallerySnapshot | undefined) {
+  return snapshot ? `ready:${snapshot.revision}` : "unavailable"
+}
+
 async function readImagePixelCount(file: File) {
   if (typeof globalThis.createImageBitmap === "function") {
     const bitmap = await globalThis.createImageBitmap(file)
@@ -67,6 +71,12 @@ export function useClinicGalleryController({
   onSaved?: (snapshot: ClinicGallerySnapshot) => void
 }>) {
   const [snapshot, setSnapshot] = useState(initialSnapshot)
+  const initialSnapshotIdentity = clinicGallerySnapshotIdentity(initialSnapshot)
+  const [receivedInitialSnapshotIdentity, setReceivedInitialSnapshotIdentity] =
+    useState(initialSnapshotIdentity)
+  const [pendingInitialSnapshot, setPendingInitialSnapshot] = useState<
+    Readonly<{ snapshot: ClinicGallerySnapshot | undefined }> | undefined
+  >()
   const [items, setItems] = useState<readonly ClinicGalleryMedia[]>(initialSnapshot?.items ?? [])
   const [removed, setRemoved] = useState<readonly RemovedItem[]>([])
   const [selectedId, setSelectedId] = useState(initialSnapshot?.items[0]?.id)
@@ -115,6 +125,31 @@ export function useClinicGalleryController({
   const uploadReviewItem = items.find((item) => item.id === uploadReviewIds[0])
   const isInteractive = management === "interactive"
 
+  const hasNewInitialSnapshot = initialSnapshotIdentity !== receivedInitialSnapshotIdentity
+  const authoritativeUpdate = hasNewInitialSnapshot ? { snapshot: initialSnapshot } : pendingInitialSnapshot
+
+  if (hasNewInitialSnapshot) {
+    setReceivedInitialSnapshotIdentity(initialSnapshotIdentity)
+  }
+
+  if (authoritativeUpdate) {
+    if (operation === "idle" && !isDirty && !conflict) {
+      const nextSnapshot = authoritativeUpdate.snapshot
+      setPendingInitialSnapshot(undefined)
+      setSnapshot(nextSnapshot)
+      setItems(nextSnapshot?.items ?? [])
+      setRemoved([])
+      setSelectedId(nextSnapshot?.items[0]?.id)
+      setConflict(false)
+      setUploadReviewIds([])
+      setUploadReviewTotal(0)
+      setMessage("")
+      setMessageTone("info")
+    } else if (hasNewInitialSnapshot) {
+      setPendingInitialSnapshot(authoritativeUpdate)
+    }
+  }
+
   useEffect(() => {
     itemsRef.current = items
   }, [items])
@@ -153,7 +188,9 @@ export function useClinicGalleryController({
     setOperation("loading")
     setMessage("")
     try {
-      replaceWithSnapshot(await commands.loadGallery())
+      const nextSnapshot = await commands.loadGallery()
+      setPendingInitialSnapshot(undefined)
+      replaceWithSnapshot(nextSnapshot)
     } catch (error) {
       setMessageTone("error")
       setMessage(error instanceof Error ? error.message : "The gallery could not be loaded.")
@@ -215,7 +252,9 @@ export function useClinicGalleryController({
     setMessage("")
     try {
       await discardNewDrafts()
-      replaceWithSnapshot(await commands.loadGallery())
+      const nextSnapshot = await commands.loadGallery()
+      setPendingInitialSnapshot(undefined)
+      replaceWithSnapshot(nextSnapshot)
     } catch (error) {
       setMessageTone("error")
       setMessage(
@@ -520,6 +559,7 @@ export function useClinicGalleryController({
         return
       }
       const next = await commands.saveGallery(clinicGallerySaveInput(snapshot, items))
+      setPendingInitialSnapshot(undefined)
       replaceWithSnapshot(next)
       onSaved?.(next)
       setOpen(false)
@@ -567,6 +607,7 @@ export function useClinicGalleryController({
     try {
       await discardRemovedDrafts()
       const next = await commands.saveGallery(clinicGallerySaveInput(snapshot, items))
+      setPendingInitialSnapshot(undefined)
       replaceWithSnapshot(next)
       onSaved?.(next)
       setOpen(false)

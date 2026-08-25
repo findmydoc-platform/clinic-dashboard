@@ -13,12 +13,6 @@ const websiteIssue = <Issue extends number>(issue: Issue) =>
   `https://github.com/findmydoc-platform/website/issues/${issue}` as const
 
 const clinicDashboardDemoVisibilityPolicy = {
-  certificateTasks: {
-    area: "Certificate task details",
-    issue: websiteIssue(1523),
-    presentation: "hidden",
-    visualReference: "interactive",
-  },
   certificatesAccreditationsPlaceholder: {
     area: "Certificates and accreditations placeholder",
     issue: websiteIssue(1523),
@@ -52,12 +46,6 @@ const clinicDashboardDemoVisibilityPolicy = {
   notifications: {
     area: "Notification center and local read state",
     issue: websiteIssue(1523),
-    presentation: "interactive",
-    visualReference: "interactive",
-  },
-  profileWrites: {
-    area: "Clinic profile and treatment writes",
-    issue: websiteIssue(1528),
     presentation: "interactive",
     visualReference: "interactive",
   },
@@ -108,8 +96,6 @@ export type ClinicDashboardDemoInteractionPolicy = Readonly<{
   canUseMessaging: boolean
   canViewDetailedPatientInquiry: boolean
   canSwitchLocations: boolean
-  profileManagement: VisibilityBehavior
-  showCertificateTasks: boolean
   showCertificatesAccreditationsPlaceholder: boolean
   showNotifications: boolean
   showSupport: boolean
@@ -134,8 +120,6 @@ export function deriveClinicDashboardDemoInteractionPolicy(
     canUseMessaging: isInteractive(visibility.messaging),
     canViewDetailedPatientInquiry: isInteractive(visibility.inquiryProfile),
     canSwitchLocations: isInteractive(visibility.locationSwitching),
-    profileManagement: visibility.profileWrites,
-    showCertificateTasks: isInteractive(visibility.certificateTasks),
     showCertificatesAccreditationsPlaceholder: visibility.certificatesAccreditationsPlaceholder !== "hidden",
     showNotifications: isInteractive(visibility.notifications),
     showSupport: isInteractive(visibility.support),
@@ -148,7 +132,6 @@ export function getClinicDashboardDemoInteractionPolicy(
   prototypeMode: ClinicDashboardPrototypeMode,
 ): ClinicDashboardDemoInteractionPolicy {
   return deriveClinicDashboardDemoInteractionPolicy({
-    certificateTasks: getDemoVisibilityBehavior(prototypeMode, "certificateTasks"),
     certificatesAccreditationsPlaceholder: getDemoVisibilityBehavior(
       prototypeMode,
       "certificatesAccreditationsPlaceholder",
@@ -158,7 +141,6 @@ export function getClinicDashboardDemoInteractionPolicy(
     locationSwitching: getDemoVisibilityBehavior(prototypeMode, "locationSwitching"),
     messaging: getDemoVisibilityBehavior(prototypeMode, "messaging"),
     notifications: getDemoVisibilityBehavior(prototypeMode, "notifications"),
-    profileWrites: getDemoVisibilityBehavior(prototypeMode, "profileWrites"),
     reviewManagement: getDemoVisibilityBehavior(prototypeMode, "reviewManagement"),
     support: getDemoVisibilityBehavior(prototypeMode, "support"),
     subscriptionsPlaceholder: getDemoVisibilityBehavior(prototypeMode, "subscriptionsPlaceholder"),

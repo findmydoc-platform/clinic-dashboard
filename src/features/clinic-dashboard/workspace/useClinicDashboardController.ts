@@ -25,7 +25,7 @@ type UseClinicDashboardControllerOptions = Readonly<{
   initialNotificationReadIds: readonly string[]
   initialNotificationsOpen: boolean
   initialLocationId: ClinicDashboardLocationId
-  initialProfileTask: DashboardProfileTask
+  initialProfileTask?: DashboardProfileTask
   initialSection: ClinicDashboardSection
   notifications: readonly ClinicDashboardNotification[]
   persistNotificationReadStateInSession: boolean
@@ -52,8 +52,13 @@ export function useClinicDashboardController({
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen)
   const [notificationReadIdsOverride, setNotificationReadIdsOverride] = useState<readonly string[]>()
   const [prototypeModeOverride, setPrototypeModeOverride] = useState<ClinicDashboardPrototypeMode>()
-  const [selectedProfileTask, setSelectedProfileTask] = useState(initialProfileTask)
-  const [profileTaskOpen, setProfileTaskOpen] = useState(false)
+  const [profileTaskDialog, setProfileTaskDialog] = useState<
+    Readonly<{
+      open: boolean
+      sourceTask?: DashboardProfileTask
+      task?: DashboardProfileTask
+    }>
+  >({ open: false })
   const [profileFocusTarget, setProfileFocusTarget] = useState<ClinicProfileFocusTarget>()
   const [messageFocusTarget, setMessageFocusTarget] = useState<"heading">()
   const [reviewFocusTarget, setReviewFocusTarget] = useState<ReviewFocusTarget>()
@@ -76,12 +81,19 @@ export function useClinicDashboardController({
     window.scrollTo({ left: 0, top: 0 })
   }, [activeSection])
 
+  const profileTaskDialogMatchesSource = profileTaskDialog.sourceTask === initialProfileTask
+  const selectedProfileTask = profileTaskDialogMatchesSource
+    ? (profileTaskDialog.task ?? initialProfileTask)
+    : initialProfileTask
+  const profileTaskOpen =
+    profileTaskDialog.open && profileTaskDialogMatchesSource && selectedProfileTask !== undefined
+
   const navigate = useCallback((section: ClinicDashboardSection) => {
     setActiveSection(section)
   }, [])
 
   const navigateToProfileTarget = useCallback((destination: ClinicProfileFocusTarget) => {
-    setProfileTaskOpen(false)
+    setProfileTaskDialog((current) => ({ ...current, open: false }))
     setProfileFocusTarget(destination)
     setActiveSection("profile")
   }, [])
@@ -91,27 +103,36 @@ export function useClinicDashboardController({
     setActiveSection("reviews")
   }, [])
 
-  const openProfileTask = useCallback((task: DashboardProfileTask) => {
-    setSelectedProfileTask(task)
-    setProfileTaskOpen(true)
-  }, [])
+  const openProfileTask = useCallback(
+    (task: DashboardProfileTask) => {
+      setProfileTaskDialog({ open: true, sourceTask: initialProfileTask, task })
+    },
+    [initialProfileTask],
+  )
+
+  const setProfileTaskOpen = useCallback(
+    (open: boolean) => {
+      setProfileTaskDialog((current) =>
+        open
+          ? { open: true, sourceTask: initialProfileTask, task: selectedProfileTask }
+          : { ...current, open: false },
+      )
+    },
+    [initialProfileTask, selectedProfileTask],
+  )
 
   const openSupport = useCallback(() => setSupportOpen(true), [])
 
-  const selectLocation = useCallback(
-    (locationId: ClinicDashboardLocationId, locationName: string, profileTask: DashboardProfileTask) => {
-      dispatchLocationSelection({ locationId, type: "location-selected" })
-      setLocationAnnouncement(`Location changed to ${locationName}.`)
-      setLocationChangeCount((count) => count + 1)
-      setProfileTaskOpen(false)
-      setSelectedProfileTask(profileTask)
-      setProfileFocusTarget(undefined)
-      setMessageFocusTarget(undefined)
-      setReviewFocusTarget(undefined)
-      setSupportOpen(false)
-    },
-    [],
-  )
+  const selectLocation = useCallback((locationId: ClinicDashboardLocationId, locationName: string) => {
+    dispatchLocationSelection({ locationId, type: "location-selected" })
+    setLocationAnnouncement(`Location changed to ${locationName}.`)
+    setLocationChangeCount((count) => count + 1)
+    setProfileTaskDialog({ open: false })
+    setProfileFocusTarget(undefined)
+    setMessageFocusTarget(undefined)
+    setReviewFocusTarget(undefined)
+    setSupportOpen(false)
+  }, [])
 
   const clearProfileFocusRequest = useCallback(() => {
     setProfileFocusTarget(undefined)
@@ -125,18 +146,12 @@ export function useClinicDashboardController({
     setReviewFocusTarget(undefined)
   }, [])
 
-  const setShowFullInterface = useCallback(
-    (show: boolean) => {
-      const nextPrototypeMode: ClinicDashboardPrototypeMode = show ? "visual-reference" : "presentation"
-      if (!show) {
-        setNotificationsOpen(false)
-        setProfileTaskOpen((open) => (selectedProfileTask.visibility === "full-interface" ? false : open))
-      }
+  const setShowFullInterface = useCallback((show: boolean) => {
+    const nextPrototypeMode: ClinicDashboardPrototypeMode = show ? "visual-reference" : "presentation"
+    if (!show) setNotificationsOpen(false)
 
-      setPrototypeModeOverride(nextPrototypeMode)
-    },
-    [selectedProfileTask.visibility],
-  )
+    setPrototypeModeOverride(nextPrototypeMode)
+  }, [])
 
   const markAllNotificationsRead = useCallback(() => {
     const nextReadIds = markAllNotificationsAsRead(notifications, notificationReadIds)
@@ -146,7 +161,7 @@ export function useClinicDashboardController({
   }, [notificationReadIds, notifications, persistNotificationReadStateInSession])
 
   const openNotification = useCallback(
-    (notification: ClinicDashboardNotification, locationName: string, profileTask: DashboardProfileTask) => {
+    (notification: ClinicDashboardNotification, locationName: string) => {
       const nextReadIds = markNotificationAsRead(notification.id, notificationReadIds)
       setNotificationReadIdsOverride(nextReadIds)
       if (persistNotificationReadStateInSession) storeNotificationReadIds(nextReadIds)
@@ -154,8 +169,7 @@ export function useClinicDashboardController({
       dispatchLocationSelection({ locationId: notification.locationId, type: "location-selected" })
       setLocationChangeCount((count) => count + 1)
       setNotificationsOpen(false)
-      setProfileTaskOpen(false)
-      setSelectedProfileTask(profileTask)
+      setProfileTaskDialog({ open: false })
       setProfileFocusTarget(undefined)
       setSupportOpen(false)
 
