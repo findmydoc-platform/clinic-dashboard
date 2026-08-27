@@ -393,34 +393,36 @@ function InquiryContext({
               </p>
             ) : null}
           </section>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex min-w-0 items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--background)] text-[var(--secondary)]">
-                <CalendarClock aria-hidden="true" className="size-4" />
-              </span>
-              <dl className="min-w-0">
-                <dt className="text-[10px] font-bold tracking-wide text-[var(--foreground)] uppercase">
-                  Treatment timeline
-                </dt>
-                <dd className="mt-1 text-sm font-bold break-words text-[var(--secondary)]">
-                  {inquiry.treatmentTimeline}
-                </dd>
-              </dl>
+          {inquiry.originalRequestContentState !== "hard-deleted" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex min-w-0 items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--background)] text-[var(--secondary)]">
+                  <CalendarClock aria-hidden="true" className="size-4" />
+                </span>
+                <dl className="min-w-0">
+                  <dt className="text-[10px] font-bold tracking-wide text-[var(--foreground)] uppercase">
+                    Treatment timeline
+                  </dt>
+                  <dd className="mt-1 text-sm font-bold break-words text-[var(--secondary)]">
+                    {inquiry.treatmentTimeline}
+                  </dd>
+                </dl>
+              </div>
+              <div className="flex min-w-0 items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--background)] text-[var(--secondary)]">
+                  <Clock3 aria-hidden="true" className="size-4" />
+                </span>
+                <dl className="min-w-0">
+                  <dt className="text-[10px] font-bold tracking-wide text-[var(--foreground)] uppercase">
+                    Preferred contact time
+                  </dt>
+                  <dd className="mt-1 text-sm font-bold break-words text-[var(--secondary)]">
+                    {inquiry.contactWindow}
+                  </dd>
+                </dl>
+              </div>
             </div>
-            <div className="flex min-w-0 items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--background)] text-[var(--secondary)]">
-                <Clock3 aria-hidden="true" className="size-4" />
-              </span>
-              <dl className="min-w-0">
-                <dt className="text-[10px] font-bold tracking-wide text-[var(--foreground)] uppercase">
-                  Preferred contact time
-                </dt>
-                <dd className="mt-1 text-sm font-bold break-words text-[var(--secondary)]">
-                  {inquiry.contactWindow}
-                </dd>
-              </dl>
-            </div>
-          </div>
+          ) : null}
           <ContactDetails actions={actions} inquiry={inquiry} isMutating={isMutating} />
         </div>
       </div>

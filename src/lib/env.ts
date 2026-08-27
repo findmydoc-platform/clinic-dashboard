@@ -15,6 +15,10 @@ const httpUrlSchema = z
 const environmentSchema = z
   .object({
     CLINIC_DASHBOARD_AUTH_TEST_MODE: z.literal("controlled").optional(),
+    CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID: z.string().min(1).max(100).optional(),
+    CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME: z.string().min(1).max(200).optional(),
+    CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE: z.literal("inquiry-communication").optional(),
+    CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN: z.string().min(16).max(500).optional(),
     CLINIC_DASHBOARD_TEST_PASSWORD: z.string().min(8).optional(),
     CSRF_SIGNING_SECRET: z.string().min(32),
     DASHBOARD_ORIGIN: httpUrlSchema,
@@ -28,6 +32,7 @@ const environmentSchema = z
   })
   .superRefine((environment, context) => {
     const isControlledTestMode = environment.CLINIC_DASHBOARD_AUTH_TEST_MODE === "controlled"
+    const isLocalAcceptance = environment.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE === "inquiry-communication"
     const isDeployed = environment.VERCEL_ENV === "preview" || environment.VERCEL_ENV === "production"
     const supabaseUrl = new URL(environment.SUPABASE_URL)
     const expectedSupabaseOrigin = `https://${environment.EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
@@ -36,7 +41,13 @@ const environmentSchema = z
       ["PAYLOAD_API_URL", environment.PAYLOAD_API_URL],
       ["SUPABASE_URL", environment.SUPABASE_URL],
     ] as const) {
-      if (new URL(value).protocol !== "https:") {
+      const url = new URL(value)
+      const isAllowedLocalPayload =
+        key === "PAYLOAD_API_URL" &&
+        isLocalAcceptance &&
+        url.protocol === "http:" &&
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+      if (url.protocol !== "https:" && !isAllowedLocalPayload) {
         context.addIssue({
           code: "custom",
           message: `${key} must use HTTPS`,
@@ -74,6 +85,45 @@ const environmentSchema = z
           message: "CLINIC_DASHBOARD_TEST_PASSWORD is required for controlled authentication",
           path: ["CLINIC_DASHBOARD_TEST_PASSWORD"],
         })
+      }
+    }
+
+    if (isLocalAcceptance) {
+      const payloadUrl = new URL(environment.PAYLOAD_API_URL)
+      if (!isControlledTestMode || isDeployed || environment.NODE_ENV === "production") {
+        context.addIssue({
+          code: "custom",
+          message: "Local inquiry acceptance requires non-deployed controlled authentication",
+          path: ["CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE"],
+        })
+      }
+      if (
+        payloadUrl.protocol !== "http:" ||
+        (payloadUrl.hostname !== "localhost" && payloadUrl.hostname !== "127.0.0.1") ||
+        payloadUrl.pathname !== "/" ||
+        payloadUrl.search ||
+        payloadUrl.hash ||
+        payloadUrl.username ||
+        payloadUrl.password
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Local inquiry acceptance must use an exact loopback Payload origin",
+          path: ["PAYLOAD_API_URL"],
+        })
+      }
+      for (const key of [
+        "CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID",
+        "CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME",
+        "CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN",
+      ] as const) {
+        if (!environment[key]) {
+          context.addIssue({
+            code: "custom",
+            message: `${key} is required for local inquiry acceptance`,
+            path: [key],
+          })
+        }
       }
     }
 
@@ -148,6 +198,13 @@ export function isControlledAuthTestMode(environment: Record<string, string | un
     environment.NODE_ENV !== "production" &&
     environment.VERCEL_ENV !== "preview" &&
     environment.VERCEL_ENV !== "production"
+  )
+}
+
+export function isLocalInquiryAcceptanceMode(environment: Record<string, string | undefined> = process.env) {
+  return (
+    environment.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE === "inquiry-communication" &&
+    isControlledAuthTestMode(environment)
   )
 }
 

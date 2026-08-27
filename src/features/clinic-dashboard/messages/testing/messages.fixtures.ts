@@ -181,10 +181,13 @@ export const hardDeletedPackageInquiryFixture = {
     canRevealContact: false,
   },
   changeCursor: "cursor-hard-deleted-package-1",
+  contactWindow: "Not available",
   id: "inquiry-hard-deleted-package",
+  interest: "Deleted inquiry",
   lastActivityPreview: "Message deleted",
   originalRequest: "",
   originalRequestContentState: "hard-deleted",
+  treatmentTimeline: "Not available",
   timeline: [
     {
       author: { kind: "patient", label: "Patient" },

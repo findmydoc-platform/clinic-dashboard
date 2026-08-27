@@ -41,6 +41,39 @@ describe("environment contract", () => {
     ).toThrow(/Controlled authentication/)
   })
 
+  it("allows the local inquiry acceptance seam only for an exact loopback Payload origin", () => {
+    const localAcceptance = {
+      ...baseEnvironment,
+      CLINIC_DASHBOARD_AUTH_TEST_MODE: "controlled",
+      CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID: "clinic-acceptance",
+      CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME: "Synthetic Acceptance Clinic",
+      CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE: "inquiry-communication",
+      CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN: "synthetic-clinic-token",
+      CLINIC_DASHBOARD_TEST_PASSWORD: "test-password",
+      NODE_ENV: "test",
+      PAYLOAD_API_URL: "http://127.0.0.1:3200",
+    } as const
+
+    expect(validateEnvironment(localAcceptance)).toMatchObject(localAcceptance)
+    for (const PAYLOAD_API_URL of [
+      "http://example.com:3200",
+      "http://127.0.0.1:3200/api",
+      "https://127.0.0.1:3200",
+    ]) {
+      expect(() => validateEnvironment({ ...localAcceptance, PAYLOAD_API_URL })).toThrow(
+        /exact loopback Payload origin/,
+      )
+    }
+    expect(() =>
+      validateEnvironment({
+        ...localAcceptance,
+        DASHBOARD_ORIGIN: "https://clinics.preview.findmydoc.eu",
+        NODE_ENV: "production",
+        VERCEL_ENV: "preview",
+      }),
+    ).toThrow(/Local inquiry acceptance|Controlled authentication/)
+  })
+
   it("enforces the canonical preview and production origins", () => {
     const preview = validateEnvironment({
       ...baseEnvironment,

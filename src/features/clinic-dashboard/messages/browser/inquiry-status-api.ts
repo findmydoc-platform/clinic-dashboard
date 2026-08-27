@@ -18,10 +18,12 @@ const unreadSchema = z.object({
 const patientSchema = z.discriminatedUnion("kind", [
   z.object({ initials: z.string(), kind: z.literal("verified"), name: z.string() }),
   z.object({ initials: z.string(), kind: z.literal("guest"), name: z.string() }),
+  z.object({ kind: z.literal("deleted"), name: z.literal("Deleted patient") }),
 ])
 const conversationSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("bound") }),
   z.object({ kind: z.literal("guest") }),
+  z.object({ id: z.string(), kind: z.literal("deleted-patient") }),
 ])
 const queueItemSchema = z.object({
   changeCursor: z.string(),
@@ -97,6 +99,7 @@ const contactSchema = z.discriminatedUnion("state", [
   z.object({ email: z.string().optional(), phone: z.string().optional(), state: z.literal("full") }),
   z.object({ state: z.literal("collapsed") }),
   z.object({ state: z.literal("masked") }),
+  z.object({ state: z.literal("unavailable") }),
 ])
 const detailSchema = queueItemSchema.extend({
   actions: z.object({
@@ -168,7 +171,7 @@ function sanitizeUploadDescriptor(
     (url.searchParams.get("draftId")?.length ?? 0) <= 100 &&
     [...url.searchParams.keys()].every((key) => key === "draftId")
   const localhostTestUpload =
-    process.env.NODE_ENV === "test" &&
+    (process.env.NODE_ENV === "test" || process.env.NEXT_PUBLIC_CLINIC_DASHBOARD_LOCAL_ACCEPTANCE === "1") &&
     url.protocol === "http:" &&
     (url.hostname === "localhost" || url.hostname === "127.0.0.1")
   if (

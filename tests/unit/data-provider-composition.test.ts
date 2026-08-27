@@ -101,6 +101,42 @@ describe("Clinic Dashboard data provider composition", () => {
     )
   })
 
+  it("uses only the local Payload inquiry adapter in the controlled cross-app lane", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ changeCursor: "local-change", items: [], unchanged: false, unreadCount: 0 }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    const environment = {
+      ...localEnvironment,
+      CLINIC_DASHBOARD_AUTH_TEST_MODE: "controlled",
+      CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID: "clinic-acceptance",
+      CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME: "Synthetic Acceptance Clinic",
+      CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE: "inquiry-communication",
+      CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN: "synthetic-clinic-token",
+      CLINIC_DASHBOARD_TEST_PASSWORD: "test-password",
+      PAYLOAD_API_URL: "http://127.0.0.1:3200",
+    } as const
+
+    const providers = composeClinicDashboardDataProviders(
+      "synthetic-clinic-token",
+      "clinic-acceptance",
+      environment,
+    )
+    await expect(
+      providers.inquiries.loadQueue({ lifecycle: "open", unreadOnly: false }),
+    ).resolves.toMatchObject({
+      ok: true,
+    })
+    await expect(providers.profile.loadSnapshot()).resolves.toMatchObject({
+      ok: true,
+      value: { published: { name: "Controlled Bosphorus Clinic" } },
+    })
+    expect(String(fetcher.mock.calls[0]?.[0])).toContain(
+      "http://127.0.0.1:3200/api/clinic-dashboard/inquiries",
+    )
+    expect(providers.inquiryAttachmentDraftUpload).toBeUndefined()
+  })
+
   it("selects the deterministic source-backed clinic profile in controlled mode", async () => {
     vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
     vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password") // pragma: allowlist secret
