@@ -1,6 +1,6 @@
 import "server-only"
 
-import { isControlledAuthTestMode, validateEnvironment } from "@/lib/env"
+import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
 import { createControlledClinicProfileProvider } from "./clinic-profile/server/controlled-clinic-profile"
 import { createControlledClinicGalleryProvider } from "./clinic-profile/server/controlled-clinic-gallery"
 import type { ClinicGalleryProvider } from "./clinic-profile/server/clinic-gallery-provider"
@@ -50,6 +50,7 @@ export function composeClinicDashboardDataProviders(
 
   const validatedEnvironment = validateEnvironment(environment)
   const controlled = isControlledAuthTestMode(validatedEnvironment)
+  const localInquiryAcceptance = isLocalInquiryAcceptanceMode(validatedEnvironment)
   return {
     doctors: controlled
       ? createControlledDoctorProfileProvider()
@@ -57,10 +58,11 @@ export function composeClinicDashboardDataProviders(
     gallery: controlled
       ? createControlledClinicGalleryProvider(clinicId)
       : createPayloadClinicGalleryProvider(accessToken, clinicId),
-    inquiries: controlled
-      ? createControlledPatientInquiryProvider(clinicId)
-      : createPayloadPatientInquiryProvider(accessToken, clinicId),
-    ...(controlled
+    inquiries:
+      controlled && !localInquiryAcceptance
+        ? createControlledPatientInquiryProvider(clinicId)
+        : createPayloadPatientInquiryProvider(accessToken, clinicId, fetch, validatedEnvironment),
+    ...(controlled && !localInquiryAcceptance
       ? { inquiryAttachmentDraftUpload: createControlledPatientInquiryAttachmentDraftUpload(clinicId) }
       : {}),
     profile: controlled

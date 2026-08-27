@@ -3,6 +3,7 @@
 
 # Next.js
 /.next
+/.next-cross-app-*
 /out
 
 # local environment

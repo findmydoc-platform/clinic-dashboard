@@ -8,6 +8,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   testDir: "./tests/e2e",
+  testIgnore: "inquiry-cross-app.spec.ts",
   timeout: 60_000,
   use: {
     baseURL: e2eOrigin,

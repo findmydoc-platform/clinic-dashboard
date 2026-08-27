@@ -57,6 +57,26 @@ describe("Payload clinic bootstrap", () => {
     })
   })
 
+  it("binds the controlled local acceptance session to the seeded clinic without network bootstrap", async () => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID", "clinic-acceptance")
+    vi.stubEnv("CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME", "Synthetic Acceptance Clinic")
+    vi.stubEnv("CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE", "inquiry-communication")
+    vi.stubEnv("CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN", "synthetic-clinic-token")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")
+    vi.stubEnv("NODE_ENV", "test")
+    vi.stubEnv("PAYLOAD_API_URL", "http://127.0.0.1:3200")
+    const fetcher = vi.fn<typeof fetch>()
+
+    await expect(fetchClinicDashboardBootstrap("synthetic-clinic-token", fetcher)).resolves.toMatchObject({
+      context: {
+        clinic: { id: "clinic-acceptance", name: "Synthetic Acceptance Clinic" },
+      },
+      status: "approved",
+    })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
   it("does not infer treatment access from profile capabilities", async () => {
     const profileOnlyBootstrap = {
       ...bootstrap,

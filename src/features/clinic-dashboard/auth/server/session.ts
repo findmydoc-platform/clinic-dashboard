@@ -2,7 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NextResponse } from "next/server"
-import { isControlledAuthTestMode } from "@/lib/env"
+import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode } from "@/lib/env"
 import { createReadOnlySupabaseClient } from "./supabase-client"
 
 const CONTROLLED_SESSION_COOKIE = "clinic_dashboard_controlled_session"
@@ -60,7 +60,9 @@ export async function getClinicDashboardSession(
               ? "controlled-denied"
               : cookieSource.get("clinic_dashboard_controlled_access_state")?.value === "outage"
                 ? "controlled-outage"
-                : "controlled-access-token",
+                : isLocalInquiryAcceptanceMode()
+                  ? (process.env.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN ?? "")
+                  : "controlled-access-token",
           email: "clinic-staff@example.com",
           isClinicAccount: true,
           subject: "controlled-clinic-staff",

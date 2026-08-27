@@ -1,4 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/lib/security/public-routes.ts", "tests/setup/vitest.ts"]
+  "entry": ["playwright.cross-app.config.ts", "src/lib/security/public-routes.ts", "tests/setup/vitest.ts"]
 }

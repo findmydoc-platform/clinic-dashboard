@@ -1,7 +1,7 @@
 import "server-only"
 
 import { z } from "zod"
-import { validateEnvironment } from "@/lib/env"
+import { isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
 import { clinicDashboardContractHeaders } from "../../payload-contract"
 import {
   inquiryHandlingStatusValues,
@@ -228,8 +228,8 @@ const systemEventLabels = {
   "spam-removed": "Spam label removed. Conversation remains closed.",
 } as const
 
-function endpointFor(pathname: string) {
-  return new URL(pathname, validateEnvironment().PAYLOAD_API_URL)
+function endpointFor(pathname: string, environment: ReturnType<typeof validateEnvironment>) {
+  return new URL(pathname, environment.PAYLOAD_API_URL)
 }
 
 function requestHeaders(accessToken: string, includeJson = false) {
@@ -449,16 +449,19 @@ function mapError(response: Extract<UpstreamResponse, { ok: false }>): InquiryRe
   }
 }
 
-function sanitizeUploadDescriptor(draft: z.infer<typeof draftSchema>, expectedMimeType: string) {
+function sanitizeUploadDescriptor(
+  draft: z.infer<typeof draftSchema>,
+  expectedMimeType: string,
+  environment: ReturnType<typeof validateEnvironment>,
+) {
   let url: URL
   try {
     url = new URL(draft.upload.url)
   } catch {
     return undefined
   }
-  const environment = validateEnvironment()
   const localhostTestUpload =
-    environment.NODE_ENV === "test" &&
+    (environment.NODE_ENV === "test" || isLocalInquiryAcceptanceMode(environment)) &&
     url.protocol === "http:" &&
     (url.hostname === "localhost" || url.hostname === "127.0.0.1")
   if ((url.protocol !== "https:" && !localhostTestUpload) || url.username || url.password || url.hash) {
@@ -538,8 +541,10 @@ export function createPayloadPatientInquiryProvider(
   accessToken: string,
   clinicId: string,
   fetcher: typeof fetch = fetch,
+  environment: Record<string, string | undefined> = process.env,
 ): PatientInquiryProvider {
   void clinicId
+  const runtimeEnvironment = validateEnvironment(environment)
 
   const requestJson = async <TValue>(
     pathname: string,
@@ -548,7 +553,7 @@ export function createPayloadPatientInquiryProvider(
     schema: z.ZodType<TValue>,
   ): Promise<InquiryResult<TValue>> => {
     const response = await requestPayload(
-      endpointFor(pathname),
+      endpointFor(pathname, runtimeEnvironment),
       {
         body: JSON.stringify(input),
         cache: "no-store",
@@ -569,7 +574,7 @@ export function createPayloadPatientInquiryProvider(
   const loadDetail = async (
     input: Readonly<{ inquiryId: string; knownChangeCursor?: string; knownRevision?: number }>,
   ) => {
-    const endpoint = endpointFor("/api/clinic-dashboard/inquiries/detail")
+    const endpoint = endpointFor("/api/clinic-dashboard/inquiries/detail", runtimeEnvironment)
     endpoint.searchParams.set("inquiryId", input.inquiryId)
     if (input.knownChangeCursor !== undefined) {
       endpoint.searchParams.set("knownChangeCursor", input.knownChangeCursor)
@@ -615,7 +620,7 @@ export function createPayloadPatientInquiryProvider(
   }
 
   const loadAttachmentAccess = async (kind: "download" | "preview", attachmentId: string) => {
-    const endpoint = endpointFor(`/api/clinic-dashboard/inquiries/attachments/${kind}`)
+    const endpoint = endpointFor(`/api/clinic-dashboard/inquiries/attachments/${kind}`, runtimeEnvironment)
     endpoint.searchParams.set("attachmentId", attachmentId)
     let response: Response
     try {
@@ -677,7 +682,7 @@ export function createPayloadPatientInquiryProvider(
         draftSchema,
       )
       if (!result.ok) return result
-      const safeDraft = sanitizeUploadDescriptor(result.value, input.mimeType)
+      const safeDraft = sanitizeUploadDescriptor(result.value, input.mimeType, runtimeEnvironment)
       return safeDraft
         ? { ok: true, value: safeDraft }
         : { error: { code: "service-unavailable" }, ok: false }
@@ -701,7 +706,7 @@ export function createPayloadPatientInquiryProvider(
       ),
     loadDetail,
     async loadQueue(input) {
-      const endpoint = endpointFor("/api/clinic-dashboard/inquiries")
+      const endpoint = endpointFor("/api/clinic-dashboard/inquiries", runtimeEnvironment)
       endpoint.searchParams.set("lifecycle", input.lifecycle)
       endpoint.searchParams.set("limit", "25")
       endpoint.searchParams.set("unreadOnly", String(input.unreadOnly))

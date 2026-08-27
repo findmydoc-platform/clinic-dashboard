@@ -233,6 +233,9 @@ export const HardDeletedPackage: Story = {
     await expect(detail.getByText("Internal note deleted")).toBeVisible()
     await expect(detail.queryByRole("textbox")).not.toBeInTheDocument()
     await expect(detail.queryByText("Sarah Schmidt")).not.toBeInTheDocument()
+    await expect(detail.queryByText("Hair transplant")).not.toBeInTheDocument()
+    await expect(detail.queryByText("Within 3–6 months")).not.toBeInTheDocument()
+    await expect(detail.queryByText("Weekdays after 16:00")).not.toBeInTheDocument()
   },
 }
 

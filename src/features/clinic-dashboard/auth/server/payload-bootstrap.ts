@@ -1,6 +1,6 @@
 import "server-only"
 
-import { isControlledAuthTestMode, validateEnvironment } from "@/lib/env"
+import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
 import { CLINIC_DASHBOARD_CONTRACT_HEADER_NAME, clinicDashboardContractHeaders } from "../../payload-contract"
 import {
   authenticatedClinicContextSchema,
@@ -14,7 +14,7 @@ const BOOTSTRAP_ERROR_CODES = {
   503: "CLINIC_DASHBOARD_TEMPORARILY_UNAVAILABLE",
 } as const
 
-const controlledAuthenticatedClinicContext = {
+const controlledAuthenticatedClinicContext = (): AuthenticatedClinicContext => ({
   capabilities: [
     "clinic-profile:view",
     "clinic-profile:edit",
@@ -26,8 +26,12 @@ const controlledAuthenticatedClinicContext = {
     "clinic-inquiries:edit",
   ],
   clinic: {
-    id: "controlled-clinic",
-    name: "Controlled Clinic",
+    id: isLocalInquiryAcceptanceMode()
+      ? (process.env.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID ?? "")
+      : "controlled-clinic",
+    name: isLocalInquiryAcceptanceMode()
+      ? (process.env.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME ?? "")
+      : "Controlled Clinic",
   },
   principal: {
     displayName: "Alex Morgan",
@@ -35,7 +39,7 @@ const controlledAuthenticatedClinicContext = {
     id: "controlled-clinic-staff",
   },
   status: "approved",
-} as const satisfies AuthenticatedClinicContext
+})
 
 function hasPrivateBootstrapHeaders(response: Response) {
   const cacheControl = response.headers.get("cache-control")?.toLowerCase() ?? ""
@@ -71,7 +75,7 @@ export async function fetchClinicDashboardBootstrap(
   if (isControlledAuthTestMode()) {
     if (accessToken === "controlled-denied") return { status: "denied" }
     if (accessToken === "controlled-outage") return { status: "temporarily-unavailable" }
-    return { context: controlledAuthenticatedClinicContext, status: "approved" }
+    return { context: controlledAuthenticatedClinicContext(), status: "approved" }
   }
 
   const environment = validateEnvironment()
