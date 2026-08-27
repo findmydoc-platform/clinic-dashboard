@@ -22,19 +22,23 @@ import {
   handleClinicDashboardLogout,
   handleClinicDashboardPasswordCompletion,
   handleClinicDashboardPasswordResetRequest,
+  handleClinicDashboardReauthenticate,
 } from "@/features/clinic-dashboard/auth/server/public"
 import { createCsrfToken } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
 
-function approvedBootstrapResponse() {
+function approvedBootstrapResponse(
+  capabilities: readonly string[] = [
+    "clinic-profile:view",
+    "clinic-profile:edit",
+    "clinic-treatments:view",
+    "clinic-treatments:edit",
+    "clinic-inquiries:view",
+  ],
+) {
   return new Response(
     JSON.stringify({
-      capabilities: [
-        "clinic-profile:view",
-        "clinic-profile:edit",
-        "clinic-treatments:view",
-        "clinic-treatments:edit",
-      ],
+      capabilities,
       clinic: { id: "clinic-1", name: "Clinic One" },
       principal: { displayName: "Alex", email: "alex@example.com", id: "staff-1" },
       status: "approved",
@@ -42,7 +46,7 @@ function approvedBootstrapResponse() {
     {
       headers: {
         "cache-control": "private, no-store",
-        vary: "Authorization",
+        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
       },
     },
   )
@@ -56,7 +60,7 @@ function deniedBootstrapResponse() {
     {
       headers: {
         "cache-control": "private, no-store",
-        vary: "Authorization",
+        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
       },
       status: 403,
     },
@@ -176,6 +180,127 @@ describe("production authentication actions", () => {
       password: "password123",
     })
     expect(response.headers.get("x-route-client-applied")).toBe("true")
+    expectPrivate(response)
+  })
+
+  it("preserves one validated inquiry return target after production access approval", async () => {
+    installRouteClient()
+    const response = await handleClinicDashboardLogin(
+      mutationRequest("/api/auth/login", {
+        email: "alex@example.com",
+        next: "/?inquiry=inquiry-lukas-weber",
+        password: "password123",
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ redirectTo: "/?inquiry=inquiry-lukas-weber" })
+  })
+
+  it("reauthenticates the current production subject with its verified email", async () => {
+    const { client } = installRouteClient()
+
+    const response = await handleClinicDashboardReauthenticate(
+      mutationRequest("/api/auth/reauthenticate", { password: "current-password" }),
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ reauthenticated: true })
+    expect(client.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: "alex@example.com",
+      password: "current-password",
+    })
+    expect(client.auth.signOut).not.toHaveBeenCalled()
+    expectPrivate(response)
+  })
+
+  it("rejects a wrong production reauthentication password without clearing the current session", async () => {
+    const client = createClient()
+    client.auth.signInWithPassword.mockResolvedValueOnce({ data: {}, error: { status: 400 } } as never)
+    installRouteClient(client)
+
+    const response = await handleClinicDashboardReauthenticate(
+      mutationRequest("/api/auth/reauthenticate", { password: "wrong-password" }),
+    )
+
+    expect(response.status).toBe(401)
+    await expect(response.json()).resolves.toEqual({ code: "INVALID_CREDENTIALS" })
+    expect(client.auth.signOut).not.toHaveBeenCalled()
+    expectPrivate(response)
+  })
+
+  it("rejects production reauthentication without inquiry view capability", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        approvedBootstrapResponse([
+          "clinic-profile:view",
+          "clinic-profile:edit",
+          "clinic-treatments:view",
+          "clinic-treatments:edit",
+        ]),
+      ),
+    )
+    const { client } = installRouteClient()
+
+    const response = await handleClinicDashboardReauthenticate(
+      mutationRequest("/api/auth/reauthenticate", { password: "current-password" }),
+    )
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual({ code: "REQUEST_REJECTED" })
+    expect(client.auth.signInWithPassword).not.toHaveBeenCalled()
+    expect(client.auth.signOut).not.toHaveBeenCalled()
+    expectPrivate(response)
+  })
+
+  it("clears the local production session when reauthentication changes the subject", async () => {
+    const client = createClient()
+    client.auth.getClaims
+      .mockResolvedValueOnce({
+        data: {
+          claims: {
+            app_metadata: { user_type: "clinic" },
+            email: "alex@example.com",
+            sub: "staff-1",
+          },
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          claims: {
+            app_metadata: { user_type: "clinic" },
+            email: "alex@example.com",
+            sub: "staff-1",
+          },
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          claims: {
+            app_metadata: { user_type: "clinic" },
+            email: "other@example.com",
+            sub: "staff-2",
+          },
+        },
+        error: null,
+      })
+    installRouteClient(client)
+
+    const response = await handleClinicDashboardReauthenticate(
+      mutationRequest("/api/auth/reauthenticate", { password: "current-password" }, [
+        "clinic-dashboard-auth=session-cookie",
+        "clinic-dashboard-auth.0=session-chunk",
+      ]),
+    )
+
+    expect(response.status).toBe(401)
+    await expect(response.json()).resolves.toEqual({ code: "ACCOUNT_UNAVAILABLE" })
+    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" })
+    expect(response.headers.get("set-cookie")).toContain("clinic-dashboard-auth=;")
+    expect(response.headers.get("set-cookie")).toContain("clinic-dashboard-auth.0=;")
     expectPrivate(response)
   })
 

@@ -30,12 +30,7 @@ import {
   type DashboardSnapshot,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
-import {
-  getPatientInquiryStatusTransitions,
-  type MessagesSnapshot,
-  type PatientInquiryProfile,
-} from "@/features/clinic-dashboard/messages/public"
-import { messagesFixture, patientInquiryFixture } from "@/features/clinic-dashboard/messages/testing/public"
+import { inquiryQueueFixture } from "@/features/clinic-dashboard/messages/testing/public"
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import {
   createReviewSourceCommandsFixture,
@@ -181,39 +176,6 @@ const profileProgressFixture = createDashboardProfileProgress({
   },
   treatments: clinicTreatmentSnapshotFixture,
 })
-
-function createMessagesLocationFixture(
-  idPrefix: string,
-  patientName: string,
-  treatmentName: string,
-): MessagesSnapshot {
-  const activeConversationId = `${idPrefix}-active-conversation`
-
-  return {
-    ...messagesFixture,
-    activeConversationId,
-    conversations: messagesFixture.conversations.map((conversation, index) => ({
-      ...conversation,
-      id: index === 0 ? activeConversationId : `${idPrefix}-conversation-${index + 1}`,
-      name: index === 0 ? patientName : conversation.name,
-      treatment: index === 0 ? { name: treatmentName } : conversation.treatment,
-    })),
-    messages: messagesFixture.messages.map((message, index) => ({
-      ...message,
-      id: `${idPrefix}-message-${index + 1}`,
-    })),
-  }
-}
-
-function createPatientInquiryLocationFixture(
-  id: string,
-  name: string,
-  email: string,
-  interest: string,
-): PatientInquiryProfile {
-  return { ...patientInquiryFixture, email, id, interest, name }
-}
-
 function createReviewDistribution(
   countsByStars: readonly [number, number, number, number, number],
   rating: number,
@@ -302,19 +264,7 @@ export const clinicDashboardWorkspaceFixture = {
   galleryStatus: "ready",
   gallerySnapshot: clinicGallerySnapshotFixture,
   doctorDirectory: doctorDirectoryFixture,
-  inquiryQueue: {
-    inquiries: [
-      {
-        ...patientInquiryFixture,
-        availableTransitions: getPatientInquiryStatusTransitions("submitted"),
-        createdAt: "2026-07-26T08:54:00.000Z",
-        dateLabel: "26 July 2026",
-        status: "submitted",
-        timeLabel: "10:54",
-      },
-    ],
-    status: "ready",
-  },
+  inquiryQueue: inquiryQueueFixture,
   profileSourceSnapshot: clinicProfileSourceFixture,
   reviewSourceSnapshot: reviewSourceSnapshotFixture,
   locations: workspaceLocationFixtures,
@@ -344,13 +294,6 @@ export const clinicDashboardWorkspaceFixture = {
           uniqueVisitors: 4_860,
         },
       }),
-      messages: createMessagesLocationFixture("charlottenburg", "Lina Fixture", "Ceramic veneers"),
-      patientInquiry: createPatientInquiryLocationFixture(
-        "charlottenburg-inquiry",
-        "Lina Fixture",
-        "lina.fixture@example.com",
-        "Ceramic veneers",
-      ),
       reviews: createReviewsLocationFixture("charlottenburg", "Eva Fixture", 4.6, 486, [330, 130, 20, 5, 1]),
     },
     "berlin-mitte": {
@@ -378,13 +321,6 @@ export const clinicDashboardWorkspaceFixture = {
           uniqueVisitors: 6_006,
         },
       }),
-      messages: createMessagesLocationFixture("mitte", "Lukas Fixture", "Hair transplant"),
-      patientInquiry: createPatientInquiryLocationFixture(
-        "mitte-inquiry",
-        "Lukas Fixture",
-        "lukas.fixture@example.com",
-        "Hair transplant",
-      ),
       reviews: createReviewsLocationFixture("mitte", "Markus Fixture", 4.8, 1_248, [1_050, 150, 35, 10, 3]),
     },
     potsdam: {
@@ -412,13 +348,6 @@ export const clinicDashboardWorkspaceFixture = {
           uniqueVisitors: 1_940,
         },
       }),
-      messages: createMessagesLocationFixture("potsdam", "Mila Fixture", "Skin analysis"),
-      patientInquiry: createPatientInquiryLocationFixture(
-        "potsdam-inquiry",
-        "Mila Fixture",
-        "mila.fixture@example.com",
-        "Skin analysis",
-      ),
       reviews: createReviewsLocationFixture("potsdam", "Greta Fixture", 4.9, 92, [81, 9, 2, 0, 0]),
     },
   },
@@ -429,6 +358,7 @@ export const clinicDashboardWorkspaceFixture = {
 } satisfies ClinicDashboardWorkspaceInput
 
 export function ClinicDashboardWorkspaceHarness({
+  focusInquiryId,
   notificationState,
   persistNotificationReadStateInSession = false,
   profileProgress,
@@ -453,6 +383,7 @@ export function ClinicDashboardWorkspaceHarness({
         clinicProfileSourceCommands={clinicProfileSourceCommands}
         clinicTreatmentCommands={clinicTreatmentCommands}
         doctorProfileCommands={doctorProfileCommands}
+        focusInquiryId={focusInquiryId}
         initialNotificationReadIds={notificationState?.readIds}
         initialNotificationsOpen={notificationState?.isOpen}
         initialReportingPeriod={reportingPeriod}

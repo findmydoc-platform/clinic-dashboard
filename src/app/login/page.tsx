@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import {
   ClinicDashboardAuthScreen,
   type ClinicDashboardAuthErrorCode,
+  parseClinicDashboardReturnTarget,
 } from "@/features/clinic-dashboard/public"
 
 export const metadata: Metadata = {
@@ -10,11 +11,17 @@ export const metadata: Metadata = {
 }
 
 type LoginPageProps = Readonly<{
-  searchParams: Promise<Readonly<{ error?: string; status?: string }>>
+  searchParams: Promise<
+    Readonly<{
+      error?: string | readonly string[]
+      next?: string | readonly string[]
+      status?: string | readonly string[]
+    }>
+  >
 }>
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { error, status } = await searchParams
+  const { error, next, status } = await searchParams
   const initialError: ClinicDashboardAuthErrorCode | undefined =
     error === "invalid-or-expired-link"
       ? "INVALID_OR_EXPIRED_LINK"
@@ -22,6 +29,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         ? "ACCOUNT_UNAVAILABLE"
         : undefined
   const initialStatus = status === "invite-complete" || status === "recovery-complete" ? status : undefined
+  const returnTarget = parseClinicDashboardReturnTarget(next) ?? "/"
 
-  return <ClinicDashboardAuthScreen initialError={initialError} initialStatus={initialStatus} mode="login" />
+  return (
+    <ClinicDashboardAuthScreen
+      initialError={initialError}
+      initialStatus={initialStatus}
+      mode="login"
+      returnTarget={returnTarget}
+    />
+  )
 }

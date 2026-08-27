@@ -8,6 +8,13 @@ export type {
   ClinicDashboardAuthErrorCode,
   ClinicDashboardCapability,
   ClinicDashboardEmailFlow,
+  ClinicDashboardReturnTarget,
+} from "./auth/public"
+export {
+  createClinicDashboardLoginPath,
+  createClinicDashboardReturnTarget,
+  parseClinicDashboardReturnTarget,
+  parseInquiryDeepLink,
 } from "./auth/public"
 export type { ClinicDashboardPrototypeMode } from "./prototype/public"
 export type { ClinicDashboardDialog, ClinicDashboardSection } from "./workspace/public"

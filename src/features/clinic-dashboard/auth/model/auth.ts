@@ -7,6 +7,8 @@ const clinicDashboardCapabilitySchema = z.enum([
   "clinic-gallery:edit",
   "clinic-treatments:view",
   "clinic-treatments:edit",
+  "clinic-inquiries:view",
+  "clinic-inquiries:edit",
 ])
 const clinicDashboardCapabilitiesSchema = z
   .array(clinicDashboardCapabilitySchema)
@@ -50,6 +52,36 @@ export type ClinicDashboardAccessResult =
   | Readonly<{ status: "denied" | "temporarily-unavailable" | "unauthenticated" | "unauthorized" }>
 
 export type ClinicDashboardEmailFlow = "invite" | "recovery"
+
+const inquiryDeepLinkPattern = /^[A-Za-z0-9._~-]{1,100}$/u
+const inquiryReturnTargetPattern = /^\/\?inquiry=([A-Za-z0-9._~-]{1,100})$/u
+
+export type ClinicDashboardReturnTarget = "/" | `/?inquiry=${string}`
+
+export function parseInquiryDeepLink(value: string | readonly string[] | undefined) {
+  return typeof value === "string" && inquiryDeepLinkPattern.test(value) ? value : undefined
+}
+
+export function createClinicDashboardReturnTarget(inquiryId?: string): ClinicDashboardReturnTarget {
+  return inquiryId && inquiryDeepLinkPattern.test(inquiryId) ? `/?inquiry=${inquiryId}` : "/"
+}
+
+export function parseClinicDashboardReturnTarget(value: unknown): ClinicDashboardReturnTarget | undefined {
+  if (value === "/") return value
+  return typeof value === "string" && inquiryReturnTargetPattern.test(value)
+    ? (value as ClinicDashboardReturnTarget)
+    : undefined
+}
+
+export function createClinicDashboardLoginPath(returnTarget: ClinicDashboardReturnTarget) {
+  return returnTarget === "/" ? "/login" : `/login?next=${encodeURIComponent(returnTarget)}`
+}
+
+export function createClinicDashboardLoginPathForRequest(pathname: string, inquiryValues: readonly string[]) {
+  const inquiryId =
+    pathname === "/" && inquiryValues.length === 1 ? parseInquiryDeepLink(inquiryValues[0]) : undefined
+  return createClinicDashboardLoginPath(createClinicDashboardReturnTarget(inquiryId))
+}
 
 export const clinicDashboardEmailDestinations = {
   invite: "/auth/invite/complete",

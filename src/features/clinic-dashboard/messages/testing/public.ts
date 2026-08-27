@@ -1,6 +1,8 @@
 export {
+  closedInquiryFixture,
+  deletedPatientInquiryFixture,
+  hardDeletedPackageInquiryFixture,
+  inquiryDetailFixtures,
   inquiryQueueFixture,
-  messagesFixture,
-  patientInquiryFixture,
-  secondaryInquiryFixture,
+  spamInquiryFixture,
 } from "./messages.fixtures"

@@ -442,8 +442,8 @@ export const VisualReferenceLocationSwitching: Story = {
     )
     await expect(canvas.getAllByText("100%")[0]).toBeInTheDocument()
 
-    await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
-    await expect(canvas.getByRole("heading", { name: "Lukas Weber" })).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Inquiries" }))
+    await expect(canvas.getByRole("heading", { level: 1, name: "Inquiries" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
     await expect(canvas.getByText("Maya K.")).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
@@ -511,10 +511,10 @@ export const Mobile: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Open navigation" }))
     await userEvent.click(
       within(canvas.getByRole("dialog", { name: "Clinic navigation" })).getByRole("button", {
-        name: "Messages",
+        name: "Inquiries",
       }),
     )
-    await expect(await canvas.findByRole("heading", { level: 1, name: "Messages" })).toBeInTheDocument()
+    await expect(await canvas.findByRole("heading", { level: 1, name: "Inquiries" })).toBeInTheDocument()
   },
 }
 
@@ -687,8 +687,8 @@ export const PotsdamWorkspaceContent: Story = {
     await userEvent.click(await page.findByRole("menuitem", { name: /Berlin Health Clinic — Potsdam/ }))
     await expect(canvas.getAllByText("100%")[0]).toBeInTheDocument()
 
-    await userEvent.click(canvas.getByRole("button", { name: "Messages" }))
-    await expect(canvas.getByRole("heading", { name: "Lukas Weber" })).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Inquiries" }))
+    await expect(canvas.getByRole("heading", { level: 1, name: "Inquiries" })).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
     await expect(canvas.getByText("Maya K.")).toBeInTheDocument()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))

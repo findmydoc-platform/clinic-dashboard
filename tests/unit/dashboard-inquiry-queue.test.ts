@@ -1,158 +1,263 @@
 import { describe, expect, it } from "vitest"
 import {
-  filterPatientInquiries,
-  getPatientInquiryStatusTransitions,
-  isAllowedPatientInquiryStatusTransition,
-  patientInquiryStatusValues,
-} from "@/features/clinic-dashboard/messages/model/inquiries"
-import {
   createInquiryQueueState,
+  hasUnsavedInquiryDrafts,
   inquiryQueueReducer,
 } from "@/features/clinic-dashboard/messages/model/inquiry-queue.reducer"
 import { selectInquiryQueueViewModel } from "@/features/clinic-dashboard/messages/model/inquiry-queue.selectors"
-import {
-  inquiryQueueFixture,
-  secondaryInquiryFixture,
-} from "@/features/clinic-dashboard/messages/testing/public"
+import { getInquiryHandlingStatusTargets } from "@/features/clinic-dashboard/messages/model/inquiries"
+import { createInquiryDetail, createInquirySnapshot } from "../support/inquiries"
 
-describe("Patient inquiry queue", () => {
-  it("filters purpose-specific inquiry fields", () => {
-    const inquiries = inquiryQueueFixture.inquiries
-
-    expect(filterPatientInquiries(inquiries, "hair transplant")).toEqual(inquiries)
-    expect(filterPatientInquiries(inquiries, "l.weber@example.com")).toEqual(inquiries)
-    expect(filterPatientInquiries(inquiries, "unknown")).toEqual([])
+describe("inquiry queue state", () => {
+  it("never offers Submitted after intake and otherwise keeps handling progress monotone", () => {
+    expect(getInquiryHandlingStatusTargets("submitted")).toEqual(["in_review", "contacted"])
+    expect(getInquiryHandlingStatusTargets("in_review")).toEqual(["contacted"])
+    expect(getInquiryHandlingStatusTargets("contacted")).toEqual(["in_review"])
+    expect(getInquiryHandlingStatusTargets("spam")).toEqual([])
   })
 
-  it("matches the complete server-owned forward-only transition contract", () => {
-    const expectedTransitions = {
-      closed: [],
-      contacted: ["closed"],
-      in_review: ["contacted", "closed", "spam"],
-      spam: [],
-      submitted: ["in_review", "contacted", "closed", "spam"],
-    } as const
-
-    for (const currentStatus of patientInquiryStatusValues) {
-      expect(getPatientInquiryStatusTransitions(currentStatus)).toEqual(expectedTransitions[currentStatus])
-      for (const nextStatus of patientInquiryStatusValues) {
-        expect(isAllowedPatientInquiryStatusTransition(currentStatus, nextStatus)).toBe(
-          expectedTransitions[currentStatus].includes(nextStatus as never),
-        )
-      }
-    }
+  it("starts without selecting the first desktop item", () => {
+    const model = selectInquiryQueueViewModel(
+      createInquiryQueueState(createInquirySnapshot(undefined, { unreadCount: 17 })),
+    )
+    expect(model.selectedInquiry).toBeUndefined()
+    expect(model.selectedInquiryId).toBeUndefined()
+    expect(model.mobileDetailOpen).toBe(false)
+    expect(model.totalUnreadCount).toBe(17)
   })
 
-  it("selects only a visible inquiry and clears details for zero search results", () => {
-    const initial = createInquiryQueueState([...inquiryQueueFixture.inquiries, secondaryInquiryFixture])
-    const filtered = inquiryQueueReducer(initial, {
-      query: "Aylin",
+  it("keeps server-side full-text matches absent from the queue preview", () => {
+    const searched = inquiryQueueReducer(createInquiryQueueState(createInquirySnapshot()), {
+      query: "attachment-only-term",
       type: "searchQueryChanged",
     })
-    const filteredModel = selectInquiryQueueViewModel(filtered, "ready")
-
-    expect(filtered.selectedInquiryId).toBe(inquiryQueueFixture.inquiries[0]?.id)
-    expect(filteredModel.selectedInquiry?.id).toBe(secondaryInquiryFixture.id)
-    expect(filteredModel.visibleInquiries).toEqual([{ inquiry: secondaryInquiryFixture, isActive: true }])
-
-    const empty = inquiryQueueReducer(filtered, {
-      query: "no matching inquiry",
-      type: "searchQueryChanged",
-    })
-    const emptyModel = selectInquiryQueueViewModel(empty, "ready")
-
-    expect(emptyModel.totalInquiryCount).toBe(0)
-    expect(emptyModel.selectedInquiry).toBeUndefined()
-    expect(emptyModel.visibleInquiries).toEqual([])
+    expect(selectInquiryQueueViewModel(searched).visibleInquiries).toHaveLength(1)
   })
 
-  it("projects a successful status update and a session-only system event", () => {
-    const inquiry = inquiryQueueFixture.inquiries[0]
-    if (!inquiry) throw new Error("The inquiry queue test requires an inquiry.")
-
-    const initial = createInquiryQueueState(inquiryQueueFixture.inquiries)
-    const pending = inquiryQueueReducer(initial, {
-      from: "submitted",
-      inquiryId: inquiry.id,
-      to: "in_review",
-      type: "statusUpdateStarted",
+  it("supports multi-select handling filters and a separate spam view", () => {
+    const inReview = createInquiryDetail({ handlingStatus: "in_review", id: "inquiry-2" })
+    const spam = createInquiryDetail({
+      handlingStatus: "spam",
+      id: "inquiry-spam",
+      lifecycle: "closed",
     })
-    const updated = inquiryQueueReducer(pending, {
-      changedAt: "11:08",
-      inquiry: {
-        ...inquiry,
-        availableTransitions: ["contacted", "closed", "spam"],
-        status: "in_review",
-      },
-      type: "statusUpdateSucceeded",
+    let state = createInquiryQueueState(createInquirySnapshot([createInquiryDetail(), inReview, spam]))
+    state = inquiryQueueReducer(state, {
+      statuses: ["submitted", "in_review"],
+      type: "handlingStatusFilterChanged",
     })
-    const model = selectInquiryQueueViewModel(updated, "ready")
-
-    expect(model.selectedInquiry?.status).toBe("in_review")
-    expect(model.selectedStatusEvents).toEqual([
-      {
-        changedAt: "11:08",
-        from: "submitted",
-        id: `${inquiry.id}:11:08:in_review`,
-        inquiryId: inquiry.id,
-        to: "in_review",
-      },
+    expect(selectInquiryQueueViewModel(state).visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual([
+      "inquiry-1",
+      "inquiry-2",
     ])
-    expect(model.statusMessage).toBe("Status changed to In review.")
+    state = inquiryQueueReducer(state, { filter: "spam", type: "primaryFilterChanged" })
+    expect(selectInquiryQueueViewModel(state).visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual([
+      "inquiry-spam",
+    ])
   })
 
-  it("keeps failed updates out of the inquiry and event state", () => {
-    const inquiry = inquiryQueueFixture.inquiries[0]
-    if (!inquiry) throw new Error("The inquiry queue test requires an inquiry.")
-
-    const pending = inquiryQueueReducer(createInquiryQueueState(inquiryQueueFixture.inquiries), {
-      from: "submitted",
-      inquiryId: inquiry.id,
-      to: "closed",
-      type: "statusUpdateStarted",
+  it("gates replies with server actions and keeps note and reply drafts separate", () => {
+    const detail = createInquiryDetail({
+      actions: { ...createInquiryDetail().actions, canReply: false },
     })
-    const failed = inquiryQueueReducer(pending, {
-      inquiryId: inquiry.id,
-      type: "statusUpdateFailed",
+    let state = createInquiryQueueState(createInquirySnapshot([detail]))
+    state = inquiryQueueReducer(state, { inquiryId: detail.id, type: "inquiryLoadStarted" })
+    state = inquiryQueueReducer(state, { inquiry: detail, type: "inquiryLoadSucceeded" })
+    state = inquiryQueueReducer(state, {
+      inquiryId: detail.id,
+      mode: "note",
+      type: "draftChanged",
+      value: "Internal only",
     })
-    const model = selectInquiryQueueViewModel(failed, "ready")
+    state = inquiryQueueReducer(state, {
+      inquiryId: detail.id,
+      mode: "reply",
+      type: "draftChanged",
+      value: "Patient reply",
+    })
 
-    expect(model.selectedInquiry?.status).toBe("submitted")
-    expect(model.selectedStatusEvents).toEqual([])
-    expect(model.statusError).toContain("could not be updated")
+    const model = selectInquiryQueueViewModel(state)
+    expect(model.activeComposerMode).toBe("note")
+    expect(model.draft).toBe("Internal only")
+    expect(model.hasPendingReplyDraft).toBe(true)
+    expect(model.hasUnsavedDrafts).toBe(true)
+    expect(hasUnsavedInquiryDrafts(state)).toBe(true)
   })
 
-  it("scopes pending and failed status state to its inquiry", () => {
-    const inquiries = [...inquiryQueueFixture.inquiries, secondaryInquiryFixture]
-    const firstInquiry = inquiries[0]
-    if (!firstInquiry) throw new Error("The inquiry queue test requires an inquiry.")
-
-    const pending = inquiryQueueReducer(createInquiryQueueState(inquiries), {
-      from: firstInquiry.status,
-      inquiryId: firstInquiry.id,
-      to: "in_review",
-      type: "statusUpdateStarted",
+  it("projects safe conflict state immediately and converts a blocked reply only on explicit action", () => {
+    const original = createInquiryDetail()
+    const current = createInquiryDetail({
+      actions: { ...original.actions, canReply: false },
+      lifecycle: "closed",
+      revision: 2,
     })
-    const selectedSecond = inquiryQueueReducer(pending, {
-      inquiryId: secondaryInquiryFixture.id,
-      type: "inquirySelected",
+    let state = createInquiryQueueState(createInquirySnapshot([original]))
+    state = inquiryQueueReducer(state, { inquiryId: original.id, type: "inquiryLoadStarted" })
+    state = inquiryQueueReducer(state, { inquiry: original, type: "inquiryLoadSucceeded" })
+    state = inquiryQueueReducer(state, {
+      inquiryId: original.id,
+      mode: "reply",
+      type: "draftChanged",
+      value: "Keep this exact synthetic reply.",
     })
-    const secondModel = selectInquiryQueueViewModel(selectedSecond, "ready")
-
-    expect(secondModel.isStatusChangeDisabled).toBe(true)
-    expect(secondModel.isUpdatingStatus).toBe(false)
-    expect(secondModel.statusError).toBeUndefined()
-
-    const failed = inquiryQueueReducer(selectedSecond, {
-      inquiryId: firstInquiry.id,
-      type: "statusUpdateFailed",
+    state = inquiryQueueReducer(state, {
+      conflict: { current, message: "Changed elsewhere." },
+      message: "Changed elsewhere.",
+      type: "mutationFailed",
     })
-    expect(selectInquiryQueueViewModel(failed, "ready").statusError).toBeUndefined()
 
-    const selectedFirst = inquiryQueueReducer(failed, {
-      inquiryId: firstInquiry.id,
-      type: "inquirySelected",
+    let model = selectInquiryQueueViewModel(state)
+    expect(model.selectedInquiry).toMatchObject({ lifecycle: "closed", revision: 2 })
+    expect(state.inquiries[0]).toMatchObject({ lifecycle: "closed", revision: 2 })
+    expect(model.blockedReplyDraft).toBe("Keep this exact synthetic reply.")
+    expect(model.draft).toBe("")
+
+    state = inquiryQueueReducer(state, { inquiryId: original.id, type: "replyDraftConvertedToNote" })
+    model = selectInquiryQueueViewModel(state)
+    expect(model.activeComposerMode).toBe("note")
+    expect(model.draft).toBe("Keep this exact synthetic reply.")
+    expect(model.blockedReplyDraft).toBeUndefined()
+  })
+
+  it("keeps blocked reply text and attachment visible while the internal-note composer stays isolated", () => {
+    const original = createInquiryDetail()
+    const closed = createInquiryDetail({
+      actions: { ...original.actions, canReply: false },
+      lifecycle: "closed",
+      revision: original.revision + 1,
     })
-    expect(selectInquiryQueueViewModel(selectedFirst, "ready").statusError).toContain("could not be updated")
+    const attachment = {
+      draftId: "draft-blocked-1",
+      expiresAt: "2026-08-25T00:00:00.000Z",
+      fileName: "synthetic-scan.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 120,
+      status: "ready" as const,
+    }
+    let state = createInquiryQueueState(createInquirySnapshot([original]))
+    state = inquiryQueueReducer(state, { inquiryId: original.id, type: "inquiryLoadStarted" })
+    state = inquiryQueueReducer(state, { inquiry: original, type: "inquiryLoadSucceeded" })
+    state = inquiryQueueReducer(state, {
+      inquiryId: original.id,
+      mode: "reply",
+      type: "draftChanged",
+      value: "Keep this blocked reply visible.",
+    })
+    state = inquiryQueueReducer(state, { attachment, inquiryId: original.id, type: "attachmentChanged" })
+    state = inquiryQueueReducer(state, { mode: "note", type: "composerModeChanged" })
+    state = inquiryQueueReducer(state, { inquiry: closed, type: "backgroundRefreshSucceeded" })
+
+    const model = selectInquiryQueueViewModel(state)
+    expect(model.activeComposerMode).toBe("note")
+    expect(model.attachment).toBeUndefined()
+    expect(model.blockedReplyDraft).toBe("Keep this blocked reply visible.")
+    expect(model.blockedReplyAttachment).toEqual(attachment)
+    expect(model.hasUnsavedDrafts).toBe(true)
+  })
+
+  it("updates the global unread count from a personal read-position delta", () => {
+    const inquiry = createInquiryDetail({ unread: { count: 2, isUnread: true } })
+    let state = createInquiryQueueState(createInquirySnapshot([inquiry], { unreadCount: 12 }))
+    state = inquiryQueueReducer(state, {
+      inquiryId: inquiry.id,
+      type: "readPositionChanged",
+      unread: { count: 0, isUnread: false },
+    })
+
+    expect(selectInquiryQueueViewModel(state).totalUnreadCount).toBe(11)
+  })
+
+  it("projects one unread inquiry for a safe conflict snapshot regardless of activity count", () => {
+    const original = createInquiryDetail({ unread: { count: 0, isUnread: false } })
+    const current = createInquiryDetail({ revision: 2, unread: { count: 7, isUnread: true } })
+    const state = inquiryQueueReducer(
+      createInquiryQueueState(createInquirySnapshot([original], { unreadCount: 12 })),
+      {
+        conflict: { current, message: "Changed elsewhere." },
+        message: "Changed elsewhere.",
+        type: "mutationFailed",
+      },
+    )
+
+    expect(selectInquiryQueueViewModel(state).totalUnreadCount).toBe(13)
+  })
+
+  it("purges detail, drafts and attachments after final access loss", () => {
+    const detail = createInquiryDetail({ unread: { count: 5, isUnread: true } })
+    let state = createInquiryQueueState(createInquirySnapshot([detail], { unreadCount: 12 }))
+    state = inquiryQueueReducer(state, { inquiryId: detail.id, type: "inquiryLoadStarted" })
+    state = inquiryQueueReducer(state, { inquiry: detail, type: "inquiryLoadSucceeded" })
+    state = inquiryQueueReducer(state, {
+      inquiryId: detail.id,
+      mode: "reply",
+      type: "draftChanged",
+      value: "Unsaved",
+    })
+    state = inquiryQueueReducer(state, {
+      attachment: {
+        draftId: "draft-1",
+        expiresAt: "2026-08-25T00:00:00.000Z",
+        fileName: "scan.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 10,
+        status: "ready",
+      },
+      inquiryId: detail.id,
+      type: "attachmentChanged",
+    })
+    state = inquiryQueueReducer(state, {
+      inquiryId: detail.id,
+      message: "Access ended",
+      type: "inquiryAccessLost",
+    })
+
+    expect(state.selectedInquiryId).toBeUndefined()
+    expect(state.details).toEqual({})
+    expect(state.drafts).toEqual({})
+    expect(state.attachments).toEqual({})
+    expect(state.inquiries).toEqual([])
+    expect(state.unreadCount).toBe(11)
+  })
+
+  it("purges every protected projection and conflict snapshot when the session ends", () => {
+    const detail = createInquiryDetail()
+    let state = createInquiryQueueState(createInquirySnapshot([detail]))
+    state = inquiryQueueReducer(state, { inquiryId: detail.id, type: "inquiryLoadStarted" })
+    state = inquiryQueueReducer(state, { inquiry: detail, type: "inquiryLoadSucceeded" })
+    state = inquiryQueueReducer(state, {
+      inquiryId: detail.id,
+      mode: "note",
+      type: "draftChanged",
+      value: "Protected draft",
+    })
+    state = inquiryQueueReducer(state, {
+      conflict: { current: detail, message: "Changed" },
+      message: "Changed",
+      type: "mutationFailed",
+    })
+
+    state = inquiryQueueReducer(state, { message: "Session ended", type: "sessionLost" })
+
+    expect(state).toMatchObject({
+      attachments: {},
+      availability: "temporarily-unavailable",
+      details: {},
+      drafts: {},
+      inquiries: [],
+    })
+    expect(state.conflict).toBeUndefined()
+    expect(state.selectedInquiryId).toBeUndefined()
+  })
+
+  it("deduplicates appended cursor pages", () => {
+    const first = createInquiryDetail()
+    const second = createInquiryDetail({ id: "inquiry-2", lastActivityAt: "2026-08-24T08:00:00.000Z" })
+    let state = createInquiryQueueState(createInquirySnapshot([first], { nextCursor: "cursor-2" }))
+    state = inquiryQueueReducer(state, {
+      mode: "append",
+      snapshot: createInquirySnapshot([first, second]),
+      type: "queueLoaded",
+    })
+    expect(state.inquiries.map(({ id }) => id)).toEqual(["inquiry-1", "inquiry-2"])
   })
 })

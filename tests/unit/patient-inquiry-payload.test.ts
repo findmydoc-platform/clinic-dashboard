@@ -1,25 +1,75 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createPayloadPatientInquiryProvider } from "@/features/clinic-dashboard/messages/server/payload-inquiries"
 
-const upstreamInquiry = {
-  assignedTo: { id: "platform-user", name: "Private assignee" },
-  clinic: { id: "clinic-1", name: "Clinic One" },
-  consent: {
-    accepted: true,
-    acceptedAt: "2026-07-26T08:50:00.000Z",
-    text: "Private evidence",
-  },
-  createdAt: "2026-07-26T08:54:00.000Z",
-  email: "l.weber@example.com",
-  fullName: "Lukas Weber",
-  id: "inquiry-1",
-  message: "I would like to know which documents to prepare.",
-  phoneNumber: "+49 000 0000001",
-  preferredContactWindow: "afternoon",
-  status: "submitted",
-  treatment: { id: "treatment-1", name: "Hair transplant" },
-  treatmentTimeline: "within_one_month",
-  updatedAt: "2026-07-26T08:54:00.000Z",
+function upstreamDetail(overrides: Record<string, unknown> = {}) {
+  return {
+    actions: {
+      canAddInternalNote: true,
+      canChangeHandlingStatus: true,
+      canChangeLifecycle: true,
+      canMarkRead: true,
+      canMarkUnread: false,
+      canReply: true,
+      canRevealContact: false,
+      canView: true,
+    },
+    attachmentConstraints: {
+      acceptedMimeTypes: ["image/png", "image/jpeg", "image/webp", "application/pdf"],
+      maxFileBytes: 5 * 1024 * 1024,
+      maxFilesPerMessage: 1,
+    },
+    binding: {
+      canReply: true,
+      conversationId: "conversation-1",
+      kind: "patient",
+      patient: { displayName: "Lukas Weber", id: "patient-1" },
+    },
+    contact: { email: "patient@example.test", mode: "full", phoneNumber: "+49 000 0000000" },
+    createdAt: "2026-08-24T08:00:00.000Z",
+    handlingStatus: "submitted",
+    id: "inquiry-1",
+    interest: {
+      doctorId: "doctor-1",
+      label: "Hair transplant",
+      preferredContactWindow: "Weekdays",
+      treatmentId: "treatment-1",
+      treatmentTimeline: "Within three months",
+    },
+    lastActivityAt: "2026-08-24T09:00:00.000Z",
+    latestActivityKind: "system-event",
+    lifecycle: "open",
+    originalRequest: {
+      message: "I would like an initial assessment.",
+      preferredContactWindow: "Weekdays",
+      treatmentTimeline: "Within three months",
+    },
+    patientName: "Lukas Weber",
+    preview: "Safe preview",
+    revision: 7,
+    timeline: [
+      {
+        actor: { displayName: "Sarah Schmidt", isCurrentActor: true, kind: "clinic" },
+        createdAt: "2026-08-24T09:00:00.000Z",
+        event: "handling-status-changed",
+        id: "event-1",
+        kind: "system-event",
+      },
+      {
+        actor: { displayName: "Lukas Weber", isCurrentActor: false, kind: "patient" },
+        attachment: {
+          fileName: "assessment.pdf",
+          id: "attachment-1",
+          mimeType: "application/pdf",
+          sizeBytes: 200,
+        },
+        createdAt: "2026-08-24T09:01:00.000Z",
+        id: "message-1",
+        kind: "external-message",
+      },
+    ],
+    unread: { count: 1, isUnread: true },
+    ...overrides,
+  }
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -29,7 +79,7 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
-describe("Patient inquiry Payload adapter", () => {
+describe("Payload patient inquiry provider", () => {
   beforeEach(() => {
     vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
     vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
@@ -45,237 +95,375 @@ describe("Patient inquiry Payload adapter", () => {
     vi.unstubAllEnvs()
   })
 
-  it("projects only purpose-specific own-clinic inquiry fields", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ docs: [upstreamInquiry] }))
-    const provider = createPayloadPatientInquiryProvider("access-token", fetcher)
+  it("maps authoritative interest, activity and actions without sending clinic or actor input", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        changeCursor: "change-7",
+        items: [upstreamDetail()],
+        nextCursor: "opaque-2",
+        unchanged: false,
+        unreadCount: 41,
+      }),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
 
-    await expect(provider.loadQueue()).resolves.toEqual({
-      ok: true,
-      value: {
-        inquiries: [
-          {
-            availableTransitions: ["in_review", "contacted", "closed", "spam"],
-            contactWindow: "Afternoon",
-            createdAt: "2026-07-26T08:54:00.000Z",
-            dateLabel: "26 July 2026",
-            email: "l.weber@example.com",
-            id: "inquiry-1",
-            interest: "Hair transplant",
-            message: "I would like to know which documents to prepare.",
-            name: "Lukas Weber",
-            phone: "+49 000 0000001",
-            status: "submitted",
-            timeLabel: "10:54",
-            treatmentTimeline: "Within one month",
-          },
-        ],
-        status: "ready",
-      },
+    const result = await provider.loadQueue({
+      cursor: "opaque-1",
+      handlingStatus: ["submitted", "in_review"],
+      lifecycle: "all",
+      knownChangeCursor: "queue-change-marker-1",
+      query: "assessment",
+      unreadOnly: true,
     })
 
+    expect(result.ok && result.value.inquiries[0]).toMatchObject({
+      interest: "Hair transplant",
+      latestActivityKind: "system-event",
+      revision: 7,
+    })
+    expect(result.ok && result.value.status === "ready" && result.value.unreadCount).toBe(41)
     const [url, init] = fetcher.mock.calls[0] ?? []
-    expect(String(url)).toBe(
-      "https://preview.findmydoc.eu/api/patientClinicInquiries?depth=1&limit=100&sort=-createdAt",
+    expect(String(url)).toContain(
+      "/api/clinic-dashboard/inquiries?lifecycle=all&limit=25&unreadOnly=true&cursor=opaque-1&knownChangeCursor=queue-change-marker-1&handlingStatus=submitted%2Cin_review&query=assessment",
     )
-    expect(init).toMatchObject({
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        Authorization: "Bearer access-token",
+    expect(new URL(String(url)).searchParams.has("clinicId")).toBe(false)
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer verified-token" })
+  })
+
+  it("opts every inquiry upstream request into the communication contract", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ error: { code: "INQUIRY_SERVICE_UNAVAILABLE" } }, 503),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+
+    await Promise.all([
+      provider.addInternalNote({
+        idempotencyKey: "note-action-0001",
+        inquiryId: "inquiry-1",
+        text: "Synthetic note",
+      }),
+      provider.changeReadPosition({ inquiryId: "inquiry-1", mode: "read" }),
+      provider.changeState({ action: "close", expectedRevision: 1, inquiryId: "inquiry-1" }),
+      provider.createAttachmentDraft({
+        fileName: "scan.pdf",
+        inquiryId: "inquiry-1",
+        mimeType: "application/pdf",
+        sizeBytes: 3,
+      }),
+      provider.discardAttachmentDraft({ draftId: "draft-1", inquiryId: "inquiry-1" }),
+      provider.downloadAttachment({ attachmentId: "attachment-1" }),
+      provider.finalizeAttachmentDraft({ draftId: "draft-1", inquiryId: "inquiry-1" }),
+      provider.loadDetail({ inquiryId: "inquiry-1" }),
+      provider.loadQueue({ lifecycle: "open", unreadOnly: false }),
+      provider.previewAttachment({ attachmentId: "attachment-1" }),
+      provider.revealContact({ inquiryId: "inquiry-1" }),
+      provider.sendExternalMessage({
+        expectedRevision: 1,
+        idempotencyKey: "message-action-0001",
+        inquiryId: "inquiry-1",
+        text: "Synthetic reply",
+      }),
+    ])
+
+    expect(fetcher).toHaveBeenCalledTimes(12)
+    for (const [url, init] of fetcher.mock.calls) {
+      expect(new URL(String(url)).pathname).toMatch(/^\/api\/clinic-dashboard\/inquiries(?:\/|$)/u)
+      const headers = new Headers(init?.headers)
+      expect(headers.get("authorization")).toBe("Bearer verified-token")
+      expect(headers.get("x-findmydoc-clinic-dashboard-contract")).toBe("inquiry-communication-v2")
+    }
+  })
+
+  it("maps system actors and attachment-only messages without transport paths", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ changeCursor: "change-7", inquiry: upstreamDetail(), unchanged: false }),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+    const result = await provider.loadDetail({ inquiryId: "inquiry-1" })
+    if (!result.ok) throw new Error("Expected inquiry detail")
+
+    expect(result.value.inquiry.timeline[0]).toMatchObject({
+      actorName: "Sarah Schmidt",
+      kind: "system-event",
+    })
+    expect(result.value.inquiry.timeline[1]).toMatchObject({
+      attachment: {
+        id: "attachment-1",
+        name: "assessment.pdf",
       },
-      redirect: "error",
+      body: "",
+      kind: "external-message",
+    })
+    const attachmentItem = result.value.inquiry.timeline[1]
+    if (attachmentItem?.kind !== "external-message") throw new Error("Expected attachment message")
+    expect(attachmentItem.attachment).not.toHaveProperty("downloadPath")
+    expect(attachmentItem.attachment).not.toHaveProperty("previewPath")
+  })
+
+  it.each([
+    ["moderation-restricted", "findmydoc restricted communication."],
+    ["moderation-restored", "findmydoc restored communication."],
+    ["legacy-closed-migrated", "Legacy closed inquiry migrated."],
+  ] as const)("maps the v2 %s system event", async (event, body) => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        changeCursor: "change-8",
+        inquiry: upstreamDetail({
+          timeline: [
+            {
+              actor: { displayName: "findmydoc", isCurrentActor: false, kind: "system" },
+              createdAt: "2026-08-24T09:02:00.000Z",
+              event,
+              id: `event-${event}`,
+              kind: "system-event",
+            },
+          ],
+        }),
+        unchanged: false,
+      }),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+
+    const result = await provider.loadDetail({ inquiryId: "inquiry-1" })
+
+    expect(result.ok && result.value.inquiry.timeline[0]).toMatchObject({ body, kind: "system-event" })
+  })
+
+  it("preserves v2 moderation states for restricted messages and attachments", async () => {
+    const moderation = {
+      appeal: { caseId: "case-1", state: "available" },
+      category: "privacy-concern",
+      isCurrentActorAffected: true,
+    }
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        changeCursor: "change-9",
+        inquiry: upstreamDetail({
+          timeline: [
+            {
+              actor: { displayName: "Lukas Weber", isCurrentActor: false, kind: "patient" },
+              attachmentModeration: moderation,
+              attachmentState: "restricted",
+              contentState: "restricted",
+              createdAt: "2026-08-24T09:03:00.000Z",
+              id: "message-2",
+              kind: "external-message",
+              moderation,
+            },
+          ],
+        }),
+        unchanged: false,
+      }),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+
+    const result = await provider.loadDetail({ inquiryId: "inquiry-1" })
+
+    expect(result.ok && result.value.inquiry.timeline[0]).toMatchObject({
+      attachmentModeration: moderation,
+      attachmentState: "restricted",
+      body: "",
+      contentState: "restricted",
+      kind: "external-message",
+      moderation,
     })
   })
 
-  it("hides the current-state read and status write behind changeStatus", async () => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          doc: {
-            ...upstreamInquiry,
-            status: "in_review",
-            updatedAt: "2026-07-26T09:08:00.000Z",
+  it("projects deleted identities and package tombstones without restoring names or content", async () => {
+    const deleted = upstreamDetail({
+      actions: {
+        canAddInternalNote: false,
+        canChangeHandlingStatus: false,
+        canChangeLifecycle: false,
+        canMarkRead: false,
+        canMarkUnread: false,
+        canReply: false,
+        canRevealContact: false,
+        canView: true,
+      },
+      binding: { canReply: false, conversationId: "conversation-deleted", kind: "deleted-patient" },
+      contact: { mode: "unavailable" },
+      originalRequest: { contentState: "hard-deleted" },
+      patientName: "Deleted patient",
+      preview: "Message deleted",
+      timeline: [
+        {
+          actor: { displayName: "", isCurrentActor: false, kind: "patient" },
+          contentState: "hard-deleted",
+          createdAt: "2026-08-24T09:03:00.000Z",
+          id: "message-deleted",
+          kind: "external-message",
+        },
+        {
+          actor: { displayName: "", isCurrentActor: false, kind: "clinic" },
+          contentState: "hard-deleted",
+          createdAt: "2026-08-24T09:04:00.000Z",
+          id: "note-deleted",
+          kind: "internal-note",
+        },
+      ],
+    })
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ changeCursor: "change-deleted", inquiry: deleted, unchanged: false }),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+
+    const result = await provider.loadDetail({ inquiryId: "inquiry-1" })
+
+    expect(result.ok && result.value.inquiry).toMatchObject({
+      contact: { state: "unavailable" },
+      conversation: { id: "conversation-deleted", kind: "deleted-patient" },
+      originalRequestContentState: "hard-deleted",
+      patient: { kind: "deleted", name: "Deleted patient" },
+    })
+    expect(result.ok && result.value.inquiry).not.toHaveProperty("originalRequest")
+    expect(result.ok && result.value.inquiry.timeline).toEqual([
+      expect.objectContaining({ body: "", contentState: "hard-deleted", kind: "external-message" }),
+      expect.objectContaining({ contentState: "hard-deleted", kind: "internal-note" }),
+    ])
+    expect(JSON.stringify(result)).not.toContain("Lukas Weber")
+    expect(JSON.stringify(result)).not.toContain("patient@example.test")
+  })
+
+  it("forwards the known detail change cursor without clinic or actor query fields", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ changeCursor: "change-7", inquiry: upstreamDetail(), unchanged: true }),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+
+    await provider.loadDetail({ inquiryId: "inquiry-1", knownChangeCursor: "detail.change~6" })
+
+    const endpoint = new URL(String(fetcher.mock.calls[0]?.[0]))
+    expect(endpoint.searchParams.get("knownChangeCursor")).toBe("detail.change~6")
+    expect(endpoint.searchParams.has("clinicId")).toBe(false)
+    expect(endpoint.searchParams.has("actorId")).toBe(false)
+  })
+
+  it("forwards state changes without actor, clinic or idempotency fields", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ inquiry: upstreamDetail({ handlingStatus: "in_review", revision: 8 }) }),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+    await provider.changeState({
+      action: "set-handling-status",
+      expectedRevision: 7,
+      handlingStatus: "in_review",
+      inquiryId: "inquiry-1",
+    })
+
+    const body = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
+    expect(body).toEqual({
+      action: "set-handling-status",
+      expectedRevision: 7,
+      handlingStatus: "in_review",
+      inquiryId: "inquiry-1",
+    })
+    expect(body).not.toHaveProperty("clinicId")
+    expect(body).not.toHaveProperty("actorId")
+    expect(body).not.toHaveProperty("idempotencyKey")
+  })
+
+  it("forwards internal notes without a root revision", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ inquiry: upstreamDetail() }))
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+    await provider.addInternalNote({
+      idempotencyKey: "note-action-0001",
+      inquiryId: "inquiry-1",
+      text: "  Preserve this plain text exactly.  ",
+    })
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      idempotencyKey: "note-action-0001",
+      inquiryId: "inquiry-1",
+      text: "  Preserve this plain text exactly.  ",
+    })
+  })
+
+  it("normalizes AbortError to a service timeout", async () => {
+    const error = Object.assign(new Error("aborted"), { name: "AbortError" })
+    const fetcher = vi.fn<typeof fetch>(async () => Promise.reject(error))
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+
+    await expect(provider.loadDetail({ inquiryId: "inquiry-1" })).resolves.toEqual({
+      error: { code: "service-timeout" },
+      ok: false,
+    })
+  })
+
+  it("contains malformed upstream projections in the safe error union", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        changeCursor: "change-7",
+        items: [upstreamDetail({ lastActivityAt: "not-a-timestamp" })],
+      }),
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+
+    await expect(provider.loadQueue({ lifecycle: "open", unreadOnly: false })).resolves.toEqual({
+      error: { code: "service-unavailable" },
+      ok: false,
+    })
+  })
+
+  it("proxies only bounded private attachment bytes and ignores malicious upstream disposition", async () => {
+    const fetcher = vi.fn<typeof fetch>(
+      async () =>
+        new Response(new Uint8Array([1, 2, 3]), {
+          headers: {
+            "cache-control": "private, no-store",
+            "content-disposition": 'attachment; filename="../../evil.pdf"',
+            "content-length": "3",
+            "content-type": "application/pdf",
+            location: "https://evil.example",
           },
         }),
-      )
-    const provider = createPayloadPatientInquiryProvider("access-token", fetcher)
+    )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+    const result = await provider.downloadAttachment({ attachmentId: "attachment-1" })
 
-    const result = await provider.changeStatus({
-      inquiryId: "inquiry-1",
-      status: "in_review",
-    })
+    expect(result.ok && result.value.contentType).toBe("application/pdf")
+    expect(result.ok && [...new Uint8Array(result.value.body)]).toEqual([1, 2, 3])
+    expect(result.ok && result.value).not.toHaveProperty("location")
+  })
 
-    expect(result).toMatchObject({
-      ok: true,
-      value: {
-        changedAt: "11:08",
-        inquiry: {
-          availableTransitions: ["contacted", "closed", "spam"],
-          status: "in_review",
+  it("rejects executable or publicly cacheable attachment responses", async () => {
+    for (const headers of [
+      { "cache-control": "private, no-store", "content-type": "text/html" },
+      { "cache-control": "public, max-age=3600", "content-type": "application/pdf" },
+    ]) {
+      const fetcher = vi.fn<typeof fetch>(async () => new Response("unsafe", { headers }))
+      const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
+      await expect(provider.previewAttachment({ attachmentId: "attachment-1" })).resolves.toEqual({
+        error: { code: "service-unavailable" },
+        ok: false,
+      })
+    }
+  })
+
+  it("rejects hostile upload headers before they reach the browser", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        draftId: "draft-1",
+        expiresAt: "2026-08-25T00:00:00.000Z",
+        upload: {
+          headers: {
+            authorization: "Bearer attacker-controlled",
+            "content-type": "application/pdf",
+          },
+          method: "PUT",
+          url: "https://uploads.example.test/draft-1",
         },
-      },
-    })
-    expect(fetcher).toHaveBeenCalledTimes(2)
-    const [currentUrl, currentInit] = fetcher.mock.calls[0] ?? []
-    const [updateUrl, updateInit] = fetcher.mock.calls[1] ?? []
-    const expectedUrl = "https://preview.findmydoc.eu/api/patientClinicInquiries/inquiry-1"
-
-    expect(String(currentUrl)).toBe(expectedUrl)
-    expect(currentInit).toMatchObject({
-      cache: "no-store",
-      redirect: "error",
-    })
-    expect(currentInit?.body).toBeUndefined()
-    expect(currentInit?.headers).toEqual({
-      Accept: "application/json",
-      Authorization: "Bearer access-token",
-    })
-    expect(currentInit?.method).toBeUndefined()
-
-    expect(String(updateUrl)).toBe(expectedUrl)
-    expect(updateInit).toMatchObject({
-      body: '{"status":"in_review"}',
-      cache: "no-store",
-      method: "PATCH",
-      redirect: "error",
-    })
-    expect(updateInit?.headers).toEqual({
-      Accept: "application/json",
-      Authorization: "Bearer access-token",
-      "Content-Type": "application/json",
-    })
-  })
-
-  it.each([
-    [401, "unauthorized"],
-    [403, "forbidden"],
-    [500, "temporarily-unavailable"],
-  ] as const)("maps a queue HTTP %i response to %s", async (status, error) => {
-    const provider = createPayloadPatientInquiryProvider(
-      "access-token",
-      vi.fn(async () => jsonResponse({ error: "rejected" }, status)) as typeof fetch,
+      }),
     )
+    const provider = createPayloadPatientInquiryProvider("verified-token", "verified-clinic", fetcher)
 
-    await expect(provider.loadQueue()).resolves.toEqual({ error, ok: false })
-  })
-
-  it.each([
-    [401, "unauthorized"],
-    [403, "forbidden"],
-    [404, "not-found"],
-    [409, "conflict"],
-    [500, "temporarily-unavailable"],
-  ] as const)("maps a current-inquiry HTTP %i response to %s", async (status, error) => {
-    const provider = createPayloadPatientInquiryProvider(
-      "access-token",
-      vi.fn(async () => jsonResponse({ error: "rejected" }, status)) as typeof fetch,
-    )
-
-    await expect(provider.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
-      error,
-      ok: false,
-    })
-  })
-
-  it.each([
-    [400, "conflict"],
-    [401, "unauthorized"],
-    [403, "forbidden"],
-    [404, "not-found"],
-    [409, "conflict"],
-    [422, "conflict"],
-    [500, "temporarily-unavailable"],
-  ] as const)("maps a status-write HTTP %i response to %s", async (status, error) => {
-    const provider = createPayloadPatientInquiryProvider(
-      "access-token",
-      vi
-        .fn<typeof fetch>()
-        .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
-        .mockResolvedValueOnce(jsonResponse({ error: "rejected" }, status)),
-    )
-
-    await expect(provider.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
-      error,
-      ok: false,
-    })
-  })
-
-  it("maps malformed queue data and queue network failures without throwing", async () => {
-    const malformed = createPayloadPatientInquiryProvider(
-      "access-token",
-      vi.fn(async () => jsonResponse({ docs: [{ id: "inquiry-1" }] })) as typeof fetch,
-    )
-    await expect(malformed.loadQueue()).resolves.toEqual({
-      error: "temporarily-unavailable",
-      ok: false,
-    })
-
-    const unavailable = createPayloadPatientInquiryProvider(
-      "access-token",
-      vi.fn(async () => {
-        throw new Error("network unavailable")
-      }) as typeof fetch,
-    )
-    await expect(unavailable.loadQueue()).resolves.toEqual({
-      error: "temporarily-unavailable",
-      ok: false,
-    })
-  })
-
-  it("maps malformed status-write data and status-write network failures without throwing", async () => {
-    const malformed = createPayloadPatientInquiryProvider(
-      "access-token",
-      vi
-        .fn<typeof fetch>()
-        .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
-        .mockResolvedValueOnce(jsonResponse({ doc: { id: "inquiry-1" } })),
-    )
-    await expect(malformed.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
-      error: "temporarily-unavailable",
-      ok: false,
-    })
-
-    const unavailable = createPayloadPatientInquiryProvider(
-      "access-token",
-      vi
-        .fn<typeof fetch>()
-        .mockResolvedValueOnce(jsonResponse(upstreamInquiry))
-        .mockRejectedValueOnce(new Error("network unavailable")),
-    )
-    await expect(unavailable.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
-      error: "temporarily-unavailable",
-      ok: false,
-    })
-  })
-
-  it.each([
-    ["current inquiry ID", { currentId: "inquiry-2", updatedId: undefined, updatedStatus: undefined }],
-    ["updated inquiry ID", { currentId: undefined, updatedId: "inquiry-2", updatedStatus: undefined }],
-    ["updated inquiry status", { currentId: undefined, updatedId: undefined, updatedStatus: "contacted" }],
-  ] as const)("fails closed when Payload returns a mismatched %s", async (_case, mismatch) => {
-    const currentInquiry = {
-      ...upstreamInquiry,
-      id: mismatch.currentId ?? upstreamInquiry.id,
-    }
-    const updatedInquiry = {
-      ...upstreamInquiry,
-      id: mismatch.updatedId ?? upstreamInquiry.id,
-      status: mismatch.updatedStatus ?? "in_review",
-      updatedAt: "2026-07-26T09:08:00.000Z",
-    }
-    const provider = createPayloadPatientInquiryProvider(
-      "access-token",
-      vi
-        .fn<typeof fetch>()
-        .mockResolvedValueOnce(jsonResponse(currentInquiry))
-        .mockResolvedValueOnce(jsonResponse({ doc: updatedInquiry })),
-    )
-
-    await expect(provider.changeStatus({ inquiryId: "inquiry-1", status: "in_review" })).resolves.toEqual({
-      error: "temporarily-unavailable",
-      ok: false,
-    })
+    await expect(
+      provider.createAttachmentDraft({
+        fileName: "scan.pdf",
+        inquiryId: "inquiry-1",
+        mimeType: "application/pdf",
+        sizeBytes: 3,
+      }),
+    ).resolves.toEqual({ error: { code: "service-unavailable" }, ok: false })
   })
 })

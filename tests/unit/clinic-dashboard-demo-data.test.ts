@@ -210,41 +210,9 @@ describe("clinic dashboard demo workspace input", () => {
 
     for (const location of input.locations) {
       const snapshot = input.locationSnapshots[location.id]
-      expect(snapshot.messages.conversations).toHaveLength(3)
-      expect(snapshot.messages.messages).toHaveLength(3)
-      expect(new Set(snapshot.messages.conversations.map(({ id }) => id)).size).toBe(
-        snapshot.messages.conversations.length,
-      )
-      expect(new Set(snapshot.messages.messages.map(({ id }) => id)).size).toBe(
-        snapshot.messages.messages.length,
-      )
-      const activeConversations = snapshot.messages.conversations.filter(
-        ({ id }) => id === snapshot.messages.activeConversationId,
-      )
-      expect(activeConversations).toHaveLength(1)
-      const activeConversation = activeConversations[0]
-      expect(activeConversation?.name).toBe(snapshot.patientInquiry.name)
-      expect(activeConversation?.treatment?.name).toBe(snapshot.patientInquiry.interest)
-      expect(snapshot.patientInquiry.email).toMatch(/@example\.com$/u)
-      expect(snapshot.patientInquiry.phone).toMatch(/000/u)
-      expect(snapshot.patientInquiry).not.toHaveProperty("age")
-      expect(snapshot.patientInquiry).not.toHaveProperty("gender")
-      expect(snapshot.patientInquiry).not.toHaveProperty("lastVisit")
-      expect(snapshot.patientInquiry).not.toHaveProperty("medicalNotes")
-      expect(snapshot.patientInquiry).not.toHaveProperty("revision")
-      expect(snapshot.patientInquiry).not.toHaveProperty("status")
+      expect(snapshot).not.toHaveProperty("messages")
+      expect(snapshot).not.toHaveProperty("patientInquiry")
       expect(snapshot.clinicProfile.address.phone).toMatch(/000/u)
-      const doctorsById = new Map(snapshot.clinicProfile.team.map((doctor) => [doctor.id, doctor]))
-      for (const conversation of snapshot.messages.conversations) {
-        expect(doctorsById.get(conversation.doctor.id)).toMatchObject({
-          initials: conversation.doctor.initials,
-          name: conversation.doctor.name,
-          specialty: conversation.doctor.specialty,
-        })
-      }
-      expect(new Set(snapshot.messages.messages.map(({ sender }) => sender))).toEqual(
-        new Set(["doctor", "patient"]),
-      )
       expect(snapshot.reviews.items).toHaveLength(6)
       expect(snapshot.reviews.items.some(({ status }) => status === "Open")).toBe(true)
       expect(snapshot.reviews.items.some(({ status }) => status === "Answered")).toBe(true)

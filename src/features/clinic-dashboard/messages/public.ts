@@ -1,23 +1,18 @@
 export { InquiryQueue, type InquiryQueueProps } from "./InquiryQueueController"
-export type { MessageCommands } from "./model/message-commands"
-export type { InquiryStatusCommands } from "./model/inquiry-status-commands"
+export type { InquiryStatusCommands, InquiryWorkspaceCommands } from "./model/inquiry-status-commands"
 export {
-  getPatientInquiryStatusTransitions,
-  type InquiryQueueActions,
-  type InquiryQueueViewModel,
+  type InquiryAttachmentDraftState,
+  type InquiryComposerMode,
+  type InquiryPrimaryFilter,
+  type InquiryWorkspaceActions,
+  type InquiryWorkspaceViewModel,
+} from "./model/inquiry-workspace"
+export {
+  type InquiryAttachment,
+  type InquiryHandlingStatus,
+  type InquiryLifecycle,
+  type InquiryTimelineItem,
   type PatientInquiry,
+  type PatientInquiryDetail,
   type PatientInquiryQueueSnapshot,
-  type PatientInquiryStatus,
-  type PatientInquiryStatusEvent,
 } from "./model/inquiries"
-export type {
-  ClinicConversation,
-  ClinicMessage,
-  ConversationDoctor,
-  MessageAttachmentMetadata,
-  MessageFocusTarget,
-  MessagesSnapshot,
-  MessagesScreenActions,
-  MessagesViewModel,
-  PatientInquiryProfile,
-} from "./model/messages"

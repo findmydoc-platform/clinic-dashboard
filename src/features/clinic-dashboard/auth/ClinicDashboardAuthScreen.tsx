@@ -15,7 +15,11 @@ import {
   type ClinicDashboardAuthApiResult,
   type ClinicDashboardAuthEndpoint,
 } from "./browser/auth-api"
-import type { ClinicDashboardAuthErrorCode, ClinicDashboardEmailFlow } from "./model/auth"
+import type {
+  ClinicDashboardAuthErrorCode,
+  ClinicDashboardEmailFlow,
+  ClinicDashboardReturnTarget,
+} from "./model/auth"
 
 type AuthAction = (
   endpoint: ClinicDashboardAuthEndpoint,
@@ -32,7 +36,8 @@ type SharedBasicScreenProps = Readonly<{
   submitAction?: AuthAction
 }>
 
-type LoginScreenProps = SharedBasicScreenProps & Readonly<{ mode: "login" }>
+type LoginScreenProps = SharedBasicScreenProps &
+  Readonly<{ mode: "login"; returnTarget?: ClinicDashboardReturnTarget }>
 type ResetRequestScreenProps = SharedBasicScreenProps & Readonly<{ mode: "reset-request" }>
 
 type ConfirmScreenProps = Readonly<{
@@ -183,6 +188,7 @@ function LoginScreen({
   initialError,
   initialStatus,
   navigateAction = navigateBrowser,
+  returnTarget = "/",
   submitAction = submitClinicDashboardAuthAction,
 }: LoginScreenProps) {
   const [error, setError] = useState<ClinicDashboardAuthErrorCode | undefined>(initialError)
@@ -197,7 +203,7 @@ function LoginScreen({
     const form = new FormData(event.currentTarget)
     const result = await submitAction("/api/auth/login", {
       email: String(form.get("email") ?? ""),
-      next: "/",
+      next: returnTarget,
       password: String(form.get("password") ?? ""),
     })
     const redirect = getRedirectTarget(result)

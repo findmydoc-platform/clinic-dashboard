@@ -26,6 +26,14 @@ export const VisualReference: Story = {
   args: { prototypeMode: "visual-reference" },
 }
 
+export const InquiryDeepLinkOpensInquiries: Story = {
+  args: { focusInquiryId: "inquiry-lukas-weber" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Inquiries" })).toHaveAttribute("aria-current", "page")
+  },
+}
+
 export const ProfileProgressRetryRefreshesRoute: Story = {
   args: {
     workspaceInput: {

@@ -34,8 +34,21 @@ import {
 } from "./clinic-profile/server/public"
 import { createDashboardProfileProgress } from "./dashboard/server/public"
 import {
-  handlePatientInquiryStatusUpdate as handlePatientInquiryStatusUpdateWithProvider,
+  handleInquiryAttachmentDownload as handleInquiryAttachmentDownloadWithProvider,
+  handleInquiryAttachmentDraftCreate as handleInquiryAttachmentDraftCreateWithProvider,
+  handleInquiryAttachmentDraftDiscard as handleInquiryAttachmentDraftDiscardWithProvider,
+  handleInquiryAttachmentDraftFinalize as handleInquiryAttachmentDraftFinalizeWithProvider,
+  handleInquiryAttachmentDraftUpload as handleInquiryAttachmentDraftUploadWithProvider,
+  handleInquiryAttachmentPreview as handleInquiryAttachmentPreviewWithProvider,
+  handleInquiryContactReveal as handleInquiryContactRevealWithProvider,
+  handleInquiryDetailLoad as handleInquiryDetailLoadWithProvider,
+  handleInquiryMessageSend as handleInquiryMessageSendWithProvider,
+  handleInquiryNoteAdd as handleInquiryNoteAddWithProvider,
+  handleInquiryQueueLoad as handleInquiryQueueLoadWithProvider,
+  handleInquiryReadPositionChange as handleInquiryReadPositionChangeWithProvider,
+  handleInquiryStateChange as handleInquiryStateChangeWithProvider,
   type PatientInquiryProviderFactory,
+  type PatientInquiryAttachmentDraftUploadFactory,
 } from "./messages/server/public"
 import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-input"
 import { defaultReviewListFilters } from "./reviews/model/review-source"
@@ -51,6 +64,11 @@ export { getClinicDashboardAccess } from "./auth/server/public"
 
 const createPatientInquiryProvider: PatientInquiryProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).inquiries
+
+const createPatientInquiryAttachmentDraftUpload: PatientInquiryAttachmentDraftUploadFactory = (
+  accessToken,
+  clinicId,
+) => composeClinicDashboardDataProviders(accessToken, clinicId).inquiryAttachmentDraftUpload
 
 const createDoctorProfileProvider: DoctorProfileProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).doctors
@@ -155,8 +173,56 @@ export function handleDoctorImageReplace(request: NextRequest, doctorId: string)
   return handleDoctorImageReplaceWithProvider(request, doctorId, createDoctorProfileProvider)
 }
 
-export function handlePatientInquiryStatusUpdate(request: NextRequest, inquiryId: string) {
-  return handlePatientInquiryStatusUpdateWithProvider(request, inquiryId, createPatientInquiryProvider)
+export function handleInquiryQueueLoad(request: NextRequest) {
+  return handleInquiryQueueLoadWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryDetailLoad(request: NextRequest) {
+  return handleInquiryDetailLoadWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryMessageSend(request: NextRequest) {
+  return handleInquiryMessageSendWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryNoteAdd(request: NextRequest) {
+  return handleInquiryNoteAddWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryStateChange(request: NextRequest) {
+  return handleInquiryStateChangeWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryReadPositionChange(request: NextRequest) {
+  return handleInquiryReadPositionChangeWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryContactReveal(request: NextRequest) {
+  return handleInquiryContactRevealWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryAttachmentDraftCreate(request: NextRequest) {
+  return handleInquiryAttachmentDraftCreateWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryAttachmentDraftFinalize(request: NextRequest) {
+  return handleInquiryAttachmentDraftFinalizeWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryAttachmentDraftUpload(request: NextRequest) {
+  return handleInquiryAttachmentDraftUploadWithProvider(request, createPatientInquiryAttachmentDraftUpload)
+}
+
+export function handleInquiryAttachmentDraftDiscard(request: NextRequest) {
+  return handleInquiryAttachmentDraftDiscardWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryAttachmentDownload(request: NextRequest) {
+  return handleInquiryAttachmentDownloadWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryAttachmentPreview(request: NextRequest) {
+  return handleInquiryAttachmentPreviewWithProvider(request, createPatientInquiryProvider)
 }
 
 function createUnavailableProfileProgress() {
@@ -211,6 +277,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
   const canViewProfile = access.context.capabilities.includes("clinic-profile:view")
   const canViewGallery = access.context.capabilities.includes("clinic-gallery:view")
   const canViewTreatments = access.context.capabilities.includes("clinic-treatments:view")
+  const canViewInquiries = access.context.capabilities.includes("clinic-inquiries:view")
   const taskActionability = {
     canEditGallery: access.context.capabilities.includes("clinic-gallery:edit"),
     canEditProfile: access.context.capabilities.includes("clinic-profile:edit"),
@@ -220,7 +287,9 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
     await Promise.allSettled([
       providers.doctors.loadDirectory(),
       canViewGallery ? providers.gallery.loadGallery() : Promise.resolve(undefined),
-      providers.inquiries.loadQueue(),
+      canViewInquiries
+        ? providers.inquiries.loadQueue({ lifecycle: "open", unreadOnly: false })
+        : Promise.resolve(undefined),
       canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
       providers.reviews.loadReviews(defaultReviewListFilters, 1),
       canViewTreatments
@@ -275,7 +344,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
       : undefined,
     galleryStatus,
     inquiryQueue:
-      inquiryResult.status === "fulfilled" && inquiryResult.value.ok
+      inquiryResult.status === "fulfilled" && inquiryResult.value?.ok
         ? inquiryResult.value.value
         : { inquiries: [], status: "temporarily-unavailable" },
     profileProgress,

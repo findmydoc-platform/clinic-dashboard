@@ -150,6 +150,20 @@ export const SignOutFailure: Story = {
   },
 }
 
+export const SignOutCancelledByDraftGuard: Story = {
+  args: {
+    ...defaultArgs,
+    initialOpen: true,
+    onSignOut: fn(async () => ({ cancelled: true, ok: false })),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("menuitem", { name: "Sign out" }))
+    await expect(page.queryByRole("alert")).not.toBeInTheDocument()
+    await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeEnabled()
+  },
+}
+
 export const ProfileDialogDark: Story = {
   args: defaultArgs,
   globals: { theme: "dark" },

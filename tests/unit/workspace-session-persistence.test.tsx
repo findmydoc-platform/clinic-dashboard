@@ -162,7 +162,7 @@ describe("workspace session persistence", () => {
     expect(result.current.model.profileTaskOpen).toBe(false)
     expect(result.current.model.profileFocusTarget).toBeUndefined()
     expect(result.current.model.supportOpen).toBe(false)
-    expect(result.current.model.locationAnnouncement).toBe("Opened messages at Mitte.")
+    expect(result.current.model.locationAnnouncement).toBe("Opened inquiries at Mitte.")
   })
 
   it("requests heading focus for direct review navigation", () => {

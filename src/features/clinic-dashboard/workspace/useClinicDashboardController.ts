@@ -177,7 +177,7 @@ export function useClinicDashboardController({
         setMessageFocusTarget("heading")
         setReviewFocusTarget(undefined)
         setActiveSection("messages")
-        setLocationAnnouncement(`Opened messages at ${locationName}.`)
+        setLocationAnnouncement(`Opened inquiries at ${locationName}.`)
         return
       }
 

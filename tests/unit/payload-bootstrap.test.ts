@@ -18,7 +18,7 @@ function jsonResponse(body: unknown, status = 200, headers: Record<string, strin
     headers: {
       "cache-control": "private, no-store",
       "content-type": "application/json",
-      vary: "Authorization",
+      vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
       ...headers,
     },
     status,
@@ -37,7 +37,7 @@ describe("Payload clinic bootstrap", () => {
 
   afterEach(() => vi.unstubAllEnvs())
 
-  it("sends only the bearer token to the configured HTTPS bootstrap endpoint", async () => {
+  it("opts into the inquiry contract at the configured HTTPS bootstrap endpoint", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(bootstrap))
     await expect(fetchClinicDashboardBootstrap("access-token", fetcher)).resolves.toEqual({
       context: bootstrap,
@@ -48,7 +48,11 @@ describe("Payload clinic bootstrap", () => {
     expect(String(url)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/bootstrap")
     expect(init).toMatchObject({
       cache: "no-store",
-      headers: { Accept: "application/json", Authorization: "Bearer access-token" },
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer access-token",
+        "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+      },
       redirect: "error",
     })
   })
@@ -119,6 +123,12 @@ describe("Payload clinic bootstrap", () => {
       fetchClinicDashboardBootstrap(
         "token",
         vi.fn(async () => jsonResponse(bootstrap, 200, { "cache-control": "public" })) as typeof fetch,
+      ),
+    ).resolves.toEqual({ status: "temporarily-unavailable" })
+    await expect(
+      fetchClinicDashboardBootstrap(
+        "token",
+        vi.fn(async () => jsonResponse(bootstrap, 200, { vary: "Authorization" })) as typeof fetch,
       ),
     ).resolves.toEqual({ status: "temporarily-unavailable" })
     await expect(

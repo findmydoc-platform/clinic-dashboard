@@ -118,6 +118,13 @@ export function validateMutationRequest(request: NextRequest) {
   return getValidatedMutationOrigin(request) !== undefined
 }
 
+export function validateMutationRequestContentType(request: NextRequest, contentType: string) {
+  return (
+    request.headers.get("content-type")?.toLowerCase() === contentType.toLowerCase() &&
+    getValidatedMutationOriginForContentType(request, contentType.toLowerCase()) !== undefined
+  )
+}
+
 export function validateMultipartMutationRequest(request: NextRequest) {
   return getValidatedMutationOriginForContentType(request, "multipart/form-data") !== undefined
 }

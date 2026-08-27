@@ -57,6 +57,27 @@ export const LoginSuccess: Story = {
   },
 }
 
+export const LoginReturnsToInquiry: Story = {
+  args: {
+    mode: "login",
+    navigateAction: fn(),
+    returnTarget: "/?inquiry=inquiry-lukas-weber",
+    submitAction: successfulRedirect("/?inquiry=inquiry-lukas-weber"),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByRole("textbox", { name: "Email address" }), "staff@example.com")
+    await userEvent.type(canvas.getByLabelText("Password"), "password123")
+    await userEvent.click(canvas.getByRole("button", { name: "Sign in" }))
+    await expect(args.submitAction).toHaveBeenCalledWith("/api/auth/login", {
+      email: "staff@example.com",
+      next: "/?inquiry=inquiry-lukas-weber",
+      password: "password123",
+    })
+    await expect(args.navigateAction).toHaveBeenCalledWith("/?inquiry=inquiry-lukas-weber")
+  },
+}
+
 export const InviteCompletedLogin: Story = {
   args: {
     initialStatus: "invite-complete",

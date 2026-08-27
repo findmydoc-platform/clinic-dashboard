@@ -22,6 +22,7 @@ type ClinicDashboardShellProps = Readonly<{
     mobile: ReactNode
   }>
   items: readonly ClinicDashboardNavigationItem[]
+  inquiryUnreadCount?: number
   notificationCenter?: ReactNode
   onSectionSelect: (section: ClinicDashboardSection) => void
   onSupportRequest?: () => void
@@ -59,6 +60,7 @@ export function ClinicDashboardShell({
   headerActions,
   interfaceModeControls,
   items,
+  inquiryUnreadCount = 0,
   notificationCenter,
   onSectionSelect,
   onSupportRequest,
@@ -105,6 +107,7 @@ export function ClinicDashboardShell({
         </div>
         <ClinicDashboardNavigation
           activeSection={activeSection}
+          inquiryUnreadCount={inquiryUnreadCount}
           items={items}
           onSectionSelect={onSectionSelect}
         />
@@ -134,6 +137,7 @@ export function ClinicDashboardShell({
         <WorkspaceBrand badge={environmentBadge} className="mb-7" />
         <ClinicDashboardNavigation
           activeSection={activeSection}
+          inquiryUnreadCount={inquiryUnreadCount}
           items={items}
           onSectionSelect={selectSection}
         />
@@ -181,7 +185,12 @@ export function ClinicDashboardShell({
           </div>
         ) : null}
         <main
-          className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:px-8 lg:py-7"
+          className={cn(
+            "min-w-0",
+            activeSection === "messages"
+              ? "max-w-none p-0"
+              : "mx-auto max-w-[1440px] p-4 sm:p-6 lg:px-8 lg:py-7",
+          )}
           id="clinic-dashboard-main"
           tabIndex={-1}
         >

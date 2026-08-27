@@ -16,6 +16,7 @@ import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
 
 export type ClinicDashboardWorkspaceProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
+  focusInquiryId?: string
   persistNotificationReadStateInSession?: boolean
   prototypeMode: ClinicDashboardPrototypeMode
   showPrototypeModeToggle?: boolean
@@ -24,6 +25,7 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
 
 export function ClinicDashboardWorkspace({
   authenticatedContext,
+  focusInquiryId,
   persistNotificationReadStateInSession = false,
   prototypeMode,
   showPrototypeModeToggle = false,
@@ -45,6 +47,7 @@ export function ClinicDashboardWorkspace({
       clinicProfileSourceCommands={clinicProfileSourceCommands}
       clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
+      focusInquiryId={focusInquiryId}
       isSourceRefreshPending={isSourceRefreshPending}
       onSourceRefresh={refreshSources}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}

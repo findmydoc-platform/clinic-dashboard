@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { clinicProfileSourceFixture } from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile-source.fixtures"
+import { createInquirySnapshot } from "../support/inquiries"
 
 const serverMocks = vi.hoisted(() => ({
   composeDataProviders: vi.fn(),
@@ -8,26 +9,22 @@ const serverMocks = vi.hoisted(() => ({
   loadDirectory: vi.fn(),
   loadGallery: vi.fn(),
   loadProfile: vi.fn(),
-  loadTreatments: vi.fn(),
-  loadWorkspace: vi.fn(),
   loadQueue: vi.fn(),
   loadReviews: vi.fn(),
+  loadTreatments: vi.fn(),
+  loadWorkspace: vi.fn(),
 }))
 
 vi.mock("@/features/clinic-dashboard/data-provider-composition", () => ({
   composeClinicDashboardDataProviders: serverMocks.composeDataProviders,
 }))
 vi.mock("@/features/clinic-dashboard/demo/loader", () => ({
-  clinicDashboardDemoWorkspaceProvider: {
-    loadWorkspace: serverMocks.loadWorkspace,
-  },
+  clinicDashboardDemoWorkspaceProvider: { loadWorkspace: serverMocks.loadWorkspace },
 }))
 vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
   getClinicDashboardAccess: serverMocks.getClinicDashboardAccess,
   getClinicDashboardAccessToken: serverMocks.getClinicDashboardAccessToken,
-}))
-vi.mock("@/features/clinic-dashboard/messages/server/public", () => ({
-  handlePatientInquiryStatusUpdate: vi.fn(),
+  resolveClinicDashboardRouteAccess: vi.fn(),
 }))
 vi.mock("@/features/clinic-dashboard/clinic-profile/server/clinic-gallery-dto", () => ({
   toDashboardClinicGallerySnapshot: vi.fn((snapshot) => snapshot),
@@ -36,14 +33,17 @@ vi.mock("@/features/clinic-dashboard/clinic-profile/server/clinic-gallery-dto", 
 import { loadClinicDashboardWorkspaceInput } from "@/features/clinic-dashboard/server"
 
 const workspace = {
-  account: { initials: "LW", name: "Lukas Weber", role: "Clinic administrator" },
+  account: { initials: "SS", name: "Sarah Schmidt", role: "Clinic administrator" },
   defaultLocationId: "location-1",
-  doctorDirectory: {
-    doctors: [],
-    medicalSpecialties: [],
-    status: "temporarily-unavailable",
+  doctorDirectory: { doctors: [], medicalSpecialties: [], status: "temporarily-unavailable" },
+  galleryStatus: "temporarily-unavailable",
+  inquiryQueue: {
+    changeCursor: "fixture",
+    inquiries: [],
+    status: "ready",
+    unchanged: false,
+    unreadCount: 0,
   },
-  inquiryQueue: { inquiries: [], status: "ready" },
   locationSnapshots: {},
   locations: [],
   notifications: [],
@@ -96,14 +96,16 @@ function arrangeReadyProfileProgressSources() {
   serverMocks.loadTreatments.mockResolvedValue({ ok: true, value: treatmentSnapshot })
 }
 
-describe("Patient inquiry queue server loading", () => {
+describe("patient inquiry queue server loading", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     serverMocks.loadWorkspace.mockResolvedValue(workspace)
+    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("verified-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
         capabilities: [
           "clinic-gallery:view",
+          "clinic-inquiries:view",
           "clinic-profile:view",
           "clinic-profile:edit",
           "clinic-treatments:view",
@@ -113,51 +115,27 @@ describe("Patient inquiry queue server loading", () => {
       },
       status: "approved",
     })
-    serverMocks.loadDirectory.mockResolvedValue({
-      error: "temporarily-unavailable",
-      ok: false,
-    })
-    serverMocks.loadProfile.mockResolvedValue({
-      error: "temporarily-unavailable",
-      ok: false,
-    })
+    serverMocks.loadDirectory.mockResolvedValue({ error: "temporarily-unavailable", ok: false })
     serverMocks.loadGallery.mockResolvedValue({ error: "unavailable", ok: false })
-    serverMocks.loadReviews.mockResolvedValue({
-      error: "unavailable",
-      ok: false,
-    })
+    serverMocks.loadProfile.mockResolvedValue({ error: "temporarily-unavailable", ok: false })
+    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: createInquirySnapshot() })
+    serverMocks.loadReviews.mockResolvedValue({ error: "unavailable", ok: false })
     serverMocks.loadTreatments.mockResolvedValue({
       ok: true,
       value: { catalogue: [], offerings: [], status: "ready" },
     })
     serverMocks.composeDataProviders.mockReturnValue({
-      doctors: {
-        loadDirectory: serverMocks.loadDirectory,
-      },
-      inquiries: {
-        changeStatus: vi.fn(),
-        loadQueue: serverMocks.loadQueue,
-      },
-      gallery: {
-        loadGallery: serverMocks.loadGallery,
-      },
-      profile: {
-        loadSnapshot: serverMocks.loadProfile,
-      },
-      reviews: {
-        loadReviews: serverMocks.loadReviews,
-      },
-      treatments: {
-        createTreatment: vi.fn(),
-        loadTreatments: serverMocks.loadTreatments,
-        updateTreatment: vi.fn(),
-      },
+      doctors: { loadDirectory: serverMocks.loadDirectory },
+      gallery: { loadGallery: serverMocks.loadGallery },
+      inquiries: { loadQueue: serverMocks.loadQueue },
+      profile: { loadSnapshot: serverMocks.loadProfile },
+      reviews: { loadReviews: serverMocks.loadReviews },
+      treatments: { loadTreatments: serverMocks.loadTreatments },
     })
   })
 
-  it("fails closed when no verified clinic access token is available", async () => {
+  it("fails closed without a verified access token", async () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue(undefined)
-
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
       profileProgress: {
@@ -168,50 +146,28 @@ describe("Patient inquiry queue server loading", () => {
     expect(serverMocks.composeDataProviders).not.toHaveBeenCalled()
   })
 
-  it("fails closed when the Payload queue request is unavailable", async () => {
-    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
-    serverMocks.loadQueue.mockResolvedValue({
-      error: "temporarily-unavailable",
-      ok: false,
+  it("loads only the first open page for an authorized workspace", async () => {
+    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+      inquiryQueue: { changeCursor: "queue-change-1", status: "ready", unreadCount: 1 },
     })
+    expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("verified-token", "clinic-1")
+    expect(serverMocks.loadQueue).toHaveBeenCalledWith({ lifecycle: "open", unreadOnly: false })
+  })
 
+  it("does not load inquiries without the view capability", async () => {
+    serverMocks.getClinicDashboardAccess.mockResolvedValue({
+      context: { capabilities: [], clinic: { id: "clinic-1", name: "Clinic One" } },
+      status: "approved",
+    })
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
     })
-  })
-
-  it("projects the verified Payload queue into the workspace", async () => {
-    const inquiryQueue = {
-      inquiries: [
-        {
-          availableTransitions: ["in_review", "contacted", "closed", "spam"],
-          contactWindow: "Afternoon",
-          createdAt: "2026-07-26T08:54:00.000Z",
-          dateLabel: "26 July 2026",
-          email: "l.weber@example.com",
-          id: "inquiry-1",
-          interest: "Hair transplant",
-          message: "I would like to know which documents to prepare.",
-          name: "Lukas Weber",
-          phone: "+49 000 0000001",
-          status: "submitted",
-          timeLabel: "10:54",
-          treatmentTimeline: "Within one month",
-        },
-      ],
-      status: "ready",
-    } as const
-    serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
-    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: inquiryQueue })
-
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({ inquiryQueue })
-    expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("access-token", "clinic-1")
-    expect(serverMocks.loadQueue).toHaveBeenCalledOnce()
+    expect(serverMocks.loadQueue).not.toHaveBeenCalled()
   })
 
   it("evaluates one tenant-bound profile progress snapshot from the three successful source reads", async () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
-    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: { inquiries: [], status: "ready" } })
+    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: createInquirySnapshot([]) })
     arrangeReadyProfileProgressSources()
 
     await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
@@ -243,7 +199,7 @@ describe("Patient inquiry queue server loading", () => {
       },
       status: "approved",
     })
-    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: { inquiries: [], status: "ready" } })
+    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: createInquirySnapshot([]) })
     serverMocks.loadProfile.mockResolvedValue({
       ok: true,
       value: {
@@ -293,7 +249,7 @@ describe("Patient inquiry queue server loading", () => {
       },
       status: "approved",
     })
-    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: { inquiries: [], status: "ready" } })
+    serverMocks.loadQueue.mockResolvedValue({ ok: true, value: createInquirySnapshot([]) })
     serverMocks.loadProfile.mockResolvedValue({
       ok: true,
       value: {
@@ -329,7 +285,7 @@ describe("Patient inquiry queue server loading", () => {
     "returns one atomic error without partial progress when the %s source fails",
     async (source, expectedReason) => {
       serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
-      serverMocks.loadQueue.mockResolvedValue({ ok: true, value: { inquiries: [], status: "ready" } })
+      serverMocks.loadQueue.mockResolvedValue({ ok: true, value: createInquirySnapshot([]) })
       arrangeReadyProfileProgressSources()
       const failingRead = {
         gallery: serverMocks.loadGallery,
@@ -347,7 +303,7 @@ describe("Patient inquiry queue server loading", () => {
       })
       expect(input.profileProgress).not.toHaveProperty("areas")
       expect(input.profileProgress).not.toHaveProperty("tasks")
-      expect(input.inquiryQueue).toEqual({ inquiries: [], status: "ready" })
+      expect(input.inquiryQueue).toEqual(createInquirySnapshot([]))
     },
   )
 

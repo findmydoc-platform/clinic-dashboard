@@ -56,6 +56,26 @@ describe("proxy route and cache contract", () => {
     expectPrivate(response)
   })
 
+  it("preserves one safe inquiry deep link in the same-origin login return target", async () => {
+    const response = await proxy(
+      new NextRequest("http://localhost:3000/?inquiry=inquiry-lukas-weber&untrusted=discarded"),
+    )
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/login?next=%2F%3Finquiry%3Dinquiry-lukas-weber",
+    )
+  })
+
+  it.each([
+    "http://localhost:3000/?inquiry=unsafe%2Finquiry",
+    "http://localhost:3000/?inquiry=inquiry-1&inquiry=inquiry-2",
+    "http://localhost:3000/reviews?inquiry=inquiry-lukas-weber",
+  ])("fails closed when a protected request is not a canonical inquiry target: %s", async (url) => {
+    const response = await proxy(new NextRequest(url))
+
+    expect(response.headers.get("location")).toBe("http://localhost:3000/login")
+  })
+
   it("passes API authorization to the Route Handler without making it public-cacheable", async () => {
     const response = await proxy(new NextRequest("http://localhost:3000/api/dashboard/bootstrap"))
     expect(response.status).toBe(200)

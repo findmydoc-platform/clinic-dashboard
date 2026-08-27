@@ -1504,6 +1504,26 @@ describe("architecture policy checker process fixtures", () => {
     )
   })
 
+  it("rejects message browser adapters in render components", () => {
+    const fixtureRoot = createFixture({
+      "src/features/clinic-dashboard/messages/browser/inquiry-attachment-paths.ts": `
+        export function createInquiryAttachmentAccessPaths() { return {} }
+      `,
+      "src/features/clinic-dashboard/messages/components/organisms/InquiryQueueScreen.tsx": `
+        import { createInquiryAttachmentAccessPaths } from "../../browser/inquiry-attachment-paths"
+        export function InquiryQueueScreen() { return createInquiryAttachmentAccessPaths() }
+      `,
+    })
+
+    const result = runChecker(fixtureRoot)
+    const output = combinedOutput(result)
+
+    expect(result.status).toBe(1)
+    expect(output).toContain(
+      "ERROR message-browser-adapter-ui-boundary src/features/clinic-dashboard/messages/components/organisms/InquiryQueueScreen.tsx",
+    )
+  })
+
   it("rejects controlled data-source selection outside the central composition", () => {
     const fixtureRoot = createFixture({
       "src/features/clinic-dashboard/messages/server/actions.ts": `
@@ -1601,17 +1621,31 @@ describe("architecture policy checker process fixtures", () => {
     expect(output.match(/ERROR clinic-dashboard-server-boundary/gu)).toHaveLength(3)
   })
 
-  it("allows the exact inquiry status route to use the private server entry", () => {
+  it("allows native inquiry BFF routes to use the private server entry", () => {
     const fixtureRoot = createFixture({
-      "src/app/api/dashboard/inquiries/[inquiryId]/status/route.ts": `
-        import { handlePatientInquiryStatusUpdate } from "../../../../../../features/clinic-dashboard/server"
-        export function PATCH(request: Request) {
-          return handlePatientInquiryStatusUpdate(request, "inquiry-1")
+      "src/app/api/dashboard/inquiries/route.ts": `
+        import { handleInquiryQueueLoad } from "../../../../features/clinic-dashboard/server"
+        export function GET(request: Request) {
+          return handleInquiryQueueLoad(request)
+        }
+      `,
+      "src/app/api/dashboard/inquiries/attachments/drafts/finalize/route.ts": `
+        import { handleInquiryAttachmentDraftFinalize } from "../../../../../../../features/clinic-dashboard/server"
+        export function POST(request: Request) {
+          return handleInquiryAttachmentDraftFinalize(request)
+        }
+      `,
+      "src/app/api/dashboard/inquiries/attachments/drafts/upload/route.ts": `
+        import { handleInquiryAttachmentDraftUpload } from "../../../../../../../features/clinic-dashboard/server"
+        export function PUT(request: Request) {
+          return handleInquiryAttachmentDraftUpload(request)
         }
       `,
       "src/features/clinic-dashboard/server.ts": `
         import "server-only"
-        export function handlePatientInquiryStatusUpdate() { return new Response() }
+        export function handleInquiryQueueLoad() { return new Response() }
+        export function handleInquiryAttachmentDraftFinalize() { return new Response() }
+        export function handleInquiryAttachmentDraftUpload() { return new Response() }
       `,
     })
 
