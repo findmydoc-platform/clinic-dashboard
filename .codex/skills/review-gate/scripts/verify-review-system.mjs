@@ -73,12 +73,20 @@ for (const [fileName, name, effort] of agents) {
 }
 
 for (const [fileName, requiredTerms] of [
-  ["test-reviewer.toml", ["Freeman and Pryce's outside-in TDD", "Kent Beck's Test Desiderata"]],
+  ["test-reviewer.toml", ["Freeman and Pryce's Outside-In TDD", "Kent Beck's Test Desiderata"]],
   [
     "architecture-reviewer.toml",
-    ["Parnas's information-hiding criterion", "Robert C. Martin's Dependency Rule"],
+    ["Parnas's Information-Hiding Criterion", "Robert C. Martin's Dependency Rule"],
   ],
-  ["ui-reviewer.toml", ["Luke Wroblewski's Mobile First", "Ethan Marcotte's Responsive Web Design"]],
+  [
+    "ui-reviewer.toml",
+    [
+      "Luke Wroblewski's Mobile First",
+      "Ethan Marcotte's Responsive Web Design",
+      "WCAG 2.2 AA",
+      "WAI-ARIA Modal Dialog Pattern",
+    ],
+  ],
 ]) {
   const content = read(`.codex/agents/${fileName}`)
   for (const requiredTerm of requiredTerms) {
@@ -120,6 +128,90 @@ const skill = read(".codex/skills/review-gate/SKILL.md")
 expectPattern(skill, /^name: review-gate$/m, "Review Gate skill metadata must declare its name")
 expect(!skill.includes("TODO"), "Review Gate skill must not contain initializer placeholders")
 const rootInstructions = read("AGENTS.md")
+const sourceInstructions = read("src/AGENTS.md")
+const featureInstructions = read("src/features/AGENTS.md")
+const semanticAnchorsRule =
+  "- Semantic Anchors: Use [https://llm-coding.github.io/Semantic-Anchors/llms.txt](https://llm-coding.github.io/Semantic-Anchors/llms.txt) to identify established methods; name them without redefining them locally."
+const rootAnchors = [
+  "- Use Freeman and Pryce's Outside-In TDD.",
+  "- Use Kent Beck's Test Desiderata.",
+  "- Use Parnas's Information-Hiding Criterion.",
+  "- Use Robert C. Martin's Dependency Rule.",
+  "- Use Luke Wroblewski's Mobile First.",
+  "- Use Ethan Marcotte's Responsive Web Design.",
+  "- Use WCAG 2.2 AA.",
+  "- Use the WAI-ARIA Modal Dialog Pattern.",
+]
+
+expect(
+  rootInstructions.includes(semanticAnchorsRule),
+  "AGENTS.md must retain the exact Semantic Anchors catalog rule",
+)
+for (const anchor of rootAnchors) {
+  expect(rootInstructions.includes(anchor), `AGENTS.md must retain the root method anchor: ${anchor}`)
+  expect(
+    rootInstructions.indexOf(semanticAnchorsRule) < rootInstructions.indexOf(anchor),
+    `AGENTS.md must place the Semantic Anchors catalog rule before: ${anchor}`,
+  )
+}
+expect(!rootInstructions.includes("Atomic Design"), "AGENTS.md must not apply Atomic Design repository-wide")
+
+for (const anchor of [
+  "- Use Component-Driven Development (CDD) through Storybook.",
+  "- Use Component Story Format (CSF).",
+  "- Use Hexagonal Architecture (Ports & Adapters).",
+]) {
+  expect(sourceInstructions.includes(anchor), `src/AGENTS.md must retain the source anchor: ${anchor}`)
+  expect(
+    sourceInstructions.indexOf(anchor) < sourceInstructions.indexOf("## UI Design"),
+    `src/AGENTS.md must place the source anchor before local UI rules: ${anchor}`,
+  )
+}
+
+const atomicDesignAnchor = "- Use Atomic Design."
+expect(
+  featureInstructions.includes(atomicDesignAnchor),
+  "src/features/AGENTS.md must retain the Atomic Design anchor",
+)
+expect(
+  featureInstructions.indexOf(atomicDesignAnchor) <
+    featureInstructions.indexOf("- Read `docs/engineering/frontend-architecture.md` before feature work."),
+  "src/features/AGENTS.md must place Atomic Design before local feature rules",
+)
+
+for (const [fileName, removedExplanations] of [
+  [
+    "test-reviewer.toml",
+    [
+      "Assess whether tests express behavior at an outer boundary",
+      "Assess resulting tests against Kent Beck's Test Desiderata.",
+      "Do not apply the outside-in TDD requirement",
+    ],
+  ],
+  [
+    "architecture-reviewer.toml",
+    [
+      "to assess whether each module hides the design decisions",
+      "to assess whether source dependencies point toward",
+    ],
+  ],
+  [
+    "ui-reviewer.toml",
+    [
+      "to assess content and interaction priority at the narrowest supported viewport",
+      "by checking fluid grids, flexible images, and media-query behavior",
+    ],
+  ],
+]) {
+  const content = read(`.codex/agents/${fileName}`)
+  for (const removedExplanation of removedExplanations) {
+    expect(
+      !content.includes(removedExplanation),
+      `${fileName} must not redefine its method anchor: ${removedExplanation}`,
+    )
+  }
+}
+
 const reviewerPlan = read("docs/plans/clinic-dashboard-reviewer-system.md")
 for (const [name, content] of [
   ["Review Gate skill", skill],

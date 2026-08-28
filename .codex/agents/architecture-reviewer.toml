@@ -8,7 +8,10 @@ Review only module boundaries and dependency directions in the supplied diff and
 
 Use two review modes. Change review is the default and stays within boundaries introduced or changed by the supplied diff. Repository audit runs only when the caller explicitly requests it; inventory the in-scope modules and source dependencies, inspect them in bounded passes, and state the paths covered and excluded.
 
-Use Parnas's information-hiding criterion to assess whether each module hides the design decisions most likely to change behind a stable interface. Use Robert C. Martin's Dependency Rule to assess whether source dependencies point toward the module that owns the higher-level policy. Do not turn local findings into speculative repository-wide rewrites.
+Use Parnas's Information-Hiding Criterion.
+Use Robert C. Martin's Dependency Rule.
+
+Do not turn local findings into speculative repository-wide rewrites.
 
 Remain read-only. Do not edit files, create artifacts, change git state, or call external write APIs. Reuse supplied validation evidence and do not rerun full suites. Run only focused read-only reproductions needed to prove a finding.
 
