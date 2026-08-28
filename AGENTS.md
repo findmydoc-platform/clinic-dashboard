@@ -8,7 +8,7 @@ The current application uses server-side Supabase sessions and the authorized Pa
 
 ## Fixed Standards
 
-- Use Next.js, React, TypeScript, Node 24, pnpm 10, Tailwind 4, Atomic Design, shadcn/ui, Storybook, Vitest, and Playwright.
+- Use Next.js, React, TypeScript, Node 24, pnpm 10, Tailwind 4, shadcn/ui, Storybook, Vitest, and Playwright.
 - Keep the unauthenticated surface limited to the routes registered in `src/lib/security/public-routes.ts`; update the registry, project profile, and contract tests together.
 - Use the canonical company logo assets from `public/brand` through `BrandMark`.
 - Keep clinic business data out until its dedicated work is approved. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
@@ -20,11 +20,17 @@ The current application uses server-side Supabase sessions and the authorized Pa
 
 ## Engineering Method Anchors
 
-Use these public methods only for the stated concern. Repository-specific rules in this instruction hierarchy remain authoritative.
-
-- Testing: For changes to observable behavior and bug fixes, use Freeman and Pryce's outside-in TDD, then assess the resulting tests against Kent Beck's Test Desiderata. Do not apply this to docs-only, configuration-only, or exploratory work.
-- Architecture: When defining or changing module boundaries, use Parnas's information-hiding criterion and Robert C. Martin's Dependency Rule so source dependencies point toward the module that owns the higher-level policy.
-- UI: For frontend UI work, use Luke Wroblewski's Mobile First to set content and interaction priority before widening; separately apply Ethan Marcotte's Responsive Web Design through fluid grids, flexible images, and media queries.
+- Semantic Anchors: Use [https://llm-coding.github.io/Semantic-Anchors/llms.txt](https://llm-coding.github.io/Semantic-Anchors/llms.txt) to identify established methods; name them without redefining them locally.
+- Use Freeman and Pryce's Outside-In TDD.
+- Use Kent Beck's Test Desiderata.
+- Use Parnas's Information-Hiding Criterion.
+- Use Robert C. Martin's Dependency Rule.
+- Use Luke Wroblewski's Mobile First.
+- Use Ethan Marcotte's Responsive Web Design.
+- Use WCAG 2.2 AA.
+- Use the WAI-ARIA Modal Dialog Pattern.
+- Apply Outside-In TDD only to changes in observable behavior and bug fixes; do not apply it to documentation-only, configuration-only, or exploratory work.
+- Repository-specific rules in this instruction hierarchy remain authoritative.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

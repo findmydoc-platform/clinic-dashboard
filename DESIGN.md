@@ -623,13 +623,9 @@ Trust surfaces must show what is known, where it came from, how current it is wh
 
 Accessibility is part of the visual system because trust depends on users being able to inspect and complete flows.
 
-- **Contrast:** Body text and interactive labels require at least 4.5:1 contrast. Large text requires at least 3:1. UI boundaries, focus indicators, icons that carry meaning, and chart distinctions require at least 3:1 against adjacent colors.
-- **Focus:** Every interactive element needs a visible focus state. Focus rings use primary by default and must not be clipped by overflow, sticky containers, or rounded masks.
-- **Keyboard:** Buttons, links, inputs, menus, dialogs, popovers, drawers, tabs, accordions, filters, and comparison controls must be fully operable by keyboard.
-- **Dialogs and popovers:** Trap focus only for modal dialogs and drawers. Return focus to the invoking control on close. Non-modal popovers must close predictably with Escape and outside interaction.
-- **Forms:** Required labels, helper text, errors, and success messages must remain visible and programmatically associated with fields. Validation must not rely on color alone.
-- **Status updates:** Loading, saved, error, and async result states that change after user action need accessible status text or `aria-live` behavior.
-- **Icons:** Decorative icons are hidden from assistive technology. Meaningful icons require labels or adjacent text.
+- **Focus:** Focus rings use primary by default and must not be clipped by overflow, sticky containers, or rounded masks.
+- **Dialogs and popovers:** Drawers are modal dialogs. Non-modal popovers must close predictably with Escape and outside interaction.
+- **Forms:** Required labels, helper text, errors, and success messages must remain visible.
 - **Motion:** Motion may clarify state changes, but reduced-motion preferences must disable non-essential transitions and animations.
 - **Touch:** Mobile targets are at least 44px high/wide unless the target is part of dense text content with an equivalent larger action nearby.
 

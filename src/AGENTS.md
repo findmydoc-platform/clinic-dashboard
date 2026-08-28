@@ -2,6 +2,12 @@
 
 These rules apply to application code under `src/**`. Nested `AGENTS.md` files add narrower constraints for their domains.
 
+## Engineering Method Anchors
+
+- Use Component-Driven Development (CDD) through Storybook.
+- Use Component Story Format (CSF).
+- Use Hexagonal Architecture (Ports & Adapters).
+
 ## UI Design
 
 - Use pill-shaped labels and badges sparingly. Do not default to a pill whenever small contextual information needs emphasis.

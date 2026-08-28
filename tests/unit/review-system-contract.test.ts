@@ -38,19 +38,90 @@ describe("review system contracts", () => {
   })
 
   it.each([
-    ["test-reviewer.toml", "Freeman and Pryce's outside-in TDD", "Kent Beck's Test Desiderata"],
+    ["test-reviewer.toml", ["Freeman and Pryce's Outside-In TDD", "Kent Beck's Test Desiderata"]],
     [
       "architecture-reviewer.toml",
-      "Parnas's information-hiding criterion",
-      "Robert C. Martin's Dependency Rule",
+      ["Parnas's Information-Hiding Criterion", "Robert C. Martin's Dependency Rule"],
     ],
-    ["ui-reviewer.toml", "Luke Wroblewski's Mobile First", "Ethan Marcotte's Responsive Web Design"],
-  ])("keeps the method anchors and audit mode in %s", (fileName, firstAnchor, secondAnchor) => {
+    [
+      "ui-reviewer.toml",
+      [
+        "Luke Wroblewski's Mobile First",
+        "Ethan Marcotte's Responsive Web Design",
+        "WCAG 2.2 AA",
+        "WAI-ARIA Modal Dialog Pattern",
+      ],
+    ],
+  ])("keeps the method anchors and audit mode in %s", (fileName, anchors) => {
     const agent = read(`.codex/agents/${fileName}`)
 
-    expect(agent).toContain(firstAnchor)
-    expect(agent).toContain(secondAnchor)
+    for (const anchor of anchors) {
+      expect(agent).toContain(anchor)
+    }
     expect(agent).toContain("Repository audit")
+  })
+
+  it("keeps method anchors before repository-specific rules in their narrowest scopes", () => {
+    const rootInstructions = read("AGENTS.md")
+    const sourceInstructions = read("src/AGENTS.md")
+    const featureInstructions = read("src/features/AGENTS.md")
+    const semanticAnchorsRule =
+      "- Semantic Anchors: Use [https://llm-coding.github.io/Semantic-Anchors/llms.txt](https://llm-coding.github.io/Semantic-Anchors/llms.txt) to identify established methods; name them without redefining them locally."
+    const rootAnchors = [
+      "- Use Freeman and Pryce's Outside-In TDD.",
+      "- Use Kent Beck's Test Desiderata.",
+      "- Use Parnas's Information-Hiding Criterion.",
+      "- Use Robert C. Martin's Dependency Rule.",
+      "- Use Luke Wroblewski's Mobile First.",
+      "- Use Ethan Marcotte's Responsive Web Design.",
+      "- Use WCAG 2.2 AA.",
+      "- Use the WAI-ARIA Modal Dialog Pattern.",
+    ]
+
+    expect(rootInstructions).toContain(semanticAnchorsRule)
+    for (const anchor of rootAnchors) {
+      expect(rootInstructions).toContain(anchor)
+      expect(rootInstructions.indexOf(semanticAnchorsRule)).toBeLessThan(rootInstructions.indexOf(anchor))
+    }
+    expect(rootInstructions).not.toContain("Atomic Design")
+
+    for (const anchor of [
+      "- Use Component-Driven Development (CDD) through Storybook.",
+      "- Use Component Story Format (CSF).",
+      "- Use Hexagonal Architecture (Ports & Adapters).",
+    ]) {
+      expect(sourceInstructions).toContain(anchor)
+      expect(sourceInstructions.indexOf(anchor)).toBeLessThan(sourceInstructions.indexOf("## UI Design"))
+    }
+
+    const atomicDesignAnchor = "- Use Atomic Design."
+    expect(featureInstructions).toContain(atomicDesignAnchor)
+    expect(featureInstructions.indexOf(atomicDesignAnchor)).toBeLessThan(
+      featureInstructions.indexOf("- Read `docs/engineering/frontend-architecture.md` before feature work."),
+    )
+
+    const removedReviewerExplanations = {
+      "test-reviewer.toml": [
+        "Assess whether tests express behavior at an outer boundary",
+        "Assess resulting tests against Kent Beck's Test Desiderata.",
+        "Do not apply the outside-in TDD requirement",
+      ],
+      "architecture-reviewer.toml": [
+        "to assess whether each module hides the design decisions",
+        "to assess whether source dependencies point toward",
+      ],
+      "ui-reviewer.toml": [
+        "to assess content and interaction priority at the narrowest supported viewport",
+        "by checking fluid grids, flexible images, and media-query behavior",
+      ],
+    }
+
+    for (const [fileName, removedExplanations] of Object.entries(removedReviewerExplanations)) {
+      const agent = read(`.codex/agents/${fileName}`)
+      for (const removedExplanation of removedExplanations) {
+        expect(agent).not.toContain(removedExplanation)
+      }
+    }
   })
 
   it("keeps the skill metadata", () => {
