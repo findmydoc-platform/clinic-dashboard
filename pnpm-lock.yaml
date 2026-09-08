@@ -44,6 +44,9 @@ importers:
       next-themes:
         specifier: 0.4.6
         version: 0.4.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      posthog-node:
+        specifier: 5.51.0
+        version: 5.51.0
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -2385,6 +2388,18 @@ packages:
     resolution:
       {
         integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==,
+      }
+
+  "@posthog/core@1.51.0":
+    resolution:
+      {
+        integrity: sha512-LilmmtjcrjV1LgaVNQXrAUt4IXcWIYMrwEtx6VJUUFDeBBdmeI99jshKGtAWugYeB3Wkcp9xQIVCrxIYRpNiRA==,
+      }
+
+  "@posthog/types@1.409.2":
+    resolution:
+      {
+        integrity: sha512-hZ4EXZ1+BstMaxUkmAEg3qvgMR/S00Xb+wEwY/Tx2Dr9dBgiBWrERxaq2UwICh/Fh/vVXpKZT/0SkRtO8JKQ2A==,
       }
 
   "@radix-ui/primitive@1.1.5":
@@ -7150,6 +7165,18 @@ packages:
       }
     engines: { node: ^10 || ^12 || >=14 }
 
+  posthog-node@5.51.0:
+    resolution:
+      {
+        integrity: sha512-RtupQ8G5ez7k+FShwz0dU8YN+C+EndfO9U7Vq0K806hGSHzmbD6MaL8bBjLBqvtaiPrxNdYXfIrc1mNDt6nj2Q==,
+      }
+    engines: { node: ^20.20.0 || >=22.22.0 }
+    peerDependencies:
+      rxjs: ^7.0.0
+    peerDependenciesMeta:
+      rxjs:
+        optional: true
+
   powershell-utils@0.1.0:
     resolution:
       {
@@ -9845,6 +9872,12 @@ snapshots:
       playwright: 1.61.1
 
   "@polka/url@1.0.0-next.29": {}
+
+  "@posthog/core@1.51.0":
+    dependencies:
+      "@posthog/types": 1.409.2
+
+  "@posthog/types@1.409.2": {}
 
   "@radix-ui/primitive@1.1.5": {}
 
@@ -12911,6 +12944,10 @@ snapshots:
       nanoid: 3.3.18
       picocolors: 1.1.1
       source-map-js: 1.2.1
+
+  posthog-node@5.51.0:
+    dependencies:
+      "@posthog/core": 1.51.0
 
   powershell-utils@0.1.0: {}
 

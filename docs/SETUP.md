@@ -39,8 +39,8 @@ Repository variables:
 - `DEPENDENCY_REVIEW_ENABLED=true`
 
 The pull-request Preview workflow accepts only non-draft, same-repository, non-Dependabot pull requests and publishes
-only the generated temporary deployment URL. A separate `push` workflow deploys the merged `main` revision as a
-Vercel Preview and moves the stable `clinics.preview.findmydoc.eu` alias to that deployment. Neither workflow uses
+only the generated temporary deployment URL. Production runs only through the central platform release, which invokes
+the repository's `platform-release-deploy` workflow with a frozen target SHA and shared version. Neither workflow uses
 GitHub Environments.
 
 ## Vercel
@@ -53,7 +53,7 @@ GitHub Environments.
 - Vercel Deployment Protection: disabled; the application uses its own server-side Supabase authentication boundary
 - Pull-request Preview deployments: enabled through GitHub Actions with generated temporary URLs
 - Main Preview deployments: enabled through GitHub Actions with the stable `clinics.preview.findmydoc.eu` alias
-- Production deployments: enabled through the manually dispatched GitHub Actions workflow on `main`
+- Production deployments: enabled only through the central platform release
 
 The application requires `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`,
 `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and `CSRF_SIGNING_SECRET` in Vercel preview and production. Preview uses Staging
@@ -62,6 +62,20 @@ Supabase, `https://preview.findmydoc.eu`, and the stable Clinic Dashboard origin
 `https://findmydoc.eu` and `https://clinics.findmydoc.eu`. `SUPABASE_URL` must match the expected project reference
 exactly. The environment validator fails closed for missing, insecure, or cross-environment values. Vercel Deployment
 Protection remains an optional additional layer.
+
+Server-side exception capture uses `POSTHOG_PROJECT_API_KEY` and `POSTHOG_HOST` as protected deployment configuration;
+neither is a `NEXT_PUBLIC_*` variable. The workflow supplies `DEPLOYMENT_ENVIRONMENT` and a full
+`DEPLOYMENT_COMMIT_SHA` to the build and deployment runtime. Central Production additionally supplies the shared
+`RELEASE_VERSION` in `vX.Y.Z` form; Preview does not set a release version. These values are deployment-scoped, rather
+than durable Vercel project variables.
+
+Server exceptions use `application=dashboard` and `server:dashboard` as their fixed server identity. Development and
+tests do not create a PostHog client or send telemetry; they emit the sanitized exception context as
+`telemetry.posthog.exception_local`. The context excludes headers, cookies, credentials, and URL query parameters.
+The original exception object, message, and stack remain unchanged for diagnosis in PostHog and local server logs.
+Developers must not include secrets, access credentials, patient data, medical free text, or raw request data in
+exception messages. Treat any real incident that violates this rule as a telemetry privacy defect and tighten the
+capture boundary based on that evidence.
 
 Vercel provides server-only `VERCEL_URL` for the current deployment. Preview requests may use that origin only when the
 hostname matches `clinic-dashboard-*-findmydoc.vercel.app`, and the browser `Origin` must equal the request URL origin.
@@ -108,4 +122,4 @@ Before handoff:
 3. Confirm the Vercel preview URL is public and data-less.
 4. Confirm pull requests retain generated temporary Preview URLs.
 5. Confirm the Main Preview workflow deploys only `main` and moves `clinics.preview.findmydoc.eu` to that exact Preview.
-6. Confirm the production workflow deploys only from `main`; verify the Vercel production URL and record whether the custom domain is live.
+6. Confirm the central platform release is the only production path and uses its frozen SHA and shared version.
