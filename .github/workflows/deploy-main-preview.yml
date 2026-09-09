@@ -52,6 +52,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve main preview deployment metadata
+        id: deployment_metadata
+        run: |
+          set -euo pipefail
+          deployment_commit_sha="$(git rev-parse HEAD)"
+          [[ "$deployment_commit_sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "commit_sha=$deployment_commit_sha" >> "$GITHUB_OUTPUT"
+
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
         with:
           version: ${{ env.PNPM_VERSION }}
@@ -67,13 +75,22 @@ jobs:
       - name: Pull Vercel preview settings
         run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" pull --yes --environment=preview --git-branch=main --token="$VERCEL_TOKEN"
 
+      - name: Validate pulled Preview deployment metadata
+        env:
+          DEPLOYMENT_COMMIT_SHA: ${{ steps.deployment_metadata.outputs.commit_sha }}
+          DEPLOYMENT_ENVIRONMENT: preview
+        run: bash ./.github/scripts/validate-preview-deployment-metadata.sh
+
       - name: Build Vercel main preview
+        env:
+          DEPLOYMENT_COMMIT_SHA: ${{ steps.deployment_metadata.outputs.commit_sha }}
+          DEPLOYMENT_ENVIRONMENT: preview
         run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" build
 
       - name: Deploy verified main preview
         id: deploy
         run: |
-          deployment_url="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" deploy --prebuilt --yes --token="$VERCEL_TOKEN")"
+          deployment_url="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" deploy --prebuilt --yes --token="$VERCEL_TOKEN" --env "DEPLOYMENT_ENVIRONMENT=$DEPLOYMENT_ENVIRONMENT" --env "DEPLOYMENT_COMMIT_SHA=$DEPLOYMENT_COMMIT_SHA")"
 
           if ! deployment_json="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" inspect "$deployment_url" --format=json --token="$VERCEL_TOKEN")"; then
             pnpm dlx "vercel@${VERCEL_CLI_VERSION}" remove "$deployment_url" --yes --token="$VERCEL_TOKEN" || true
@@ -91,6 +108,9 @@ jobs:
 
           echo "id=$deployment_id" >> "$GITHUB_OUTPUT"
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+        env:
+          DEPLOYMENT_COMMIT_SHA: ${{ steps.deployment_metadata.outputs.commit_sha }}
+          DEPLOYMENT_ENVIRONMENT: preview
 
       - name: Point stable domain to main preview
         env:
