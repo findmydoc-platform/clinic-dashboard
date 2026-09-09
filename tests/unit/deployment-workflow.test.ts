@@ -75,7 +75,7 @@ describe("deployment workflow contract", () => {
     expect(previewWorkflow).toContain("Resolve preview deployment metadata")
     expect(mainPreviewWorkflow).toContain("Resolve main preview deployment metadata")
     expect(platformReleaseWorkflow).toContain(
-      "reusable-deploy-dashboard.yml@d9864de3b6d453464f4b84960cd1d6b40b97bb71",
+      "reusable-deploy-dashboard.yml@e63054077390413aef41b4b2d39a6f4458ceedc8",
     )
     expect(existsSync(path.join(repositoryRoot, ".github/workflows/deploy-production.yml"))).toBe(false)
   })
