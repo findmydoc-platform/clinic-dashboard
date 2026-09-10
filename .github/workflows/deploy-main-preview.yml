@@ -85,12 +85,12 @@ jobs:
         env:
           DEPLOYMENT_COMMIT_SHA: ${{ steps.deployment_metadata.outputs.commit_sha }}
           DEPLOYMENT_ENVIRONMENT: preview
-        run: pnpm dlx "vercel@${VERCEL_CLI_VERSION}" build
+        run: bash ./.github/scripts/deploy/vercel-build.sh preview
 
       - name: Deploy verified main preview
         id: deploy
         run: |
-          deployment_url="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" deploy --prebuilt --yes --token="$VERCEL_TOKEN" --env "DEPLOYMENT_ENVIRONMENT=$DEPLOYMENT_ENVIRONMENT" --env "DEPLOYMENT_COMMIT_SHA=$DEPLOYMENT_COMMIT_SHA")"
+          deployment_url="$(bash ./.github/scripts/deploy/vercel-deploy.sh preview)"
 
           if ! deployment_json="$(pnpm dlx "vercel@${VERCEL_CLI_VERSION}" inspect "$deployment_url" --format=json --token="$VERCEL_TOKEN")"; then
             pnpm dlx "vercel@${VERCEL_CLI_VERSION}" remove "$deployment_url" --yes --token="$VERCEL_TOKEN" || true

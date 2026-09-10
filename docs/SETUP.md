@@ -72,10 +72,20 @@ than durable Vercel project variables.
 Server exceptions use `application=dashboard` and `server:dashboard` as their fixed server identity. Development and
 tests do not create a PostHog client or send telemetry; they emit the sanitized exception context as
 `telemetry.posthog.exception_local`. The context excludes headers, cookies, credentials, and URL query parameters.
-The original exception object, message, and stack remain unchanged for diagnosis in PostHog and local server logs.
-Developers must not include secrets, access credentials, patient data, medical free text, or raw request data in
-exception messages. Treat any real incident that violates this rule as a telemetry privacy defect and tighten the
-capture boundary based on that evidence.
+
+Next.js requires asynchronous work in `onRequestError` to be awaited. Exception capture therefore has a fixed 1.5-second
+budget, catches every telemetry failure, and never changes the original error status or body. A slow telemetry provider can
+delay completion of an already failing request only until that budget expires.
+
+Server exception capture is a documented temporary exception to the usual telemetry privacy boundary. The original
+exception object, message, and stack are intentionally preserved in PostHog and local server logs, even though the
+project has not yet defined sensitive exception content or a redaction contract. This can transmit confidential data.
+Developers must therefore not add secrets, access credentials, patient data, medical free text, or raw request data to
+exception messages. The exception applies only to diagnosis output, not to business-event properties. Treat any real
+exposure as a telemetry privacy defect and use it to define and enforce the capture boundary.
+
+The deployment-boundary test uses a controlled Vercel stub to verify the build and runtime metadata passed to the CLI.
+It does not replace validation of a real Preview deployment.
 
 Vercel provides server-only `VERCEL_URL` for the current deployment. Preview requests may use that origin only when the
 hostname matches `clinic-dashboard-*-findmydoc.vercel.app`, and the browser `Origin` must equal the request URL origin.
