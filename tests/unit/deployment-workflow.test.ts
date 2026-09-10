@@ -1,11 +1,38 @@
-import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import os from "node:os"
+import { spawnSync } from "node:child_process"
 import path from "node:path"
+import os from "node:os"
 import { afterEach, describe, expect, it } from "vitest"
+import { parse } from "yaml"
+
+type WorkflowStep = {
+  readonly env?: Record<string, string>
+  readonly id?: string
+  readonly name?: string
+  readonly run?: string
+}
+
+type WorkflowJob = {
+  readonly needs?: string | readonly string[]
+  readonly steps?: readonly WorkflowStep[]
+  readonly uses?: string
+}
+
+type Workflow = {
+  readonly jobs: Record<string, WorkflowJob>
+}
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..")
 const temporaryDirectories = new Set<string>()
+
+const readWorkflow = (name: string): Workflow =>
+  parse(readFileSync(path.join(repositoryRoot, ".github/workflows", name), "utf8")) as Workflow
+
+const namedStep = (workflow: Workflow, jobName: string, stepName: string): WorkflowStep => {
+  const step = workflow.jobs[jobName]?.steps?.find((candidate) => candidate.name === stepName)
+  expect(step, `Expected ${jobName} to contain the ${stepName} step.`).toBeDefined()
+  return step as WorkflowStep
+}
 
 const runPreviewMetadataValidation = (
   pulledEnvironment: string,
@@ -42,40 +69,63 @@ afterEach(() => {
 })
 
 describe("deployment workflow contract", () => {
-  it("derives Preview metadata from the checked out commit and has no direct production workflow", () => {
-    const previewWorkflow = readFileSync(
-      path.join(repositoryRoot, ".github/workflows/deploy-preview.yml"),
-      "utf8",
-    )
-    const mainPreviewWorkflow = readFileSync(
-      path.join(repositoryRoot, ".github/workflows/deploy-main-preview.yml"),
-      "utf8",
-    )
-    const platformReleaseWorkflow = readFileSync(
-      path.join(repositoryRoot, ".github/workflows/platform-release-deploy.yml"),
-      "utf8",
-    )
+  it.each([
+    [
+      "deploy-preview.yml",
+      "deploy-preview",
+      "Resolve preview deployment metadata",
+      "Build Vercel preview",
+      "Deploy Vercel preview",
+    ],
+    [
+      "deploy-main-preview.yml",
+      "deploy-main-preview",
+      "Resolve main preview deployment metadata",
+      "Build Vercel main preview",
+      "Deploy verified main preview",
+    ],
+  ])(
+    "derives Preview metadata and invokes the Preview boundaries in %s",
+    (name, jobName, metadataStepName, buildStepName, deployStepName) => {
+      const workflow = readWorkflow(name)
+      const metadataStep = namedStep(workflow, jobName, metadataStepName)
+      const validationStep = namedStep(workflow, jobName, "Validate pulled Preview deployment metadata")
+      const buildStep = namedStep(workflow, jobName, buildStepName)
+      const deployStep = namedStep(workflow, jobName, deployStepName)
 
-    for (const workflow of [previewWorkflow, mainPreviewWorkflow]) {
-      expect(workflow).toContain('deployment_commit_sha="$(git rev-parse HEAD)"')
-      expect(workflow).toContain("DEPLOYMENT_ENVIRONMENT: preview")
-      expect(workflow).toContain('--env "DEPLOYMENT_ENVIRONMENT=$DEPLOYMENT_ENVIRONMENT"')
-      expect(workflow).toContain('--env "DEPLOYMENT_COMMIT_SHA=$DEPLOYMENT_COMMIT_SHA"')
-      expect(workflow).toContain("Validate pulled Preview deployment metadata")
-      expect(workflow).toContain("bash ./.github/scripts/validate-preview-deployment-metadata.sh")
+      expect(metadataStep.run).toContain("git rev-parse HEAD")
+      expect(validationStep.env).toEqual({
+        DEPLOYMENT_COMMIT_SHA: "${{ steps.deployment_metadata.outputs.commit_sha }}",
+        DEPLOYMENT_ENVIRONMENT: "preview",
+      })
+      expect(validationStep.run).toBe("bash ./.github/scripts/validate-preview-deployment-metadata.sh")
+      expect(buildStep.env).toEqual({
+        DEPLOYMENT_COMMIT_SHA: "${{ steps.deployment_metadata.outputs.commit_sha }}",
+        DEPLOYMENT_ENVIRONMENT: "preview",
+      })
+      expect(buildStep.run).toBe("bash ./.github/scripts/deploy/vercel-build.sh preview")
+      expect(deployStep.env).toMatchObject({
+        DEPLOYMENT_COMMIT_SHA: "${{ steps.deployment_metadata.outputs.commit_sha }}",
+        DEPLOYMENT_ENVIRONMENT: "preview",
+      })
+      expect(deployStep.run).toContain(
+        'deployment_url="$(bash ./.github/scripts/deploy/vercel-deploy.sh preview)"',
+      )
+    },
+  )
 
-      const pullIndex = workflow.indexOf("Pull Vercel preview settings")
-      const validationIndex = workflow.indexOf("Validate pulled Preview deployment metadata")
-      const buildIndex = workflow.indexOf("Build Vercel")
-      expect(pullIndex).toBeGreaterThan(-1)
-      expect(validationIndex).toBeGreaterThan(pullIndex)
-      expect(buildIndex).toBeGreaterThan(validationIndex)
-    }
+  it("requires the central platform release dispatcher and has no direct production workflow", () => {
+    const workflow = readWorkflow("platform-release-deploy.yml")
+    const guardStep = namedStep(workflow, "verify-dispatcher", "Verify dispatch identity")
 
-    expect(previewWorkflow).toContain("Resolve preview deployment metadata")
-    expect(mainPreviewWorkflow).toContain("Resolve main preview deployment metadata")
-    expect(platformReleaseWorkflow).toContain(
-      "reusable-deploy-dashboard.yml@e63054077390413aef41b4b2d39a6f4458ceedc8",
+    expect(guardStep.env).toEqual({
+      GITHUB_ACTOR: "${{ github.actor }}",
+      GITHUB_TRIGGERING_ACTOR: "${{ github.triggering_actor }}",
+    })
+    expect(guardStep.run).toBe("bash ./.github/scripts/deploy/require-platform-release-dispatcher.sh")
+    expect(workflow.jobs.deploy?.needs).toBe("verify-dispatcher")
+    expect(workflow.jobs.deploy?.uses).toBe(
+      "findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@a30bc16453020c012ece89013a45b293d2316dd3",
     )
     expect(existsSync(path.join(repositoryRoot, ".github/workflows/deploy-production.yml"))).toBe(false)
   })

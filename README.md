@@ -49,6 +49,6 @@ Run:
 
 ## Delivery
 
-Pull-request checks are advisory on the current private GitHub Free repository: failures are visible but do not technically block a merge. Pull requests receive temporary Preview deployments, each merge to `main` updates the stable Main Preview, and manually dispatched Production deployments run through GitHub Actions and repository-level Vercel credentials. Production deployments are restricted to `main`.
+Pull-request checks are advisory on the current private GitHub Free repository: failures are visible but do not technically block a merge. Pull requests receive temporary Preview deployments, each merge to `main` updates the stable Main Preview, and Production deployments run only through the central platform release. The component deployment workflow accepts only the platform release GitHub App as both dispatcher and rerun actor.
 
 See `docs/SETUP.md` for the verified GitHub/Vercel setup and the pending `clinics.findmydoc.eu` DNS step.

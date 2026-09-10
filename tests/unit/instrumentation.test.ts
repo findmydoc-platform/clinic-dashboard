@@ -18,8 +18,7 @@ describe("onRequestError", () => {
     vi.restoreAllMocks()
   })
 
-  it("does not change error handling when exception telemetry fails", async () => {
-    captureServerException.mockRejectedValueOnce(new Error("telemetry unavailable"))
+  it("awaits canonical exception telemetry in the supported error hook", async () => {
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
     const { onRequestError } = await import("@/instrumentation")
     const error = new Error("boom")
@@ -33,10 +32,31 @@ describe("onRequestError", () => {
         routerKind: "App Router",
       }),
     ).resolves.toBeUndefined()
+
     expect(captureServerException).toHaveBeenCalledWith(error, {
       method: "GET",
       route: "/api/health",
     })
+    expect(consoleWarn).not.toHaveBeenCalled()
+  })
+
+  it("contains telemetry failures without rejecting the error hook", async () => {
+    captureServerException.mockRejectedValueOnce(new Error("telemetry unavailable"))
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    const { onRequestError } = await import("@/instrumentation")
+
+    await expect(
+      onRequestError(
+        new Error("boom"),
+        { headers: {}, method: "GET", path: "/api/health" },
+        {
+          revalidateReason: undefined,
+          routePath: "/api/health",
+          routeType: "route",
+          routerKind: "App Router",
+        },
+      ),
+    ).resolves.toBeUndefined()
     expect(consoleWarn).toHaveBeenCalledWith(
       { event: "telemetry.posthog.request_error_send_failed" },
       "PostHog telemetry failed; continuing",
