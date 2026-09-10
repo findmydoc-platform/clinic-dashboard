@@ -125,7 +125,7 @@ describe("deployment workflow contract", () => {
     expect(guardStep.run).toBe("bash ./.github/scripts/deploy/require-platform-release-dispatcher.sh")
     expect(workflow.jobs.deploy?.needs).toBe("verify-dispatcher")
     expect(workflow.jobs.deploy?.uses).toBe(
-      "findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@a30bc16453020c012ece89013a45b293d2316dd3",
+      "findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@fde486496d8bde13a3c8cad9d23a1cbbe075507d",
     )
     expect(existsSync(path.join(repositoryRoot, ".github/workflows/deploy-production.yml"))).toBe(false)
   })
