@@ -21,6 +21,7 @@ The current application uses server-side Supabase sessions and the authorized Pa
 ## Engineering Method Anchors
 
 - Semantic Anchors: Use [https://llm-coding.github.io/Semantic-Anchors/llms.txt](https://llm-coding.github.io/Semantic-Anchors/llms.txt) to identify established methods; name them without redefining them locally.
+- Use ADR according to Nygard.
 - Use Freeman and Pryce's Outside-In TDD.
 - Use Kent Beck's Test Desiderata.
 - Use Parnas's Information-Hiding Criterion.
