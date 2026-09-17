@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   getClinicDashboardAccess: vi.fn(),
+  loadClinicDashboardInitialReporting: vi.fn(),
   loadClinicDashboardWorkspaceInput: vi.fn(),
   redirect: vi.fn(),
 }))
@@ -29,6 +30,7 @@ vi.mock("@/features/clinic-dashboard/public", () => ({
 }))
 vi.mock("@/features/clinic-dashboard/server", () => ({
   getClinicDashboardAccess: mocks.getClinicDashboardAccess,
+  loadClinicDashboardInitialReporting: mocks.loadClinicDashboardInitialReporting,
   loadClinicDashboardWorkspaceInput: mocks.loadClinicDashboardWorkspaceInput,
 }))
 
@@ -46,6 +48,7 @@ describe("clinic dashboard page", () => {
       },
       status: "approved",
     })
+    mocks.loadClinicDashboardInitialReporting.mockResolvedValue({ status: "temporarily-unavailable" })
     mocks.loadClinicDashboardWorkspaceInput.mockResolvedValue({ inquiryQueue: { status: "ready" } })
   })
 

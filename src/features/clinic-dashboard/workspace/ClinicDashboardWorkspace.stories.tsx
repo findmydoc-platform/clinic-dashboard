@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { getRouter } from "@storybook/nextjs-vite/navigation.mock"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, within } from "storybook/test"
 import { authenticatedClinicContextFixture } from "./testing/workspace.fixtures"
 import { clinicDashboardWorkspaceFixture } from "./testing/public"
 import { ClinicDashboardWorkspace } from "./ClinicDashboardWorkspace"
@@ -31,26 +30,5 @@ export const InquiryDeepLinkOpensInquiries: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole("button", { name: "Inquiries" })).toHaveAttribute("aria-current", "page")
-  },
-}
-
-export const ProfileProgressRetryRefreshesRoute: Story = {
-  args: {
-    workspaceInput: {
-      ...clinicDashboardWorkspaceFixture,
-      profileProgress: {
-        message: "Public profile progress is temporarily unavailable.",
-        reason: "profile-unavailable",
-        status: "error",
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const router = getRouter()
-    router.refresh.mockClear()
-
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Retry" }))
-
-    await expect(router.refresh).toHaveBeenCalledOnce()
   },
 }

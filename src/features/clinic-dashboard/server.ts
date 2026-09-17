@@ -32,7 +32,11 @@ import {
   type ClinicTreatmentProviderFactory,
   type ClinicTreatmentsSnapshot,
 } from "./clinic-profile/server/public"
-import { createDashboardProfileProgress } from "./dashboard/server/public"
+import {
+  createDashboardProfileProgress,
+  handleClinicDashboardReportingLoad as handleClinicDashboardReportingLoadWithProvider,
+  loadClinicDashboardReporting as loadClinicDashboardReportingWithProvider,
+} from "./dashboard/server/public"
 import {
   handleInquiryAttachmentDownload as handleInquiryAttachmentDownloadWithProvider,
   handleInquiryAttachmentDraftCreate as handleInquiryAttachmentDraftCreateWithProvider,
@@ -85,6 +89,9 @@ const createReviewProvider: ReviewProviderFactory = (accessToken, clinicId) =>
 const createClinicTreatmentProvider: ClinicTreatmentProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).treatments
 
+const createClinicDashboardReportingProvider = (accessToken: string, clinicId: string) =>
+  composeClinicDashboardDataProviders(accessToken, clinicId).reporting
+
 export function handleReviewListLoad(request: NextRequest) {
   return handleReviewListLoadWithProvider(request, createReviewProvider)
 }
@@ -99,6 +106,17 @@ export function handleReviewAppealSubmit(request: NextRequest, reviewId: string)
 
 export function handleReviewHistoryLoad(request: NextRequest, reviewId: string) {
   return handleReviewHistoryLoadWithProvider(request, reviewId, createReviewProvider)
+}
+
+export function handleClinicDashboardReportingLoad(request: NextRequest) {
+  return handleClinicDashboardReportingLoadWithProvider(request, createClinicDashboardReportingProvider)
+}
+
+export async function loadClinicDashboardInitialReporting(clinicId: string) {
+  const accessToken = await getClinicDashboardAccessToken()
+  return accessToken
+    ? loadClinicDashboardReportingWithProvider(accessToken, clinicId, createClinicDashboardReportingProvider)
+    : ({ status: "temporarily-unavailable" } as const)
 }
 
 export function handleClinicProfileLoad(request: NextRequest) {

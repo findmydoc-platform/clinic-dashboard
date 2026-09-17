@@ -1,10 +1,7 @@
-import { antalyaLaraDashboard } from "./locations/antalya-lara/dashboard"
 import { antalyaLaraProfile } from "./locations/antalya-lara/profile"
 import { antalyaLaraReviews } from "./locations/antalya-lara/reviews"
-import { istanbulLeventDashboard } from "./locations/istanbul-levent/dashboard"
 import { istanbulLeventProfile } from "./locations/istanbul-levent/profile"
 import { istanbulLeventReviews } from "./locations/istanbul-levent/reviews"
-import { izmirAlsancakDashboard } from "./locations/izmir-alsancak/dashboard"
 import { izmirAlsancakProfile } from "./locations/izmir-alsancak/profile"
 import { izmirAlsancakReviews } from "./locations/izmir-alsancak/reviews"
 import { clinicDashboardDemoNotifications } from "./notifications"
@@ -33,17 +30,14 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
     locationSnapshots: {
       "antalya-lara": {
         clinicProfile: antalyaLaraProfile,
-        dashboard: antalyaLaraDashboard,
         reviews: antalyaLaraReviews,
       },
       "istanbul-levent": {
         clinicProfile: istanbulLeventProfile,
-        dashboard: istanbulLeventDashboard,
         reviews: istanbulLeventReviews,
       },
       "izmir-alsancak": {
         clinicProfile: izmirAlsancakProfile,
-        dashboard: izmirAlsancakDashboard,
         reviews: izmirAlsancakReviews,
       },
     },
