@@ -1,7 +1,8 @@
 export { ProfileTaskDialog } from "./components/molecules/ProfileTaskDialog"
-export { DashboardReportingScreen } from "./components/organisms/DashboardReportingScreen"
-export { useClinicDashboardReportingController } from "./hooks/useClinicDashboardReportingController"
-export { loadClinicDashboardReportingFromBrowser } from "./browser/reporting-api"
+export {
+  ClinicDashboardReportingController,
+  type ClinicDashboardReportingControllerProps,
+} from "./ClinicDashboardReporting"
 export type { DashboardSnapshot } from "./model/dashboard-snapshot"
 export type {
   DashboardActions,

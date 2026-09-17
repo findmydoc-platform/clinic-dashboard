@@ -89,6 +89,9 @@ const createReviewProvider: ReviewProviderFactory = (accessToken, clinicId) =>
 const createClinicTreatmentProvider: ClinicTreatmentProviderFactory = (accessToken, clinicId) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).treatments
 
+const createClinicDashboardReportingProvider = (accessToken: string, clinicId: string) =>
+  composeClinicDashboardDataProviders(accessToken, clinicId).reporting
+
 export function handleReviewListLoad(request: NextRequest) {
   return handleReviewListLoadWithProvider(request, createReviewProvider)
 }
@@ -106,7 +109,14 @@ export function handleReviewHistoryLoad(request: NextRequest, reviewId: string) 
 }
 
 export function handleClinicDashboardReportingLoad(request: NextRequest) {
-  return handleClinicDashboardReportingLoadWithProvider(request)
+  return handleClinicDashboardReportingLoadWithProvider(request, createClinicDashboardReportingProvider)
+}
+
+export async function loadClinicDashboardInitialReporting(clinicId: string) {
+  const accessToken = await getClinicDashboardAccessToken()
+  return accessToken
+    ? loadClinicDashboardReportingWithProvider(accessToken, clinicId, createClinicDashboardReportingProvider)
+    : ({ status: "temporarily-unavailable" } as const)
 }
 
 export function handleClinicProfileLoad(request: NextRequest) {
@@ -259,7 +269,6 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
       galleryStatus: "temporarily-unavailable",
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
       profileProgress: createUnavailableProfileProgress(),
-      reporting: { status: "temporarily-unavailable" },
       treatmentSnapshot: { catalogue: [], offerings: [], status: "temporarily-unavailable" },
     }
   }
@@ -278,7 +287,6 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
       galleryStatus: "temporarily-unavailable",
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
       profileProgress: createUnavailableProfileProgress(),
-      reporting: { status: "temporarily-unavailable" },
       treatmentSnapshot: { catalogue: [], offerings: [], status: "temporarily-unavailable" },
     }
   }
@@ -293,27 +301,19 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
     canEditProfile: access.context.capabilities.includes("clinic-profile:edit"),
     canEditTreatments: access.context.capabilities.includes("clinic-treatments:edit"),
   }
-  const [
-    doctorResult,
-    galleryResult,
-    inquiryResult,
-    profileResult,
-    reportingResult,
-    reviewResult,
-    treatmentResult,
-  ] = await Promise.allSettled([
-    providers.doctors.loadDirectory(),
-    canViewGallery ? providers.gallery.loadGallery() : Promise.resolve(undefined),
-    canViewInquiries
-      ? providers.inquiries.loadQueue({ lifecycle: "open", unreadOnly: false })
-      : Promise.resolve(undefined),
-    canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
-    loadClinicDashboardReportingWithProvider(accessToken),
-    providers.reviews.loadReviews(defaultReviewListFilters, 1),
-    canViewTreatments
-      ? providers.treatments.loadTreatments()
-      : Promise.resolve({ error: "forbidden", ok: false } as const),
-  ])
+  const [doctorResult, galleryResult, inquiryResult, profileResult, reviewResult, treatmentResult] =
+    await Promise.allSettled([
+      providers.doctors.loadDirectory(),
+      canViewGallery ? providers.gallery.loadGallery() : Promise.resolve(undefined),
+      canViewInquiries
+        ? providers.inquiries.loadQueue({ lifecycle: "open", unreadOnly: false })
+        : Promise.resolve(undefined),
+      canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
+      providers.reviews.loadReviews(defaultReviewListFilters, 1),
+      canViewTreatments
+        ? providers.treatments.loadTreatments()
+        : Promise.resolve({ error: "forbidden", ok: false } as const),
+    ])
 
   const gallerySourceSnapshot =
     galleryResult.status === "fulfilled" && galleryResult.value?.ok ? galleryResult.value.value : undefined
@@ -367,8 +367,6 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
         : { inquiries: [], status: "temporarily-unavailable" },
     profileProgress,
     profileSourceSnapshot,
-    reporting:
-      reportingResult.status === "fulfilled" ? reportingResult.value : { status: "temporarily-unavailable" },
     reviewSourceSnapshot:
       reviewResult.status === "fulfilled" && reviewResult.value.ok ? reviewResult.value.value : undefined,
     treatmentSnapshot,

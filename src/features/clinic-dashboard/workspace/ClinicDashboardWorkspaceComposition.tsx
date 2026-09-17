@@ -18,10 +18,9 @@ import {
   type DoctorProfileCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
-  DashboardReportingScreen,
+  ClinicDashboardReportingController,
   ProfileTaskDialog,
-  loadClinicDashboardReportingFromBrowser,
-  useClinicDashboardReportingController,
+  type ClinicDashboardReportingLoadState,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { InquiryQueue } from "@/features/clinic-dashboard/messages/public"
 import {
@@ -68,6 +67,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   doctorProfileCommands: DoctorProfileCommands
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
+  initialReporting?: ClinicDashboardReportingLoadState
   focusInquiryId?: string
   isSourceRefreshPending: boolean
   onSourceRefresh: () => void
@@ -88,6 +88,7 @@ export function ClinicDashboardWorkspaceComposition({
   focusInquiryId,
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
+  initialReporting,
   isSourceRefreshPending,
   onSourceRefresh,
   persistNotificationReadStateInSession,
@@ -174,11 +175,6 @@ export function ClinicDashboardWorkspaceComposition({
           galleryTotal: publishedGalleryItems.length,
         }
       : selectedSnapshot.clinicProfile
-  const reportingController = useClinicDashboardReportingController({
-    initialReporting: workspaceInput.reporting,
-    loadReporting: loadClinicDashboardReportingFromBrowser,
-  })
-
   const accountInitials = authenticatedContext.principal.displayName
     .split(/\s+/)
     .filter(Boolean)
@@ -293,10 +289,7 @@ export function ClinicDashboardWorkspaceComposition({
       </p>
 
       {activeSection === "dashboard" ? (
-        <DashboardReportingScreen
-          model={reportingController.model}
-          onPeriodChange={reportingController.actions.changePeriodDays}
-        />
+        <ClinicDashboardReportingController initialReporting={initialReporting} />
       ) : null}
       <div hidden={activeSection !== "messages"}>
         <InquiryQueue

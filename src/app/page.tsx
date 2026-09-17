@@ -7,6 +7,7 @@ import {
 } from "@/features/clinic-dashboard/public"
 import {
   getClinicDashboardAccess,
+  loadClinicDashboardInitialReporting,
   loadClinicDashboardWorkspaceInput,
 } from "@/features/clinic-dashboard/server"
 
@@ -24,12 +25,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   if (access.status === "temporarily-unavailable") redirect("/access?state=temporarily-unavailable")
   if (access.status !== "approved") redirect(createClinicDashboardLoginPath(returnTarget))
 
-  const workspaceInput = await loadClinicDashboardWorkspaceInput()
+  const [initialReporting, workspaceInput] = await Promise.all([
+    loadClinicDashboardInitialReporting(access.context.clinic.id),
+    loadClinicDashboardWorkspaceInput(),
+  ])
 
   return (
     <ClinicDashboardWorkspace
       authenticatedContext={access.context}
       focusInquiryId={focusInquiryId}
+      initialReporting={initialReporting}
       persistNotificationReadStateInSession
       prototypeMode="presentation"
       workspaceInput={workspaceInput}

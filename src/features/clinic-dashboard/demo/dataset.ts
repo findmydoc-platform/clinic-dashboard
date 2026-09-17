@@ -48,7 +48,6 @@ export function buildClinicDashboardDemoWorkspaceInput(): ClinicDashboardWorkspa
       reason: "profile-unavailable",
       status: "error",
     },
-    reporting: { status: "temporarily-unavailable" },
     treatmentSnapshot: {
       catalogue: clinicDashboardDemoTreatmentCatalogue,
       offerings: [

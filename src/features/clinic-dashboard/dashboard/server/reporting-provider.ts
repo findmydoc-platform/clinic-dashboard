@@ -26,4 +26,5 @@ export type ClinicDashboardReportingProvider = Readonly<{
 
 export type ClinicDashboardReportingProviderFactory = (
   accessToken: string,
+  clinicId: string,
 ) => ClinicDashboardReportingProvider

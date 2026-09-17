@@ -225,4 +225,40 @@ describe("clinic dashboard reporting BFF", () => {
     await expect(response.json()).resolves.toEqual({ code: "REPORTING_SERVICE_UNAVAILABLE" })
     expectPrivate(response)
   })
+
+  it.each([
+    [
+      "omits a required nested metric",
+      (() => {
+        const { profileViews: _profileViews, ...metrics } = reportingFixture.metrics
+        return { ...reportingFixture, metrics }
+      })(),
+    ],
+    [
+      "changes a nested metric value type",
+      {
+        ...reportingFixture,
+        metrics: {
+          ...reportingFixture.metrics,
+          profileViews: {
+            ...reportingFixture.metrics.profileViews,
+            current: { state: "available", value: "284" },
+          },
+        },
+      },
+    ],
+  ])("fails closed when the upstream response %s", async (_description, invalidReporting) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => privateReportingResponse(invalidReporting)),
+    )
+
+    const response = await handleClinicDashboardReportingLoad(
+      new NextRequest("http://localhost:3000/api/dashboard/reporting?periodDays=30"),
+    )
+
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toEqual({ code: "REPORTING_SERVICE_UNAVAILABLE" })
+    expectPrivate(response)
+  })
 })

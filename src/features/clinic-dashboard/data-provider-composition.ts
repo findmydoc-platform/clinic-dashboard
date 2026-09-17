@@ -1,6 +1,9 @@
 import "server-only"
 
 import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
+import { createControlledClinicDashboardReportingProvider } from "./dashboard/server/controlled-reporting"
+import { createPayloadClinicDashboardReportingProvider } from "./dashboard/server/payload-reporting"
+import type { ClinicDashboardReportingProvider } from "./dashboard/server/reporting-provider"
 import { createControlledClinicProfileProvider } from "./clinic-profile/server/controlled-clinic-profile"
 import { createControlledClinicGalleryProvider } from "./clinic-profile/server/controlled-clinic-gallery"
 import type { ClinicGalleryProvider } from "./clinic-profile/server/clinic-gallery-provider"
@@ -32,6 +35,7 @@ export type ClinicDashboardDataProviders = Readonly<{
   inquiries: PatientInquiryProvider
   inquiryAttachmentDraftUpload?: PatientInquiryAttachmentDraftUpload
   profile: ClinicProfileProvider
+  reporting: ClinicDashboardReportingProvider
   reviews: ReviewProvider
   treatments: ClinicTreatmentProvider
 }>
@@ -68,6 +72,9 @@ export function composeClinicDashboardDataProviders(
     profile: controlled
       ? createControlledClinicProfileProvider()
       : createPayloadClinicProfileProvider(accessToken, clinicId),
+    reporting: controlled
+      ? createControlledClinicDashboardReportingProvider()
+      : createPayloadClinicDashboardReportingProvider(accessToken),
     reviews: controlled
       ? createControlledReviewProvider()
       : createPayloadReviewProvider(accessToken, clinicId),

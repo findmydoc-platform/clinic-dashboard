@@ -59,7 +59,10 @@ export async function handleClinicDashboardReportingLoad(
   }
 
   try {
-    const result = await createReportingProvider(authorization.accessToken).loadReporting(periodDays)
+    const result = await createReportingProvider(
+      authorization.accessToken,
+      authorization.clinicId,
+    ).loadReporting(periodDays)
     const response = result.ok ? privateJson(result.value) : providerErrorResponse(result.error)
     return authorization.applyToResponse(response)
   } catch {

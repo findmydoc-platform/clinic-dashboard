@@ -11,12 +11,14 @@ import {
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import { createReviewSourceApiCommands } from "@/features/clinic-dashboard/reviews/public"
+import type { ClinicDashboardReportingLoadState } from "@/features/clinic-dashboard/dashboard/public"
 import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceComposition"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
 
 export type ClinicDashboardWorkspaceProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
   focusInquiryId?: string
+  initialReporting?: ClinicDashboardReportingLoadState
   persistNotificationReadStateInSession?: boolean
   prototypeMode: ClinicDashboardPrototypeMode
   showPrototypeModeToggle?: boolean
@@ -26,6 +28,7 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
 export function ClinicDashboardWorkspace({
   authenticatedContext,
   focusInquiryId,
+  initialReporting,
   persistNotificationReadStateInSession = false,
   prototypeMode,
   showPrototypeModeToggle = false,
@@ -48,6 +51,7 @@ export function ClinicDashboardWorkspace({
       clinicTreatmentCommands={clinicTreatmentCommands}
       doctorProfileCommands={doctorProfileCommands}
       focusInquiryId={focusInquiryId}
+      initialReporting={initialReporting}
       isSourceRefreshPending={isSourceRefreshPending}
       onSourceRefresh={refreshSources}
       persistNotificationReadStateInSession={persistNotificationReadStateInSession}

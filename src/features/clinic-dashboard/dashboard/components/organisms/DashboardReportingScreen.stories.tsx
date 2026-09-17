@@ -26,7 +26,11 @@ export const Available: Story = {
     const canvas = within(canvasElement)
 
     await expect(canvas.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
-    await expect(canvas.getByRole("region", { name: "Reporting metrics" })).toBeVisible()
+    const metrics = within(canvas.getByRole("region", { name: "Reporting metrics" }))
+    await expect(metrics.getByText("Profile views")).toBeVisible()
+    await expect(metrics.getByText("284")).toBeVisible()
+    await expect(metrics.getByText("CTA interactions")).toBeVisible()
+    await expect(metrics.getByText("23")).toBeVisible()
     await expect(canvas.getByText("Europe/Istanbul")).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
     await expect(args.onPeriodChange).toHaveBeenCalledWith(7)

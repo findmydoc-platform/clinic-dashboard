@@ -76,26 +76,58 @@ test("opens safe inquiry deep links and fails closed for foreign or unsafe ident
   await expect(page.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
 })
 
-test("keeps reporting request-bound while the selected period changes", async ({ page }) => {
+test("loads controlled reporting through the request-bound BFF when the selected period changes", async ({
+  page,
+}) => {
   await page.setViewportSize({ height: 900, width: 1280 })
+  const reportingRequests: string[] = []
+  page.on("request", (request) => {
+    const url = new URL(request.url())
+    if (url.pathname === "/api/dashboard/reporting") {
+      reportingRequests.push(`${url.pathname}${url.search}`)
+    }
+  })
   await signIn(page)
 
   await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
-  const reportingUnavailableAlert = page.getByRole("alert", {
-    name: "Reporting is temporarily unavailable",
-  })
-  await expect(reportingUnavailableAlert).toContainText("No reporting values are shown")
-  await page.getByRole("button", { name: "90 days" }).click()
-  await expect(reportingUnavailableAlert).toContainText("No reporting values are shown")
-  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-
-  await page.reload()
-  await expect(page.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
+  const reportingMetrics = page.getByRole("region", { name: "Reporting metrics" })
+  await expect(reportingMetrics.getByText("Profile views")).toBeVisible()
+  await expect(reportingMetrics.getByText("284", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "false")
-  await expect(page.getByRole("alert", { name: "Reporting is temporarily unavailable" })).toContainText(
-    "No reporting values are shown",
-  )
+  expect(reportingRequests).toEqual([])
+
+  await page.getByRole("button", { name: "90 days" }).click()
+  await expect(reportingMetrics.getByText("902", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
+  await expect.poll(() => reportingRequests).toEqual(["/api/dashboard/reporting?periodDays=90"])
+})
+
+test("captures available reporting without mobile overflow in light and dark mode", async ({ page }) => {
+  const consoleMessages: string[] = []
+  page.on("console", (message) => {
+    if (message.type() === "error" || message.type() === "warning") {
+      consoleMessages.push(message.text())
+    }
+  })
+  await page.emulateMedia({ colorScheme: "light" })
+  await page.setViewportSize({ height: 760, width: 320 })
+  await signIn(page)
+
+  const reportingMetrics = page.getByRole("region", { name: "Reporting metrics" })
+  await expect(reportingMetrics.getByText("284", { exact: true })).toBeVisible()
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.locator("nextjs-portal").evaluateAll((portals) => portals.forEach((portal) => portal.remove()))
+  await page.screenshot({
+    fullPage: true,
+    path: "output/playwright/clinic-dashboard-reporting-light-320.png",
+  })
+
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.screenshot({ fullPage: true, path: "output/playwright/clinic-dashboard-reporting-dark-320.png" })
+
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
+  expect(consoleMessages).toEqual([])
 })
 
 test("works an inquiry end to end and guards an unsent draft before sign out", async ({ page }) => {

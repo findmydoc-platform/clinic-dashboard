@@ -45,7 +45,7 @@ import {
 } from "./workspace.fixtures"
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
-  Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "workspaceInput"> & {
+  Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
     notificationState?: Readonly<{
       isOpen?: boolean
       readIds?: readonly string[]
@@ -178,7 +178,6 @@ export const clinicDashboardWorkspaceFixture = {
   notifications: notificationsFixture,
   organization: workspaceOrganizationFixture,
   profileProgress: profileProgressFixture,
-  reporting: { reporting: clinicDashboardReportingFixture, status: "ready" },
   treatmentSnapshot: clinicTreatmentSnapshotFixture,
 } satisfies ClinicDashboardWorkspaceInput
 
@@ -210,6 +209,7 @@ export function ClinicDashboardWorkspaceHarness({
         focusInquiryId={focusInquiryId}
         initialNotificationReadIds={notificationState?.readIds}
         initialNotificationsOpen={notificationState?.isOpen}
+        initialReporting={{ reporting: clinicDashboardReportingFixture, status: "ready" }}
         isSourceRefreshPending={false}
         onSourceRefresh={() => undefined}
         persistNotificationReadStateInSession={persistNotificationReadStateInSession}
