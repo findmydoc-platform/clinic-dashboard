@@ -14,7 +14,7 @@ type ClinicDashboardShellProps = Readonly<{
   accountMenu: ReactNode
   activeSection: ClinicDashboardSection
   children: ReactNode
-  clinicIdentity: ReactNode
+  clinicIdentity?: ReactNode
   environmentBadge?: string
   headerActions?: ReactNode
   interfaceModeControls?: Readonly<{

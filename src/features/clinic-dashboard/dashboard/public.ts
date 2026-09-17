@@ -1,7 +1,7 @@
-export { DashboardPeriodControl } from "./components/molecules/DashboardPeriodControl"
 export { ProfileTaskDialog } from "./components/molecules/ProfileTaskDialog"
-export { DashboardScreen } from "./components/organisms/DashboardScreen"
-export { useDashboardController } from "./hooks/useDashboardController"
+export { DashboardReportingScreen } from "./components/organisms/DashboardReportingScreen"
+export { useClinicDashboardReportingController } from "./hooks/useClinicDashboardReportingController"
+export { loadClinicDashboardReportingFromBrowser } from "./browser/reporting-api"
 export type { DashboardSnapshot } from "./model/dashboard-snapshot"
 export type {
   DashboardActions,
@@ -25,4 +25,10 @@ export type {
   DashboardReportingSnapshots,
   DashboardSelectableMetricId,
 } from "./model/reporting"
-export { createDashboardReportingSnapshot } from "./model/reporting"
+export type {
+  ClinicDashboardReporting,
+  ClinicDashboardReportingLoadState,
+  ClinicDashboardReportingPeriodDays,
+  ClinicDashboardReportingSource,
+  ClinicDashboardReportingSourceState,
+} from "./model/clinic-dashboard-reporting"

@@ -20,16 +20,9 @@ import {
 } from "@/features/clinic-dashboard/clinic-profile/testing/public"
 import {
   createDashboardProfileProgress,
-  createDashboardReportingSnapshot,
-  type DashboardChartPoint,
-  type DashboardReportingSnapshot,
-  type DashboardReportingSnapshots,
-  type DashboardReportingPeriod,
-  type DashboardSelectableMetricId,
   type DashboardProfileProgressState,
-  type DashboardSnapshot,
 } from "@/features/clinic-dashboard/dashboard/public"
-import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
+import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
 import { inquiryQueueFixture } from "@/features/clinic-dashboard/messages/testing/public"
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import {
@@ -59,109 +52,9 @@ type ClinicDashboardWorkspaceHarnessProps = Readonly<
     }>
     profileProgress?: DashboardProfileProgressState
     profileSourceSnapshot?: ClinicProfileSnapshot
-    reportingPeriod?: DashboardReportingPeriod
     start?: ClinicDashboardWorkspaceStartState
   }
 >
-
-type FixtureReportingTotals = Readonly<{
-  contacts: number
-  impressions: number
-  inquiries: number
-  profileViews: number
-  uniqueVisitors: number
-}>
-
-type FixtureReportingTotalsByPeriod = Readonly<Record<DashboardReportingPeriod, FixtureReportingTotals>>
-
-function distributeFixtureTotal(total: number, source: readonly DashboardChartPoint[]) {
-  if (source.length === 0) throw new Error("Fixture chart series must contain at least one point.")
-
-  const sourceTotal = source.reduce((sum, point) => sum + point.value, 0)
-  if (sourceTotal === 0) {
-    return source.map((_, index) => (index === source.length - 1 ? total : 0))
-  }
-
-  const exactValues = source.map((point) => (total * point.value) / sourceTotal)
-  const values = exactValues.map(Math.floor)
-  const remainder = total - values.reduce((sum, value) => sum + value, 0)
-  const remainderOrder = exactValues
-    .map((value, index) => ({ fraction: value - Math.floor(value), index }))
-    .sort((left, right) => right.fraction - left.fraction || left.index - right.index)
-
-  for (let index = 0; index < remainder; index += 1) {
-    const target = remainderOrder[index]
-    if (target) values[target.index] = (values[target.index] ?? 0) + 1
-  }
-
-  return values
-}
-
-function createFixtureDates(points: readonly DashboardChartPoint[]) {
-  return points.map((point) =>
-    point.axisLabel
-      ? { axisLabel: point.axisLabel, dateLabel: point.dateLabel }
-      : { dateLabel: point.dateLabel },
-  )
-}
-
-function getFixtureChange(
-  snapshot: DashboardReportingSnapshot,
-  metricId: Exclude<DashboardSelectableMetricId, "uniqueVisitors">,
-) {
-  return snapshot.metrics.find((metric) => metric.id === metricId)?.delta ?? "0.0%"
-}
-
-function createDashboardLocationFixture(
-  rating: number,
-  reviewTotal: number,
-  totalsByPeriod: FixtureReportingTotalsByPeriod,
-): DashboardSnapshot {
-  const createReportingFixture = (periodSnapshot: DashboardReportingSnapshot): DashboardReportingSnapshot => {
-    const totals = totalsByPeriod[periodSnapshot.period]
-
-    return createDashboardReportingSnapshot({
-      changes: {
-        contacts: getFixtureChange(periodSnapshot, "contacts"),
-        impressions: getFixtureChange(periodSnapshot, "impressions"),
-        inquiries: getFixtureChange(periodSnapshot, "inquiries"),
-        views: getFixtureChange(periodSnapshot, "views"),
-      },
-      chart: {
-        cadence: periodSnapshot.chart.cadence,
-        dates: createFixtureDates(periodSnapshot.chart.series.impressions),
-        series: {
-          contacts: distributeFixtureTotal(totals.contacts, periodSnapshot.chart.series.contacts),
-          impressions: distributeFixtureTotal(totals.impressions, periodSnapshot.chart.series.impressions),
-          inquiries: distributeFixtureTotal(totals.inquiries, periodSnapshot.chart.series.inquiries),
-          uniqueVisitors: distributeFixtureTotal(
-            totals.uniqueVisitors,
-            periodSnapshot.chart.series.uniqueVisitors,
-          ),
-          views: distributeFixtureTotal(totals.profileViews, periodSnapshot.chart.series.views),
-        },
-      },
-      period: periodSnapshot.period,
-      reviewActivity: periodSnapshot.reviewActivity,
-      totals,
-    })
-  }
-  const reporting = {
-    "7 days": createReportingFixture(dashboardFixture.reporting["7 days"]),
-    "30 days": createReportingFixture(dashboardFixture.reporting["30 days"]),
-    "90 days": createReportingFixture(dashboardFixture.reporting["90 days"]),
-  } satisfies DashboardReportingSnapshots
-
-  return {
-    ...dashboardFixture,
-    rating: {
-      ...dashboardFixture.rating,
-      count: reviewTotal,
-      value: rating,
-    },
-    reporting,
-  }
-}
 
 const profileProgressFixture = createDashboardProfileProgress({
   gallery: { snapshot: clinicGallerySnapshotFixture, status: "ready" },
@@ -271,89 +164,21 @@ export const clinicDashboardWorkspaceFixture = {
   locationSnapshots: {
     "berlin-charlottenburg": {
       clinicProfile: charlottenburgProfile,
-      dashboard: createDashboardLocationFixture(4.6, 486, {
-        "7 days": {
-          contacts: 18,
-          impressions: 3_140,
-          inquiries: 7,
-          profileViews: 672,
-          uniqueVisitors: 438,
-        },
-        "30 days": {
-          contacts: 61,
-          impressions: 12_760,
-          inquiries: 24,
-          profileViews: 2_740,
-          uniqueVisitors: 1_780,
-        },
-        "90 days": {
-          contacts: 158,
-          impressions: 35_920,
-          inquiries: 62,
-          profileViews: 7_420,
-          uniqueVisitors: 4_860,
-        },
-      }),
       reviews: createReviewsLocationFixture("charlottenburg", "Eva Fixture", 4.6, 486, [330, 130, 20, 5, 1]),
     },
     "berlin-mitte": {
       clinicProfile: mitteProfile,
-      dashboard: createDashboardLocationFixture(4.8, 1_248, {
-        "7 days": {
-          contacts: 12,
-          impressions: 4_680,
-          inquiries: 5,
-          profileViews: 848,
-          uniqueVisitors: 543,
-        },
-        "30 days": {
-          contacts: 42,
-          impressions: 18_420,
-          inquiries: 16,
-          profileViews: 3_284,
-          uniqueVisitors: 2_105,
-        },
-        "90 days": {
-          contacts: 118,
-          impressions: 53_680,
-          inquiries: 45,
-          profileViews: 9_410,
-          uniqueVisitors: 6_006,
-        },
-      }),
       reviews: createReviewsLocationFixture("mitte", "Markus Fixture", 4.8, 1_248, [1_050, 150, 35, 10, 3]),
     },
     potsdam: {
       clinicProfile: potsdamProfile,
-      dashboard: createDashboardLocationFixture(4.9, 92, {
-        "7 days": {
-          contacts: 10,
-          impressions: 1_260,
-          inquiries: 4,
-          profileViews: 286,
-          uniqueVisitors: 201,
-        },
-        "30 days": {
-          contacts: 38,
-          impressions: 4_960,
-          inquiries: 15,
-          profileViews: 1_080,
-          uniqueVisitors: 758,
-        },
-        "90 days": {
-          contacts: 91,
-          impressions: 12_840,
-          inquiries: 36,
-          profileViews: 2_760,
-          uniqueVisitors: 1_940,
-        },
-      }),
       reviews: createReviewsLocationFixture("potsdam", "Greta Fixture", 4.9, 92, [81, 9, 2, 0, 0]),
     },
   },
   notifications: notificationsFixture,
   organization: workspaceOrganizationFixture,
   profileProgress: profileProgressFixture,
+  reporting: { reporting: clinicDashboardReportingFixture, status: "ready" },
   treatmentSnapshot: clinicTreatmentSnapshotFixture,
 } satisfies ClinicDashboardWorkspaceInput
 
@@ -364,7 +189,6 @@ export function ClinicDashboardWorkspaceHarness({
   profileProgress,
   profileSourceSnapshot,
   prototypeMode,
-  reportingPeriod = "30 days",
   showPrototypeModeToggle = false,
   start,
 }: ClinicDashboardWorkspaceHarnessProps) {
@@ -386,7 +210,6 @@ export function ClinicDashboardWorkspaceHarness({
         focusInquiryId={focusInquiryId}
         initialNotificationReadIds={notificationState?.readIds}
         initialNotificationsOpen={notificationState?.isOpen}
-        initialReportingPeriod={reportingPeriod}
         isSourceRefreshPending={false}
         onSourceRefresh={() => undefined}
         persistNotificationReadStateInSession={persistNotificationReadStateInSession}

@@ -7,8 +7,8 @@ import type {
   DoctorDirectorySnapshot,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import type {
+  ClinicDashboardReportingLoadState,
   DashboardProfileProgressState,
-  DashboardSnapshot,
 } from "@/features/clinic-dashboard/dashboard/public"
 import type { PatientInquiryQueueSnapshot } from "@/features/clinic-dashboard/messages/public"
 import type { ReviewsSnapshot, ReviewsSourceSnapshot } from "@/features/clinic-dashboard/reviews/public"
@@ -28,7 +28,6 @@ type ClinicDashboardSerializableImage =
 
 export type ClinicDashboardLocationSnapshot = Readonly<{
   clinicProfile: ClinicProfileDraft
-  dashboard: DashboardSnapshot
   reviews: ReviewsSnapshot
 }>
 
@@ -61,6 +60,7 @@ export type ClinicDashboardWorkspaceInput = Readonly<{
     name: string
   }>
   profileProgress: DashboardProfileProgressState
+  reporting: ClinicDashboardReportingLoadState
   treatmentSnapshot: ClinicTreatmentsSnapshot
 }>
 

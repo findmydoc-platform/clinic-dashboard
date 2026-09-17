@@ -1,8 +1,1 @@
-export {
-  dashboardFixture,
-  dashboardProfileProgressConflict,
-  dashboardProfileProgressDraft,
-  dashboardProfileProgressEmpty,
-  dashboardProfileProgressPublishReady,
-  dashboardProfileProgressReady,
-} from "./dashboard.fixtures"
+export { clinicDashboardReportingFixture } from "./clinic-dashboard-reporting.fixtures"
