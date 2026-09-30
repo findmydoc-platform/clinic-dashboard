@@ -32,6 +32,10 @@ The current application uses server-side Supabase sessions and the authorized Pa
 - Apply Outside-In TDD only to changes in observable behavior and bug fixes; do not apply it to documentation-only, configuration-only, or exploratory work.
 - Repository-specific rules in this instruction hierarchy remain authoritative.
 
+## Platform Architecture
+
+For questions spanning Clinic Dashboard and Website, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture). This repository remains authoritative for its BFF, session, and frontend implementation. Follow links to the relevant local documentation before changing code.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # Next.js: ALWAYS read docs before coding
