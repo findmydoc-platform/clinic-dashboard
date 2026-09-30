@@ -18,11 +18,9 @@ import {
   type DoctorProfileCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
-  DashboardPeriodControl,
-  DashboardScreen,
+  ClinicDashboardReportingController,
   ProfileTaskDialog,
-  type DashboardReportingPeriod,
-  useDashboardController,
+  type ClinicDashboardReportingLoadState,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { InquiryQueue } from "@/features/clinic-dashboard/messages/public"
 import {
@@ -69,8 +67,8 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   doctorProfileCommands: DoctorProfileCommands
   initialNotificationReadIds?: readonly string[]
   initialNotificationsOpen?: boolean
+  initialReporting?: ClinicDashboardReportingLoadState
   focusInquiryId?: string
-  initialReportingPeriod?: DashboardReportingPeriod
   isSourceRefreshPending: boolean
   onSourceRefresh: () => void
   persistNotificationReadStateInSession: boolean
@@ -90,7 +88,7 @@ export function ClinicDashboardWorkspaceComposition({
   focusInquiryId,
   initialNotificationReadIds = [],
   initialNotificationsOpen = false,
-  initialReportingPeriod = "30 days",
+  initialReporting,
   isSourceRefreshPending,
   onSourceRefresh,
   persistNotificationReadStateInSession,
@@ -177,20 +175,6 @@ export function ClinicDashboardWorkspaceComposition({
           galleryTotal: publishedGalleryItems.length,
         }
       : selectedSnapshot.clinicProfile
-  const coverImage = selectedProfile.gallery.find((image) => image.isCover) ?? selectedProfile.gallery[0]
-
-  const dashboardController = useDashboardController({
-    canExportProfileViews: capabilities.canUseDashboardReporting,
-    initialReportingPeriod,
-    locationSummary: {
-      ...(coverImage ? { coverAlt: coverImage.alt, coverImage: coverImage.src } : {}),
-      location: selectedLocation.location,
-      name: selectedProfile.name,
-    },
-    profileProgress,
-    snapshot: selectedSnapshot.dashboard,
-  })
-
   const accountInitials = authenticatedContext.principal.displayName
     .split(/\s+/)
     .filter(Boolean)
@@ -244,23 +228,16 @@ export function ClinicDashboardWorkspaceComposition({
       }
       activeSection={activeSection}
       clinicIdentity={
-        <ClinicLocationSelector
-          canSwitchLocations={capabilities.canSwitchLocations}
-          isDemoData
-          locations={workspaceInput.locations}
-          onValueChange={selectLocation}
-          organizationName={authenticatedContext.clinic.name}
-          value={selectedLocation.id}
-        />
-      }
-      environmentBadge="Mixed data"
-      headerActions={
-        activeSection === "dashboard" && capabilities.canUseDashboardReporting ? (
-          <DashboardPeriodControl
-            onValueChange={dashboardController.actions.changeReportingPeriod}
-            value={dashboardController.model.reportingPeriod}
+        activeSection === "dashboard" ? undefined : (
+          <ClinicLocationSelector
+            canSwitchLocations={capabilities.canSwitchLocations}
+            isDemoData
+            locations={workspaceInput.locations}
+            onValueChange={selectLocation}
+            organizationName={authenticatedContext.clinic.name}
+            value={selectedLocation.id}
           />
-        ) : undefined
+        )
       }
       interfaceModeControls={
         showPrototypeModeToggle
@@ -311,26 +288,8 @@ export function ClinicDashboardWorkspaceComposition({
         {model.locationAnnouncement}
       </p>
 
-      {activeSection !== "messages" ? (
-        <div className="mb-5 border-l-4 border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_34%,var(--background))] px-4 py-3 text-sm leading-5">
-          <strong className="text-[var(--secondary)]">Mixed data.</strong> Profile details, public profile
-          progress, doctors, clinic treatments, gallery, patient inquiries and reviews are live. Performance
-          cards and charts are local examples.
-        </div>
-      ) : null}
-
       {activeSection === "dashboard" ? (
-        <DashboardScreen
-          actions={{
-            onMetricSelect: dashboardController.actions.selectMetric,
-            onProfileProgressRetry: onSourceRefresh,
-            onProfileTaskOpen: actions.openProfileTask,
-            onProfileViewsDownload: dashboardController.actions.exportProfileViews,
-            onReviewsOpen: actions.navigateToReviews,
-          }}
-          canDownloadProfileViews={capabilities.canUseDashboardReporting}
-          model={dashboardController.model.viewModel}
-        />
+        <ClinicDashboardReportingController initialReporting={initialReporting} />
       ) : null}
       <div hidden={activeSection !== "messages"}>
         <InquiryQueue

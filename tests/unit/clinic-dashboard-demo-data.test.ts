@@ -2,28 +2,6 @@ import { readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 import { loadClinicDashboardWorkspaceInput } from "@/features/clinic-dashboard/server"
-import {
-  dashboardReportingPeriods,
-  dashboardSelectableMetricIds,
-} from "@/features/clinic-dashboard/dashboard/model/reporting"
-
-const expectedLocationReporting = {
-  "antalya-lara": {
-    "7 days": [1_260, 292, 207, 10, 3],
-    "30 days": [4_960, 1_141, 804, 42, 13],
-    "90 days": [12_840, 2_928, 2_051, 105, 35],
-  },
-  "istanbul-levent": {
-    "7 days": [4_680, 945, 652, 27, 9],
-    "30 days": [18_420, 3_702, 2_535, 104, 35],
-    "90 days": [53_680, 10_575, 7_194, 295, 102],
-  },
-  "izmir-alsancak": {
-    "7 days": [3_140, 691, 470, 22, 8],
-    "30 days": [12_760, 2_780, 1_904, 91, 33],
-    "90 days": [35_920, 7_755, 5_313, 250, 92],
-  },
-} as const
 
 const expectedProfiles = {
   "antalya-lara": [4.9, 92],
@@ -130,23 +108,16 @@ describe("clinic dashboard demo workspace input", () => {
     expect(imageSources.size).toBe(12)
   })
 
-  it("keeps profile, review, funnel, and reporting numbers consistent", async () => {
+  it("keeps profile and review numbers consistent", async () => {
     const input = await loadClinicDashboardWorkspaceInput()
-    const dateAxesByPeriod = new Map<string, string>()
 
     for (const location of input.locations) {
       const snapshot = input.locationSnapshots[location.id]
       const profileExpectation = expectedProfiles[location.id as keyof typeof expectedProfiles]
-      const reportingExpectation =
-        expectedLocationReporting[location.id as keyof typeof expectedLocationReporting]
       expect(snapshot).toBeDefined()
       if (!snapshot) continue
 
-      expect([snapshot.dashboard.rating.value, snapshot.dashboard.rating.count]).toEqual(profileExpectation)
-      expect(snapshot.dashboard).not.toHaveProperty("profileCompletion")
-      expect(snapshot.dashboard).not.toHaveProperty("profileTasks")
-      expect(snapshot.reviews.rating).toBe(snapshot.dashboard.rating.value)
-      expect(snapshot.reviews.total).toBe(snapshot.dashboard.rating.count)
+      expect([snapshot.reviews.rating, snapshot.reviews.total]).toEqual(profileExpectation)
       expect(snapshot.reviews.distribution.reduce((total, entry) => total + entry.count, 0)).toBe(
         snapshot.reviews.total,
       )
@@ -154,54 +125,6 @@ describe("clinic dashboard demo workspace input", () => {
         snapshot.reviews.distribution.reduce((total, entry) => total + entry.count * entry.stars, 0) /
         snapshot.reviews.total
       expect(Number(weightedRating.toFixed(1))).toBe(snapshot.reviews.rating)
-
-      for (const period of dashboardReportingPeriods) {
-        const reporting = snapshot.dashboard.reporting[period]
-        const [impressions, views, uniqueVisitors, contacts, inquiries] = reportingExpectation[period]
-        expect(reporting.totals).toEqual({
-          contacts,
-          impressions,
-          inquiries,
-          profileViews: views,
-          uniqueVisitors,
-        })
-        expect(impressions).toBeGreaterThan(views)
-        expect(views).toBeGreaterThan(uniqueVisitors)
-        expect(uniqueVisitors).toBeGreaterThan(contacts)
-        expect(contacts).toBeGreaterThan(inquiries)
-
-        const [profileViewsRate, uniqueVisitorRate, contactRate, inquiryRate] = [
-          views / impressions,
-          uniqueVisitors / views,
-          contacts / uniqueVisitors,
-          inquiries / contacts,
-        ]
-        expect(profileViewsRate).toBeGreaterThanOrEqual(0.19)
-        expect(profileViewsRate).toBeLessThanOrEqual(0.24)
-        expect(uniqueVisitorRate).toBeGreaterThanOrEqual(0.67)
-        expect(uniqueVisitorRate).toBeLessThanOrEqual(0.72)
-        expect(contactRate).toBeGreaterThanOrEqual(0.04)
-        expect(contactRate).toBeLessThanOrEqual(0.055)
-        expect(inquiryRate).toBeGreaterThanOrEqual(0.3)
-        expect(inquiryRate).toBeLessThanOrEqual(0.37)
-
-        for (const metric of reporting.metrics) {
-          if (metric.delta) expect(metric.delta).toMatch(/^\+/u)
-        }
-
-        const expectedSeriesTotals = { contacts, impressions, inquiries, uniqueVisitors, views }
-        for (const metricId of dashboardSelectableMetricIds) {
-          expect(reporting.chart.series[metricId].reduce((total, point) => total + point.value, 0)).toBe(
-            expectedSeriesTotals[metricId],
-          )
-        }
-
-        const dateAxis = JSON.stringify(
-          reporting.chart.series.impressions.map(({ axisLabel, dateLabel }) => ({ axisLabel, dateLabel })),
-        )
-        expect(dateAxesByPeriod.get(period) ?? dateAxis).toBe(dateAxis)
-        dateAxesByPeriod.set(period, dateAxis)
-      }
     }
   })
 
@@ -221,7 +144,6 @@ describe("clinic dashboard demo workspace input", () => {
       )
       expect(pendingResponses).toHaveLength(1)
       expect(pendingResponses[0]).toMatchObject({ status: "pending-moderation" })
-      expect(snapshot.dashboard.rating.pendingResponses).toBe(pendingResponses.length)
 
       const appealCases = snapshot.reviews.items.flatMap(({ appealCase }) => (appealCase ? [appealCase] : []))
       expect(appealCases).toHaveLength(1)

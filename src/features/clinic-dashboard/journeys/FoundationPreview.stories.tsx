@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import { dashboardProfileProgressReady } from "@/features/clinic-dashboard/dashboard/testing/public"
 import { ClinicDashboardWorkspaceHarness } from "@/features/clinic-dashboard/workspace/testing/public"
 
 const meta = {
@@ -20,10 +19,9 @@ export const PresentationDashboard: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
+    await expect(canvas.getByRole("heading", { level: 1, name: "Reporting" })).toBeInTheDocument()
     await expect(canvas.getByRole("group", { name: "Reporting period" })).toBeInTheDocument()
-    await expect(canvas.getByRole("button", { name: "Download profile views" })).toBeInTheDocument()
-    await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: /Switch clinic location/ })).not.toBeInTheDocument()
     await expect(
       canvas.getByRole("button", { name: "Notifications, 2 new notifications" }),
     ).toBeInTheDocument()
@@ -77,30 +75,6 @@ export const NotificationOpensReviewAtItsLocation: Story = {
     await waitFor(() => expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toHaveFocus())
     await expect(canvas.queryByRole("dialog", { name: /review response/i })).not.toBeInTheDocument()
     await expect(canvas.getByText("Opened review at Berlin Health Clinic — Charlottenburg.")).toBeVisible()
-  },
-}
-
-export const ProfileTaskOpensExactSourceDestination: Story = {
-  args: {
-    profileProgress: dashboardProfileProgressReady,
-    prototypeMode: "presentation",
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-
-    await expect(canvas.getByRole("progressbar", { name: "Public profile progress: 67%" })).toHaveAttribute(
-      "aria-valuenow",
-      "67",
-    )
-    await userEvent.click(canvas.getByRole("button", { name: "View details for Add clinic images" }))
-
-    const taskDialog = canvas.getByRole("dialog", { name: "Add clinic images" })
-    await expect(within(taskDialog).getByText("Why this matters")).toBeVisible()
-    await expect(within(taskDialog).getByText("2 supporting images")).toBeVisible()
-    await userEvent.click(within(taskDialog).getByRole("button", { name: "Edit clinic images" }))
-
-    await waitFor(() => expect(taskDialog).not.toBeVisible())
-    await waitFor(() => expect(canvas.getByRole("heading", { name: "Manage gallery" })).toHaveFocus())
   },
 }
 

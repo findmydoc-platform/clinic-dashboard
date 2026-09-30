@@ -134,6 +134,7 @@ function isAllowedClinicDashboardServerImport(file) {
     /^src\/app\/api\/dashboard\/reviews(?:\/\[reviewId\]\/(?:appeal|history|response))?\/route\.ts$/u.test(
       file,
     ) ||
+    file === "src/app/api/dashboard/reporting/route.ts" ||
     /^src\/app\/api\/dashboard\/doctors(?:\/\[doctorId\](?:\/image|\/specialties(?:\/\[assignmentId\])?)?)?\/route\.ts$/u.test(
       file,
     ) ||
@@ -143,7 +144,8 @@ function isAllowedClinicDashboardServerImport(file) {
     file === "tests/integration/patient-inquiry-status-route.test.ts" ||
     file === "tests/unit/clinic-treatment-controlled-lifecycle.test.ts" ||
     file === "tests/integration/clinic-profile-routes.test.ts" ||
-    file === "tests/integration/review-routes.test.ts"
+    file === "tests/integration/review-routes.test.ts" ||
+    file === "tests/integration/clinic-dashboard-reporting-route.test.ts"
   )
 }
 

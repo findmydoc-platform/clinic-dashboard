@@ -11,8 +11,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Password").fill(testDashboardPassword)
   await page.getByRole("button", { name: "Sign in" }).click()
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
-  await expect(page.getByText("Mixed data.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
   await page.waitForLoadState("networkidle")
 }
 
@@ -22,7 +21,7 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
 
   await expect(page.getByRole("switch", { name: "Demo scope" })).toHaveCount(0)
   await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
-  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toBeVisible()
+  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Notifications, 4 new notifications" })).toBeVisible()
 
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
@@ -44,7 +43,7 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   }
 
   await page.reload()
-  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
   await expect(page.getByRole("switch", { name: "Demo scope" })).toHaveCount(0)
 
   const health = await page.request.get("/api/health")
@@ -74,90 +73,61 @@ test("opens safe inquiry deep links and fails closed for foreign or unsafe ident
   await expect(page.getByText("inquiry-foreign-clinic")).toHaveCount(0)
 
   await page.goto("/?inquiry=unsafe%2Finquiry")
-  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
 })
 
-test("switches complete location snapshots and resets local demo changes", async ({ page }) => {
+test("loads controlled reporting through the request-bound BFF when the selected period changes", async ({
+  page,
+}) => {
   await page.setViewportSize({ height: 900, width: 1280 })
+  const reportingRequests: string[] = []
+  page.on("request", (request) => {
+    const url = new URL(request.url())
+    if (url.pathname === "/api/dashboard/reporting") {
+      reportingRequests.push(`${url.pathname}${url.search}`)
+    }
+  })
   await signIn(page)
 
-  const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
-  const dashboardLocation = page.getByRole("region", { name: "Dashboard clinic location summary" })
-  const dashboardMetrics = page.getByRole("region", { name: "Dashboard metrics" })
-  const publicProfileProgress = page.getByRole("progressbar", {
-    name: "Public profile progress: 83%",
+  await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
+  const reportingMetrics = page.getByRole("region", { name: "Reporting metrics" })
+  await expect(reportingMetrics.getByText("Profile views")).toBeVisible()
+  await expect(reportingMetrics.getByText("284", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true")
+  expect(reportingRequests).toEqual([])
+
+  await page.getByRole("button", { name: "90 days" }).click()
+  await expect(reportingMetrics.getByText("902", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
+  await expect.poll(() => reportingRequests).toEqual(["/api/dashboard/reporting?periodDays=90"])
+})
+
+test("captures available reporting without mobile overflow in light and dark mode", async ({ page }) => {
+  const consoleMessages: string[] = []
+  page.on("console", (message) => {
+    if (message.type() === "error" || message.type() === "warning") {
+      consoleMessages.push(message.text())
+    }
+  })
+  await page.emulateMedia({ colorScheme: "light" })
+  await page.setViewportSize({ height: 760, width: 320 })
+  await signIn(page)
+
+  const reportingMetrics = page.getByRole("region", { name: "Reporting metrics" })
+  await expect(reportingMetrics.getByText("284", { exact: true })).toBeVisible()
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.locator("nextjs-portal").evaluateAll((portals) => portals.forEach((portal) => portal.remove()))
+  await page.screenshot({
+    fullPage: true,
+    path: "output/playwright/clinic-dashboard-reporting-light-320.png",
   })
 
-  await expect(locationSelector).toHaveAccessibleName(
-    /Current location: Demo data · Avenora Clinic — İstanbul/,
-  )
-  await expect(dashboardMetrics.getByText("18,420")).toBeVisible()
-  await expect(publicProfileProgress).toBeVisible()
-  await page.getByRole("button", { name: "90 days" }).click()
-  await expect(publicProfileProgress).toBeVisible()
-  await page.locator('[data-funnel-stage="impressions"]').click()
-  await expect(page.getByText("Impressions over time")).toBeVisible()
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.screenshot({ fullPage: true, path: "output/playwright/clinic-dashboard-reporting-dark-320.png" })
 
-  await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
-  await expect(dashboardLocation.getByText("Alsancak, İzmir")).toBeVisible()
-  await expect(dashboardMetrics.getByText("35,920")).toBeVisible()
-  await expect(publicProfileProgress).toBeVisible()
-  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByText("Impressions over time")).toBeVisible()
-
-  await page.getByRole("button", { exact: true, name: "Inquiries" }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Select an inquiry" })).toBeVisible()
-
-  await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Select an inquiry" })).toBeVisible()
-
-  await page.getByRole("button", { exact: true, name: "Reviews" }).click()
-  await expect(page.getByText("Maya K.")).toBeVisible()
-  await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
-  await expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveCount(0)
-
-  await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
-  await locationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — Antalya/ }).click()
-  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
-
-  await page.getByRole("button", { name: "Dashboard" }).click()
-  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect(publicProfileProgress).toBeVisible()
-  await expect(page.getByText("Impressions over time")).toBeVisible()
-
-  await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
-
-  await page.reload()
-
-  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-    /Current location: Demo data · Avenora Clinic — İstanbul/,
-  )
-  await expect(
-    page.getByRole("region", { name: "Dashboard clinic location summary" }).getByText("Levent, İstanbul"),
-  ).toBeVisible()
-  await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "false")
-  await expect(publicProfileProgress).toBeVisible()
-  await expect(page.getByText("Profile views over time")).toBeVisible()
-  await expect(page.getByText("Impressions over time")).toHaveCount(0)
-
-  const reloadedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
-  await reloadedLocationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await page.getByRole("button", { exact: true, name: "Inquiries" }).click()
-  await expect(page.getByRole("heading", { name: "Select an inquiry" })).toBeVisible()
-  await page.getByRole("button", { name: "Clinic profile" }).click()
-  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
+  expect(consoleMessages).toEqual([])
 })
 
 test("works an inquiry end to end and guards an unsent draft before sign out", async ({ page }) => {
@@ -392,12 +362,12 @@ test("deep-links across locations and persists gallery curation across reload", 
   await page.getByRole("button", { name: "Notifications, 4 new notifications" }).click()
   await page.getByRole("button", { name: /New message from Leyla Demir/ }).click()
 
-  const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
-  await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
   await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeFocused()
   await expect(page.getByText("Opened inquiries at Avenora Clinic — İzmir.")).toBeVisible()
-
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+
+  const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
+  await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
 
   const gallery = page.getByRole("region", { name: "Clinic image gallery" })
   await gallery.getByRole("button", { name: "Manage gallery" }).click()
@@ -472,10 +442,6 @@ test("deep-links across locations and persists gallery curation across reload", 
   expect((await saveResponse).status()).toBe(200)
   await expect(galleryEditor).toBeHidden()
 
-  await page.getByRole("button", { name: "Dashboard" }).click()
-  await expect(page.getByRole("progressbar", { name: "Public profile progress: 83%" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "View details for Add clinic images" })).toBeVisible()
-
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await page
     .getByRole("region", { name: "Clinic image gallery" })
@@ -504,14 +470,7 @@ test("deep-links across locations and persists gallery curation across reload", 
   expect((await completeGalleryResponse).status()).toBe(200)
   await expect(reopenedEditor).toBeHidden()
 
-  await page.getByRole("button", { name: "Dashboard" }).click()
-  await expect(page.getByRole("progressbar", { name: "Public profile progress: 100%" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "View details for Add clinic images" })).toHaveCount(0)
-
   await page.reload()
-  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
-  await expect(page.getByRole("progressbar", { name: "Public profile progress: 100%" })).toBeVisible()
-
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await page
     .getByRole("region", { name: "Clinic image gallery" })
@@ -539,6 +498,7 @@ test("deep-links across locations and persists gallery curation across reload", 
   await expect(curationEditor).toBeHidden()
 
   await page.reload()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   const persistedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
   await persistedLocationSelector.click()
   await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
@@ -548,15 +508,8 @@ test("deep-links across locations and persists gallery curation across reload", 
   await expect(persistedGallery.getByRole("img", { name: receptionAlt })).toHaveCount(0)
   await expect(persistedGallery.getByRole("img", { name: exteriorAlt })).toHaveCount(0)
 
-  await page.getByRole("button", { name: "Dashboard" }).click()
-  const clinicPreview = page.getByRole("region", { name: "Dashboard clinic location summary" })
-  await expect(clinicPreview.getByText("Avenora Clinic — İzmir")).toBeVisible()
-  await expect(clinicPreview.getByRole("img", { name: consultationAlt })).toBeVisible()
-  await expect(page.getByRole("progressbar", { name: "Public profile progress: 83%" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "View details for Add clinic images" })).toBeVisible()
-
   await page.reload()
-  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
     /Current location: Demo data · Avenora Clinic — İstanbul/,
   )
@@ -643,26 +596,14 @@ test("guards local profile edits and confirms persistent draft deletion separate
   await expect(page.getByRole("button", { name: "Edit profile" })).toBeVisible()
 })
 
-test("routes dashboard tasks into their owning workspace sections", async ({ page }) => {
+test("keeps reporting separate from clinic profile workflows", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
-  await page.getByRole("button", { name: "View reviews" }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeFocused()
-
-  await page.getByRole("button", { name: "Dashboard" }).click()
-  await page.getByRole("button", { name: "View details for Add clinic images" }).click()
-  const imageDialog = page.getByRole("dialog", { name: "Add clinic images" })
-  await expect(imageDialog).toBeVisible()
-  await expect(imageDialog.getByRole("heading", { name: "Why this matters" })).toBeVisible()
-  await expect(imageDialog.getByRole("heading", { name: "What is missing" })).toBeVisible()
-  await expect(imageDialog.getByText("1 main image")).toBeVisible()
-  await expect(imageDialog.getByText("2 supporting images")).toBeVisible()
-  await imageDialog.getByRole("button", { name: "Edit clinic images" }).click()
-
-  const galleryEditor = page.getByRole("region", { name: "Manage gallery" })
-  await expect(galleryEditor).toBeVisible()
-  await expect(galleryEditor.getByRole("heading", { name: "Manage gallery" })).toBeFocused()
+  await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
+  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeVisible()
+  await expect(page.getByRole("group", { name: "Reporting period" })).toHaveCount(0)
 })
 
 test("persists doctor creation and editing through the authenticated BFF", async ({ page }) => {
