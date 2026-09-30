@@ -34,7 +34,7 @@ The current application uses server-side Supabase sessions and the authorized Pa
 
 ## Platform Architecture
 
-For questions spanning Clinic Dashboard and Website, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture). This repository remains authoritative for its BFF, session, and frontend implementation. Follow links to the relevant local documentation before changing code.
+For questions spanning Clinic Dashboard and Website, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) when GitHub access is available. If access is unavailable, use the local application documentation and state that the shared architecture could not be checked. This repository remains authoritative for its BFF, session, and frontend implementation. Follow links to the relevant local documentation before changing code.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
