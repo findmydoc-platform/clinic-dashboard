@@ -28,7 +28,7 @@ The target architecture is **feature-first and Atomic Design second**:
 8. AI instruction quality, architecture boundaries, Storybook governance, and dead code remain separate checks with separate owners.
 9. Migration is incremental by vertical slice, but every migrated slice cuts over directly. Permanent compatibility barrels, duplicate story hierarchies, and a second transitional architecture are not allowed.
 
-These are the accepted implementation defaults. Changing one of them must update this plan, ADR 0002, and the frontend architecture authority before code diverges.
+These are the accepted implementation defaults. Changing one of them requires a new ADR that supersedes ADR 0002, plus corresponding updates to this plan and the frontend architecture authority before code diverges.
 
 ## User Outcome and Audience
 
@@ -1062,4 +1062,4 @@ The completed migration and its architecture record are reviewed in four decisio
 3. **Storybook and tests:** title hierarchy, required tags, direct-story coverage, journey limit, and test-layer ownership.
 4. **Governance and delivery:** scoped AI rules, separate strict checks, process-fixture coverage, and the nine-step recommended review sequence.
 
-These checkpoints now govern maintenance of the implemented architecture. Any future change that alters one of the accepted decisions must update this record, ADR 0002, and the frontend architecture authority together.
+These checkpoints now govern maintenance of the implemented architecture. Any future change that alters one of the accepted decisions requires a new ADR that supersedes ADR 0002, plus corresponding updates to this record and the frontend architecture authority.
