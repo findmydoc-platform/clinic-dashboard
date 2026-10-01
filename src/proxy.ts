@@ -14,7 +14,13 @@ import { isAuthSurface, isPublicPath } from "@/lib/security/public-routes"
 function copyResponseState(source: NextResponse, target: NextResponse) {
   for (const cookie of source.cookies.getAll()) target.cookies.set(cookie)
   source.headers.forEach((value, name) => {
-    if (name !== "location" && name !== "x-middleware-next" && name !== "x-middleware-rewrite") {
+    if (
+      name !== "location" &&
+      name !== "x-middleware-next" &&
+      name !== "x-middleware-rewrite" &&
+      name !== "x-middleware-override-headers" &&
+      !name.startsWith("x-middleware-request-")
+    ) {
       target.headers.set(name, value)
     }
   })
@@ -22,11 +28,15 @@ function copyResponseState(source: NextResponse, target: NextResponse) {
 }
 
 function issueCsrfCookieIfNeeded(request: NextRequest, response: NextResponse) {
-  if (request.method !== "GET" && request.method !== "HEAD") return
+  if (request.method !== "GET" && request.method !== "HEAD") return response
   const existingToken = request.cookies.get(CLINIC_DASHBOARD_CSRF_COOKIE)?.value
   if (!isValidCsrfToken(request, existingToken)) {
-    setCsrfCookie(response, createCsrfToken(request))
+    const token = createCsrfToken(request)
+    request.cookies.set(CLINIC_DASHBOARD_CSRF_COOKIE, token)
+    response = copyResponseState(response, NextResponse.next({ request }))
+    setCsrfCookie(response, token)
   }
+  return response
 }
 
 export async function proxy(request: NextRequest) {
@@ -51,7 +61,7 @@ export async function proxy(request: NextRequest) {
 
   response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive")
   if (hasSession || isAuthSurface(request.nextUrl.pathname)) {
-    issueCsrfCookieIfNeeded(request, response)
+    response = issueCsrfCookieIfNeeded(request, response)
   }
   if (hasSession || isAuthSurface(request.nextUrl.pathname) || !isPublicPath(request.nextUrl.pathname)) {
     applyPrivateResponseHeaders(response.headers)

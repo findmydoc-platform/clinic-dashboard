@@ -1,21 +1,17 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const { getClaimsMock } = vi.hoisted(() => ({
   getClaimsMock: vi.fn(),
 }))
 
-vi.mock("@/features/clinic-dashboard/auth/server/public", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/features/clinic-dashboard/auth/server/public")>()
-  return {
-    ...actual,
-    createProxySupabaseClient: (request: NextRequest) => ({
-      client: { auth: { getClaims: getClaimsMock } },
-      getResponse: () => NextResponse.next({ request }),
-    }),
-  }
-})
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: (_url: string, _key: string, options: { cookies: { setAll: (cookies: unknown[], headers: Record<string, string>) => void } }) => ({
+    auth: { getClaims: () => getClaimsMock(options.cookies.setAll) },
+  }),
+}))
 
+import { isValidCsrfToken } from "@/lib/security/csrf"
 import { proxy } from "@/proxy"
 
 function expectPrivate(response: Response) {
@@ -46,6 +42,34 @@ describe("proxy route and cache contract", () => {
     expect(response.status).toBe(200)
     expect(response.headers.get("set-cookie")).toContain("clinic_dashboard_csrf=")
     expect(response.headers.get("x-robots-tag")).toContain("noindex")
+    expectPrivate(response)
+  })
+
+  it("forwards the issued CSRF cookie to the server-rendered recovery form", async () => {
+    getClaimsMock.mockResolvedValueOnce({ data: { claims: { sub: "staff-1" } }, error: null })
+    const response = await proxy(
+      new NextRequest("http://localhost:3000/auth/session/recover?next=%2F&mode=refresh"),
+    )
+    const token = response.cookies.get("clinic_dashboard_csrf")?.value
+    expect(token).toBeTruthy()
+    expect(response.headers.get("x-middleware-request-cookie")).toContain(`clinic_dashboard_csrf=${token}`)
+  })
+
+  it("preserves renewed Supabase cookies when forwarding a new session-bound CSRF token", async () => {
+    getClaimsMock.mockImplementationOnce(async (setAll) => {
+      setAll([{ name: "clinic-dashboard-auth", value: "renewed-session", options: {} }], {})
+      return { data: { claims: { sub: "staff-1" } }, error: null }
+    })
+    const response = await proxy(new NextRequest("http://localhost:3000/auth/session/recover", {
+      headers: { cookie: "clinic-dashboard-auth=old-session" },
+    }))
+    const token = response.cookies.get("clinic_dashboard_csrf")?.value
+    expect(response.cookies.get("clinic-dashboard-auth")?.value).toBe("renewed-session")
+    const forwarded = response.headers.get("x-middleware-request-cookie")!
+    expect(forwarded).toContain("clinic-dashboard-auth=renewed-session")
+    expect(forwarded).toContain(`clinic_dashboard_csrf=${token}`)
+    expect(isValidCsrfToken(new NextRequest("http://localhost:3000/", { headers: { cookie: forwarded } }), token)).toBe(true)
+    expect(isValidCsrfToken(new NextRequest("http://localhost:3000/", { headers: { cookie: "clinic-dashboard-auth=old-session" } }), token)).toBe(false)
     expectPrivate(response)
   })
 

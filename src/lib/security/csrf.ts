@@ -87,27 +87,34 @@ export function clearCsrfCookie(response: NextResponse) {
   })
 }
 
-function getValidatedMutationOriginForContentType(request: NextRequest, contentTypePrefix: string) {
+function getValidatedMutationOriginForContentType(
+  request: NextRequest,
+  contentTypePrefix: string,
+  submittedToken = request.headers.get(CLINIC_DASHBOARD_CSRF_HEADER) ?? undefined,
+) {
   const environment = validateEnvironment()
   const requestOrigin = getTrustedDashboardOrigin(request.headers.get("origin"), environment)
   const requestUrlOrigin = getTrustedRequestDashboardOrigin(request, environment)
   const contentType = request.headers.get("content-type")?.toLowerCase()
   const cookieToken = request.cookies.get(CLINIC_DASHBOARD_CSRF_COOKIE)?.value
-  const headerToken = request.headers.get(CLINIC_DASHBOARD_CSRF_HEADER) ?? undefined
 
   if (
     requestOrigin !== undefined &&
     requestOrigin === requestUrlOrigin &&
     contentType?.startsWith(contentTypePrefix) === true &&
     cookieToken !== undefined &&
-    headerToken !== undefined &&
-    safeEqual(cookieToken, headerToken) &&
+    submittedToken !== undefined &&
+    safeEqual(cookieToken, submittedToken) &&
     isValidCsrfToken(request, cookieToken)
   ) {
     return requestOrigin
   }
 
   return undefined
+}
+
+export function getValidatedFormMutationOrigin(request: NextRequest, csrfToken: string) {
+  return getValidatedMutationOriginForContentType(request, "application/x-www-form-urlencoded", csrfToken)
 }
 
 export function getValidatedMutationOrigin(request: NextRequest) {

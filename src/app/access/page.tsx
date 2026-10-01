@@ -15,6 +15,7 @@ type AccessPageProps = Readonly<{
 export default async function AccessPage({ searchParams }: AccessPageProps) {
   const [access, params] = await Promise.all([getClinicDashboardAccess(), searchParams])
   if (access.status === "unauthenticated") redirect("/login")
+  if (access.status === "recovery-required" && params.state !== "temporarily-unavailable") redirect("/login")
   if (access.status === "approved") redirect("/")
 
   const state =
