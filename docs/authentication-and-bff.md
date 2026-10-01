@@ -163,7 +163,11 @@ For each environment, the client accepts one exact HTTPS Payload origin and conf
 redirects. An origin mismatch, non-HTTPS target, or cross-environment URL fails before the first token-bearing request.
 A redirect response fails without sending the Bearer token to the redirect target.
 
-The Dashboard consumes this synchronized bootstrap contract:
+The Website returns the historical six-capability bootstrap when no contract header is sent. The Dashboard's
+[server-only bootstrap client](../src/features/clinic-dashboard/auth/server/payload-bootstrap.ts) always sends the fixed
+`X-Findmydoc-Clinic-Dashboard-Contract: inquiry-communication-v2` opt-in from its
+[contract module](../src/features/clinic-dashboard/payload-contract.ts). The Website then appends inquiry view and edit
+capabilities. The Dashboard consumes this synchronized bootstrap shape:
 
 ```ts
 type ClinicDashboardCapability =
@@ -173,6 +177,8 @@ type ClinicDashboardCapability =
   | "clinic-gallery:edit"
   | "clinic-treatments:view"
   | "clinic-treatments:edit"
+  | "clinic-inquiries:view"
+  | "clinic-inquiries:edit"
 
 type ClinicDashboardBootstrapDTO = {
   principal: {
@@ -189,10 +195,11 @@ type ClinicDashboardBootstrapDTO = {
 }
 ```
 
-The capability list accepts independent subsets and contains each included value exactly once. The current Website
-bootstrap returns all six values in the order shown. It is a UI projection for feature controls, not a replacement for
-Payload authorization. Each later read or mutation must still authorize the current principal, clinic, document, and
-fields.
+The Dashboard parser accepts independent subsets of this closed union and requires each included value to be unique.
+For an approved clinic principal, the Website's unnegotiated response contains the six original values in their
+documented order; the negotiated inquiry response appends the two inquiry values. This is a UI projection for feature
+controls, not a replacement for Payload authorization. Each later read or mutation must still authorize the current
+principal, clinic, document, and fields.
 
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
 Supabase identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
