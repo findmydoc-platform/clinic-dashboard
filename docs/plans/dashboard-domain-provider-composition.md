@@ -2,6 +2,8 @@
 
 > **Approved architecture plan — 2026-07-27.** This plan makes patient-inquiry reads and writes use one
 > domain-specific server provider before doctor management begins.
+> The sequence is historical; [ADR 0003](../adr/0003-domain-data-provider-composition.md) and the
+> [BFF guide](../authentication-and-bff.md) own the current provider boundary.
 
 ## User Outcome And Audience
 

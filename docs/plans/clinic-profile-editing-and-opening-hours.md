@@ -1,5 +1,9 @@
 # Clinic Profile Editing and Opening Hours
 
+> **Historical implementation plan.** The Dashboard profile provider is implemented in source. This plan does not
+> prove Preview or Production availability; use the [BFF capability status](../authentication-and-bff.md#runtime-status-and-scope)
+> and the owning API contract for current behavior.
+
 ## Outcome
 
 Clinic staff can inspect the published profile for their server-assigned clinic, deliberately enter

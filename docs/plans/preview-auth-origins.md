@@ -1,5 +1,9 @@
 # Preview Authentication Origins Plan
 
+> **Planning record.** The steps below describe an authentication rollout plan, not proof of a current Preview
+> allowlist or tested callback. Use [SETUP](../SETUP.md) and the [BFF guide](../authentication-and-bff.md) for the
+> current configuration and contract; verify deployed behavior separately.
+
 ## Outcome and Audience
 
 Clinic staff can request and complete invite or recovery flows on the exact Vercel preview deployment they opened.

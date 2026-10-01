@@ -1,5 +1,9 @@
 # Review Responses, Appeals, and Publication History
 
+> **Historical implementation plan.** The Dashboard review provider is implemented in source. This plan does not
+> prove Preview or Production availability; use the [BFF capability status](../authentication-and-bff.md#runtime-status-and-scope)
+> and the owning API contract for current behavior.
+
 ## Outcome
 
 Authenticated clinic staff can inspect the approved reviews assigned to their server-derived clinic,
