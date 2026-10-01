@@ -26,7 +26,7 @@ test("recovery form works without JavaScript", async ({ browser, baseURL }) => {
     await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible()
     await page.getByRole("button", { name: "Continue", exact: true }).click()
     await expect(page).toHaveURL(/\/?\?sessionRecovery=.+$/u)
-    await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Reporting", exact: true })).toBeVisible()
   } finally {
     await context.close()
   }

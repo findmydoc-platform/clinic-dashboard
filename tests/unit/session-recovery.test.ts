@@ -119,7 +119,9 @@ describe("initial-read session recovery", () => {
     expect(fetch).toHaveBeenCalledOnce()
     expect(vi.mocked(fetch).mock.calls[0]?.[1]?.headers).toMatchObject({ Authorization: "Bearer new-token" })
     expect(response.status).toBe(303)
-    expect(response.headers.get("location")).toMatch(/^http:\/\/localhost:3000\/\?inquiry=inquiry-1&sessionRecovery=.+/u)
+    expect(response.headers.get("location")).toMatch(
+      /^http:\/\/localhost:3000\/\?inquiry=inquiry-1&sessionRecovery=.+/u,
+    )
     expect(response.headers.get("set-cookie")).toContain("clinic-dashboard-auth=new-cookie")
     expect(response.headers.get("set-cookie")).toContain("HttpOnly")
     expect(response.headers.get("set-cookie")).not.toContain("Domain=")
@@ -180,15 +182,24 @@ describe("initial-read session recovery", () => {
     const first = await POST(request("/"))
     const attempt = new URL(first.headers.get("location")!).searchParams.get("sessionRecovery")!
     const base = new NextRequest(`${origin}/api/auth/session/recover`, {
-      headers: { cookie: "clinic-dashboard-auth=new-cookie; clinic-dashboard-auth.0=old-chunk; clinic-dashboard-auth.1=new-chunk" },
+      headers: {
+        cookie:
+          "clinic-dashboard-auth=new-cookie; clinic-dashboard-auth.0=old-chunk; clinic-dashboard-auth.1=new-chunk",
+      },
     })
     const csrf = createCsrfToken(base)
     vi.mocked(fetch).mockClear()
-    const response = await POST(new NextRequest(base.url, {
-      method: "POST",
-      headers: { cookie: `${base.headers.get("cookie")}; clinic_dashboard_csrf=${csrf}`, origin, "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ attempt, csrf, mode: "clear", next: "/" }).toString(),
-    }))
+    const response = await POST(
+      new NextRequest(base.url, {
+        method: "POST",
+        headers: {
+          cookie: `${base.headers.get("cookie")}; clinic_dashboard_csrf=${csrf}`,
+          origin,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ attempt, csrf, mode: "clear", next: "/" }).toString(),
+      }),
+    )
     expect(auth.refreshSession).toHaveBeenCalledOnce()
     expect(fetch).not.toHaveBeenCalled()
     expect(response.headers.get("location")).toBe(`${origin}/login`)

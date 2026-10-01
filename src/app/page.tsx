@@ -23,7 +23,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   if (access.status === "recovery-required") {
     const attempt = typeof params.sessionRecovery === "string" ? params.sessionRecovery : ""
     const mode = attempt ? "clear" : "refresh"
-    redirect(`/auth/session/recover?next=${encodeURIComponent(returnTarget)}&mode=${mode}&attempt=${encodeURIComponent(attempt)}`)
+    redirect(
+      `/auth/session/recover?next=${encodeURIComponent(returnTarget)}&mode=${mode}&attempt=${encodeURIComponent(attempt)}`,
+    )
   }
   if (access.status === "unauthenticated") redirect(createClinicDashboardLoginPath(returnTarget))
   if (access.status === "unauthorized") redirect("/access?state=account-unavailable")

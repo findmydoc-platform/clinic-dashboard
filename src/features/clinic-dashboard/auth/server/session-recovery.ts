@@ -18,7 +18,12 @@ import type { VerifiedClinicSession } from "./session"
 import { clearDashboardAuthCookies, createRouteSupabaseClient } from "./supabase-client"
 
 const recoverySchema = z
-  .object({ attempt: z.string().max(128).optional(), csrf: z.string().min(1), mode: z.enum(["refresh", "clear"]), next: z.string().max(128) })
+  .object({
+    attempt: z.string().max(128).optional(),
+    csrf: z.string().min(1),
+    mode: z.enum(["refresh", "clear"]),
+    next: z.string().max(128),
+  })
   .strict()
 const MAX_BODY_BYTES = 8 * 1024
 
@@ -80,9 +85,10 @@ export async function handleClinicDashboardSessionRecovery(request: NextRequest)
     const session = routeClient
       ? await readVerifiedSupabaseSession(routeClient.client)
       : await getClinicDashboardSession(request.cookies)
-    const terminal = session && parsed.data.mode === "clear" && validAttempt(session, returnTarget, parsed.data.attempt)
+    const terminal =
+      session && parsed.data.mode === "clear" && validAttempt(session, returnTarget, parsed.data.attempt)
     access = terminal
-      ? { status: "unauthenticated" } as const
+      ? ({ status: "unauthenticated" } as const)
       : !session || !session.isClinicAccount || !routeClient
         ? await resolveAccessForSession(session)
         : await refreshClinicDashboardAccess(routeClient.client)

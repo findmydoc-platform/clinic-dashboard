@@ -21,6 +21,12 @@ export function ClinicDashboardSessionRecoveryPage({
 }: ClinicDashboardSessionRecoveryPageProps) {
   const formRef = useSessionRecovery(submitAction)
   return (
-    <SessionRecoveryScreen attempt={attempt} csrfToken={csrfToken} formRef={formRef} mode={mode} returnTarget={returnTarget} />
+    <SessionRecoveryScreen
+      attempt={attempt}
+      csrfToken={csrfToken}
+      formRef={formRef}
+      mode={mode}
+      returnTarget={returnTarget}
+    />
   )
 }

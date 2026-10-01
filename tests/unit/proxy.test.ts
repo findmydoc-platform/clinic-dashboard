@@ -6,7 +6,11 @@ const { getClaimsMock } = vi.hoisted(() => ({
 }))
 
 vi.mock("@supabase/ssr", () => ({
-  createServerClient: (_url: string, _key: string, options: { cookies: { setAll: (cookies: unknown[], headers: Record<string, string>) => void } }) => ({
+  createServerClient: (
+    _url: string,
+    _key: string,
+    options: { cookies: { setAll: (cookies: unknown[], headers: Record<string, string>) => void } },
+  ) => ({
     auth: { getClaims: () => getClaimsMock(options.cookies.setAll) },
   }),
 }))
@@ -60,16 +64,27 @@ describe("proxy route and cache contract", () => {
       setAll([{ name: "clinic-dashboard-auth", value: "renewed-session", options: {} }], {})
       return { data: { claims: { sub: "staff-1" } }, error: null }
     })
-    const response = await proxy(new NextRequest("http://localhost:3000/auth/session/recover", {
-      headers: { cookie: "clinic-dashboard-auth=old-session" },
-    }))
+    const response = await proxy(
+      new NextRequest("http://localhost:3000/auth/session/recover", {
+        headers: { cookie: "clinic-dashboard-auth=old-session" },
+      }),
+    )
     const token = response.cookies.get("clinic_dashboard_csrf")?.value
     expect(response.cookies.get("clinic-dashboard-auth")?.value).toBe("renewed-session")
     const forwarded = response.headers.get("x-middleware-request-cookie")!
     expect(forwarded).toContain("clinic-dashboard-auth=renewed-session")
     expect(forwarded).toContain(`clinic_dashboard_csrf=${token}`)
-    expect(isValidCsrfToken(new NextRequest("http://localhost:3000/", { headers: { cookie: forwarded } }), token)).toBe(true)
-    expect(isValidCsrfToken(new NextRequest("http://localhost:3000/", { headers: { cookie: "clinic-dashboard-auth=old-session" } }), token)).toBe(false)
+    expect(
+      isValidCsrfToken(new NextRequest("http://localhost:3000/", { headers: { cookie: forwarded } }), token),
+    ).toBe(true)
+    expect(
+      isValidCsrfToken(
+        new NextRequest("http://localhost:3000/", {
+          headers: { cookie: "clinic-dashboard-auth=old-session" },
+        }),
+        token,
+      ),
+    ).toBe(false)
     expectPrivate(response)
   })
 
