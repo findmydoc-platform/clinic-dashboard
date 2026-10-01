@@ -95,7 +95,7 @@ function installClient({ refreshFails = false, losesSession = false } = {}) {
 
 describe("initial-read session recovery", () => {
   beforeEach(() => {
-    vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
+    vi.stubEnv("CSRF_SIGNING_SECRET", "synthetic-session-recovery-test-signing-key")
     vi.stubEnv("DASHBOARD_ORIGIN", origin)
     vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
     vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
