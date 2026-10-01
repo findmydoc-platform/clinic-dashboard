@@ -2,9 +2,9 @@
 
 Standalone Next.js clinic staff workspace.
 
-For the cross-application system view, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) (private repository; GitHub access required). This repository documents Dashboard-specific implementation details.
+For the cross-application system view, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) (private repository; GitHub access required). If access is unavailable, use the local documents below and state that the shared view could not be checked. This repository documents Dashboard-specific implementation details.
 
-The current release authenticates clinic staff with server-side Supabase sessions and resolves approved staff and clinic identity through the Payload bootstrap API. Its dashboard cards, charts, messages, reviews, profile details, and interactions remain deterministic fixture data and are visibly marked as demo data. It has no direct database connection, service-role credential, or browser Supabase client.
+The source at revision `919f28e2` implements server-side Supabase sessions and the Payload bootstrap for approved staff and clinic identity. Its normal-mode server composition selects Payload providers for doctors, gallery, inquiries, profile, reporting, reviews, and treatments; presentation fixtures still supply parts of the workspace. See the [per-capability source and rollout status](docs/authentication-and-bff.md#runtime-status-and-scope) before describing a capability as available in Preview or Production. The Dashboard has no direct database connection, service-role credential, or browser Supabase client.
 
 ## Preview app shell
 

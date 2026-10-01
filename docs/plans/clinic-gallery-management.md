@@ -1,5 +1,9 @@
 # Clinic Gallery Management
 
+> **Historical implementation plan.** The source-backed gallery provider is present in Dashboard code. This plan
+> does not prove Preview or Production availability; use the [BFF capability status](../authentication-and-bff.md#runtime-status-and-scope)
+> and the owning API contract for current behavior.
+
 ## Status and Dependencies
 
 This plan covers [Clinic Dashboard #100](https://github.com/findmydoc-platform/clinic-dashboard/issues/100).

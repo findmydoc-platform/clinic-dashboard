@@ -1,5 +1,9 @@
 # Planning Documents
 
+> **Planning navigation.** The linked records preserve proposals, implementation order, and earlier baselines. They
+> are not evidence of current code behavior or environment rollout. Use the local architecture and source code for
+> implemented behavior, and check Preview or Production evidence separately.
+
 Create one planning document before a major feature, architecture, data, or access-control change.
 
 Each document must contain:

@@ -1,5 +1,9 @@
 # Clinic Dashboard Authentication and BFF Integration Plan
 
+> **Historical implementation plan.** The session and BFF work is implemented in source; this sequence does not
+> establish trusted Preview or Production validation. The [durable BFF guide](../authentication-and-bff.md) owns the
+> current Dashboard contract.
+
 > **Canonical decision:**
 > [Website ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md)
 >

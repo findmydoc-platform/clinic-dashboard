@@ -1,5 +1,8 @@
 # Clinic Dashboard Reviewer System
 
+> **Planning record.** This describes the review workflow at the time it was designed. The repository's
+> [review-gate skill](../../.codex/skills/review-gate/SKILL.md) and agent instructions govern current reviewer use.
+
 ## Outcome
 
 The repository uses a small approval-gated reviewer workflow. A deterministic path router recommends the relevant read-only reviewers. The coordinator obtains one user confirmation, runs only those reviewers, consolidates duplicate findings, and presents every finding before any reviewer-driven fix.

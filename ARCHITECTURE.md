@@ -1,5 +1,7 @@
 # Architecture
 
+For the cross-application boundary, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) when access is available. If access is unavailable, use this local guide and state that the shared view could not be checked. This file describes Dashboard-owned implementation; see the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) for the distinction between code wiring and rollout evidence.
+
 The canonical application and API decision is
 [Website ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md).
 The detailed repository contract lives in
@@ -26,12 +28,7 @@ acts as a generic Payload proxy.
 
 ## Current Access Boundary
 
-The unauthenticated surface exposes only `/login`, `/api/auth/login`, `/api/health`, and `/robots.txt`. The data-less dashboard route `/` uses a temporary server-side password guard, and all application responses emit `noindex` headers. Vercel Deployment Protection remains a separate optional layer and is currently disabled.
-
-The approved runtime boundary replaces the temporary password guard in a later implementation. Supabase will own the
-user session in secure, host-bound, `HttpOnly` cookies. Login, PKCE callback, refresh, and logout will run through the
-Dashboard BFF. Browser application code will receive no token, create no Supabase browser client, and make no request to
-Payload.
+The unauthenticated route set is defined by [`src/lib/security/public-routes.ts`](src/lib/security/public-routes.ts). The protected dashboard route `/` uses the implemented server-side Supabase session and Payload bootstrap, rather than the former temporary password guard. Session cookies are host-bound and `HttpOnly`; login, callback confirmation, refresh, and logout run through the Dashboard BFF. Browser application code receives no token, creates no Supabase browser client, and makes no request to Payload. The application disables indexing. These code facts do not establish Preview or Production auth-flow verification.
 
 Payload remains the current authorization boundary. The Dashboard server sends the user's access token to Payload as a
 Bearer token; Payload resolves current `clinicStaff` approval, clinic assignment, and permissions for every request.
@@ -43,10 +40,10 @@ host-only `__Host-` cookie. Payload requires no CSRF-specific change.
 
 ## Data Boundary
 
-The app shell has no persistence and no clinic data. Its presentation content is deterministic fixture data, and its
-complete visual reference is isolated in Storybook. Payload remains the source of truth and the only application with
-database access. The Clinic Dashboard receives no direct database access, no Supabase service-role key, and no durable
-business cache.
+The Dashboard has no business-data persistence. Its demo workspace still provides deterministic presentation content,
+while the server composition overlays source-backed domain results in normal mode. Storybook keeps the visual reference.
+Payload remains the source of truth and the only application with database access. The Clinic Dashboard receives no
+direct database access, no Supabase service-role key, and no durable business cache.
 
 The Dashboard server uses Payload REST resources and focused custom endpoints with typed DTOs. A self-and-capability
 bootstrap returns only the current principal, clinic, approval state, and allowed capabilities required by the UI. The
@@ -84,4 +81,4 @@ server-authorized capability replaces it.
 
 ## Delivery Boundary
 
-GitHub Actions owns validation and Vercel deployments. Pull-request checks are advisory on the current GitHub plan. Preview deployment is enabled; production deployment is guarded by an explicit repository variable that defaults to disabled.
+GitHub Actions owns validation and Vercel delivery. [Setup guidance](docs/SETUP.md) records the deployment configuration; the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) keeps per-domain Preview and Production availability separate from code wiring.

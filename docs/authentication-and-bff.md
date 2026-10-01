@@ -20,9 +20,26 @@
 
 ## Runtime Status and Scope
 
-The Supabase session boundary, Payload bootstrap, and patient-inquiry domain are implemented. Authenticated staff,
-clinic identity, inquiry reads, and inquiry status changes are live in normal mode. The remaining Dashboard business
-content stays fixture-backed and visibly marked as demo data.
+At checked source revision `919f28e2` (2026-10-01), server-side Supabase sessions, Payload bootstrap, and the
+domain-provider composition are implemented in code. The [composition](../src/features/clinic-dashboard/data-provider-composition.ts)
+selects a Payload adapter for each domain in normal mode. The [workspace loader](../src/features/clinic-dashboard/server.ts)
+still starts with demo presentation data and overlays available source-backed results. Controlled providers supply
+synthetic data only in local/test mode; [environment validation](../src/lib/env.ts) rejects that mode in Preview and
+Production. Local inquiry acceptance is a narrow exception that uses a loopback Payload adapter with controlled auth.
+
+| Capability | Controlled or fixture behavior                                 | Normal-mode source wiring                                                                                                  | Preview availability | Production availability |
+| ---------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------- |
+| Doctors    | Controlled provider; demo presentation remains                 | [Payload doctor provider](../src/features/clinic-dashboard/clinic-profile/server/payload-doctor-profiles.ts) selected      | Open: not verified   | Open: not verified      |
+| Gallery    | Controlled provider; demo presentation remains                 | [Payload gallery provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-gallery.ts) selected      | Open: not verified   | Open: not verified      |
+| Inquiries  | Controlled provider; local acceptance can use loopback Payload | [Payload inquiry provider](../src/features/clinic-dashboard/messages/server/payload-inquiries.ts) selected                 | Open: not verified   | Open: not verified      |
+| Profile    | Controlled provider; demo presentation remains                 | [Payload profile provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-profile.ts) selected      | Open: not verified   | Open: not verified      |
+| Reporting  | Controlled provider; demo presentation remains                 | [Payload reporting provider](../src/features/clinic-dashboard/dashboard/server/payload-reporting.ts) selected              | Open: not verified   | Open: not verified      |
+| Reviews    | Controlled provider; demo presentation remains                 | [Payload review provider](../src/features/clinic-dashboard/reviews/server/payload-reviews.ts) selected                     | Open: not verified   | Open: not verified      |
+| Treatments | Controlled provider; demo presentation remains                 | [Payload treatment provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-treatments.ts) selected | Open: not verified   | Open: not verified      |
+
+"Open" means this documentation has no checked, capability-specific environment evidence. It does not mean the
+capability is absent. A selected adapter or a successful build does not prove a deployed, reachable, authorized
+workflow. Record a dated Preview or Production validation before changing either availability cell.
 
 This document records the durable authentication and Backend for Frontend architecture of the stateless Next.js
 application. It is not an execution plan. The Dashboard owns no database, durable business cache, Supabase service-role
@@ -56,7 +73,7 @@ The architecture keeps these responsibilities separate:
 | Domain provider composition  | Bind a verified token request-locally and select each approved domain's Controlled or Payload provider in one place.           | Dynamic registration, route logic, automatic fallback, or Controlled data when deployed. |
 | Domain provider contract     | Expose meaningful typed reads and changes with closed sanitized results for one live domain.                                   | Transport sequences, UI state, raw upstream documents, or broad repository operations.   |
 | Server-only provider adapter | Send the current access token to exact Payload resources, validate responses, minimize DTOs, and map upstream failures.        | Direct database access or accepting browser-provided Payload paths.                      |
-| Dashboard server composition | Combine the remaining fixture workspace with approved live-domain results for React Server Components.                         | Persistent caching or internal HTTP calls to Route Handlers.                             |
+| Dashboard server composition | Combine the demo workspace with authorized domain results for React Server Components.                                         | Persistent caching or internal HTTP calls to Route Handlers.                             |
 | Route Handlers               | Compose one shared mutation guard for session, input, exact origin, session-bound HMAC-CSRF, and capability-specific commands. | Reimplementing Payload tenant or permission decisions or duplicating provider logic.     |
 
 Server-only modules must use the framework's server-only boundary and must never be imported by Client Components or
@@ -322,5 +339,4 @@ The architecture remains valid only while the following properties hold:
 - A Dashboard database, durable copy of Payload data, shared authenticated cache, or service-role credential.
 - Stable pull-request-number aliases or a callback relay application.
 - Portal session transfer or a clinic login form in the portal.
-- Capability-specific business features beyond the approved patient-inquiry, clinic-treatment, and clinic-gallery
-  domains.
+- A claim of Preview or Production capability availability based only on provider wiring or local fixtures.

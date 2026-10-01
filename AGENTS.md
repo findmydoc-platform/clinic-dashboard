@@ -4,14 +4,14 @@
 
 Read `.codex/project-profile.toml` before implementation work. Bootstrap decisions are complete.
 
-The current application uses server-side Supabase sessions and the authorized Payload bootstrap for clinic identity. Dashboard business content remains fixture-backed demo data. Payload is the source of truth for identity and authorization; do not add direct database access or service-role credentials to this application.
+The application uses server-side Supabase sessions and the authorized Payload bootstrap for clinic identity. Its normal-mode server composition selects domain-specific Payload providers while some presentation content remains demo data; see the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) before describing a domain as live in an environment. Payload is the source of truth for identity and authorization; do not add direct database access or service-role credentials to this application.
 
 ## Fixed Standards
 
 - Use Next.js, React, TypeScript, Node 24, pnpm 10, Tailwind 4, shadcn/ui, Storybook, Vitest, and Playwright.
 - Keep the unauthenticated surface limited to the routes registered in `src/lib/security/public-routes.ts`; update the registry, project profile, and contract tests together.
 - Use the canonical company logo assets from `public/brand` through `BrandMark`.
-- Keep clinic business data out until its dedicated work is approved. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
+- Keep clinic business reads and changes behind the authorized domain-specific BFF providers. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
 - Write code, code comments, repository documentation, and user-facing UI copy in English.
 - Use package scripts for validation and run format, checks, relevant tests, Storybook, and build after code changes.
 - Treat GitHub checks as advisory while the repository remains private on the current Free plan.
