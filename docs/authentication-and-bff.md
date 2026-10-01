@@ -95,6 +95,42 @@ Storybook.
 
 ## Authentication Routes
 
+### Initial page recovery and writable requests
+
+The Proxy verifies the Supabase session before a protected page renders. Supabase may renew an expired session during
+that verification; this is separate from the explicit recovery triggered by a Payload bootstrap `401`.
+
+The initial React Server Component reads Payload directly through the server-only data layer. A missing verified session
+goes to login. A valid clinic session rejected by Payload returns the internal `recovery-required` state and redirects to
+the protected `/auth/session/recover` page. Server rendering neither writes cookies nor calls Dashboard Route Handlers
+over HTTP.
+
+The recovery page submits one same-origin form POST to `/api/auth/session/recover`. With JavaScript disabled, the user
+selects Continue. The central mutation guard validates the exact origin and the session-bound HMAC-CSRF cookie against
+the submitted form token. The form accepts only `attempt`, `csrf`, `mode` (`refresh` or `clear`), and the existing canonical `next`
+destination (`/` or one validated inquiry deep link); duplicate fields and bodies larger than 8 KiB are rejected. Neither
+route is public. The Proxy forwards newly issued CSRF cookies to the server render as well as to the browser response.
+
+In `refresh` mode, the handler verifies the clinic session, explicitly refreshes once, and retries the bootstrap once
+with the new token. Approval returns a private `303` to the destination with a signed `sessionRecovery` marker. Its HMAC
+binds the verified principal, renewed access token, canonical destination, and a five-minute expiry. It grants no access.
+If the following initial read receives another Payload `401`, the page passes this marker as `attempt` in `clear` mode.
+Only a valid marker authorizes terminal cookie cleanup and login, without another refresh or bootstrap request. An absent,
+forged, expired, or mismatched marker uses the normal refresh flow; URL parameters alone cannot authorize logout.
+Login return destinations discard the
+parameter. After the approved workspace mounts, it removes the marker from browser history without another server read,
+so a later page reload can recover a new session failure. Without JavaScript the marker remains in the returned URL.
+This prevents automatic recovery loops. A confirmed `403` or Payload outage preserves the session and opens
+the existing access or temporary-service state.
+
+Writable bootstrap and capability Route Handlers retain their own one-refresh-and-retry behavior. Every recovery
+response propagates the Supabase cookie changes and private cache headers. Invalid session cleanup explicitly expires
+all incoming Dashboard auth-cookie chunks, including when local sign-out fails.
+
+The existing resolver treats a returned Supabase refresh error as an invalid session and signs out locally. Distinguishing
+temporary Supabase refresh failures from proven invalid credentials remains a separate contract alignment item; issue
+[#162](https://github.com/findmydoc-platform/clinic-dashboard/issues/162) does not change that classification.
+
 The Dashboard owns these same-origin contracts:
 
 | Route                              | Method                   | Contract                                                                                                                                                                                                                |
@@ -105,6 +141,8 @@ The Dashboard owns these same-origin contracts:
 | `/api/auth/password/reset`         | `POST`                   | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                                                                              |
 | Invite/reset completion            | `POST`                   | Require the verified session and matching one-use completion grant, enforce the eight-character matching password rule, clear the grant, update the password, sign out, and return to normal login.                     |
 | `/api/auth/logout`                 | `POST`                   | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                             |
+| `/auth/session/recover`            | `GET`                    | Render the protected recovery form with one automatic submission or a Continue action without JavaScript.                                                                                                               |
+| `/api/auth/session/recover`        | `POST`                   | Validate the bounded form, origin and session-bound CSRF; refresh and retry once or verify and clear without refresh; propagate cookies through a private `303`.                                                        |
 | `/api/dashboard/bootstrap`         | `GET`                    | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                        |
 | `/api/dashboard/clinic-treatments` | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                   |
 | `/api/dashboard/gallery`           | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                      |

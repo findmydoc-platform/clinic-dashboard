@@ -82,6 +82,20 @@ describe("clinic dashboard page", () => {
   })
 
   it.each([
+    [undefined, "refresh"],
+    ["1", "clear"],
+  ])("recovers a rejected Payload session with a bounded attempt", async (sessionRecovery, mode) => {
+    mocks.getClinicDashboardAccess.mockResolvedValueOnce({ status: "recovery-required" })
+    mocks.redirect.mockImplementationOnce((path: string) => {
+      throw new Error(`redirect:${path}`)
+    })
+    await expect(
+      HomePage({ searchParams: Promise.resolve({ inquiry: "inquiry-1", sessionRecovery }) }),
+    ).rejects.toThrow(`redirect:/auth/session/recover?next=%2F%3Finquiry%3Dinquiry-1&mode=${mode}`)
+    expect(mocks.loadClinicDashboardWorkspaceInput).not.toHaveBeenCalled()
+  })
+
+  it.each([
     ["/?inquiry=inquiry-lukas-weber", "/?inquiry=inquiry-lukas-weber"],
     ["https://attacker.example", "/"],
     ["//attacker.example", "/"],

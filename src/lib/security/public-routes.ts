@@ -17,6 +17,8 @@ const SESSION_PATHS = new Set([
   "/api/auth/password/reset/complete",
   "/auth/invite/complete",
   "/auth/password/reset/complete",
+  "/auth/session/recover",
+  "/api/auth/session/recover",
 ])
 
 export function isPublicPath(pathname: string) {

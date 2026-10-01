@@ -23,6 +23,8 @@ describe("route access registry", () => {
     "/api/auth/password/reset/complete",
     "/access",
     "/api/auth/logout",
+    "/auth/session/recover",
+    "/api/auth/session/recover",
   ])("registers %s as session protected", (pathname) => {
     expect(isSessionPath(pathname)).toBe(true)
     expect(isPublicPath(pathname)).toBe(false)

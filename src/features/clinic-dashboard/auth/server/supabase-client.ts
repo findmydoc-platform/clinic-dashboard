@@ -122,7 +122,10 @@ function createProxyResponse(request: NextRequest) {
 }
 
 export function clearDashboardAuthCookies(request: NextRequest, response: NextResponse) {
-  for (const { name } of request.cookies.getAll()) {
+  const cookieNames = new Set(
+    [...request.cookies.getAll(), ...response.cookies.getAll()].map(({ name }) => name),
+  )
+  for (const name of cookieNames) {
     if (name !== AUTH_COOKIE_NAME && !name.startsWith(`${AUTH_COOKIE_NAME}.`)) continue
     response.cookies.set({
       httpOnly: true,

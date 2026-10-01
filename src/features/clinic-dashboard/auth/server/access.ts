@@ -17,10 +17,16 @@ export async function resolveAccessForSession(
   return access.status === "unauthorized" ? { status: "unauthenticated" } : access
 }
 
-export const getClinicDashboardAccess = cache(async (): Promise<ClinicDashboardAccessResult> => {
-  const cookieStore = await cookies()
-  return resolveAccessForSession(await getClinicDashboardSession(cookieStore))
-})
+export const getClinicDashboardAccess = cache(
+  async (): Promise<ClinicDashboardAccessResult | Readonly<{ status: "recovery-required" }>> => {
+    const cookieStore = await cookies()
+    const session = await getClinicDashboardSession(cookieStore)
+    if (!session) return { status: "unauthenticated" }
+    if (!session.isClinicAccount) return { status: "unauthorized" }
+    const access = await fetchClinicDashboardBootstrap(session.accessToken)
+    return access.status === "unauthorized" ? { status: "recovery-required" } : access
+  },
+)
 
 export const getClinicDashboardAccessToken = cache(async () => {
   try {
@@ -35,27 +41,33 @@ export const getClinicDashboardAccessToken = cache(async () => {
 export async function resolveMutableClinicDashboardAccess(
   client: SupabaseClient,
 ): Promise<ClinicDashboardAccessResult> {
-  let session = await readVerifiedSupabaseSession(client)
+  const session = await readVerifiedSupabaseSession(client)
   if (!session) return { status: "unauthenticated" }
   if (!session.isClinicAccount) return { status: "unauthorized" }
 
-  let access = await fetchClinicDashboardBootstrap(session.accessToken)
+  const access = await fetchClinicDashboardBootstrap(session.accessToken)
   if (access.status !== "unauthorized") return access
 
+  return refreshClinicDashboardAccess(client)
+}
+
+export async function refreshClinicDashboardAccess(
+  client: SupabaseClient,
+): Promise<ClinicDashboardAccessResult> {
   const { error } = await client.auth.refreshSession()
   if (error) {
     await client.auth.signOut({ scope: "local" }).catch(() => undefined)
     return { status: "unauthenticated" }
   }
 
-  session = await readVerifiedSupabaseSession(client)
+  const session = await readVerifiedSupabaseSession(client)
   if (!session) {
     await client.auth.signOut({ scope: "local" }).catch(() => undefined)
     return { status: "unauthenticated" }
   }
   if (!session.isClinicAccount) return { status: "unauthorized" }
 
-  access = await fetchClinicDashboardBootstrap(session.accessToken)
+  const access = await fetchClinicDashboardBootstrap(session.accessToken)
   if (access.status === "unauthorized") {
     await client.auth.signOut({ scope: "local" }).catch(() => undefined)
     return { status: "unauthenticated" }

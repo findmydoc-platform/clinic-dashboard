@@ -3,6 +3,7 @@
 import { useMemo, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
+import { useSessionRecoveryCompletion } from "@/features/clinic-dashboard/auth/public"
 import {
   createClinicProfileSourceApiCommands,
   createClinicGalleryApiCommands,
@@ -34,6 +35,7 @@ export function ClinicDashboardWorkspace({
   showPrototypeModeToggle = false,
   workspaceInput,
 }: ClinicDashboardWorkspaceProps) {
+  useSessionRecoveryCompletion()
   const router = useRouter()
   const [isSourceRefreshPending, startSourceRefresh] = useTransition()
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])

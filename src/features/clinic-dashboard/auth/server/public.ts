@@ -1,5 +1,7 @@
 import "server-only"
 
+export { handleClinicDashboardSessionRecovery } from "./session-recovery"
+
 export { getClinicDashboardAccess, getClinicDashboardAccessToken } from "./access"
 export {
   getCompletionAccess,

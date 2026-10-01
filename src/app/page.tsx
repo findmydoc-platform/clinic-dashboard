@@ -16,9 +16,17 @@ type HomePageProps = Readonly<{
 }>
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const focusInquiryId = parseInquiryDeepLink((await searchParams).inquiry)
+  const params = await searchParams
+  const focusInquiryId = parseInquiryDeepLink(params.inquiry)
   const returnTarget = createClinicDashboardReturnTarget(focusInquiryId)
   const access = await getClinicDashboardAccess()
+  if (access.status === "recovery-required") {
+    const attempt = typeof params.sessionRecovery === "string" ? params.sessionRecovery : ""
+    const mode = attempt ? "clear" : "refresh"
+    redirect(
+      `/auth/session/recover?next=${encodeURIComponent(returnTarget)}&mode=${mode}&attempt=${encodeURIComponent(attempt)}`,
+    )
+  }
   if (access.status === "unauthenticated") redirect(createClinicDashboardLoginPath(returnTarget))
   if (access.status === "unauthorized") redirect("/access?state=account-unavailable")
   if (access.status === "denied") redirect("/access")

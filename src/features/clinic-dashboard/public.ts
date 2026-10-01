@@ -3,6 +3,7 @@ export {
   type ClinicDashboardWorkspaceProps,
 } from "./workspace/ClinicDashboardWorkspace"
 export { ClinicDashboardAuthScreen } from "./auth/public"
+export { ClinicDashboardSessionRecoveryPage } from "./auth/public"
 export type {
   AuthenticatedClinicContext,
   ClinicDashboardAuthErrorCode,
