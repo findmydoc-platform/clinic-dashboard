@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { GET } from "@/app/auth/callback/route"
+import { controlledEmailCallbackPath } from "../fixtures/controlled-email-callback"
 import {
+  decodePendingEmailCallback,
   encodeCompletionGrant,
   encodePendingEmailCallback,
   handleClinicDashboardEmailCallback,
@@ -34,11 +37,15 @@ function mutationRequest(
     `clinic_dashboard_csrf=${token}`,
     ...(session ? ["clinic_dashboard_controlled_session=controlled-clinic-staff"] : []),
     ...(pendingCallback
-      ? [`clinic_dashboard_pending_email=${encodePendingEmailCallback(pendingCallback)}`]
+      ? [
+          `clinic_dashboard_pending_email=${encodePendingEmailCallback({ ...pendingCallback, actionRef: `controlled-${pendingCallback.type}-reference` })}`,
+        ]
       : []),
     ...(completionFlow
       ? [
           `clinic_dashboard_completion_grant=${encodeCompletionGrant({
+            actionRef: `controlled-${completionFlow}-reference`,
+            state: "confirmed",
             flow: completionFlow,
             issuedAt: Math.floor(Date.now() / 1000),
             subject: "controlled-clinic-staff",
@@ -77,7 +84,34 @@ describe("controlled authentication route contract", () => {
     vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
   })
 
-  afterEach(() => vi.unstubAllEnvs())
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it.each([
+    ["invite", "/auth/invite/complete"],
+    ["recovery", "/auth/password/reset/complete"],
+  ] as const)(
+    "accepts the controlled %s callback fixture on GET without provider calls",
+    async (flow, next) => {
+      vi.stubGlobal("fetch", vi.fn())
+      const response = await GET(
+        new NextRequest(new URL(controlledEmailCallbackPath(flow), "http://localhost:3000")),
+      )
+      expect(response.status).toBe(303)
+      expect(response.headers.get("location")).toBe(`http://localhost:3000/auth/confirm?type=${flow}`)
+      expect(
+        decodePendingEmailCallback(response.cookies.get("clinic_dashboard_pending_email")?.value),
+      ).toMatchObject({
+        actionRef: `controlled-${flow}-reference`,
+        next,
+        tokenHash: `controlled-${flow}-token`,
+        type: flow,
+      })
+      expect(fetch).not.toHaveBeenCalled()
+    },
+  )
 
   it("logs in with email and password without exposing credentials", async () => {
     const response = await handleClinicDashboardLogin(

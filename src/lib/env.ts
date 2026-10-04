@@ -14,6 +14,7 @@ const httpUrlSchema = z
 
 const environmentSchema = z
   .object({
+    AUTH_ACTION_PROTOCOL_SERVICE_KEYS_JSON: z.string().max(8192).optional(),
     CLINIC_DASHBOARD_AUTH_TEST_MODE: z.literal("controlled").optional(),
     CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID: z.string().min(1).max(100).optional(),
     CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME: z.string().min(1).max(200).optional(),

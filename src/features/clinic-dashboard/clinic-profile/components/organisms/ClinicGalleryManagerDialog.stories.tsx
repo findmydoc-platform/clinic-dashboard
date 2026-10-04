@@ -274,6 +274,9 @@ export const SaveConflictPreservesLocalChanges: Story = {
     const documentPage = within(canvasElement.ownerDocument.body)
     await userEvent.click(page.getByRole("button", { name: "Open gallery manager" }))
     const gallery = getGallery(canvasElement.ownerDocument.body)
+    await waitFor(() =>
+      expect(within(gallery).getByRole("heading", { name: "Manage gallery" })).toHaveFocus(),
+    )
     const secondHandle = within(gallery).getByRole("button", {
       name: "Reorder image 2. Drag or use arrow keys.",
     })

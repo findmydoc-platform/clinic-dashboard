@@ -1,5 +1,7 @@
 import "server-only"
 
+export { validateWebsiteAction } from "./auth-action-protocol"
+
 export {
   getClinicDashboardSessionRecoveryCsrfToken,
   handleClinicDashboardSessionRecovery,
@@ -18,6 +20,7 @@ export {
 } from "./actions"
 export {
   decodeCompletionGrant,
+  decodePendingEmailCallback,
   encodeCompletionGrant,
   encodePendingEmailCallback,
   setPendingEmailCallbackCookie,

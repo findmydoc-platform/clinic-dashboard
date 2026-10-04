@@ -32,7 +32,6 @@ const MAX_BODY_BYTES = 8 * 1024
 export async function getClinicDashboardSessionRecoveryCsrfToken() {
   return (await cookies()).get(CLINIC_DASHBOARD_CSRF_COOKIE)?.value
 }
-
 function signAttempt(session: VerifiedClinicSession, target: string, issuedAt: string) {
   return createHmac("sha256", validateEnvironment().CSRF_SIGNING_SECRET)
     .update(JSON.stringify(["session-recovery", session.subject, session.accessToken, target, issuedAt]))
