@@ -7,7 +7,11 @@ import {
   resolveClinicDashboardRouteAccess,
 } from "@/features/clinic-dashboard/auth/server/public"
 import { validateMutationRequest, validateMutationRequestContentType } from "@/lib/security/csrf"
-import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
+import {
+  applyPrivateResponseHeaders,
+  createPrivateJsonResponse as privateJson,
+  readPrivateJson,
+} from "@/lib/security/private-response"
 import {
   inquiryHandlingStatusValues,
   inquiryLifecycleValues,
@@ -124,13 +128,6 @@ const MAX_JSON_BODY_BYTES = 16 * 1024
 const MAX_ATTACHMENT_BODY_BYTES = 5 * 1024 * 1024
 const attachmentMimeTypeSchema = z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp"])
 
-function privateJson(body: unknown, status = 200) {
-  const response = NextResponse.json(body, { status })
-  applyPrivateResponseHeaders(response.headers)
-  response.headers.set("Vary", "Cookie")
-  return response
-}
-
 const attachmentExtensions = {
   "application/pdf": "pdf",
   "image/jpeg": "jpg",
@@ -160,21 +157,8 @@ function privateAttachment(
   return response
 }
 
-async function readJson(request: NextRequest) {
-  const contentLength = request.headers.get("content-length")
-  if (contentLength) {
-    const parsedLength = Number(contentLength)
-    if (!Number.isSafeInteger(parsedLength) || parsedLength < 0 || parsedLength > MAX_JSON_BODY_BYTES) {
-      return null
-    }
-  }
-  const body = await request.text().catch(() => "")
-  if (!body || Buffer.byteLength(body, "utf8") > MAX_JSON_BODY_BYTES) return null
-  try {
-    return JSON.parse(body) as unknown
-  } catch {
-    return null
-  }
+function readJson(request: NextRequest) {
+  return readPrivateJson(request, MAX_JSON_BODY_BYTES)
 }
 
 function parseBoolean(value: string | null) {

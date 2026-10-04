@@ -1,9 +1,9 @@
 import "server-only"
 
-import { NextResponse, type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/auth/server/public"
 import { validateMutationRequest } from "@/lib/security/csrf"
-import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
+import { createPrivateJsonResponse as privateJson, readPrivateJson } from "@/lib/security/private-response"
 import {
   clinicProfileDraftCreateInputSchema,
   clinicProfileDraftDiscardInputSchema,
@@ -18,58 +18,8 @@ import type {
 
 const MAX_PROFILE_REQUEST_BODY_BYTES = 64 * 1024
 
-function privateJson(body: unknown, status = 200) {
-  const response = NextResponse.json(body, { status })
-  applyPrivateResponseHeaders(response.headers)
-  response.headers.set("Vary", "Cookie")
-  return response
-}
-
-async function readJson(request: NextRequest) {
-  const contentLength = request.headers.get("content-length")
-  if (contentLength) {
-    const parsedLength = Number(contentLength)
-    if (
-      !Number.isSafeInteger(parsedLength) ||
-      parsedLength < 0 ||
-      parsedLength > MAX_PROFILE_REQUEST_BODY_BYTES
-    ) {
-      return null
-    }
-  }
-
-  if (!request.body) return null
-
-  const reader = request.body.getReader()
-  const decoder = new TextDecoder("utf-8", { fatal: true })
-  let body = ""
-  let byteLength = 0
-
-  try {
-    while (true) {
-      const chunk = await reader.read()
-      if (chunk.done) break
-      byteLength += chunk.value.byteLength
-      if (byteLength > MAX_PROFILE_REQUEST_BODY_BYTES) {
-        await reader.cancel()
-        return null
-      }
-      body += decoder.decode(chunk.value, { stream: true })
-    }
-    body += decoder.decode()
-  } catch {
-    return null
-  } finally {
-    reader.releaseLock()
-  }
-
-  if (!body) return null
-
-  try {
-    return JSON.parse(body) as unknown
-  } catch {
-    return null
-  }
+function readJson(request: NextRequest) {
+  return readPrivateJson(request, MAX_PROFILE_REQUEST_BODY_BYTES, { fatalUtf8: true })
 }
 
 function accessErrorResponse(
