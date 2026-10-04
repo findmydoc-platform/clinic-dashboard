@@ -1,11 +1,13 @@
 import "server-only"
 
+import { cookies } from "next/headers"
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { validateEnvironment } from "@/lib/env"
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { isControlledAuthTestMode } from "@/lib/env"
 import { getValidatedFormMutationOrigin } from "@/lib/security/csrf"
+import { CLINIC_DASHBOARD_CSRF_COOKIE } from "@/lib/security/csrf-contract"
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
 import { createClinicDashboardLoginPath, parseClinicDashboardReturnTarget } from "../model/auth"
 import { refreshClinicDashboardAccess, resolveAccessForSession } from "./access"
@@ -27,6 +29,9 @@ const recoverySchema = z
   .strict()
 const MAX_BODY_BYTES = 8 * 1024
 
+export async function getClinicDashboardSessionRecoveryCsrfToken() {
+  return (await cookies()).get(CLINIC_DASHBOARD_CSRF_COOKIE)?.value
+}
 function signAttempt(session: VerifiedClinicSession, target: string, issuedAt: string) {
   return createHmac("sha256", validateEnvironment().CSRF_SIGNING_SECRET)
     .update(JSON.stringify(["session-recovery", session.subject, session.accessToken, target, issuedAt]))

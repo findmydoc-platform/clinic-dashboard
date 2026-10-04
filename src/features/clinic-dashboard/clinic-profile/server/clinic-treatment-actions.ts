@@ -1,11 +1,11 @@
 import "server-only"
 
-import { NextResponse, type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
 import type { ClinicDashboardCapability } from "@/features/clinic-dashboard/auth/public"
 import { resolveClinicDashboardMutationAccess } from "@/features/clinic-dashboard/auth/server/public"
 import { validateMutationRequest } from "@/lib/security/csrf"
-import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
+import { createPrivateJsonResponse as privateJson, readPrivateJson } from "@/lib/security/private-response"
 import type {
   ClinicTreatmentChangeError,
   ClinicTreatmentProviderFactory,
@@ -38,34 +38,8 @@ const updateSchema = z
 
 const MAX_JSON_REQUEST_BODY_BYTES = 16 * 1024
 
-function privateJson(body: unknown, status = 200) {
-  const response = NextResponse.json(body, { status })
-  applyPrivateResponseHeaders(response.headers)
-  response.headers.set("Vary", "Cookie")
-  return response
-}
-
-async function readJson(request: NextRequest) {
-  const contentLength = request.headers.get("content-length")
-  if (contentLength) {
-    const parsedLength = Number(contentLength)
-    if (
-      !Number.isSafeInteger(parsedLength) ||
-      parsedLength < 0 ||
-      parsedLength > MAX_JSON_REQUEST_BODY_BYTES
-    ) {
-      return null
-    }
-  }
-
-  const body = await request.text().catch(() => "")
-  if (!body || Buffer.byteLength(body, "utf8") > MAX_JSON_REQUEST_BODY_BYTES) return null
-
-  try {
-    return JSON.parse(body) as unknown
-  } catch {
-    return null
-  }
+function readJson(request: NextRequest) {
+  return readPrivateJson(request, MAX_JSON_REQUEST_BODY_BYTES)
 }
 
 function accessErrorResponse(

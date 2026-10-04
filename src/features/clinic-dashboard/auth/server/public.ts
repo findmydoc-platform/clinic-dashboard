@@ -2,7 +2,10 @@ import "server-only"
 
 export { validateWebsiteAction } from "./auth-action-protocol"
 
-export { handleClinicDashboardSessionRecovery } from "./session-recovery"
+export {
+  getClinicDashboardSessionRecoveryCsrfToken,
+  handleClinicDashboardSessionRecovery,
+} from "./session-recovery"
 
 export { getClinicDashboardAccess, getClinicDashboardAccessToken } from "./access"
 export {

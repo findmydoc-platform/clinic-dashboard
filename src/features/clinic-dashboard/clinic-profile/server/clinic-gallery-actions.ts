@@ -5,7 +5,11 @@ import { z } from "zod"
 import type { ClinicDashboardCapability } from "@/features/clinic-dashboard/auth/public"
 import { resolveClinicDashboardMutationAccess } from "@/features/clinic-dashboard/auth/server/public"
 import { validateMultipartMutationRequest, validateMutationRequest } from "@/lib/security/csrf"
-import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
+import {
+  applyPrivateResponseHeaders,
+  createPrivateJsonResponse as privateJson,
+  readPrivateJson,
+} from "@/lib/security/private-response"
 import type { ClinicGalleryErrorCode } from "../model/clinic-gallery"
 import type { ClinicGalleryProviderFactory } from "./clinic-gallery-provider"
 import { toDashboardClinicGalleryMedia, toDashboardClinicGallerySnapshot } from "./clinic-gallery-dto"
@@ -37,13 +41,6 @@ const discardSchema = z.object({ mediaIds: z.array(identifierSchema).min(1).max(
 const MAX_JSON_BODY_BYTES = 160 * 1024
 const MAX_MULTIPART_BODY_BYTES = 5 * 1024 * 1024
 
-function privateJson(body: unknown, status = 200) {
-  const response = NextResponse.json(body, { status })
-  applyPrivateResponseHeaders(response.headers)
-  response.headers.set("Vary", "Cookie")
-  return response
-}
-
 function accessError(status: "denied" | "temporarily-unavailable" | "unauthenticated" | "unauthorized") {
   if (status === "denied" || status === "unauthorized") {
     return privateJson({ code: "CLINIC_GALLERY_ACCESS_DENIED" }, 403)
@@ -72,16 +69,8 @@ function hasCapability(
   return capabilities.includes(capability)
 }
 
-async function readJson(request: NextRequest) {
-  const length = Number(request.headers.get("content-length") ?? 0)
-  if (!Number.isSafeInteger(length) || length < 0 || length > MAX_JSON_BODY_BYTES) return null
-  const body = await request.text().catch(() => "")
-  if (!body || Buffer.byteLength(body, "utf8") > MAX_JSON_BODY_BYTES) return null
-  try {
-    return JSON.parse(body) as unknown
-  } catch {
-    return null
-  }
+function readJson(request: NextRequest) {
+  return readPrivateJson(request, MAX_JSON_BODY_BYTES)
 }
 
 async function authorize(request: NextRequest, capability: ClinicDashboardCapability) {

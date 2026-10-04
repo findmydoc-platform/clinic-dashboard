@@ -1,8 +1,8 @@
 import "server-only"
 
-import { NextResponse, type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/auth/server/public"
-import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
+import { createPrivateJsonResponse as privateJson } from "@/lib/security/private-response"
 import {
   isClinicDashboardReportingPeriodDays,
   type ClinicDashboardReportingPeriodDays,
@@ -11,13 +11,6 @@ import type {
   ClinicDashboardReportingProviderError,
   ClinicDashboardReportingProviderFactory,
 } from "./reporting-provider"
-
-function privateJson(body: unknown, status = 200) {
-  const response = NextResponse.json(body, { status })
-  applyPrivateResponseHeaders(response.headers)
-  response.headers.set("Vary", "Cookie")
-  return response
-}
 
 function requestedPeriodDays(request: NextRequest): ClinicDashboardReportingPeriodDays | undefined {
   const queryKeys = [...request.nextUrl.searchParams.keys()]

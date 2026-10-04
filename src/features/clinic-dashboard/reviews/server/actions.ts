@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/auth/server/public"
 import { validateMutationRequest } from "@/lib/security/csrf"
-import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
+import { createPrivateJsonResponse as privateJson, readPrivateJson } from "@/lib/security/private-response"
 import { reviewAppealSubmissionSchema, reviewResponseSubmissionSchema } from "../model/review-source-schema"
 import { reviewPeriodFilters, reviewRatingFilters, reviewVisibilityFilters } from "../model/review-source"
 import type {
@@ -31,30 +31,12 @@ const querySchema = z
 const historyQuerySchema = z.object({ cursor: z.string().min(1).max(2_048).optional() }).strict()
 const MAX_BODY_BYTES = 16 * 1024
 
-function privateJson(body: unknown, status = 200) {
-  const response = NextResponse.json(body, { status })
-  applyPrivateResponseHeaders(response.headers)
-  response.headers.set("Vary", "Cookie")
-  return response
-}
-
 function queryObject(request: NextRequest) {
   return Object.fromEntries(request.nextUrl.searchParams.entries())
 }
 
-async function readJson(request: NextRequest) {
-  const contentLength = request.headers.get("content-length")
-  if (contentLength) {
-    const size = Number(contentLength)
-    if (!Number.isSafeInteger(size) || size < 0 || size > MAX_BODY_BYTES) return null
-  }
-  const raw = await request.text().catch(() => "")
-  if (!raw || Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) return null
-  try {
-    return JSON.parse(raw) as unknown
-  } catch {
-    return null
-  }
+function readJson(request: NextRequest) {
+  return readPrivateJson(request, MAX_BODY_BYTES)
 }
 
 function accessError(status: string) {
