@@ -69,6 +69,10 @@ export type ClinicDashboardAuthScreenProps =
 const errorMessages: Record<ClinicDashboardAuthErrorCode, string> = {
   ACCOUNT_UNAVAILABLE: "This account is not available for the clinic dashboard.",
   AUTH_TEMPORARILY_UNAVAILABLE: "Authentication is temporarily unavailable. Please try again.",
+  AUTH_LINK_TEMPORARILY_UNAVAILABLE:
+    "This link could not be checked. Reopen the link in your invitation or password reset email and try again later.",
+  AUTH_COMPLETION_UNCERTAIN:
+    "Completion could not be confirmed. Keep this page open and retry with the same password. If it still fails, contact support.",
   INVALID_CREDENTIALS: "The email address or password is incorrect.",
   INVALID_INPUT: "Please check the information you entered.",
   INVALID_OR_EXPIRED_LINK: "This link is invalid or has expired. Request a new email to continue.",

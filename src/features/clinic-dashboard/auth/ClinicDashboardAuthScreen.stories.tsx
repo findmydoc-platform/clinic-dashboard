@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, userEvent, within } from "storybook/test"
+import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { ClinicDashboardAuthScreen } from "./ClinicDashboardAuthScreen"
 import type { ClinicDashboardAuthApiResult } from "./browser/auth-api"
 import type { ClinicDashboardAuthErrorCode } from "./model/auth"
@@ -113,6 +113,15 @@ export const LoginInvalidCredentials: Story = {
     const alert = canvas.getByRole("alert")
     await expect(alert).toHaveTextContent("email address or password is incorrect")
     await expect(alert).toHaveFocus()
+  },
+}
+
+export const CallbackUnavailable: Story = {
+  args: { initialError: "AUTH_LINK_TEMPORARILY_UNAVAILABLE", mode: "login" },
+  play: async ({ canvasElement }) => {
+    const alert = within(canvasElement).getByRole("alert")
+    await expect(alert).toHaveTextContent("Reopen the link in your invitation or password reset email")
+    await waitFor(() => expect(alert).toHaveFocus())
   },
 }
 
@@ -231,6 +240,45 @@ export const ConfirmationPending: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole("button", { name: "Continue password reset" }))
     await expect(canvas.getByRole("button", { name: "Confirming…" })).toBeDisabled()
+  },
+}
+
+export const ConfirmationRetry: Story = {
+  args: {
+    mode: "confirm",
+    type: "invite",
+    navigateAction: fn(),
+  },
+  render: (args) => {
+    const submitAction = fn<() => Promise<ClinicDashboardAuthApiResult>>()
+      .mockResolvedValueOnce({ code: "AUTH_TEMPORARILY_UNAVAILABLE", ok: false })
+      .mockResolvedValue({ body: { redirectTo: "/auth/invite/complete" }, ok: true })
+    return <ClinicDashboardAuthScreen {...args} submitAction={submitAction} />
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "Continue invitation" }))
+    await expect(canvas.getByRole("alert")).toHaveFocus()
+    await userEvent.click(canvas.getByRole("button", { name: "Continue invitation" }))
+    await expect(args.navigateAction).toHaveBeenCalledWith("/auth/invite/complete")
+  },
+}
+
+export const RecoveryCompletionUncertain: Story = {
+  args: {
+    flow: "recovery",
+    mode: "complete-password",
+    submitAction: rejectedAction("AUTH_COMPLETION_UNCERTAIN"),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByLabelText("Password"), "synthetic-password")
+    await userEvent.type(canvas.getByLabelText("Confirm password"), "synthetic-password")
+    await userEvent.click(canvas.getByRole("button", { name: "Save password" }))
+    const alert = canvas.getByRole("alert")
+    await expect(alert).toHaveFocus()
+    await expect(alert).toHaveTextContent("retry with the same password")
+    await expect(canvas.getByLabelText("Password")).toHaveValue("synthetic-password")
   },
 }
 
