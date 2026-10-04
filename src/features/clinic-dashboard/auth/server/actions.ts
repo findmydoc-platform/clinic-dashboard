@@ -346,7 +346,12 @@ export async function handleClinicDashboardEmailCallback(request: NextRequest) {
     }
   }
 
-  const session = await readVerifiedSupabaseSession(routeClient.client).catch(() => undefined)
+  let session: Awaited<ReturnType<typeof readVerifiedSupabaseSession>>
+  try {
+    session = await readVerifiedSupabaseSession(routeClient.client)
+  } catch {
+    return applyEmailClient(errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503), routeClient, request)
+  }
   if (!session?.isClinicAccount || (!callback && grant?.subject !== session.subject)) {
     await routeClient.client.auth.signOut({ scope: "local" }).catch(() => undefined)
     return applyClientAndClear(invalid(), routeClient, request)

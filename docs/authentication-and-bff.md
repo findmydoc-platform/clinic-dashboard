@@ -172,11 +172,15 @@ cannot replace the opaque `actionRef`. The existing Website invitation URL omits
 invitation completion route from `type`. Recovery URLs may carry the matching fixed `next`. The legacy `authActionId`
 query field is ignored and never grants authority. Duplicate or unrelated query parameters are rejected.
 
-Callback GET calls `validateAction` and neither consumes a Supabase token nor advances action state. A valid result
+Callback GET calls `validateAction` and neither consumes a Supabase token nor advances action state. An unavailable
+validation redirects to login with instructions to reopen the original invitation or recovery email link later.
+A valid result
 creates the host-only `HttpOnly` pending context and redirects to `/auth/confirm` with only the flow. POST uses the
 same-origin CSRF guard, consumes the token through `verifyOtp`, and confirms the action with the verified user's
 access token. A temporary Website failure retains a signed `confirming` grant for that subject, flow and action.
-The next POST uses the retained session and calls `confirmAction` without another `verifyOtp`. Once Website confirms,
+The next POST uses the retained session and calls `confirmAction` without another `verifyOtp`. A thrown session-check
+error during this continuation returns unavailable and preserves the grant and session; a missing or mismatched
+verified session still fails closed. Once Website confirms,
 the grant becomes `confirmed`. Signatures bind purpose, environment and configured origin. Pending and completion
 contexts expire server-side ten minutes after the original GET; retries do not extend that deadline. A callback that
 fails structurally or receives the Website's closed rejection shows the same invalid-or-expired public state.

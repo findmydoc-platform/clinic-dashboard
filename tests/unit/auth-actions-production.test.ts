@@ -449,58 +449,77 @@ describe("production authentication actions", () => {
     expectPrivate(response)
   })
 
-  it("resumes Website confirmation after an outage without consuming the token again", async () => {
-    const { client } = installRouteClient()
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(
-        Response.json(
-          { version: 1, ok: false, code: "AUTH_ACTION_TEMPORARILY_UNAVAILABLE" },
-          { status: 503 },
-        ),
-      )
-      .mockResolvedValueOnce(Response.json({ version: 1, ok: true, outcome: "confirmed" }))
-    vi.stubGlobal("fetch", fetcher)
-    vi.stubEnv(
-      "AUTH_ACTION_PROTOCOL_SERVICE_KEYS_JSON",
-      JSON.stringify({
-        environment: "test",
-        service: [{ version: "v1", secret: "test-service-key-0123456789abcdef0123456789" }], // pragma: allowlist secret - public synthetic fixture
-      }),
-    )
-    const pending = encodePendingEmailCallback({
-      actionRef: "opaque-reference",
-      next: "/auth/invite/complete",
-      tokenHash: "synthetic",
-      type: "invite",
-    })
-    const first = await handleClinicDashboardEmailCallback(
-      mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
-    )
-    expect(first.status).toBe(503)
-    const grant = first.cookies.get("clinic_dashboard_completion_grant")?.value
-    expect(grant).toBeTruthy()
-    const second = await handleClinicDashboardEmailCallback(
-      mutationRequest("/api/auth/callback", {}, [
-        `clinic_dashboard_completion_grant=${grant}`,
-        "clinic-dashboard-auth=session-cookie",
-      ]),
-    )
-    expect(second.status).toBe(200)
-    await expect(second.json()).resolves.toEqual({ redirectTo: "/auth/invite/complete" })
-    expect(client.auth.verifyOtp).toHaveBeenCalledOnce()
-    expect(client.auth.signOut).not.toHaveBeenCalled()
-    expect(fetcher).toHaveBeenLastCalledWith(
-      new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/confirmAction"),
-      expect.objectContaining({
-        body: JSON.stringify({
-          actionRef: "opaque-reference",
-          flow: "clinic-invitation",
-          accessToken: "server-access-token",
+  it.each([
+    ["invite", "clinic-invitation", "/auth/invite/complete"],
+    ["recovery", "clinic-recovery", "/auth/password/reset/complete"],
+  ] as const)(
+    "resumes %s Website confirmation without consuming the token again",
+    async (type, flow, next) => {
+      const { client } = installRouteClient()
+      const fetcher = vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json(
+            { version: 1, ok: false, code: "AUTH_ACTION_TEMPORARILY_UNAVAILABLE" },
+            { status: 503 },
+          ),
+        )
+        .mockResolvedValueOnce(Response.json({ version: 1, ok: true, outcome: "confirmed" }))
+      vi.stubGlobal("fetch", fetcher)
+      vi.stubEnv(
+        "AUTH_ACTION_PROTOCOL_SERVICE_KEYS_JSON",
+        JSON.stringify({
+          environment: "test",
+          service: [{ version: "v1", secret: "test-service-key-0123456789abcdef0123456789" }], // pragma: allowlist secret - public synthetic fixture
         }),
-      }),
-    )
-  })
+      )
+      const pending = encodePendingEmailCallback({
+        actionRef: "opaque-reference",
+        next,
+        tokenHash: "synthetic",
+        type,
+      })
+      const first = await handleClinicDashboardEmailCallback(
+        mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
+      )
+      expect(first.status).toBe(503)
+      const grant = first.cookies.get("clinic_dashboard_completion_grant")?.value
+      expect(grant).toBeTruthy()
+      client.auth.getClaims.mockRejectedValueOnce(new TypeError("Synthetic session verification failure"))
+      const interrupted = await handleClinicDashboardEmailCallback(
+        mutationRequest("/api/auth/callback", {}, [
+          `clinic_dashboard_completion_grant=${grant}`,
+          "clinic-dashboard-auth=session-cookie",
+        ]),
+      )
+      expect(interrupted.status).toBe(503)
+      await expect(interrupted.json()).resolves.toEqual({ code: "AUTH_TEMPORARILY_UNAVAILABLE" })
+      expect(interrupted.headers.get("set-cookie")).not.toContain("clinic_dashboard_completion_grant=;")
+      expect(interrupted.headers.get("set-cookie")).not.toContain("clinic-dashboard-auth=;")
+      expect(fetcher).toHaveBeenCalledOnce()
+      expect(client.auth.signOut).not.toHaveBeenCalled()
+      const second = await handleClinicDashboardEmailCallback(
+        mutationRequest("/api/auth/callback", {}, [
+          `clinic_dashboard_completion_grant=${grant}`,
+          "clinic-dashboard-auth=session-cookie",
+        ]),
+      )
+      expect(second.status).toBe(200)
+      await expect(second.json()).resolves.toEqual({ redirectTo: next })
+      expect(client.auth.verifyOtp).toHaveBeenCalledOnce()
+      expect(client.auth.signOut).not.toHaveBeenCalled()
+      expect(fetcher).toHaveBeenLastCalledWith(
+        new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/confirmAction"),
+        expect.objectContaining({
+          body: JSON.stringify({
+            actionRef: "opaque-reference",
+            flow,
+            accessToken: "server-access-token",
+          }),
+        }),
+      )
+    },
+  )
 
   it("returns session-bound CSRF with the established cookies when Website confirmation fails", async () => {
     const { client } = installRouteClient()
@@ -618,6 +637,17 @@ describe("production authentication actions", () => {
     await expect(second.json()).resolves.toEqual({ redirectTo: "/login?status=recovery-complete" })
     const firstWire = fetcher.mock.calls[0] as unknown as [URL, RequestInit]
     const retryWire = fetcher.mock.calls[1] as unknown as [URL, RequestInit]
+    expect(firstWire[0]).toEqual(
+      new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/completeAction"),
+    )
+    expect(firstWire[1].body).toBe(
+      JSON.stringify({
+        actionRef: "opaque-reference",
+        flow: "clinic-recovery",
+        accessToken: "server-access-token",
+        password: "new-password",
+      }),
+    )
     expect(retryWire[0]).toEqual(firstWire[0])
     expect(retryWire[1].body).toBe(firstWire[1].body)
     expect(retryWire[1].headers).toEqual(firstWire[1].headers)
@@ -770,6 +800,19 @@ describe("production authentication actions", () => {
       })
       expect(fetcher).toHaveBeenCalledOnce()
       expectPrivate(response)
+      expect(fetcher).toHaveBeenCalledWith(
+        new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/completeAction"),
+        expect.objectContaining({
+          body: JSON.stringify({
+            actionRef: "opaque-reference",
+            flow: flow === "invite" ? "clinic-invitation" : "clinic-recovery",
+            accessToken: "server-access-token",
+            password: "new-password",
+          }),
+          method: "POST",
+          cache: "no-store",
+        }),
+      )
     },
   )
 

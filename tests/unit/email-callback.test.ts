@@ -36,22 +36,28 @@ describe("email callback validation", () => {
     vi.unstubAllGlobals()
   })
 
-  it("validates the Website reference on GET without consuming a Supabase token", async () => {
-    const request = new NextRequest(
-      "http://localhost:3000/auth/callback?token_hash=synthetic&type=invite&next=/auth/invite/complete&actionRef=opaque-reference",
-    )
-    const response = await GET(request)
-    expect(fetch).toHaveBeenCalledWith(
-      new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/validateAction"),
-      expect.objectContaining({
-        body: JSON.stringify({ actionRef: "opaque-reference", flow: "clinic-invitation" }),
-        cache: "no-store",
-        method: "POST",
-      }),
-    )
-    expect(response.headers.get("location")).toBe("http://localhost:3000/auth/confirm?type=invite")
-    expect(response.headers.get("location")).not.toContain("synthetic")
-  })
+  it.each([
+    ["invite", "clinic-invitation", "/auth/invite/complete"],
+    ["recovery", "clinic-recovery", "/auth/password/reset/complete"],
+  ] as const)(
+    "validates the %s reference on GET without consuming a Supabase token",
+    async (type, flow, next) => {
+      const request = new NextRequest(
+        `http://localhost:3000/auth/callback?token_hash=synthetic&type=${type}&next=${next}&actionRef=opaque-reference`,
+      )
+      const response = await GET(request)
+      expect(fetch).toHaveBeenCalledWith(
+        new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/validateAction"),
+        expect.objectContaining({
+          body: JSON.stringify({ actionRef: "opaque-reference", flow }),
+          cache: "no-store",
+          method: "POST",
+        }),
+      )
+      expect(response.headers.get("location")).toBe(`http://localhost:3000/auth/confirm?type=${type}`)
+      expect(response.headers.get("location")).not.toContain("synthetic")
+    },
+  )
 
   it.each([
     ["invite", "/auth/invite/complete"],
@@ -74,7 +80,7 @@ describe("email callback validation", () => {
     expect(
       validateEmailCallbackRequest(
         new NextRequest(
-          "http://localhost:3000/auth/callback?token_hash=secret&type=invite&next=/auth/password/reset/complete",
+          "http://localhost:3000/auth/callback?token_hash=secret&type=invite&next=/auth/password/reset/complete&actionRef=opaque-reference",
         ),
       ),
     ).toBeUndefined()
@@ -112,7 +118,7 @@ describe("email callback validation", () => {
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
     const url = new URL(
-      "/auth/callback?token_hash=secret-token-hash&type=recovery&next=/auth/password/reset/complete",
+      "/auth/callback?token_hash=secret-token-hash&type=recovery&next=/auth/password/reset/complete&actionRef=opaque-reference",
       "https://clinic-dashboard-other-findmydoc.vercel.app",
     )
 

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, userEvent, within } from "storybook/test"
+import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { ClinicDashboardAuthScreen } from "./ClinicDashboardAuthScreen"
 import type { ClinicDashboardAuthApiResult } from "./browser/auth-api"
 import type { ClinicDashboardAuthErrorCode } from "./model/auth"
@@ -22,10 +22,6 @@ const successfulRedirect = (redirectTo: string) =>
 
 const pendingAction = () => fn(() => new Promise<ClinicDashboardAuthApiResult>(() => undefined))
 const serviceOutageReload = fn()
-const confirmationRetryAction = fn(async (): Promise<ClinicDashboardAuthApiResult> => ({
-  body: { redirectTo: "/auth/invite/complete" },
-  ok: true,
-}))
 
 export const Login: Story = {
   args: {
@@ -117,6 +113,15 @@ export const LoginInvalidCredentials: Story = {
     const alert = canvas.getByRole("alert")
     await expect(alert).toHaveTextContent("email address or password is incorrect")
     await expect(alert).toHaveFocus()
+  },
+}
+
+export const CallbackUnavailable: Story = {
+  args: { initialError: "AUTH_LINK_TEMPORARILY_UNAVAILABLE", mode: "login" },
+  play: async ({ canvasElement }) => {
+    const alert = within(canvasElement).getByRole("alert")
+    await expect(alert).toHaveTextContent("Reopen the link in your invitation or password reset email")
+    await waitFor(() => expect(alert).toHaveFocus())
   },
 }
 
@@ -239,17 +244,16 @@ export const ConfirmationPending: Story = {
 }
 
 export const ConfirmationRetry: Story = {
-  beforeEach: () => {
-    confirmationRetryAction.mockReset()
-    confirmationRetryAction
-      .mockResolvedValueOnce({ code: "AUTH_TEMPORARILY_UNAVAILABLE", ok: false })
-      .mockResolvedValue({ body: { redirectTo: "/auth/invite/complete" }, ok: true })
-  },
   args: {
     mode: "confirm",
     type: "invite",
     navigateAction: fn(),
-    submitAction: confirmationRetryAction,
+  },
+  render: (args) => {
+    const submitAction = fn<() => Promise<ClinicDashboardAuthApiResult>>()
+      .mockResolvedValueOnce({ code: "AUTH_TEMPORARILY_UNAVAILABLE", ok: false })
+      .mockResolvedValue({ body: { redirectTo: "/auth/invite/complete" }, ok: true })
+    return <ClinicDashboardAuthScreen {...args} submitAction={submitAction} />
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
