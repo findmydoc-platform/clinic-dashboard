@@ -3,7 +3,13 @@ import "server-only"
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { isControlledAuthTestMode, validateEnvironment } from "@/lib/env"
-import { clearCsrfCookie, getValidatedMutationOrigin, validateMutationRequest } from "@/lib/security/csrf"
+import {
+  clearCsrfCookie,
+  createCsrfToken,
+  getValidatedMutationOrigin,
+  setCsrfCookie,
+  validateMutationRequest,
+} from "@/lib/security/csrf"
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
 import {
   clinicDashboardEmailDestinations,
@@ -13,6 +19,11 @@ import {
   type ClinicDashboardReturnTarget,
 } from "../model/auth"
 import { resolveAccessForSession, resolveMutableClinicDashboardAccess } from "./access"
+import {
+  confirmWebsiteAction,
+  prepareWebsiteCompletion,
+  requestWebsiteRecovery,
+} from "./auth-action-protocol"
 import {
   clearCompletionGrantCookie,
   clearPendingEmailCallbackCookie,
@@ -47,15 +58,14 @@ const loginSchema = z
 
 const reauthenticationSchema = z.object({ password: z.string().min(1) }).strict()
 
-const resetRequestSchema = z.object({
-  email: z.string().email(),
-})
+const resetRequestSchema = z.object({ email: z.string().email().max(254) }).strict()
 
 const passwordSchema = z
   .object({
     confirmPassword: z.string(),
-    password: z.string().min(8),
+    password: z.string().min(8).max(1024),
   })
+  .strict()
   .refine(({ confirmPassword, password }) => confirmPassword === password, {
     path: ["confirmPassword"],
   })
@@ -65,6 +75,7 @@ const MAX_AUTH_REQUEST_BODY_BYTES = 8 * 1024
 function privateJson(body: unknown, status = 200) {
   const response = NextResponse.json(body, { status })
   applyPrivateResponseHeaders(response.headers)
+  response.headers.set("Referrer-Policy", "no-referrer")
   return response
 }
 
@@ -107,6 +118,20 @@ function accessRedirect(access: ClinicDashboardAccessResult, returnTarget: Clini
 
 function applyClient(response: NextResponse, routeClient: RouteSupabaseClient | undefined) {
   return routeClient ? routeClient.applyToResponse(response) : response
+}
+
+function applyEmailClient(response: NextResponse, routeClient: RouteSupabaseClient, request: NextRequest) {
+  const applied = applyClient(response, routeClient)
+  if (response.status === 503) {
+    for (const cookie of applied.cookies.getAll()) {
+      if (cookie.name !== "clinic-dashboard-auth" && !cookie.name.startsWith("clinic-dashboard-auth."))
+        continue
+      if (cookie.maxAge === 0) request.cookies.delete(cookie.name)
+      else request.cookies.set(cookie.name, cookie.value)
+    }
+    setCsrfCookie(applied, createCsrfToken(request))
+  }
+  return applied
 }
 
 function applyClientAndClear(response: NextResponse, routeClient: RouteSupabaseClient, request: NextRequest) {
@@ -265,19 +290,8 @@ export async function handleClinicDashboardPasswordResetRequest(request: NextReq
   if (!parsed.success) return errorResponse("INVALID_INPUT", 400)
   if (isControlledAuthTestMode()) return privateJson({ accepted: true }, 202)
 
-  const routeClient = createRouteSupabaseClient(request)
-  const callback = new URL("/auth/callback", requestOrigin)
-  callback.searchParams.set("next", clinicDashboardEmailDestinations.recovery)
-
-  try {
-    await routeClient.client.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: callback.toString(),
-    })
-  } catch {
-    // The response remains neutral to avoid account enumeration.
-  }
-
-  return applyClient(privateJson({ accepted: true }, 202), routeClient)
+  await requestWebsiteRecovery(request, parsed.data.email)
+  return privateJson({ accepted: true }, 202)
 }
 
 export async function handleClinicDashboardEmailCallback(request: NextRequest) {
@@ -289,25 +303,29 @@ export async function handleClinicDashboardEmailCallback(request: NextRequest) {
     .strict()
     .safeParse(await readJson(request))
   const callback = decodePendingEmailCallback(request.cookies.get(clinicDashboardPendingEmailCookie)?.value)
-  if (!parsedBody.success || !callback) {
+  let grant = decodeCompletionGrant(request.cookies.get(clinicDashboardCompletionGrantCookie)?.value)
+  const invalid = () => {
     const response = errorResponse("INVALID_OR_EXPIRED_LINK", 400)
     clearPendingEmailCallbackCookie(response)
     clearCompletionGrantCookie(response)
     return response
   }
+  if (!parsedBody.success || (!callback && (!grant || grant.attempt))) return invalid()
 
   if (isControlledAuthTestMode()) {
-    const expectedToken = `controlled-${callback.type}-token`
-    if (callback.tokenHash !== expectedToken) {
-      const response = errorResponse("INVALID_OR_EXPIRED_LINK", 400)
-      clearPendingEmailCallbackCookie(response)
-      clearCompletionGrantCookie(response)
-      return response
-    }
+    if (
+      !callback ||
+      callback.tokenHash !== `controlled-${callback.type}-token` ||
+      callback.actionRef !== `controlled-${callback.type}-reference`
+    )
+      return invalid()
     const response = privateJson({ redirectTo: callback.next })
     setControlledSessionCookie(response)
     setCompletionGrantCookie(response, {
+      actionRef: callback.actionRef,
       flow: callback.type,
+      issuedAt: callback.issuedAt,
+      state: "confirmed",
       subject: "controlled-clinic-staff",
     })
     clearPendingEmailCallbackCookie(response)
@@ -316,48 +334,46 @@ export async function handleClinicDashboardEmailCallback(request: NextRequest) {
   }
 
   const routeClient = createRouteSupabaseClient(request)
-  try {
-    const { error } = await routeClient.client.auth.verifyOtp({
-      token_hash: callback.tokenHash,
-      type: callback.type,
-    })
-    if (error) {
-      const response = applyClientAndClear(
-        errorResponse("INVALID_OR_EXPIRED_LINK", 400),
-        routeClient,
-        request,
-      )
-      clearPendingEmailCallbackCookie(response)
-      clearCompletionGrantCookie(response)
-      return response
+  if (callback) {
+    try {
+      const { error } = await routeClient.client.auth.verifyOtp({
+        token_hash: callback.tokenHash,
+        type: callback.type,
+      })
+      if (error) return applyClientAndClear(invalid(), routeClient, request)
+    } catch {
+      return applyEmailClient(errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503), routeClient, request)
     }
-  } catch {
-    return applyClient(clearCompletionGrant(errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503)), routeClient)
   }
 
-  const access = await resolveMutableClinicDashboardAccess(routeClient.client)
-  if (access.status === "unauthorized" || access.status === "unauthenticated") {
+  const session = await readVerifiedSupabaseSession(routeClient.client).catch(() => undefined)
+  if (!session?.isClinicAccount || (!callback && grant?.subject !== session.subject)) {
     await routeClient.client.auth.signOut({ scope: "local" }).catch(() => undefined)
-    const response = applyClientAndClear(errorResponse("ACCOUNT_UNAVAILABLE", 401), routeClient, request)
-    clearPendingEmailCallbackCookie(response)
-    clearCompletionGrantCookie(response)
-    return response
+    return applyClientAndClear(invalid(), routeClient, request)
   }
-
-  const session = await readVerifiedSupabaseSession(routeClient.client)
-  if (!session || !session.isClinicAccount) {
-    await routeClient.client.auth.signOut({ scope: "local" }).catch(() => undefined)
-    const response = applyClientAndClear(errorResponse("ACCOUNT_UNAVAILABLE", 401), routeClient, request)
-    clearPendingEmailCallbackCookie(response)
-    clearCompletionGrantCookie(response)
-    return response
+  if (callback) {
+    grant = {
+      actionRef: callback.actionRef,
+      flow: callback.type,
+      issuedAt: callback.issuedAt,
+      state: "confirming",
+      subject: session.subject,
+    }
   }
-
-  const response = privateJson({ redirectTo: callback.next })
-  setCompletionGrantCookie(response, { flow: callback.type, subject: session.subject })
+  if (!grant) return applyClient(invalid(), routeClient)
+  const outcome = await confirmWebsiteAction(grant.actionRef, grant.flow, session.accessToken)
+  if (outcome === "invalid") return applyClient(invalid(), routeClient)
+  const response =
+    outcome === "confirmed"
+      ? privateJson({ redirectTo: clinicDashboardEmailDestinations[grant.flow] })
+      : errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503)
+  setCompletionGrantCookie(response, {
+    ...grant,
+    state: outcome === "confirmed" ? "confirmed" : "confirming",
+  })
   clearPendingEmailCallbackCookie(response)
-  clearCsrfCookie(response)
-  return applyClient(response, routeClient)
+  if (outcome === "confirmed") clearCsrfCookie(response)
+  return applyEmailClient(response, routeClient, request)
 }
 
 export async function handleClinicDashboardPasswordCompletion(
@@ -369,11 +385,17 @@ export async function handleClinicDashboardPasswordCompletion(
 
   const grant = decodeCompletionGrant(request.cookies.get(clinicDashboardCompletionGrantCookie)?.value)
   const parsed = passwordSchema.safeParse(await readJson(request))
-  if (!parsed.success) return clearCompletionGrant(errorResponse("INVALID_INPUT", 400))
+  if (!parsed.success) return errorResponse("INVALID_INPUT", 400)
 
   if (isControlledAuthTestMode()) {
     const session = await getClinicDashboardSession(request.cookies)
-    if (!session || !grant || grant.flow !== flow || grant.subject !== session.subject) {
+    if (
+      !session ||
+      !grant ||
+      grant.state !== "confirmed" ||
+      grant.flow !== flow ||
+      grant.subject !== session.subject
+    ) {
       return clearCompletionGrant(errorResponse("INVALID_OR_EXPIRED_LINK", 401))
     }
     const response = privateJson({ redirectTo: `/login?status=${flow}-complete` })
@@ -385,7 +407,13 @@ export async function handleClinicDashboardPasswordCompletion(
 
   const routeClient = createRouteSupabaseClient(request)
   const session = await readVerifiedSupabaseSession(routeClient.client)
-  if (!session || !grant || grant.flow !== flow || grant.subject !== session.subject) {
+  if (
+    !session ||
+    !grant ||
+    grant.state !== "confirmed" ||
+    grant.flow !== flow ||
+    grant.subject !== session.subject
+  ) {
     return applyClientAndClear(
       clearCompletionGrant(errorResponse("INVALID_OR_EXPIRED_LINK", 401)),
       routeClient,
@@ -400,33 +428,16 @@ export async function handleClinicDashboardPasswordCompletion(
     )
   }
 
-  const access = await resolveMutableClinicDashboardAccess(routeClient.client)
-  if (access.status === "unauthenticated") {
-    return applyClientAndClear(
-      clearCompletionGrant(errorResponse("INVALID_OR_EXPIRED_LINK", 401)),
-      routeClient,
-      request,
-    )
-  }
-  if (access.status === "unauthorized") {
-    return applyClientAndClear(
-      clearCompletionGrant(errorResponse("ACCOUNT_UNAVAILABLE", 401)),
-      routeClient,
-      request,
-    )
-  }
-  if (access.status === "temporarily-unavailable") {
-    return applyClient(
-      clearCompletionGrant(errorResponse("SERVICE_TEMPORARILY_UNAVAILABLE", 503)),
-      routeClient,
-    )
-  }
-
-  try {
-    const { error } = await routeClient.client.auth.updateUser({ password: parsed.data.password })
-    if (error) return applyClient(clearCompletionGrant(errorResponse("INVALID_INPUT", 400)), routeClient)
-  } catch {
-    return applyClient(clearCompletionGrant(errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503)), routeClient)
+  const completion = prepareWebsiteCompletion(grant, session.accessToken, parsed.data.password)
+  if (!completion)
+    return applyEmailClient(errorResponse("AUTH_COMPLETION_UNCERTAIN", 503), routeClient, request)
+  const outcome = await completion.complete()
+  if (outcome === "invalid")
+    return applyClient(clearCompletionGrant(errorResponse("INVALID_OR_EXPIRED_LINK", 400)), routeClient)
+  if (outcome !== "completed") {
+    const response = errorResponse("AUTH_COMPLETION_UNCERTAIN", 503)
+    setCompletionGrantCookie(response, { ...grant, attempt: completion.attempt })
+    return applyEmailClient(response, routeClient, request)
   }
 
   if (flow === "recovery") {
@@ -513,7 +524,7 @@ export async function getCompletionAccess(
   const session = await getClinicDashboardSession(requestCookies)
   if (!session || !session.isClinicAccount) return { status: "unauthenticated" } as const
   const grant = decodeCompletionGrant(requestCookies.get(clinicDashboardCompletionGrantCookie)?.value)
-  if (!grant || grant.flow !== flow || grant.subject !== session.subject) {
+  if (!grant || grant.state !== "confirmed" || grant.flow !== flow || grant.subject !== session.subject) {
     return { status: "unauthenticated" } as const
   }
   return fetchClinicDashboardBootstrap(session.accessToken)

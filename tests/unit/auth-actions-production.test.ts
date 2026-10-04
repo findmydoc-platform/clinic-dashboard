@@ -24,7 +24,7 @@ import {
   handleClinicDashboardPasswordResetRequest,
   handleClinicDashboardReauthenticate,
 } from "@/features/clinic-dashboard/auth/server/public"
-import { createCsrfToken } from "@/lib/security/csrf"
+import { createCsrfToken, isValidCsrfToken } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
 
 function approvedBootstrapResponse(
@@ -151,6 +151,13 @@ describe("production authentication actions", () => {
     vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
     vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
+    vi.stubEnv(
+      "AUTH_ACTION_PROTOCOL_SERVICE_KEYS_JSON",
+      JSON.stringify({
+        environment: "test",
+        service: [{ version: "v1", secret: "test-service-key-0123456789abcdef0123456789" }], // pragma: allowlist secret - public synthetic fixture
+      }),
+    )
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => approvedBootstrapResponse()),
@@ -158,6 +165,7 @@ describe("production authentication actions", () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.clearAllMocks()
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
@@ -337,19 +345,41 @@ describe("production authentication actions", () => {
     expect(unavailableClient.auth.signOut).toHaveBeenCalledWith({ scope: "local" })
   })
 
-  it("keeps password reset responses neutral when Supabase fails", async () => {
-    const { client } = installRouteClient()
-    client.auth.resetPasswordForEmail.mockRejectedValueOnce(new Error("provider unavailable"))
-
-    const response = await handleClinicDashboardPasswordResetRequest(
-      mutationRequest("/api/auth/password/reset", { email: "unknown@example.com" }),
+  it("forwards recovery through the Website protocol and keeps failures neutral", async () => {
+    vi.stubEnv("VERCEL", "1")
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
+    vi.stubEnv(
+      "AUTH_ACTION_PROTOCOL_SERVICE_KEYS_JSON",
+      JSON.stringify({
+        environment: "preview",
+        service: [{ version: "v1", secret: "test-service-key-0123456789abcdef0123456789" }], // pragma: allowlist secret - public synthetic fixture
+      }),
     )
+    const { client } = installRouteClient()
+    const fetcher = vi.fn(async () => {
+      throw new Error("Website unavailable")
+    })
+    vi.stubGlobal("fetch", fetcher)
+    const request = mutationRequest(
+      "/api/auth/password/reset",
+      { email: "unknown@example.com" },
+      [],
+      "https://clinics.preview.findmydoc.eu",
+    )
+    request.headers.set("x-vercel-forwarded-for", "203.0.113.7")
+
+    const response = await handleClinicDashboardPasswordResetRequest(request)
     expect(response.status).toBe(202)
     await expect(response.json()).resolves.toEqual({ accepted: true })
-    expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith(
-      "unknown@example.com",
+    expect(client.auth.resetPasswordForEmail).not.toHaveBeenCalled()
+    expect(fetcher).toHaveBeenCalledWith(
+      new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/requestRecovery"),
       expect.objectContaining({
-        redirectTo: "http://localhost:3000/auth/callback?next=%2Fauth%2Fpassword%2Freset%2Fcomplete",
+        body: JSON.stringify({ email: "unknown@example.com", clientIP: "203.0.113.7" }),
+        cache: "no-store",
+        method: "POST",
+        redirect: "error",
       }),
     )
     expectPrivate(response)
@@ -358,20 +388,16 @@ describe("production authentication actions", () => {
   it.each([
     "https://clinics.preview.findmydoc.eu",
     "https://clinic-dashboard-5gepqbsiw-findmydoc.vercel.app",
-  ])("keeps the password reset callback on trusted preview origin %s", async (origin) => {
+  ])("accepts narrow recovery on trusted preview origin %s", async (origin) => {
     vi.stubEnv("DASHBOARD_ORIGIN", "https://clinics.preview.findmydoc.eu")
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_URL", "clinic-dashboard-5gepqbsiw-findmydoc.vercel.app")
-    const { client } = installRouteClient()
-
     const response = await handleClinicDashboardPasswordResetRequest(
       mutationRequest("/api/auth/password/reset", { email: "alex@example.com" }, [], origin),
     )
 
     expect(response.status).toBe(202)
-    expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith("alex@example.com", {
-      redirectTo: `${origin}/auth/callback?next=%2Fauth%2Fpassword%2Freset%2Fcomplete`,
-    })
+    expect(createRouteSupabaseClientMock).not.toHaveBeenCalled()
     expectPrivate(response)
   })
 
@@ -397,8 +423,13 @@ describe("production authentication actions", () => {
   })
 
   it("verifies TokenHash and issues a flow-and-subject-bound completion grant", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ version: 1, ok: true, outcome: "confirmed" })),
+    )
     const { client } = installRouteClient()
     const pending = encodePendingEmailCallback({
+      actionRef: "opaque-reference",
       next: "/auth/invite/complete",
       tokenHash: "invite-token-hash",
       type: "invite",
@@ -418,9 +449,269 @@ describe("production authentication actions", () => {
     expectPrivate(response)
   })
 
-  it("updates the password only with a matching grant and clears all local state", async () => {
+  it("resumes Website confirmation after an outage without consuming the token again", async () => {
+    const { client } = installRouteClient()
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(
+          { version: 1, ok: false, code: "AUTH_ACTION_TEMPORARILY_UNAVAILABLE" },
+          { status: 503 },
+        ),
+      )
+      .mockResolvedValueOnce(Response.json({ version: 1, ok: true, outcome: "confirmed" }))
+    vi.stubGlobal("fetch", fetcher)
+    vi.stubEnv(
+      "AUTH_ACTION_PROTOCOL_SERVICE_KEYS_JSON",
+      JSON.stringify({
+        environment: "test",
+        service: [{ version: "v1", secret: "test-service-key-0123456789abcdef0123456789" }], // pragma: allowlist secret - public synthetic fixture
+      }),
+    )
+    const pending = encodePendingEmailCallback({
+      actionRef: "opaque-reference",
+      next: "/auth/invite/complete",
+      tokenHash: "synthetic",
+      type: "invite",
+    })
+    const first = await handleClinicDashboardEmailCallback(
+      mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
+    )
+    expect(first.status).toBe(503)
+    const grant = first.cookies.get("clinic_dashboard_completion_grant")?.value
+    expect(grant).toBeTruthy()
+    const second = await handleClinicDashboardEmailCallback(
+      mutationRequest("/api/auth/callback", {}, [
+        `clinic_dashboard_completion_grant=${grant}`,
+        "clinic-dashboard-auth=session-cookie",
+      ]),
+    )
+    expect(second.status).toBe(200)
+    await expect(second.json()).resolves.toEqual({ redirectTo: "/auth/invite/complete" })
+    expect(client.auth.verifyOtp).toHaveBeenCalledOnce()
+    expect(client.auth.signOut).not.toHaveBeenCalled()
+    expect(fetcher).toHaveBeenLastCalledWith(
+      new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/confirmAction"),
+      expect.objectContaining({
+        body: JSON.stringify({
+          actionRef: "opaque-reference",
+          flow: "clinic-invitation",
+          accessToken: "server-access-token",
+        }),
+      }),
+    )
+  })
+
+  it("returns session-bound CSRF with the established cookies when Website confirmation fails", async () => {
+    const { client } = installRouteClient()
+    createRouteSupabaseClientMock.mockReturnValue({
+      client,
+      applyToResponse: (response: import("next/server").NextResponse) => {
+        response.cookies.set("clinic-dashboard-auth", "renewed-synthetic-session", {
+          httpOnly: true,
+          path: "/",
+        })
+        return response
+      },
+    })
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(
+          { version: 1, ok: false, code: "AUTH_ACTION_TEMPORARILY_UNAVAILABLE" },
+          { status: 503 },
+        ),
+      ),
+    )
+    const pending = encodePendingEmailCallback({
+      actionRef: "opaque-reference",
+      next: "/auth/invite/complete",
+      tokenHash: "synthetic",
+      type: "invite",
+    })
+    const response = await handleClinicDashboardEmailCallback(
+      mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
+    )
+    const token = response.cookies.get("clinic_dashboard_csrf")?.value
+    const incoming = new NextRequest("http://localhost:3000/api/auth/callback", {
+      headers: { cookie: "clinic-dashboard-auth=renewed-synthetic-session" },
+    })
+    expect(response.status).toBe(503)
+    expect(isValidCsrfToken(incoming, token)).toBe(true)
+  })
+
+  it("retries the exact Website completion after uncertainty and signs out only on success", async () => {
+    const { client } = installRouteClient()
+    vi.stubEnv(
+      "AUTH_ACTION_PROTOCOL_SERVICE_KEYS_JSON",
+      JSON.stringify({
+        environment: "test",
+        service: [{ version: "v1", secret: "test-service-key-0123456789abcdef0123456789" }], // pragma: allowlist secret - public synthetic fixture
+      }),
+    )
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(
+          { version: 1, ok: false, code: "AUTH_ACTION_TEMPORARILY_UNAVAILABLE" },
+          { status: 503 },
+        ),
+      )
+      .mockResolvedValueOnce(Response.json({ version: 1, ok: true, outcome: "completed" }))
+    vi.stubGlobal("fetch", fetcher)
+    const grant = encodeCompletionGrant({
+      actionRef: "opaque-reference",
+      flow: "recovery",
+      issuedAt: Math.floor(Date.now() / 1000),
+      state: "confirmed",
+      subject: "staff-1",
+    })
+    const body = { confirmPassword: "new-password", password: "new-password" }
+    const first = await handleClinicDashboardPasswordCompletion(
+      mutationRequest("/api/auth/password/reset/complete", body, [
+        "clinic-dashboard-auth=session-cookie",
+        `clinic_dashboard_completion_grant=${grant}`,
+      ]),
+      "recovery",
+    )
+    expect(first.status).toBe(503)
+    expect(client.auth.updateUser).not.toHaveBeenCalled()
+    expect(client.auth.signOut).not.toHaveBeenCalled()
+    const retry = first.cookies.get("clinic_dashboard_completion_grant")?.value
+    expect(retry).toBeTruthy()
+    const stored = JSON.stringify(
+      JSON.parse(Buffer.from(retry!.split(".")[0]!, "base64url").toString("utf8")),
+    )
+    expect(stored).not.toContain("new-password")
+    expect(stored).not.toContain("server-access-token")
+    const changed = await handleClinicDashboardPasswordCompletion(
+      mutationRequest(
+        "/api/auth/password/reset/complete",
+        { confirmPassword: "changed-password", password: "changed-password" }, // pragma: allowlist secret - public synthetic fixture
+        ["clinic-dashboard-auth=session-cookie", `clinic_dashboard_completion_grant=${retry}`],
+      ),
+      "recovery",
+    )
+    expect(changed.status).toBe(503)
+    expect(fetcher).toHaveBeenCalledOnce()
+    client.auth.getSession.mockResolvedValueOnce({
+      data: { session: { access_token: "changed-synthetic-token" } },
+      error: null,
+    })
+    const changedSession = await handleClinicDashboardPasswordCompletion(
+      mutationRequest("/api/auth/password/reset/complete", body, [
+        "clinic-dashboard-auth=session-cookie",
+        `clinic_dashboard_completion_grant=${retry}`,
+      ]),
+      "recovery",
+    )
+    expect(changedSession.status).toBe(503)
+    expect(fetcher).toHaveBeenCalledOnce()
+    const second = await handleClinicDashboardPasswordCompletion(
+      mutationRequest("/api/auth/password/reset/complete", body, [
+        "clinic-dashboard-auth=session-cookie",
+        `clinic_dashboard_completion_grant=${retry}`,
+      ]),
+      "recovery",
+    )
+    expect(second.status).toBe(200)
+    await expect(second.json()).resolves.toEqual({ redirectTo: "/login?status=recovery-complete" })
+    const firstWire = fetcher.mock.calls[0] as unknown as [URL, RequestInit]
+    const retryWire = fetcher.mock.calls[1] as unknown as [URL, RequestInit]
+    expect(retryWire[0]).toEqual(firstWire[0])
+    expect(retryWire[1].body).toBe(firstWire[1].body)
+    expect(retryWire[1].headers).toEqual(firstWire[1].headers)
+    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "global" })
+  })
+
+  it("does not create a new password attempt when the original five-minute request expires", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-10-04T03:00:00.000Z"))
+    const { client } = installRouteClient()
+    const fetcher = vi.fn(async () =>
+      Response.json({ version: 1, ok: false, code: "AUTH_ACTION_TEMPORARILY_UNAVAILABLE" }, { status: 503 }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    const grant = encodeCompletionGrant({
+      actionRef: "opaque-reference",
+      flow: "invite",
+      issuedAt: Math.floor(Date.now() / 1000),
+      state: "confirmed",
+      subject: "staff-1",
+    })
+    const body = { confirmPassword: "new-password", password: "new-password" }
+    const first = await handleClinicDashboardPasswordCompletion(
+      mutationRequest("/api/auth/invite/complete", body, [`clinic_dashboard_completion_grant=${grant}`]),
+      "invite",
+    )
+    vi.setSystemTime(new Date("2026-10-04T03:05:00.000Z"))
+    const retry = first.cookies.get("clinic_dashboard_completion_grant")?.value
+    const expired = await handleClinicDashboardPasswordCompletion(
+      mutationRequest("/api/auth/invite/complete", body, [`clinic_dashboard_completion_grant=${retry}`]),
+      "invite",
+    )
+    expect(expired.status).toBe(503)
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(client.auth.signOut).not.toHaveBeenCalled()
+    expect(client.auth.updateUser).not.toHaveBeenCalled()
+  })
+
+  it.each(["invite", "recovery"] as const)(
+    "rejects a mismatched %s subject before completion",
+    async (flow) => {
+      const { client } = installRouteClient()
+      const grant = encodeCompletionGrant({
+        actionRef: "opaque-reference",
+        flow,
+        issuedAt: Math.floor(Date.now() / 1000),
+        state: "confirmed",
+        subject: "another-subject",
+      })
+      const response = await handleClinicDashboardPasswordCompletion(
+        mutationRequest(
+          flow === "invite" ? "/api/auth/invite/complete" : "/api/auth/password/reset/complete",
+          { confirmPassword: "new-password", password: "new-password" },
+          [`clinic_dashboard_completion_grant=${grant}`],
+        ),
+        flow,
+      )
+      expect(response.status).toBe(401)
+      await expect(response.json()).resolves.toEqual({ code: "INVALID_OR_EXPIRED_LINK" })
+      expect(fetch).not.toHaveBeenCalled()
+      expect(client.auth.updateUser).not.toHaveBeenCalled()
+    },
+  )
+
+  it("rejects caller-selected recovery authority and missing CSRF before transport", async () => {
+    const extra = await handleClinicDashboardPasswordResetRequest(
+      mutationRequest("/api/auth/password/reset", {
+        email: "synthetic@example.invalid",
+        next: "/other",
+        clientIP: "192.0.2.1",
+      }),
+    )
+    expect(extra.status).toBe(400)
+    const noCsrf = await handleClinicDashboardEmailCallback(
+      new NextRequest("http://localhost:3000/api/auth/callback", {
+        method: "POST",
+        body: "{}",
+        headers: { origin: "http://localhost:3000", "content-type": "application/json" },
+      }),
+    )
+    expect(noCsrf.status).toBe(403)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(createRouteSupabaseClientMock).not.toHaveBeenCalled()
+  })
+
+  it("completes through the Website with a matching grant and clears local state", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ version: 1, ok: true, outcome: "completed" })),
+    )
     const { client } = installRouteClient()
     const grant = encodeCompletionGrant({
+      actionRef: "opaque-reference",
+      state: "confirmed",
       flow: "recovery",
       issuedAt: Math.floor(Date.now() / 1000),
       subject: "staff-1",
@@ -438,7 +729,7 @@ describe("production authentication actions", () => {
     await expect(response.json()).resolves.toEqual({
       redirectTo: "/login?status=recovery-complete",
     })
-    expect(client.auth.updateUser).toHaveBeenCalledWith({ password: "new-password" })
+    expect(client.auth.updateUser).not.toHaveBeenCalled()
     expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "global" })
     expect(response.headers.get("set-cookie")).toContain("clinic_dashboard_completion_grant=;")
     expect(response.headers.get("set-cookie")).toContain("clinic-dashboard-auth=;")
@@ -448,10 +739,12 @@ describe("production authentication actions", () => {
   it.each(["invite", "recovery"] as const)(
     "allows %s password completion while clinic onboarding is pending",
     async (flow) => {
-      const fetcher = vi.fn(async () => deniedBootstrapResponse())
+      const fetcher = vi.fn(async () => Response.json({ version: 1, ok: true, outcome: "completed" }))
       vi.stubGlobal("fetch", fetcher)
       const { client } = installRouteClient()
       const grant = encodeCompletionGrant({
+        actionRef: "opaque-reference",
+        state: "confirmed",
         flow,
         issuedAt: Math.floor(Date.now() / 1000),
         subject: "staff-1",
@@ -470,7 +763,7 @@ describe("production authentication actions", () => {
       await expect(response.json()).resolves.toEqual({
         redirectTo: `/login?status=${flow}-complete`,
       })
-      expect(client.auth.updateUser).toHaveBeenCalledWith({ password: "new-password" })
+      expect(client.auth.updateUser).not.toHaveBeenCalled()
       expect(client.auth.refreshSession).not.toHaveBeenCalled()
       expect(client.auth.signOut).toHaveBeenCalledWith({
         scope: flow === "recovery" ? "global" : "local",

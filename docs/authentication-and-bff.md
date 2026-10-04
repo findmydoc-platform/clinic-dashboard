@@ -133,22 +133,22 @@ temporary Supabase refresh failures from proven invalid credentials remains a se
 
 The Dashboard owns these same-origin contracts:
 
-| Route                              | Method                   | Contract                                                                                                                                                                                                                |
-| ---------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/login`                  | `POST`                   | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                               |
-| `/auth/callback`                   | `GET`                    | Validate TokenHash, flow type, and exact destination without consuming the token; redirect only to the configured Dashboard origin and confirmation page.                                                               |
-| `/api/auth/callback`               | `POST`                   | Validate CSRF and exact origin, call `verifyOtp` once, establish cookies, verify clinic account eligibility, issue a short-lived flow-and-subject-bound completion grant, and return only the allowed completion route. |
-| `/api/auth/password/reset`         | `POST`                   | Accept a valid email and return the same neutral `202` response whether or not an eligible account exists.                                                                                                              |
-| Invite/reset completion            | `POST`                   | Require the verified session and matching one-use completion grant, enforce the eight-character matching password rule, clear the grant, update the password, sign out, and return to normal login.                     |
-| `/api/auth/logout`                 | `POST`                   | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                             |
-| `/auth/session/recover`            | `GET`                    | Render the protected recovery form with one automatic submission or a Continue action without JavaScript.                                                                                                               |
-| `/api/auth/session/recover`        | `POST`                   | Validate the bounded form, origin and session-bound CSRF; refresh and retry once or verify and clear without refresh; propagate cookies through a private `303`.                                                        |
-| `/api/dashboard/bootstrap`         | `GET`                    | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                        |
-| `/api/dashboard/clinic-treatments` | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                   |
-| `/api/dashboard/gallery`           | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                      |
-| `/api/dashboard/gallery/media`     | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                       |
-| `/api/dashboard/gallery/discard`   | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                  |
-| `/api/dashboard/gallery/image`     | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                           |
+| Route                              | Method                   | Contract                                                                                                                                                                                                                                      |
+| ---------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/login`                  | `POST`                   | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                                                     |
+| `/auth/callback`                   | `GET`                    | Validate the bounded flow and Website action reference through `validateAction`, without consuming the Supabase token; store the signed ten-minute pending context and redirect to the fixed confirmation page.                               |
+| `/api/auth/callback`               | `POST`                   | Validate same-origin CSRF, perform `verifyOtp`, retain the verified session, and call Website `confirmAction`. Signed subject-and-flow state resumes Website failures without consuming the token again.                                      |
+| `/api/auth/password/reset`         | `POST`                   | Forward only the email and Vercel-controlled original IP through Website `requestRecovery`; always return the neutral `202` acceptance for syntactically valid requests.                                                                      |
+| Invite/reset completion            | `POST`                   | Require the verified session and matching confirmed grant, forward the password to Website `completeAction`, and clear state/sign out only after Website completion succeeds. Exact uncertain retries preserve the original request envelope. |
+| `/api/auth/logout`                 | `POST`                   | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                                                   |
+| `/auth/session/recover`            | `GET`                    | Render the protected recovery form with one automatic submission or a Continue action without JavaScript.                                                                                                                                     |
+| `/api/auth/session/recover`        | `POST`                   | Validate the bounded form, origin and session-bound CSRF; refresh and retry once or verify and clear without refresh; propagate cookies through a private `303`.                                                                              |
+| `/api/dashboard/bootstrap`         | `GET`                    | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                                              |
+| `/api/dashboard/clinic-treatments` | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                                         |
+| `/api/dashboard/gallery`           | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                                            |
+| `/api/dashboard/gallery/media`     | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
+| `/api/dashboard/gallery/discard`   | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                                        |
+| `/api/dashboard/gallery/image`     | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
 is unnecessary unless a later UI flow demonstrates the need. Callback and login failures return sanitized error codes;
@@ -157,6 +157,69 @@ they never return Supabase response bodies, token hashes, or provider details to
 The Vercel project applies fixed-window, IP-keyed WAF limits before the application: 20 login requests per minute and
 five password-reset requests per hour. Route handlers additionally reject authentication request bodies larger than
 8 KiB before JSON parsing. The WAF limits are project configuration, not an application-memory counter.
+
+### Website-owned invitation and recovery
+
+The Dashboard consumes the [Website auth-action protocol v1](https://github.com/findmydoc-platform/website/blob/8f5ccae84c3c0ce15b8d81d68377eec83f97557d/docs/integrations/auth-action-protocol.md).
+That merged contract owns action references, current principal eligibility, lifecycle transitions, original-IP recovery
+admission, recipients, the existing catalog, Outbox, Lettermint and the pinned templates package `0.3.0`. Dashboard
+owns no mail sender, action store, delivery retry system or service-role credential.
+
+The server-only client signs exact JSON request bytes with an environment-specific service HMAC. It rejects redirects,
+bounds response bodies to 2 KiB, uses a ten-second request deadline and accepts only the versioned closed result for
+the requested operation. Dashboard receives no reference signing key. A browser-supplied action ID or destination
+cannot replace the opaque `actionRef`. The existing Website invitation URL omits `next`; Dashboard derives the fixed
+invitation completion route from `type`. Recovery URLs may carry the matching fixed `next`. The legacy `authActionId`
+query field is ignored and never grants authority. Duplicate or unrelated query parameters are rejected.
+
+Callback GET calls `validateAction` and neither consumes a Supabase token nor advances action state. A valid result
+creates the host-only `HttpOnly` pending context and redirects to `/auth/confirm` with only the flow. POST uses the
+same-origin CSRF guard, consumes the token through `verifyOtp`, and confirms the action with the verified user's
+access token. A temporary Website failure retains a signed `confirming` grant for that subject, flow and action.
+The next POST uses the retained session and calls `confirmAction` without another `verifyOtp`. Once Website confirms,
+the grant becomes `confirmed`. Signatures bind purpose, environment and configured origin. Pending and completion
+contexts expire server-side ten minutes after the original GET; retries do not extend that deadline. A callback that
+fails structurally or receives the Website's closed rejection shows the same invalid-or-expired public state.
+
+The approved update-before-lifecycle-completion requirement uses the Website's existing password-completion boundary.
+Dashboard forwards `{ actionRef, flow, accessToken, password }` to `completeAction`. Website performs and observes one
+ordinary authenticated Supabase user password PUT before committing the lifecycle completion. Dashboard performs no
+second `updateUser` call and sends no password-success boolean or AMR proof. The Website atomically completes the action
+and revokes competing eligible Clinic invitation/recovery actions before releasing its subject password claim.
+Dashboard signs out Recovery globally, with the existing local fallback, only after Website returns `completed`.
+Invitation completion signs out locally. Both flows clear local completion state and return to the existing fixed
+`/login?status=invite-complete` or `/login?status=recovery-complete` destination.
+
+A temporary or ambiguous completion result preserves the session and signed grant. The grant carries the original
+request ID, timestamp, key version and a purpose-specific HMAC binding of the exact body, including the submitted
+password and current access token. It stores neither value. A retry must reconstruct the same body and envelope.
+A changed password, changed session token, unavailable original service key or expired five-minute protocol envelope
+cannot create a replacement attempt. The UI asks the user to keep the page open, retry with the same password and
+contact support if uncertainty persists. Only Website's durable observed-success proof can resume lifecycle work;
+an unknown provider outcome never authorizes another password writer. Website's process-crash and reconciliation
+limits remain authoritative. A lost Dashboard response can also prevent receipt of its new signed retry state.
+These limits require operational verification before hosted activation.
+
+Temporary callback/completion responses apply all Supabase cookie mutations and return CSRF bound to the resulting
+cookies. The user can retry from the current page after the token establishes a session. All auth responses remain
+private and `no-store`; action references, token hashes, credentials and provider details stay outside UI responses
+and logs. Callback redirects and auth JSON responses use `no-referrer`.
+
+`AUTH_ACTION_PROTOCOL_SERVICE_KEYS_JSON` is optional startup configuration so unavailable auth-action integration does
+not break existing login or business reads. Auth-action calls fail closed when it is absent or malformed. Its strict
+server-only object contains `environment` and a nonempty `service` array of unique versions and secrets of at least
+32 characters, current key first. Reference rings and extra properties are rejected. Preview and Production must
+match `VERCEL_ENV` and their already validated exact Payload origins; local and unit runtimes use `local` and `test`.
+Keep prior service keys through the five-minute exact retry window. Recovery transport additionally requires
+`VERCEL=1`, a deployed environment and one valid IP from `x-vercel-forwarded-for`. Other forwarding headers, local
+addresses and caller-supplied IP fields never provide a fallback. This follows the [Vercel request-header contract](https://vercel.com/docs/headers/request-headers).
+Missing original-IP authority, ineligible accounts and upstream failures all retain the neutral recovery response.
+
+Offline route and wire-contract tests cover HMAC authentication, closed response validation, GET/POST separation,
+subject/flow binding, CSRF renewal, fixed routes, confirmation retry and immutable completion retry. Controlled
+Storybook/browser evidence covers invitation, recovery, password completion and safe failures without real provider
+effects. This establishes source behavior only. No hosted credentials, callback binding, live database execution,
+mail delivery, Preview acceptance or Production activation is established by this change.
 
 ## CSRF and Origin Contract
 

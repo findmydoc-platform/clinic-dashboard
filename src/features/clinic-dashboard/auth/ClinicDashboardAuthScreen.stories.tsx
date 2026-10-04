@@ -22,6 +22,10 @@ const successfulRedirect = (redirectTo: string) =>
 
 const pendingAction = () => fn(() => new Promise<ClinicDashboardAuthApiResult>(() => undefined))
 const serviceOutageReload = fn()
+const confirmationRetryAction = fn(async (): Promise<ClinicDashboardAuthApiResult> => ({
+  body: { redirectTo: "/auth/invite/complete" },
+  ok: true,
+}))
 
 export const Login: Story = {
   args: {
@@ -231,6 +235,46 @@ export const ConfirmationPending: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole("button", { name: "Continue password reset" }))
     await expect(canvas.getByRole("button", { name: "Confirming…" })).toBeDisabled()
+  },
+}
+
+export const ConfirmationRetry: Story = {
+  beforeEach: () => {
+    confirmationRetryAction.mockReset()
+    confirmationRetryAction
+      .mockResolvedValueOnce({ code: "AUTH_TEMPORARILY_UNAVAILABLE", ok: false })
+      .mockResolvedValue({ body: { redirectTo: "/auth/invite/complete" }, ok: true })
+  },
+  args: {
+    mode: "confirm",
+    type: "invite",
+    navigateAction: fn(),
+    submitAction: confirmationRetryAction,
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "Continue invitation" }))
+    await expect(canvas.getByRole("alert")).toHaveFocus()
+    await userEvent.click(canvas.getByRole("button", { name: "Continue invitation" }))
+    await expect(args.navigateAction).toHaveBeenCalledWith("/auth/invite/complete")
+  },
+}
+
+export const RecoveryCompletionUncertain: Story = {
+  args: {
+    flow: "recovery",
+    mode: "complete-password",
+    submitAction: rejectedAction("AUTH_COMPLETION_UNCERTAIN"),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByLabelText("Password"), "synthetic-password")
+    await userEvent.type(canvas.getByLabelText("Confirm password"), "synthetic-password")
+    await userEvent.click(canvas.getByRole("button", { name: "Save password" }))
+    const alert = canvas.getByRole("alert")
+    await expect(alert).toHaveFocus()
+    await expect(alert).toHaveTextContent("retry with the same password")
+    await expect(canvas.getByLabelText("Password")).toHaveValue("synthetic-password")
   },
 }
 

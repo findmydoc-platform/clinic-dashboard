@@ -27,7 +27,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       ? "INVALID_OR_EXPIRED_LINK"
       : error === "account-unavailable"
         ? "ACCOUNT_UNAVAILABLE"
-        : undefined
+        : error === "temporarily-unavailable"
+          ? "AUTH_TEMPORARILY_UNAVAILABLE"
+          : undefined
   const initialStatus = status === "invite-complete" || status === "recovery-complete" ? status : undefined
   const returnTarget = parseClinicDashboardReturnTarget(next) ?? "/"
 

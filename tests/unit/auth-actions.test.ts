@@ -34,11 +34,15 @@ function mutationRequest(
     `clinic_dashboard_csrf=${token}`,
     ...(session ? ["clinic_dashboard_controlled_session=controlled-clinic-staff"] : []),
     ...(pendingCallback
-      ? [`clinic_dashboard_pending_email=${encodePendingEmailCallback(pendingCallback)}`]
+      ? [
+          `clinic_dashboard_pending_email=${encodePendingEmailCallback({ ...pendingCallback, actionRef: `controlled-${pendingCallback.type}-reference` })}`,
+        ]
       : []),
     ...(completionFlow
       ? [
           `clinic_dashboard_completion_grant=${encodeCompletionGrant({
+            actionRef: `controlled-${completionFlow}-reference`,
+            state: "confirmed",
             flow: completionFlow,
             issuedAt: Math.floor(Date.now() / 1000),
             subject: "controlled-clinic-staff",
