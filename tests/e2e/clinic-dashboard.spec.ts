@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { controlledEmailCallbackPath } from "../fixtures/controlled-email-callback"
 
 const testDashboardPassword = "clinic-dashboard-test"
 const testDashboardOrigin = `http://127.0.0.1:${process.env.CLINIC_DASHBOARD_E2E_PORT ?? "3100"}`
@@ -781,7 +782,7 @@ test("does not consume callback tokens on GET and rejects invalid links", async 
     if (response.url().includes("/api/auth/callback")) callbackMethods.push(response.request().method())
   })
 
-  await page.goto("/auth/callback?token_hash=controlled-invite-token&type=invite&next=/auth/invite/complete")
+  await page.goto(controlledEmailCallbackPath("invite"))
   await expect(page).toHaveURL(/\/auth\/confirm\?type=invite$/)
   expect(page.url()).not.toContain("token_hash")
   expect(callbackMethods).toEqual([])
@@ -791,7 +792,9 @@ test("does not consume callback tokens on GET and rejects invalid links", async 
   expect(pendingCookie).toMatchObject({ httpOnly: true, path: "/api/auth/callback", sameSite: "Lax" })
   await expect(page.getByRole("heading", { name: "Accept your clinic invitation" })).toBeVisible()
 
-  await page.goto("/auth/callback?token_hash=invalid&type=invite&next=/auth/password/reset/complete")
+  const mismatched = new URL(controlledEmailCallbackPath("invite"), "http://localhost:3000")
+  mismatched.searchParams.set("next", "/auth/password/reset/complete")
+  await page.goto(`${mismatched.pathname}${mismatched.search}`)
   await expect(page).toHaveURL(/\/login\?error=invalid-or-expired-link/)
   await expect(page.getByText(/invalid or has expired/)).toBeVisible()
 })
@@ -861,7 +864,7 @@ test("keeps Supabase and Payload traffic and token material out of the browser",
 test("completes invite and recovery links through explicit confirmation", async ({ page }) => {
   for (const flow of ["invite", "recovery"] as const) {
     const completionPath = flow === "invite" ? "/auth/invite/complete" : "/auth/password/reset/complete"
-    await page.goto(`/auth/callback?token_hash=controlled-${flow}-token&type=${flow}&next=${completionPath}`)
+    await page.goto(controlledEmailCallbackPath(flow))
     await page
       .getByRole("button", {
         name: flow === "invite" ? "Continue invitation" : "Continue password reset",
