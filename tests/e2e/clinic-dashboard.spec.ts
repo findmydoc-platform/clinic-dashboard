@@ -16,6 +16,11 @@ async function signIn(page: Page) {
   await page.waitForLoadState("networkidle")
 }
 
+async function waitForGalleryNotifications(page: Page) {
+  await page.mouse.move(0, 0)
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0)
+}
+
 test("authenticates and exposes the complete workspace shell", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
@@ -439,6 +444,7 @@ test("deep-links across locations and persists gallery curation across reload", 
     (response) =>
       new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
   )
+  await waitForGalleryNotifications(page)
   await galleryEditor.getByRole("button", { name: "Save and return" }).click()
   expect((await saveResponse).status()).toBe(200)
   await expect(galleryEditor).toBeHidden()
@@ -467,6 +473,7 @@ test("deep-links across locations and persists gallery curation across reload", 
     (response) =>
       new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
   )
+  await waitForGalleryNotifications(page)
   await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
   expect((await completeGalleryResponse).status()).toBe(200)
   await expect(reopenedEditor).toBeHidden()
@@ -488,6 +495,7 @@ test("deep-links across locations and persists gallery curation across reload", 
   await curationEditor.getByRole("button", { name: new RegExp(`Edit image \\d+: ${exteriorAlt}`) }).click()
   await curationEditor.getByRole("button", { name: "More image actions" }).click()
   await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await waitForGalleryNotifications(page)
   await curationEditor.getByRole("button", { name: "Save and return" }).click()
   const removalDialog = page.getByRole("alertdialog", { name: "Remove 2 images and save?" })
   const removalResponse = page.waitForResponse(
@@ -526,6 +534,7 @@ test("deep-links across locations and persists gallery curation across reload", 
   const cleanupEditor = page.getByRole("region", { name: "Manage gallery" })
   await cleanupEditor.getByRole("button", { name: "More image actions" }).click()
   await page.getByRole("menuitem", { name: "Remove image" }).click()
+  await waitForGalleryNotifications(page)
   await cleanupEditor.getByRole("button", { name: "Save and return" }).click()
   const cleanupDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
   const cleanupResponse = page.waitForResponse(
