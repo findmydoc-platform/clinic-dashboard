@@ -99,6 +99,7 @@ function provider(overrides: Partial<PatientInquiryProvider> = {}): PatientInqui
       ok: true as const,
       value: { inquiry: detail },
     })),
+    submitAppeal: vi.fn(async () => ({ ok: true as const, value: { submitted: true as const } })),
     ...overrides,
   }
 }

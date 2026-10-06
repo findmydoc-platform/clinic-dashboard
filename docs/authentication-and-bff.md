@@ -149,6 +149,7 @@ The Dashboard owns these same-origin contracts:
 | `/api/dashboard/gallery/media`     | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
 | `/api/dashboard/gallery/discard`   | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                                        |
 | `/api/dashboard/gallery/image`     | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
+| `/api/dashboard/inquiries/appeal`  | `POST`                   | Submit only `{ caseId, text }` through the current clinic session, shared mutation guard, and `clinic-inquiries:view` capability. No browser-supplied actor, clinic, revision, or replay key is accepted.                                     |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
 is unnecessary unless a later UI flow demonstrates the need. Callback and login failures return sanitized error codes;
@@ -315,6 +316,16 @@ status write; the browser and Route Handler do not observe that sequence. The ad
 projects only the approved inquiry fields. Its Controlled implementation is selected by the existing local test mode,
 uses the same provider contract, and is impossible to enable in Preview or Production. No Payload failure selects
 Controlled data.
+
+`submitAppeal({ caseId, text })` uses the existing Website `POST /api/clinic-dashboard/inquiries/appeal`
+contract with the ordinary server-side clinic Bearer and inquiry-v2 header. The BFF returns only the validated
+`201 { submitted: true }` receipt. Text must be nonblank and at most 1,000 characters; its submitted whitespace
+is retained. Website owns participation, the current measure, and the one-time appeal predicate. Its eight closed
+`MODERATION_*` failures map to sanitized BFF errors with the same status, including `409 invalid-state` for an
+unavailable or already submitted appeal. Neither the provider nor BFF retries the business request after failure or
+uncertainty. Controlled providers have no appealable cases and fail closed with `invalid-state` rather than fabricate
+a successful appeal. Offline BFF tests exercise the normal session/provider composition with only external Supabase
+and Website boundaries replaced. This source wiring does not establish deployed availability or mail delivery.
 
 The clinic-treatment domain uses one private `ClinicTreatmentProvider` for `loadTreatments()`, `createTreatment()`, and
 `updateTreatment()`. Its Payload adapter targets only the focused `GET`, `POST`, and `PATCH`

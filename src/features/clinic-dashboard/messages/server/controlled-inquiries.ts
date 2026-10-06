@@ -623,6 +623,9 @@ export function createControlledPatientInquiryProvider(
       }
       return { ok: true, value: { inquiry: next } }
     },
+    async submitAppeal() {
+      return { error: { code: "invalid-state" }, ok: false }
+    },
     async sendExternalMessage(input) {
       const idempotencyScope = `message:${input.inquiryId}:${input.idempotencyKey}`
       const signature = JSON.stringify({

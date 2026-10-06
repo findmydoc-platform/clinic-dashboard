@@ -38,6 +38,7 @@ import {
   loadClinicDashboardReporting as loadClinicDashboardReportingWithProvider,
 } from "./dashboard/server/public"
 import {
+  handleInquiryAppealSubmit as handleInquiryAppealSubmitWithProvider,
   handleInquiryAttachmentDownload as handleInquiryAttachmentDownloadWithProvider,
   handleInquiryAttachmentDraftCreate as handleInquiryAttachmentDraftCreateWithProvider,
   handleInquiryAttachmentDraftDiscard as handleInquiryAttachmentDraftDiscardWithProvider,
@@ -201,6 +202,10 @@ export function handleInquiryDetailLoad(request: NextRequest) {
 
 export function handleInquiryMessageSend(request: NextRequest) {
   return handleInquiryMessageSendWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleInquiryAppealSubmit(request: NextRequest) {
+  return handleInquiryAppealSubmitWithProvider(request, createPatientInquiryProvider)
 }
 
 export function handleInquiryNoteAdd(request: NextRequest) {
