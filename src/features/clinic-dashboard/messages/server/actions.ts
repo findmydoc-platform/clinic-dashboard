@@ -110,6 +110,15 @@ const readPositionSchema = z
   .object({ activityId: idSchema.optional(), inquiryId: idSchema, mode: z.enum(["read", "unread"]) })
   .strict()
 const revealSchema = z.object({ inquiryId: idSchema }).strict()
+const appealSchema = z
+  .object({
+    caseId: idSchema,
+    text: z
+      .string()
+      .max(1_000)
+      .refine((value) => value.trim().length > 0),
+  })
+  .strict()
 const draftCreateSchema = z
   .object({
     fileName: z.string().trim().min(1).max(255),
@@ -285,6 +294,7 @@ async function handleJsonMutation<TInput, TValue>(
     input: TInput,
   ) => Promise<InquiryResult<TValue>>,
   capability: "clinic-inquiries:edit" | "clinic-inquiries:view" = "clinic-inquiries:edit",
+  respond: (result: InquiryResult<TValue>) => NextResponse = providerResponse,
 ) {
   const authorized =
     capability === "clinic-inquiries:edit"
@@ -300,7 +310,27 @@ async function handleJsonMutation<TInput, TValue>(
   const result = await Promise.resolve()
     .then(() => invoke(providerFor(authorized.access, createProvider), input.data))
     .catch(() => ({ error: { code: "service-unavailable" }, ok: false }) as const)
-  return authorized.access.applyToResponse(providerResponse(result))
+  return authorized.access.applyToResponse(respond(result))
+}
+
+export function handleInquiryAppealSubmit(
+  request: NextRequest,
+  createProvider: PatientInquiryProviderFactory,
+) {
+  return handleJsonMutation(
+    request,
+    createProvider,
+    appealSchema,
+    (provider, input) => provider.submitAppeal(input),
+    "clinic-inquiries:view",
+    (result) =>
+      result.ok
+        ? privateJson(result.value, 201)
+        : privateJson(
+            { error: result.error },
+            result.error.code === "invalid-state" ? 409 : errorStatus(result.error.code),
+          ),
+  )
 }
 
 export function handleInquiryMessageSend(

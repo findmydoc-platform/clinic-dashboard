@@ -105,6 +105,9 @@ export type PatientInquiryProvider = Readonly<{
       text?: string
     }>,
   ) => Promise<InquiryResult<Readonly<{ inquiry: PatientInquiryDetail; replayed?: boolean }>>>
+  submitAppeal: (
+    input: Readonly<{ caseId: string; text: string }>,
+  ) => Promise<InquiryResult<Readonly<{ submitted: true }>>>
 }>
 
 export type PatientInquiryProviderFactory = (accessToken: string, clinicId: string) => PatientInquiryProvider

@@ -199,6 +199,30 @@ const upstreamErrorSchema = z.object({
     current: detailSchema.optional(),
   }),
 })
+const appealErrorSchema = z.object({
+  error: z.object({
+    code: z.enum([
+      "MODERATION_ACCESS_DENIED",
+      "MODERATION_CONFLICT",
+      "MODERATION_INVALID_INPUT",
+      "MODERATION_INVALID_STATE",
+      "MODERATION_NOT_FOUND",
+      "MODERATION_RATE_LIMITED",
+      "MODERATION_SERVICE_UNAVAILABLE",
+      "MODERATION_UNAUTHORIZED",
+    ]),
+  }),
+})
+const appealErrorCodes = {
+  MODERATION_ACCESS_DENIED: "access-denied",
+  MODERATION_CONFLICT: "conflict",
+  MODERATION_INVALID_INPUT: "invalid-input",
+  MODERATION_INVALID_STATE: "invalid-state",
+  MODERATION_NOT_FOUND: "not-found",
+  MODERATION_RATE_LIMITED: "rate-limited",
+  MODERATION_SERVICE_UNAVAILABLE: "service-unavailable",
+  MODERATION_UNAUTHORIZED: "unauthorized",
+} as const satisfies Record<z.infer<typeof appealErrorSchema>["error"]["code"], InquiryErrorCode>
 
 type UpstreamDetail = z.infer<typeof detailSchema>
 
@@ -449,6 +473,13 @@ function mapError(response: Extract<UpstreamResponse, { ok: false }>): InquiryRe
   }
 }
 
+function mapAppealError(response: Extract<UpstreamResponse, { ok: false }>): InquiryResult<never> {
+  const parsed = appealErrorSchema.safeParse(response.body)
+  return parsed.success
+    ? { error: { code: appealErrorCodes[parsed.data.error.code] }, ok: false }
+    : mapError(response)
+}
+
 function sanitizeUploadDescriptor(
   draft: z.infer<typeof draftSchema>,
   expectedMimeType: string,
@@ -534,6 +565,7 @@ function withSafeProviderBoundary(provider: PatientInquiryProvider): PatientInqu
     previewAttachment: (input) => safelyInvokeProvider(() => provider.previewAttachment(input)),
     revealContact: (input) => safelyInvokeProvider(() => provider.revealContact(input)),
     sendExternalMessage: (input) => safelyInvokeProvider(() => provider.sendExternalMessage(input)),
+    submitAppeal: (input) => safelyInvokeProvider(() => provider.submitAppeal(input)),
   }
 }
 
@@ -551,6 +583,7 @@ export function createPayloadPatientInquiryProvider(
     input: unknown,
     method: "PATCH" | "POST" | "PUT",
     schema: z.ZodType<TValue>,
+    responseContract?: Readonly<{ mapFailure: typeof mapError; status: number }>,
   ): Promise<InquiryResult<TValue>> => {
     const response = await requestPayload(
       endpointFor(pathname, runtimeEnvironment),
@@ -564,7 +597,10 @@ export function createPayloadPatientInquiryProvider(
       },
       fetcher,
     )
-    if (!response.ok) return mapError(response)
+    if (!response.ok) return (responseContract?.mapFailure ?? mapError)(response)
+    if (responseContract && response.response.status !== responseContract.status) {
+      return { error: { code: "service-unavailable" }, ok: false }
+    }
     const parsed = schema.safeParse(response.body)
     return parsed.success
       ? { ok: true, value: parsed.data }
@@ -770,5 +806,13 @@ export function createPayloadPatientInquiryProvider(
     },
     previewAttachment: ({ attachmentId }) => loadAttachmentAccess("preview", attachmentId),
     sendExternalMessage: (input) => mapMutation("/api/clinic-dashboard/inquiries/messages", input, "POST"),
+    submitAppeal: (input) =>
+      requestJson(
+        "/api/clinic-dashboard/inquiries/appeal",
+        input,
+        "POST",
+        z.object({ submitted: z.literal(true) }),
+        { mapFailure: mapAppealError, status: 201 },
+      ),
   })
 }

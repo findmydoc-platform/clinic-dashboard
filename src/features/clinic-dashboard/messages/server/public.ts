@@ -1,6 +1,7 @@
 import "server-only"
 
 export {
+  handleInquiryAppealSubmit,
   handleInquiryAttachmentDownload,
   handleInquiryAttachmentDraftCreate,
   handleInquiryAttachmentDraftDiscard,

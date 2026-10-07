@@ -6,6 +6,14 @@ import {
 
 describe("controlled patient inquiry provider", () => {
   beforeEach(() => resetControlledPatientInquiryProvider())
+  it("rejects appeals when no controlled moderation case is appealable", async () => {
+    const provider = createControlledPatientInquiryProvider()
+
+    await expect(
+      provider.submitAppeal({ caseId: "controlled-case-1", text: "Please review the decision." }),
+    ).resolves.toEqual({ error: { code: "invalid-state" }, ok: false })
+  })
+
   it("paginates with opaque cursors and searches safe timeline fields", async () => {
     const provider = createControlledPatientInquiryProvider()
     const first = await provider.loadQueue({ lifecycle: "all", unreadOnly: false })
