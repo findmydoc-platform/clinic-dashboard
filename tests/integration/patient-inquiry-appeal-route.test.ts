@@ -45,7 +45,8 @@ describe("ordinary clinic Inquiry appeal BFF", () => {
   beforeEach(() => {
     capabilities = ["clinic-inquiries:view"]
     vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", undefined)
-    vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
+    // Synthetic signing fixture; never an operational credential.
+    vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef") // pragma: allowlist secret
     vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
     vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
     vi.stubEnv("NODE_ENV", "test")
