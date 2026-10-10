@@ -501,17 +501,18 @@ The Google `css-tailwind` export emits literal token names. Runtime compatibilit
 
 ## Breakpoints & Responsive Behavior
 
-Use the repository breakpoint scale from `src/cssVariables.js` as the responsive contract unless a route-level design explicitly documents a narrower constraint.
+The local [global stylesheet](src/app/globals.css) imports Tailwind CSS and uses its default responsive utility scale without breakpoint overrides. The values below come from the Tailwind version locked in this repository's `pnpm-lock.yaml`. Pixel equivalents assume the browser's default `16px` font size. Update this section when the local theme changes; another application's configuration does not define this repository's breakpoints.
 
-| Breakpoint | Width       | Layout contract                                                                     |
-| ---------- | ----------- | ----------------------------------------------------------------------------------- |
-| `base`     | `< 640px`   | Single-column mobile flow; primary actions visible before metadata.                 |
-| `sm`       | `>= 640px`  | Single-column or simple two-column local groups when labels still fit.              |
-| `md`       | `>= 768px`  | Two-column content groups, wider forms, and side-by-side supporting media.          |
-| `lg`       | `>= 1024px` | 12-column page composition becomes available for route shells and comparison views. |
-| `xl`       | `>= 1280px` | Dense comparison, filters, and clinic-detail layouts may add supporting columns.    |
-| `2xl`      | `>= 1536px` | Use the full `container-content` width only when density improves scanning.         |
-| `3xl`      | `>= 1920px` | Preserve centered content; do not stretch text lines or cards just to fill space.   |
+| Utility | Minimum width | Pixel equivalent |
+| ------- | ------------- | ---------------- |
+| `base`  | No minimum    | Below `sm`       |
+| `sm`    | `40rem`       | `640px`          |
+| `md`    | `48rem`       | `768px`          |
+| `lg`    | `64rem`       | `1024px`         |
+| `xl`    | `80rem`       | `1280px`         |
+| `2xl`   | `96rem`       | `1536px`         |
+
+The [local Storybook viewport matrix](src/storybook/viewports.ts) defines QA widths at `320`, `375`, `390`, `768`, `1279`, `1280`, and `1440px`, including short-height mobile states. These test sizes are separate from the responsive utility scale. There is no configured `3xl` breakpoint.
 
 - **Stack-to-grid rule:** Start stacked. Move to grid only when the reading order remains obvious and the primary action does not move below secondary content.
 - **12-column desktop rule:** Use 12 columns for wide page composition, not for tiny internal card layouts. Components may use local flex/grid rules inside their own bounds.
