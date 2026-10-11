@@ -241,7 +241,7 @@ export const FailedUploadCanRetry: Story = {
     await waitFor(() =>
       expect(within(gallery).queryByText("Some images were not added")).not.toBeInTheDocument(),
     )
-    await expect(within(gallery).getAllByText("Needs alt text")).toHaveLength(2)
+    await waitFor(() => expect(within(gallery).getAllByText("Needs alt text")).toHaveLength(2))
   },
 }
 
