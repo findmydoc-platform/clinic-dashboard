@@ -191,7 +191,8 @@ export function ClinicDashboardWorkspaceComposition({
     }
     const result = await submitClinicDashboardAuthAction("/api/auth/logout", {})
     if (result.ok && result.body.redirectTo === "/login") {
-      window.location.assign("/login")
+      // Reload the document after logout to clear authenticated client state.
+      window.location.assign(new URL("/login", window.location.origin).href)
       return { ok: true }
     }
     return { message: "Sign out failed. Please try again.", ok: false }
