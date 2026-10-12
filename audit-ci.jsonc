@@ -3,5 +3,13 @@
   "high": true,
   "package-manager": "pnpm",
   "report-type": "summary",
-  "allowlist": [],
+  "allowlist": [
+    {
+      "GHSA-vfj7-8cjw-p6xm|eslint-config-next>@next/eslint-plugin-next>fast-glob>micromatch>braces": {
+        "active": true,
+        "expiry": "2027-01-10T00:00:00Z",
+        "notes": "Risk accepted by the repository owner on 2026-10-12 for braces@3.0.3 in development tooling only. The production dependency graph and application imports do not include braces; this path does not process untrusted user-provided patterns. The remaining risk is interruption of tooling or CI by deeply nested patterns. No upstream patched version is available. Reassess when a fix becomes available or usage changes. GitHub alert is already auto-dismissed: https://github.com/findmydoc-platform/clinic-dashboard/security/dependabot/77",
+      },
+    },
+  ],
 }
