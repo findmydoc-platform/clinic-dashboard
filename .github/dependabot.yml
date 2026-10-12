@@ -12,6 +12,10 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    ignore:
+      # Update this boundary together with the Node 24.14 runtime contract.
+      - dependency-name: "@types/node"
+        versions: [">=24.15.0"]
     groups:
       next-react-patch:
         applies-to: version-updates

@@ -27,6 +27,8 @@ Available but advisory:
 
 Generated `pnpm-lock.yaml` is excluded from Prettier. Frozen-lockfile installation remains the consistency check.
 
+Node types are pinned to `24.13.6`, the newest available declaration minor that does not exceed the Node 24.14 runtime contract. Dependabot ignores `@types/node` versions at or above `24.15.0`; update this boundary together with a runtime minor or major upgrade.
+
 ## Repository Actions Configuration
 
 Repository secrets:
