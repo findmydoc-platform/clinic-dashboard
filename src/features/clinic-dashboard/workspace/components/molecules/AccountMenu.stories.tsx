@@ -116,10 +116,13 @@ export const ProfileDialog: Story = {
     )
 
     await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(dialog).not.toHaveAttribute("open"))
     await waitFor(() => expect(trigger).toHaveFocus())
 
     await userEvent.click(trigger)
-    await userEvent.click(page.getByRole("menuitem", { name: "Account profile" }))
+    const profileItem = page.getByRole("menuitem", { name: "Account profile" })
+    await waitFor(() => expect(profileItem).toHaveFocus())
+    await userEvent.click(profileItem)
     await waitFor(() => expect(dialog).toHaveAttribute("open"))
   },
 }
