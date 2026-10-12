@@ -25,3 +25,16 @@ Run `pnpm review:verify` to validate the repository-side reviewer contracts.
 ## Repository audits
 
 A repository audit requires an explicit user request. Select one method reviewer per audit: `test_reviewer`, `architecture_reviewer`, or `ui_reviewer`. Define the repository paths and evidence in scope, require the reviewer to state coverage and exclusions, and keep the normal approval and finding-handling rules. Do not turn repository audits into the default delivery gate.
+
+## Dependabot patch exception
+
+Native squash auto-merge may be enabled without an AI reviewer run when all of the following hold:
+
+- The pull request is open, targets `main`, originates in this repository, and is authored by `dependabot[bot]`.
+- Every dependency deliberately updated by Dependabot moves to a stable patch release within the same major and minor version. Check the actual diff and Dependabot metadata, including every member of a grouped update; titles and labels alone do not establish eligibility.
+- The diff changes only dependency manifests and their generated lockfiles, or pinned GitHub Action references and their version comments. Application logic, workflow behavior, configuration changes, and human-authored commits require the normal gate.
+- All required branch rules remain enforced. Required checks must pass, apart from the intentional Dependabot skips for `Linked issue` and `Vercel Preview`. An outdated branch must be brought up to date and validated again.
+
+Necessary indirect lockfile changes do not change the update classification. An ambiguous version, prerelease, minor, major, or mixed targeted update requires the normal gate. Recheck eligibility after every head update; disable a previously armed auto-merge when eligibility changes. Record the exception and validation evidence in the pull request rather than posting an automated approving review.
+
+This exception permits native auto-merge for eligible pull requests. It does not automatically enable auto-merge for future Dependabot pull requests.

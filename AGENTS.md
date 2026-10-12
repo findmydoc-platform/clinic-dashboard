@@ -47,7 +47,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 ## Codex Reviewers
 
-- Before handoff, use the `$review-gate` skill after local validation. It is the authoritative source for reviewer routing, approval, execution, finding handling, severity gates, and retained artifacts; never run AI reviewers without explicit user approval.
+- Before handoff, use the `$review-gate` skill after local validation. It is the authoritative source for reviewer routing, the Dependabot patch exception, approval, execution, finding handling, severity gates, and retained artifacts; never run AI reviewers without explicit user approval.
 - CI validates deterministic reviewer contracts only. It must not start AI reviewers.
 
 ## Pull Request Metadata Rules
