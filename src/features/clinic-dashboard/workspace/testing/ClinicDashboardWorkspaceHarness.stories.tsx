@@ -356,6 +356,7 @@ export const GalleryLocationSwitchUsesLeaveGuard: Story = {
       within(editor).getByRole("textbox", { name: "Caption (optional)" }),
       "Unsaved location-specific caption",
     )
+    await waitFor(() => expect(within(editor).getByRole("button", { name: "Save and return" })).toBeEnabled())
 
     await userEvent.click(locationSelector)
     await userEvent.click(
