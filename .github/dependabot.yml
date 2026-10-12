@@ -13,42 +13,90 @@ updates:
       prefix: chore
       include: scope
     groups:
-      next-react:
+      next-react-patch:
+        applies-to: version-updates
         patterns:
-          - next
-          - react
-          - react-dom
-        update-types:
-          - patch
-          - minor
-      storybook:
+          - "next"
+          - "eslint-config-next"
+          - "react"
+          - "react-dom"
+        update-types: [patch]
+      next-react-minor:
+        applies-to: version-updates
+        patterns:
+          - "next"
+          - "eslint-config-next"
+          - "react"
+          - "react-dom"
+        update-types: [minor]
+      storybook-patch:
+        applies-to: version-updates
         patterns:
           - "@storybook/*"
-          - storybook
-        update-types:
-          - patch
-          - minor
-      test-tooling:
+          - "storybook"
+          - "eslint-plugin-storybook"
+        update-types: [patch]
+      storybook-minor:
+        applies-to: version-updates
+        patterns:
+          - "@storybook/*"
+          - "storybook"
+          - "eslint-plugin-storybook"
+        update-types: [minor]
+      test-tooling-patch:
+        applies-to: version-updates
         dependency-type: development
         patterns:
           - "@playwright/*"
-          - playwright
+          - "playwright"
           - "@vitest/*"
-          - vitest
-        update-types:
-          - patch
-          - minor
-      production:
+          - "vitest"
+        update-types: [patch]
+      test-tooling-minor:
+        applies-to: version-updates
+        dependency-type: development
+        patterns:
+          - "@playwright/*"
+          - "playwright"
+          - "@vitest/*"
+          - "vitest"
+        update-types: [minor]
+      production-patch:
+        applies-to: version-updates
         dependency-type: production
         patterns:
           - "*"
-        update-types:
-          - patch
-          - minor
+        update-types: [patch]
+      production-minor:
+        applies-to: version-updates
+        dependency-type: production
+        patterns:
+          - "*"
+        update-types: [minor]
+      development-patch:
+        applies-to: version-updates
+        dependency-type: development
+        patterns:
+          - "*"
+        update-types: [patch]
+      development-minor:
+        applies-to: version-updates
+        dependency-type: development
+        patterns:
+          - "*"
+        update-types: [minor]
+      security-patch:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [patch]
+      security-minor:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [minor]
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
-    directory: /.github
+    directory: /
     schedule:
       interval: weekly
       day: thursday
@@ -59,4 +107,21 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    groups:
+      actions-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [patch]
+      actions-minor:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor]
+      actions-security-patch:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [patch]
+      actions-security-minor:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [minor]
     open-pull-requests-limit: 5

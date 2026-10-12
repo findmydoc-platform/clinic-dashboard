@@ -17,12 +17,15 @@ Available and configured:
 - Squash merges only
 - Automatic deletion of merged branches
 - Repository-level Actions secrets and variables
-- Dependabot version and security updates without auto-merge
+- Dependabot version and security updates with separate patch and minor groups; major updates remain individual pull requests
+- Native squash auto-merge may be enabled for verified patch-only Dependabot pull requests under the [Review Gate exception](../.codex/skills/review-gate/SKILL.md#dependabot-patch-exception). Future pull requests are not enrolled automatically.
 
 Available but advisory:
 
 - The production ruleset does not require an approving review; the team can merge after the required automated checks
   pass.
+
+Generated `pnpm-lock.yaml` is excluded from Prettier. Frozen-lockfile installation remains the consistency check.
 
 ## Repository Actions Configuration
 
