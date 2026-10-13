@@ -24,6 +24,10 @@ import {
 } from "@/features/clinic-dashboard/dashboard/public"
 import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
 import { inquiryQueueFixture } from "@/features/clinic-dashboard/messages/testing/public"
+import {
+  notificationCommandsFixture,
+  notificationPageFixture,
+} from "@/features/clinic-dashboard/notifications/testing/public"
 import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import {
   createReviewSourceCommandsFixture,
@@ -48,7 +52,6 @@ type ClinicDashboardWorkspaceHarnessProps = Readonly<
   Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
     notificationState?: Readonly<{
       isOpen?: boolean
-      readIds?: readonly string[]
     }>
     profileProgress?: DashboardProfileProgressState
     profileSourceSnapshot?: ClinicProfileSnapshot
@@ -184,7 +187,6 @@ export const clinicDashboardWorkspaceFixture = {
 export function ClinicDashboardWorkspaceHarness({
   focusInquiryId,
   notificationState,
-  persistNotificationReadStateInSession = false,
   profileProgress,
   profileSourceSnapshot,
   prototypeMode,
@@ -207,12 +209,12 @@ export function ClinicDashboardWorkspaceHarness({
         clinicTreatmentCommands={clinicTreatmentCommands}
         doctorProfileCommands={doctorProfileCommands}
         focusInquiryId={focusInquiryId}
-        initialNotificationReadIds={notificationState?.readIds}
+        initialNotifications={{ status: "ready", response: notificationPageFixture }}
+        notificationCommands={notificationCommandsFixture}
         initialNotificationsOpen={notificationState?.isOpen}
         initialReporting={{ reporting: clinicDashboardReportingFixture, status: "ready" }}
         isSourceRefreshPending={false}
         onSourceRefresh={() => undefined}
-        persistNotificationReadStateInSession={persistNotificationReadStateInSession}
         prototypeMode={prototypeMode}
         reviewCommands={reviewCommands}
         showPrototypeModeToggle={showPrototypeModeToggle}

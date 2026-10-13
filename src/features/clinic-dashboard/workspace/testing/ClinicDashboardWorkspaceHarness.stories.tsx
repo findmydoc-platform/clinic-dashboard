@@ -293,17 +293,17 @@ export const PotsdamWorkspaceContent: Story = {
   },
 }
 
-export const OrganizationNotificationsShowLocations: Story = {
+export const AuthorizedNotificationsShowPermittedNames: Story = {
   args: { prototypeMode: "visual-reference" },
   render: () => (
     <ClinicDashboardWorkspaceHarness notificationState={{ isOpen: true }} prototypeMode="visual-reference" />
   ),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)
-    const notificationList = page.getByRole("list", { name: "New notifications" })
+    const notificationList = await page.findByRole("list", { name: "Notifications" })
 
-    await expect(within(notificationList).getByText("Mitte")).toBeInTheDocument()
-    await expect(within(notificationList).getByText("Charlottenburg")).toBeInTheDocument()
+    await expect(within(notificationList).getByText("Ada Patient")).toBeInTheDocument()
+    await expect(within(notificationList).getByText("Jamie Carter")).toBeInTheDocument()
   },
 }
 

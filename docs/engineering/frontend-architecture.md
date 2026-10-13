@@ -213,7 +213,7 @@ Each feature area exposes a small `public.ts` with explicit named exports. Gener
 
 - active business section;
 - an internal QA-only prototype-mode override when explicitly enabled by Storybook;
-- global notification read state;
+- notification drawer visibility;
 - global overlay routing and cross-feature focus requests;
 - selecting one serializable location snapshot from the server-provided workspace input.
 
@@ -324,7 +324,7 @@ More than roughly ten props, multiple state owners, or multiple business workflo
 
 Effects are limited to real external synchronization or DOM accessibility behavior:
 
-- notification read-state persistence in `sessionStorage`;
+- authorized notification polling and cancellation;
 - focus movement/restoration and status announcements;
 - shared overlay interaction;
 - future approved subscriptions.
@@ -339,7 +339,7 @@ Extract a named pure module when logic expresses a business rule, performs a tra
 
 `ClinicDashboardWorkspaceInput` is a private, provisional, serializable contract. It does not identify its technical source. `ClinicDashboardWorkspaceProvider` is the private server-side `loadWorkspace()` boundary for the remaining fixture-backed workspace; it does not own live business domains. `src/features/clinic-dashboard/server.ts` loads that workspace, resolves the verified session token, and asks the centrally composed live-domain providers for the clinic-scoped doctor directory and inquiry queue. Provider failures fail visibly in their owning area and never silently fall back to demo records. The App Router page passes the assembled serializable data to the interactive workspace.
 
-`ClinicDashboardDataProviders` is a static server-only map with one explicit key per approved live domain. The central composition is the only production module that imports its concrete Controlled and Payload implementations or selects between them. The `doctors`, `inquiries`, `reviews`, and `treatments` providers bind the session access token request-locally. Doctor and treatment reads and writes are also scoped to the clinic ID from the authorized bootstrap; review access is enforced by the website contract for that same authenticated clinic. Browser input never chooses the clinic. Controlled implementations return deterministic synthetic data. Stateful Controlled providers preserve mutations across request-scoped composition in process-local test state and expose explicit test reset boundaries; they reset on server restart and are impossible to select in Preview or Production. Payload implementations validate and minimize website-owned responses. [ADR 0003](../adr/0003-domain-data-provider-composition.md) defines the extension and security rules.
+`ClinicDashboardDataProviders` is a static server-only map with one explicit key per approved live domain. The central composition is the only production module that imports its concrete Controlled and Payload implementations or selects between them. The `doctors`, `inquiries`, `notifications`, `reviews`, and `treatments` providers bind the session access token request-locally. Doctor and treatment reads and writes are also scoped to the clinic ID from the authorized bootstrap; review access is enforced by the website contract for that same authenticated clinic. Browser input never chooses the clinic. Controlled implementations return deterministic synthetic data. Stateful Controlled providers preserve mutations across request-scoped composition in process-local test state and expose explicit test reset boundaries; they reset on server restart and are impossible to select in Preview or Production. Payload implementations validate and minimize website-owned responses. [ADR 0003](../adr/0003-domain-data-provider-composition.md) defines the extension and security rules.
 
 `*.fixtures.ts` is Storybook/test-only. Stories and tests own independent feature-local fixture values and command fakes; they never import `demo/**`. Dataset contract tests exercise the server loader rather than reaching into the raw source. Production code never imports fixtures.
 
@@ -347,7 +347,7 @@ Feature mutations use feature-owned browser adapters that call the Dashboard ori
 
 The only private cross-area exceptions are: `server.ts` importing the central data-provider composition, demo workspace provider, workspace contract, and live-domain server contracts; the central composition importing exact live-domain contracts and concrete providers; exact provider contract and adapter tests importing those private modules; approved doctor, inquiry, and review BFF routes importing the root server entry; `demo/loader.ts` implementing the workspace provider; demo builders importing the private workspace input type; and the existing `PrototypeModeSwitch` composition. All other cross-area imports use the owning area's `public.ts`.
 
-Screens receive view models. Controllers receive the smallest command contract they need. The production page starts directly in the polished `presentation` mode and does not render a mode switch. `visual-reference` and the switch remain internal Storybook/QA tools. Only notification read IDs may survive in `sessionStorage`. Profile, gallery, treatment, inquiry-status, and review workflows use website-owned Payload contracts in normal mode; Controlled providers keep synthetic mutations in process-local state and reset on server restart. Timeline system events are intentionally session-local. Message and support demo changes reset on reload or location change. Further Payload integrations and Dashboard-owned persistence remain out of scope until separately planned.
+Screens receive view models. Controllers receive the smallest command contract they need. The production page starts directly in the polished `presentation` mode and does not render a mode switch. `visual-reference` and the switch remain internal Storybook/QA tools. Notification identities and personal read state are Website-owned. The Dashboard does not store read IDs in browser storage. Profile, gallery, treatment, inquiry-status, and review workflows use website-owned Payload contracts in normal mode; Controlled providers keep synthetic mutations in process-local state and reset on server restart. Timeline system events are intentionally session-local. Message and support demo changes reset on reload or location change. Further Payload integrations and Dashboard-owned persistence remain out of scope until separately planned.
 
 Browser effects use narrow named adapters. Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
 
@@ -365,6 +365,7 @@ Clinic Dashboard/Workspace/Pages/Clinic Dashboard Workspace
 Clinic Dashboard/Dashboard/Molecules/Metric Card
 Clinic Dashboard/Dashboard/Organisms/Dashboard Screen
 Clinic Dashboard/Messages/Molecules/Conversation List Item
+Clinic Dashboard/Notifications/Organisms/Notification Center
 Clinic Dashboard/Reviews/Organisms/Reviews Screen
 Clinic Dashboard/Clinic Profile/Organisms/Treatment Dialog
 Clinic Dashboard/Support/Organisms/Support Request Dialog
@@ -373,7 +374,7 @@ Clinic Dashboard/Journeys/Pages/Foundation Preview
 
 Every meta has `component` and exactly one tag from each group:
 
-- domain: `shared`, `workspace`, `dashboard`, `messages`, `reviews`, `clinic-profile`, or `support`;
+- domain: `shared`, `workspace`, `dashboard`, `messages`, `notifications`, `reviews`, `clinic-profile`, or `support`;
 - layer: `atom`, `molecule`, `organism`, `template`, or `page`;
 - status: `stable` or `prototype`.
 
@@ -408,3 +409,11 @@ Do not keep component interaction coverage in E2E when the isolated Storybook co
 The governance checks are strict: every finding fails, with no baseline or category for pre-existing findings. `tests/unit/architecture-policy-check.test.ts` creates temporary repository fixtures, executes the real architecture checker process, and asserts both accepted and rejected dependency graphs.
 
 `pnpm check` combines linting, type checking, both governance checks, AI instruction checks, and dead-code checks. The pull-request `Quality` workflow runs formatting, `pnpm check`, unit tests, Storybook browser tests, Storybook and application builds, and the E2E smoke suite. A failure in any step fails that workflow; branch-protection policy is outside this architecture contract.
+
+## Notification foundation
+
+The `notifications` domain owns its serializable `clinic-notifications-v1` models, browser command, controller, read-only panel and private provider. Central composition selects Controlled or Payload reads using the same verified session and clinic identity as other domains. The local cross-app lane uses Payload notifications while unrelated presentation sources remain Controlled.
+
+GET `/api/notifications` accepts only a summary or a selected Unread/All page request. It preserves private response headers and session-cookie updates. Website authorizes the individual catalogue members. The BFF does not gate the full catalogue on inquiry permission. Payload and browser transports reject unknown shapes, request/response mismatches, expired entries and oversized bodies. Initial pages carry complete count fields; continuations carry neither. Independent Website-owned examples are exercised through BFF and provider tests.
+
+The workspace mounts the notification facade with a principal-and-clinic key so a scope change discards previous data and cancels requests. Reads never create receipts. This foundation intentionally exposes no local acknowledgement, marking control or row navigation. Personal marking and destination-owned opening follow in the subsequent tickets. The previous demo panel and session-storage acknowledgements have been removed from the live workspace.

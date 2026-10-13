@@ -35,7 +35,11 @@ import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
 import { ClinicLocationSelector } from "./components/molecules/ClinicLocationSelector"
 import { FutureAreaPlaceholderScreen } from "./components/organisms/FutureAreaPlaceholderScreen"
-import { NotificationCenter } from "./components/organisms/NotificationCenter"
+import {
+  NotificationCenter,
+  type NotificationCommands,
+  type NotificationLoadState,
+} from "@/features/clinic-dashboard/notifications/public"
 import { getClinicDashboardLocation, type ClinicDashboardLocationId } from "./model/locations"
 import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/workspace"
 import {
@@ -65,13 +69,13 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
   doctorProfileCommands: DoctorProfileCommands
-  initialNotificationReadIds?: readonly string[]
+  initialNotifications?: NotificationLoadState
+  notificationCommands: NotificationCommands
   initialNotificationsOpen?: boolean
   initialReporting?: ClinicDashboardReportingLoadState
   focusInquiryId?: string
   isSourceRefreshPending: boolean
   onSourceRefresh: () => void
-  persistNotificationReadStateInSession: boolean
   prototypeMode: ClinicDashboardPrototypeMode
   reviewCommands: ReviewSourceCommands
   showPrototypeModeToggle: boolean
@@ -86,12 +90,12 @@ export function ClinicDashboardWorkspaceComposition({
   clinicTreatmentCommands,
   doctorProfileCommands,
   focusInquiryId,
-  initialNotificationReadIds = [],
+  initialNotifications = { status: "loading" },
+  notificationCommands,
   initialNotificationsOpen = false,
   initialReporting,
   isSourceRefreshPending,
   onSourceRefresh,
-  persistNotificationReadStateInSession,
   prototypeMode,
   reviewCommands,
   showPrototypeModeToggle,
@@ -125,12 +129,9 @@ export function ClinicDashboardWorkspaceComposition({
 
   const controller = useClinicDashboardController({
     initialLocationId: workspaceInput.defaultLocationId,
-    initialNotificationReadIds,
     initialNotificationsOpen,
     initialProfileTask,
     initialSection: focusInquiryId ? "messages" : (start.section ?? "dashboard"),
-    notifications: workspaceInput.notifications,
-    persistNotificationReadStateInSession,
     prototypeMode,
   })
   const { actions, model } = controller
@@ -262,25 +263,13 @@ export function ClinicDashboardWorkspaceComposition({
       items={navigationItems}
       inquiryUnreadCount={inquiryUnreadCount}
       notificationCenter={
-        capabilities.showNotifications ? (
-          <NotificationCenter
-            notifications={workspaceInput.notifications}
-            onMarkAllAsRead={actions.markAllNotificationsRead}
-            onNotificationOpen={(notification) => {
-              const nextLocation = getClinicDashboardLocation(
-                workspaceInput.locations,
-                notification.locationId,
-              )
-              continueAfterGalleryGuard(() => {
-                setGalleryProjection(undefined)
-                actions.openNotification(notification, nextLocation.name)
-              })
-            }}
-            onOpenChange={actions.setNotificationsOpen}
-            open={model.notificationsOpen}
-            readNotificationIds={model.notificationReadIds}
-          />
-        ) : undefined
+        <NotificationCenter
+          key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
+          commands={notificationCommands}
+          initialState={initialNotifications}
+          onOpenChange={actions.setNotificationsOpen}
+          open={model.notificationsOpen}
+        />
       }
       onSectionSelect={(section) => continueAfterGalleryGuard(() => actions.navigate(section))}
       onSupportRequest={capabilities.showSupport ? actions.openSupport : undefined}

@@ -164,6 +164,44 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   expect(foreignMutation).toEqual({ body: { error: { code: "not-found" } }, status: 404 })
   await foreignContext.close()
 
+  await page.getByRole("button", { name: /Notifications,.*unread/ }).click()
+  const center = page.getByRole("dialog", { name: "Notifications" })
+  await expect(center.getByText("Ada Patient", { exact: true })).toBeVisible()
+  const arrival = await request.post(`${controlOrigin}/create-notification-inquiry`, {
+    headers: { Authorization: `Bearer ${controlToken}` },
+  })
+  expect(arrival.ok()).toBe(true)
+  const arrivalBody = (await arrival.json()) as {
+    notificationId: string
+    occurredAt: string
+    displayName: string
+  }
+  await expect(center.getByText("Notification Arrival", { exact: true })).toBeVisible({ timeout: 60_000 })
+  await expect(center.getByText(patientReply)).not.toBeVisible()
+  await center.getByRole("tab", { name: "All" }).click()
+  await expect(center.getByText("Notification Arrival", { exact: true })).toBeVisible()
+  const notificationResult = await page.evaluate(async () => {
+    const response = await fetch("/api/notifications?mode=page&view=all", { cache: "no-store" })
+    return { body: await response.json(), status: response.status }
+  })
+  expect(notificationResult.status).toBe(200)
+  expect(notificationResult.body.items).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        display: expect.objectContaining({ eventLabel: "New inquiry", displayName: "Notification Arrival" }),
+        members: [
+          expect.objectContaining({
+            notificationId: arrivalBody.notificationId,
+            readAt: null,
+            occurredAt: arrivalBody.occurredAt,
+          }),
+        ],
+      }),
+    ]),
+  )
+  await center.getByRole("button", { name: "Close notifications" }).click()
+  await page.screenshot({ fullPage: true, path: "output/playwright/notification-cross-app.png" })
+
   const offboardResponse = await request.post(`${controlOrigin}/offboard-clinic-staff`, {
     headers: { Authorization: `Bearer ${controlToken}` },
   })

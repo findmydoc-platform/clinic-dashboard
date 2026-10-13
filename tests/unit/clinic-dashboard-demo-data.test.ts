@@ -53,23 +53,9 @@ describe("clinic dashboard demo workspace input", () => {
     expect(() => JSON.parse(JSON.stringify(input))).not.toThrow()
   })
 
-  it("keeps organization notifications attached to valid location metadata", async () => {
+  it("excludes demo notifications from the live assembled workspace", async () => {
     const input = await loadClinicDashboardWorkspaceInput()
-    const locationsById = new Map(input.locations.map((location) => [location.id, location]))
-
-    expect(new Set(input.notifications.map(({ locationId }) => locationId))).toEqual(
-      new Set(["istanbul-levent", "izmir-alsancak", "antalya-lara"]),
-    )
-    for (const notification of input.notifications) {
-      const location = locationsById.get(notification.locationId)
-      expect(location).toBeDefined()
-      expect(notification.locationLabel).toBe(location?.selectorLabel)
-      expect(Date.parse(notification.createdAt)).toBeLessThanOrEqual(Date.parse("2026-07-19T10:00:00.000Z"))
-      const snapshot = input.locationSnapshots[notification.locationId]
-      if (notification.target.kind === "review") {
-        expect(snapshot?.reviews.items.map(({ id }) => id)).toContain(notification.target.reviewId)
-      }
-    }
+    expect(input.notifications).toEqual([])
   })
 
   it("provides one cover and four real 1600 by 1200 images per location", async () => {

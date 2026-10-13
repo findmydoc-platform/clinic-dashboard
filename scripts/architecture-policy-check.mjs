@@ -86,6 +86,41 @@ function isPatientInquiryProviderAdapterTarget(target) {
   )
 }
 
+function isNotificationProviderSource(file) {
+  return /^src\/features\/clinic-dashboard\/notifications\/server\/(?:notification-provider|controlled-notifications|payload-notifications|public)\.[cm]?[jt]s$/u.test(
+    file,
+  )
+}
+
+function isNotificationProviderContractTarget(target) {
+  return /^src\/features\/clinic-dashboard\/notifications\/server\/notification-provider(?:\.[cm]?[jt]s)?$/u.test(
+    target,
+  )
+}
+
+function isNotificationProviderAdapterTarget(target) {
+  return /^src\/features\/clinic-dashboard\/notifications\/server\/(?:controlled|payload)-notifications(?:\.[cm]?[jt]s)?$/u.test(
+    target,
+  )
+}
+
+function isAllowedNotificationProviderContractImport(file) {
+  return (
+    isClinicDashboardDataProviderCompositionSource(file) ||
+    isClinicDashboardServerSource(file) ||
+    /^src\/features\/clinic-dashboard\/notifications\/server\//u.test(file) ||
+    file === "tests/integration/notification-provider-contract.test.ts"
+  )
+}
+
+function isAllowedNotificationProviderAdapterImport(file) {
+  return (
+    isClinicDashboardDataProviderCompositionSource(file) ||
+    file === "tests/unit/data-provider-composition.test.ts" ||
+    file === "tests/integration/notification-provider-contract.test.ts"
+  )
+}
+
 function isMessageRenderComponentSource(file) {
   return /^src\/features\/clinic-dashboard\/messages\/components\//u.test(file)
 }
@@ -126,6 +161,7 @@ function isAllowedClinicDashboardWorkspaceProviderImport(file) {
 function isAllowedClinicDashboardServerImport(file) {
   return (
     file === "src/app/page.tsx" ||
+    file === "src/app/api/notifications/route.ts" ||
     file === "src/app/api/dashboard/inquiries/appeal/route.ts" ||
     /^src\/app\/api\/dashboard\/inquiries(?:\/(?:detail|messages|notes|state|read-position|contact\/reveal|attachments\/(?:download|preview|drafts(?:\/(?:finalize|discard|upload))?)))?\/route\.ts$/u.test(
       file,
@@ -146,7 +182,8 @@ function isAllowedClinicDashboardServerImport(file) {
     file === "tests/unit/clinic-treatment-controlled-lifecycle.test.ts" ||
     file === "tests/integration/clinic-profile-routes.test.ts" ||
     file === "tests/integration/review-routes.test.ts" ||
-    file === "tests/integration/clinic-dashboard-reporting-route.test.ts"
+    file === "tests/integration/clinic-dashboard-reporting-route.test.ts" ||
+    file === "tests/integration/notification-routes.test.ts"
   )
 }
 
@@ -894,7 +931,8 @@ function collectFindings() {
       (isClinicDashboardDataProviderCompositionSource(file) ||
         isPatientInquiryProviderContractSource(file) ||
         isPatientInquiryProviderAdapterSource(file) ||
-        isPatientInquiryServerPublicSource(file)) &&
+        isPatientInquiryServerPublicSource(file) ||
+        isNotificationProviderSource(file)) &&
       !references.some((reference) => reference.moduleSpecifier === "server-only")
     ) {
       findings.push(
@@ -1115,6 +1153,33 @@ function collectFindings() {
             file,
             reference.moduleSpecifier,
             "The patient-inquiry provider interface is private server-only infrastructure and must not enter UI, App Router, or Storybook modules.",
+          ),
+        )
+      }
+
+      if (
+        reachableTargets.some(isNotificationProviderAdapterTarget) &&
+        !isAllowedNotificationProviderAdapterImport(file)
+      ) {
+        findings.push(
+          createFinding(
+            "notification-provider-adapter-boundary",
+            file,
+            reference.moduleSpecifier,
+            "Concrete notification providers belong to central composition and exact provider contract tests.",
+          ),
+        )
+      }
+      if (
+        reachableTargets.some(isNotificationProviderContractTarget) &&
+        !isAllowedNotificationProviderContractImport(file)
+      ) {
+        findings.push(
+          createFinding(
+            "notification-provider-contract-boundary",
+            file,
+            reference.moduleSpecifier,
+            "The notification provider contract remains private server-only infrastructure.",
           ),
         )
       }

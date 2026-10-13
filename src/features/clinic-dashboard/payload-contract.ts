@@ -6,5 +6,6 @@ const CLINIC_DASHBOARD_CONTRACT_HEADER_VALUE = "inquiry-communication-v2"
 export function clinicDashboardContractHeaders() {
   return {
     [CLINIC_DASHBOARD_CONTRACT_HEADER_NAME]: CLINIC_DASHBOARD_CONTRACT_HEADER_VALUE,
+    "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
   } as const
 }

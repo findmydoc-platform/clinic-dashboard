@@ -23,7 +23,7 @@ export const PresentationDashboard: Story = {
     await expect(canvas.getByRole("group", { name: "Reporting period" })).toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: /Switch clinic location/ })).not.toBeInTheDocument()
     await expect(
-      canvas.getByRole("button", { name: "Notifications, 2 new notifications" }),
+      canvas.getByRole("button", { name: "Notifications, 2 unread notifications" }),
     ).toBeInTheDocument()
     await expect(canvas.queryByRole("switch", { name: "Demo scope" })).not.toBeInTheDocument()
   },
@@ -44,37 +44,17 @@ export const PresentationSupportFlowIsAvailable: Story = {
   },
 }
 
-export const NotificationOpensInquiriesAtItsLocation: Story = {
+export const NotificationsAreReadOnlyUntilDestinationSupport: Story = {
   args: { prototypeMode: "presentation" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-
-    await userEvent.click(canvas.getByRole("button", { name: "Notifications, 2 new notifications" }))
-    await userEvent.click(canvas.getByRole("button", { name: /New message from Lukas Weber/ }))
-
-    await waitFor(() => expect(canvas.getByRole("heading", { level: 1, name: "Inquiries" })).toHaveFocus())
-    await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-      /Current location: Demo data · Berlin Health Clinic — Mitte/,
-    )
-    await expect(canvas.getByText("Opened inquiries at Berlin Health Clinic — Mitte.")).toBeVisible()
-  },
-}
-
-export const NotificationOpensReviewAtItsLocation: Story = {
-  args: { prototypeMode: "presentation" },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-
-    await userEvent.click(canvas.getByRole("button", { name: "Notifications, 2 new notifications" }))
-    await userEvent.click(canvas.getByRole("button", { name: /New 3-star review needs a response/ }))
-
-    await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
-    await expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
-    )
-    await waitFor(() => expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toHaveFocus())
-    await expect(canvas.queryByRole("dialog", { name: /review response/i })).not.toBeInTheDocument()
-    await expect(canvas.getByText("Opened review at Berlin Health Clinic — Charlottenburg.")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Notifications, 2 unread notifications" }))
+    const dialog = await canvas.findByRole("dialog", { name: "Notifications" })
+    await expect(await within(dialog).findByText("Ada Patient")).toBeVisible()
+    await expect(within(dialog).queryByRole("button", { name: /mark.*read/i })).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole("tab", { name: "All" }))
+    await expect(within(dialog).getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true")
+    await expect(canvas.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
   },
 }
 

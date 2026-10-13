@@ -25,6 +25,7 @@ const allowedDomains = new Set([
   "clinic-profile",
   "dashboard",
   "messages",
+  "notifications",
   "reviews",
   "shared",
   "support",
@@ -55,6 +56,7 @@ const featureRootComponentLayers = new Map([
   ["src/features/clinic-dashboard/dashboard/ClinicDashboardReporting.tsx", "organism"],
   ["src/features/clinic-dashboard/messages/InquiryQueueController.tsx", "organism"],
   ["src/features/clinic-dashboard/messages/Messages.tsx", "organism"],
+  ["src/features/clinic-dashboard/notifications/NotificationCenter.tsx", "organism"],
   ["src/features/clinic-dashboard/reviews/Reviews.tsx", "organism"],
   ["src/features/clinic-dashboard/workspace/ClinicDashboardShell.tsx", "template"],
   ["src/features/clinic-dashboard/workspace/ClinicDashboardWorkspace.tsx", "page"],
@@ -99,13 +101,14 @@ function parseTitleTaxonomy(title) {
   }
 
   match = title.match(
-    /^Clinic Dashboard\/(Workspace|Dashboard|Messages|Reviews|Clinic Profile|Support)\/(Atoms|Molecules|Organisms|Pages|Templates)\/[^/]+$/u,
+    /^Clinic Dashboard\/(Workspace|Dashboard|Messages|Notifications|Reviews|Clinic Profile|Support)\/(Atoms|Molecules|Organisms|Pages|Templates)\/[^/]+$/u,
   )
   if (match) {
     const domain = {
       "Clinic Profile": "clinic-profile",
       Dashboard: "dashboard",
       Messages: "messages",
+      Notifications: "notifications",
       Reviews: "reviews",
       Support: "support",
       Workspace: "workspace",
@@ -128,7 +131,7 @@ function expectedTitleArea(componentPath) {
   if (/^src\/components\/(?:ui|brand)\//u.test(componentPath)) return "Shared"
 
   const match = componentPath.match(
-    /^src\/features\/clinic-dashboard\/(workspace|prototype|dashboard|messages|reviews|clinic-profile|support)\//u,
+    /^src\/features\/clinic-dashboard\/(workspace|prototype|dashboard|messages|notifications|reviews|clinic-profile|support)\//u,
   )
   if (!match) return null
 
@@ -136,6 +139,7 @@ function expectedTitleArea(componentPath) {
     "clinic-profile": "Clinic Dashboard/Clinic Profile",
     dashboard: "Clinic Dashboard/Dashboard",
     messages: "Clinic Dashboard/Messages",
+    notifications: "Clinic Dashboard/Notifications",
     prototype: "Clinic Dashboard/Workspace",
     reviews: "Clinic Dashboard/Reviews",
     support: "Clinic Dashboard/Support",

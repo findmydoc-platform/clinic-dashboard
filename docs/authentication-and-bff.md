@@ -463,3 +463,9 @@ The architecture remains valid only while the following properties hold:
 - Stable pull-request-number aliases or a callback relay application.
 - Portal session transfer or a clinic login form in the portal.
 - A claim of Preview or Production capability availability based only on provider wiring or local fixtures.
+
+### Notification foundation
+
+Normal-mode notification reads use the authorized Website contract through the domain-specific provider and GET `/api/notifications`. SSR loads the complete personal unread summary. The client loads Unread/All pages, refreshes every 30 seconds while visible and online, and requests fresh data when the center opens. Reads are private, session-bound and byte-bounded. No demo fallback or browser read-ID persistence remains in the live workspace.
+
+The additive `X-Findmydoc-Clinic-Notifications-Contract: clinic-notifications-v1` request header leaves `inquiry-communication-v2` and bootstrap bodies unchanged. Support negotiation is distinct from capture activation. This foundation includes only new-inquiry production and read-only display; later tickets add remaining producers, personal marking, navigation and recovery. Capture remains inactive outside isolated acceptance. Local validation does not establish Preview or Production availability.

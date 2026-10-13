@@ -28,7 +28,7 @@ test("authenticates and exposes the complete workspace shell", async ({ page }) 
   await expect(page.getByRole("switch", { name: "Demo scope" })).toHaveCount(0)
   await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
   await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "Notifications, 4 new notifications" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Notifications, 4 unread notifications" })).toBeVisible()
 
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
   await page.keyboard.press("Tab")
@@ -355,26 +355,15 @@ test("manages review responses, appeals, filters, and history through the authen
   await expect(historyDialog.getByRole("heading", { name: "Appeal history" })).toBeVisible()
 })
 
-test("deep-links across locations and persists gallery curation across reload", async ({
-  page,
-}, testInfo) => {
+test("persists clinic-scoped gallery curation across reload", async ({ page }, testInfo) => {
   testInfo.setTimeout(90_000)
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
-  const receptionAlt = `Reception at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
-  const consultationAlt = `Consultation room at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
-  const exteriorAlt = `Exterior at Avenora Clinic — İzmir · run ${testInfo.retry + 1}`
+  const receptionAlt = `Reception at Avenora Clinic — İstanbul · run ${testInfo.retry + 1}`
+  const consultationAlt = `Consultation room at Avenora Clinic — İstanbul · run ${testInfo.retry + 1}`
+  const exteriorAlt = `Exterior at Avenora Clinic — İstanbul · run ${testInfo.retry + 1}`
 
-  await page.getByRole("button", { name: "Notifications, 4 new notifications" }).click()
-  await page.getByRole("button", { name: /New message from Leyla Demir/ }).click()
-
-  await expect(page.getByRole("heading", { level: 1, name: "Inquiries" })).toBeFocused()
-  await expect(page.getByText("Opened inquiries at Avenora Clinic — İzmir.")).toBeVisible()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-
-  const locationSelector = page.getByRole("button", { name: /Switch clinic location/ })
-  await expect(locationSelector).toHaveAccessibleName(/Current location: Demo data · Avenora Clinic — İzmir/)
-
   const gallery = page.getByRole("region", { name: "Clinic image gallery" })
   await gallery.getByRole("button", { name: "Manage gallery" }).click()
   const galleryEditor = page.getByRole("region", { name: "Manage gallery" })
@@ -508,10 +497,6 @@ test("deep-links across locations and persists gallery curation across reload", 
 
   await page.reload()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  const persistedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
-  await persistedLocationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
   const persistedGallery = page.getByRole("region", { name: "Clinic image gallery" })
   await expect(persistedGallery.getByRole("img", { name: consultationAlt })).toBeVisible()
   await expect(persistedGallery.getByRole("img", { name: receptionAlt })).toHaveCount(0)
@@ -519,14 +504,7 @@ test("deep-links across locations and persists gallery curation across reload", 
 
   await page.reload()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveAccessibleName(
-    /Current location: Demo data · Avenora Clinic — İstanbul/,
-  )
-
-  const reloadedLocationSelector = page.getByRole("button", { name: /Switch clinic location/ })
-  await reloadedLocationSelector.click()
-  await page.getByRole("menuitem", { name: /Avenora Clinic — İzmir/ }).click()
-  await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
+  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveCount(0)
   await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
 
   const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })

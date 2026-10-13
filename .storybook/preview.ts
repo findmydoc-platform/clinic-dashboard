@@ -49,6 +49,7 @@ const preview: Preview = {
             "Workspace",
             "Dashboard",
             "Messages",
+            "Notifications",
             "Reviews",
             "Clinic Profile",
             "Support",

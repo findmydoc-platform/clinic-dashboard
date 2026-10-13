@@ -65,6 +65,26 @@ import {
 } from "./reviews/server/actions"
 import type { ReviewProviderFactory } from "./reviews/server/review-provider"
 
+import {
+  handleNotificationsLoad as handleNotificationsLoadWithProvider,
+  loadInitialNotifications,
+  type NotificationProviderFactory,
+} from "./notifications/server/public"
+
+const createNotificationProvider: NotificationProviderFactory = (accessToken, clinicId) =>
+  composeClinicDashboardDataProviders(accessToken, clinicId).notifications
+
+export function handleNotificationsLoad(request: NextRequest) {
+  return handleNotificationsLoadWithProvider(request, createNotificationProvider)
+}
+
+export async function loadClinicDashboardInitialNotifications(clinicId: string) {
+  const token = await getClinicDashboardAccessToken()
+  return token
+    ? loadInitialNotifications(token, clinicId, createNotificationProvider)
+    : ({ status: "unavailable", error: "UNAUTHENTICATED" } as const)
+}
+
 export { getClinicDashboardAccess } from "./auth/server/public"
 
 const createPatientInquiryProvider: PatientInquiryProviderFactory = (accessToken, clinicId) =>
@@ -266,6 +286,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
   if (!accessToken) {
     return {
       ...workspace,
+      notifications: [],
       doctorDirectory: {
         doctors: [],
         medicalSpecialties: [],
@@ -284,6 +305,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
   if (access.status !== "approved") {
     return {
       ...workspace,
+      notifications: [],
       doctorDirectory: {
         doctors: [],
         medicalSpecialties: [],
@@ -354,6 +376,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
 
   return {
     ...workspace,
+    notifications: [],
     doctorDirectory:
       doctorResult.status === "fulfilled" && doctorResult.value.ok
         ? doctorResult.value.value

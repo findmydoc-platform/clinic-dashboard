@@ -1,45 +1,26 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useReducer, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useReducer, useState } from "react"
 import type { ClinicProfileFocusTarget } from "@/features/clinic-dashboard/clinic-profile/public"
 import type { DashboardProfileTask } from "@/features/clinic-dashboard/dashboard/public"
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import type { ReviewFocusTarget } from "@/features/clinic-dashboard/reviews/public"
 import { clinicDashboardLocationSelectionReducer, type ClinicDashboardLocationId } from "./model/locations"
-import {
-  markAllNotificationsAsRead,
-  markNotificationAsRead,
-  type ClinicDashboardNotification,
-} from "./model/notifications"
 import type { ClinicDashboardSection } from "./model/workspace"
-import {
-  getStoredNotificationReadState,
-  parseNotificationReadIds,
-  storeNotificationReadIds,
-} from "./browser-session"
-
-const getNoStoredNotificationReadState = () => undefined
-const subscribeToStaticSnapshot = () => () => undefined
 
 type UseClinicDashboardControllerOptions = Readonly<{
-  initialNotificationReadIds: readonly string[]
   initialNotificationsOpen: boolean
   initialLocationId: ClinicDashboardLocationId
   initialProfileTask?: DashboardProfileTask
   initialSection: ClinicDashboardSection
-  notifications: readonly ClinicDashboardNotification[]
-  persistNotificationReadStateInSession: boolean
   prototypeMode: ClinicDashboardPrototypeMode
 }>
 
 export function useClinicDashboardController({
-  initialNotificationReadIds,
   initialNotificationsOpen,
   initialLocationId,
   initialProfileTask,
   initialSection,
-  notifications,
-  persistNotificationReadStateInSession,
   prototypeMode,
 }: UseClinicDashboardControllerOptions) {
   const [activeSection, setActiveSection] = useState(initialSection)
@@ -50,7 +31,6 @@ export function useClinicDashboardController({
   const [locationAnnouncement, setLocationAnnouncement] = useState("")
   const [locationChangeCount, setLocationChangeCount] = useState(0)
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen)
-  const [notificationReadIdsOverride, setNotificationReadIdsOverride] = useState<readonly string[]>()
   const [prototypeModeOverride, setPrototypeModeOverride] = useState<ClinicDashboardPrototypeMode>()
   const [profileTaskDialog, setProfileTaskDialog] = useState<
     Readonly<{
@@ -64,18 +44,7 @@ export function useClinicDashboardController({
   const [reviewFocusTarget, setReviewFocusTarget] = useState<ReviewFocusTarget>()
   const [supportOpen, setSupportOpen] = useState(false)
 
-  const storedNotificationReadState = useSyncExternalStore(
-    subscribeToStaticSnapshot,
-    persistNotificationReadStateInSession ? getStoredNotificationReadState : getNoStoredNotificationReadState,
-    getNoStoredNotificationReadState,
-  )
-  const storedNotificationReadIds = useMemo(
-    () => parseNotificationReadIds(storedNotificationReadState),
-    [storedNotificationReadState],
-  )
   const activePrototypeMode = prototypeModeOverride ?? prototypeMode
-  const notificationReadIds =
-    notificationReadIdsOverride ?? storedNotificationReadIds ?? initialNotificationReadIds
 
   useEffect(() => {
     window.scrollTo({ left: 0, top: 0 })
@@ -153,52 +122,14 @@ export function useClinicDashboardController({
     setPrototypeModeOverride(nextPrototypeMode)
   }, [])
 
-  const markAllNotificationsRead = useCallback(() => {
-    const nextReadIds = markAllNotificationsAsRead(notifications, notificationReadIds)
-
-    setNotificationReadIdsOverride(nextReadIds)
-    if (persistNotificationReadStateInSession) storeNotificationReadIds(nextReadIds)
-  }, [notificationReadIds, notifications, persistNotificationReadStateInSession])
-
-  const openNotification = useCallback(
-    (notification: ClinicDashboardNotification, locationName: string) => {
-      const nextReadIds = markNotificationAsRead(notification.id, notificationReadIds)
-      setNotificationReadIdsOverride(nextReadIds)
-      if (persistNotificationReadStateInSession) storeNotificationReadIds(nextReadIds)
-
-      dispatchLocationSelection({ locationId: notification.locationId, type: "location-selected" })
-      setLocationChangeCount((count) => count + 1)
-      setNotificationsOpen(false)
-      setProfileTaskDialog({ open: false })
-      setProfileFocusTarget(undefined)
-      setSupportOpen(false)
-
-      if (notification.target.kind === "messages") {
-        setMessageFocusTarget("heading")
-        setReviewFocusTarget(undefined)
-        setActiveSection("messages")
-        setLocationAnnouncement(`Opened inquiries at ${locationName}.`)
-        return
-      }
-
-      setMessageFocusTarget(undefined)
-      setReviewFocusTarget({ kind: "review", reviewId: notification.target.reviewId })
-      setActiveSection("reviews")
-      setLocationAnnouncement(`Opened review at ${locationName}.`)
-    },
-    [notificationReadIds, persistNotificationReadStateInSession],
-  )
-
   return {
     actions: {
       clearProfileFocusRequest,
       clearMessageFocusRequest,
       clearReviewFocusRequest,
-      markAllNotificationsRead,
       navigate,
       navigateToProfileTarget,
       navigateToReviews,
-      openNotification,
       openProfileTask,
       openSupport,
       selectLocation,
@@ -213,7 +144,6 @@ export function useClinicDashboardController({
       locationAnnouncement,
       locationChangeCount,
       messageFocusTarget,
-      notificationReadIds,
       notificationsOpen,
       profileFocusTarget,
       profileTaskOpen,
