@@ -69,7 +69,7 @@ export function composeClinicDashboardDataProviders(
       : createPayloadClinicGalleryProvider(accessToken, clinicId),
     notifications:
       controlled && !localInquiryAcceptance
-        ? createControlledNotificationProvider()
+        ? createControlledNotificationProvider(accessToken, clinicId)
         : createPayloadNotificationProvider(accessToken, clinicId, fetch, validatedEnvironment),
     inquiries:
       controlled && !localInquiryAcceptance

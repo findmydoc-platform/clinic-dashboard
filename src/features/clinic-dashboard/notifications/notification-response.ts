@@ -3,10 +3,11 @@ import {
   CLINIC_NOTIFICATIONS_SUPPORT_HEADER,
   NOTIFICATION_PAGE_MAX_BYTES,
   notificationErrorSchema,
+  notificationReadSuccessSchema,
   notificationsResponseSchema,
   type NotificationReadQuery,
 } from "./model/notification-schema"
-import type { NotificationResult } from "./model/notifications"
+import type { NotificationResult, NotificationMarkResult } from "./model/notifications"
 
 export const notificationErrorStatuses = {
   UNAUTHENTICATED: 401,
@@ -95,6 +96,71 @@ export async function readNotificationResponse(
     return { ok: true, value: parsed.data }
   } catch {
     return incompatible
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+export async function readNotificationMarkResponse(response: Response): Promise<NotificationMarkResult> {
+  const unknown = { ok: false, error: "CONTRACT_INCOMPATIBLE", writeOutcome: "unknown" } as const
+  if (
+    response.headers.get(CLINIC_NOTIFICATIONS_SUPPORT_HEADER) !== CLINIC_NOTIFICATIONS_CONTRACT_VERSION ||
+    !response.headers.get("content-type")?.toLowerCase().includes("application/json")
+  )
+    return unknown
+  const length = response.headers.get("content-length")
+  if (
+    length &&
+    (!Number.isSafeInteger(Number(length)) ||
+      Number(length) < 0 ||
+      Number(length) > NOTIFICATION_PAGE_MAX_BYTES)
+  )
+    return unknown
+  const reader = response.body?.getReader()
+  if (!reader) return unknown
+  let bytes = 0
+  let text = ""
+  const decoder = new TextDecoder("utf-8", { fatal: true })
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      bytes += chunk.value.byteLength
+      if (bytes > NOTIFICATION_PAGE_MAX_BYTES) {
+        await reader.cancel()
+        return unknown
+      }
+      text += decoder.decode(chunk.value, { stream: true })
+    }
+    text += decoder.decode()
+    const body: unknown = JSON.parse(text)
+    if (response.ok) {
+      const parsed = notificationReadSuccessSchema.safeParse(body)
+      return parsed.success && response.status === 200 ? { ok: true, value: parsed.data } : unknown
+    }
+    const parsed = notificationErrorSchema.safeParse(body)
+    if (
+      !parsed.success ||
+      notificationErrorStatuses[parsed.data.error.code] !== response.status ||
+      !parsed.data.writeOutcome
+    )
+      return unknown
+    const retryAfter = response.headers.get("retry-after") ?? undefined
+    if (parsed.data.error.code === "RATE_LIMITED" && !retryAfter) return unknown
+    if (
+      retryAfter &&
+      !(/^\d+$/u.test(retryAfter) && Number.isSafeInteger(Number(retryAfter))) &&
+      !Number.isFinite(Date.parse(retryAfter))
+    )
+      return unknown
+    return {
+      ok: false,
+      error: parsed.data.error.code,
+      writeOutcome: parsed.data.writeOutcome,
+      ...(retryAfter ? { retryAfter } : {}),
+    }
+  } catch {
+    return unknown
   } finally {
     reader.releaseLock()
   }

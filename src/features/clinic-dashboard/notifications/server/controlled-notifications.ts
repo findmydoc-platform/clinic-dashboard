@@ -28,22 +28,68 @@ const items: NotificationItem[] = ["Ada Patient", "Jamie Carter", "Taylor Smith"
     ],
   }),
 )
-export function createControlledNotificationProvider(): NotificationProvider {
+const receipts = new Map<string, Map<string, string>>()
+export function resetControlledNotificationProvider() {
+  receipts.clear()
+}
+export function createControlledNotificationProvider(
+  accessToken = "controlled",
+  clinicId = "controlled",
+): NotificationProvider {
+  const principal = JSON.stringify([clinicId, accessToken])
+  const personal = receipts.get(principal) ?? new Map<string, string>()
+  receipts.set(principal, personal)
   return {
+    async markRead(input) {
+      const now = new Date().toISOString()
+      for (const item of items)
+        for (const member of item.members) {
+          if (
+            input.notificationIds.includes(member.notificationId) &&
+            Date.parse(member.expiresAt) > Date.now() &&
+            !personal.has(member.notificationId)
+          )
+            personal.set(member.notificationId, now)
+        }
+      return {
+        ok: true,
+        value: {
+          contractVersion: CLINIC_NOTIFICATIONS_CONTRACT_VERSION,
+          serverTime: now,
+          acknowledged: true,
+        },
+      }
+    },
     async load(query) {
       if (query.mode === "page" && query.cursor) return { ok: false, error: "CURSOR_INVALID" }
+      const visible = items
+        .filter((item) => Date.parse(item.members[0]!.expiresAt) > Date.now())
+        .map((item) => ({
+          ...item,
+          members: item.members.map((member) => ({
+            ...member,
+            readAt: personal.get(member.notificationId) ?? null,
+          })),
+        }))
+      const unread = visible.filter((item) => item.members.some((member) => member.readAt === null))
       const envelope = {
         contractVersion: CLINIC_NOTIFICATIONS_CONTRACT_VERSION,
         serverTime: new Date().toISOString(),
-        unreadCount: 4,
-        nextUnreadCountChangeAt: expiresAt,
+        unreadCount: unread.length,
+        nextUnreadCountChangeAt: unread.length ? expiresAt : null,
       } as const
       return {
         ok: true,
         value:
           query.mode === "summary"
             ? { ...envelope, mode: "summary" }
-            : { ...envelope, mode: "page", view: query.view, items, nextCursor: null },
+            : {
+                ...envelope,
+                mode: "page",
+                view: query.view,
+                items: query.view === "unread" ? unread : visible,
+                nextCursor: null,
+              },
       }
     },
   }

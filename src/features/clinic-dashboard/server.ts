@@ -67,6 +67,7 @@ import type { ReviewProviderFactory } from "./reviews/server/review-provider"
 
 import {
   handleNotificationsLoad as handleNotificationsLoadWithProvider,
+  handleNotificationsMarkRead as handleNotificationsMarkReadWithProvider,
   loadInitialNotifications,
   type NotificationProviderFactory,
 } from "./notifications/server/public"
@@ -76,6 +77,9 @@ const createNotificationProvider: NotificationProviderFactory = (accessToken, cl
 
 export function handleNotificationsLoad(request: NextRequest) {
   return handleNotificationsLoadWithProvider(request, createNotificationProvider)
+}
+export function handleNotificationsMarkRead(request: NextRequest) {
+  return handleNotificationsMarkReadWithProvider(request, createNotificationProvider)
 }
 
 export async function loadClinicDashboardInitialNotifications(clinicId: string) {

@@ -48,6 +48,16 @@ export const notificationPageFixture = {
   ],
 } satisfies NotificationsResponse
 export const notificationCommandsFixture: NotificationCommands = {
+  async markRead() {
+    return {
+      ok: true,
+      value: {
+        contractVersion: "clinic-notifications-v1",
+        serverTime: "2026-10-14T09:01:00.000Z",
+        acknowledged: true,
+      },
+    }
+  },
   async load(query) {
     if (query.mode === "summary")
       return {

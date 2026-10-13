@@ -31,6 +31,7 @@ const patientToken = requiredValue("INQUIRY_ACCEPTANCE_PATIENT_TOKEN")
 const patientSessionCookie = requiredValue("INQUIRY_ACCEPTANCE_PATIENT_SESSION_COOKIE")
 const foreignClinicToken = requiredValue("INQUIRY_ACCEPTANCE_FOREIGN_CLINIC_TOKEN")
 const clinicToken = requiredValue("INQUIRY_ACCEPTANCE_CLINIC_TOKEN")
+const secondClinicToken = requiredValue("INQUIRY_ACCEPTANCE_SECOND_CLINIC_TOKEN")
 const inquiryId = requiredValue("INQUIRY_ACCEPTANCE_INQUIRY_ID")
 const patientHeaders = { Authorization: `Bearer ${patientToken}` }
 
@@ -199,6 +200,102 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
       }),
     ]),
   )
+  await center.getByRole("button", { name: "Options for New inquiry from Notification Arrival" }).click()
+  const markResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/notifications/read" &&
+      response.request().method() === "POST",
+  )
+  await center.getByRole("menuitem", { name: "Mark as read: New inquiry from Notification Arrival" }).click()
+  const confirmed = await markResponse
+  expect(confirmed.status()).toBe(200)
+  expect(confirmed.request().postDataJSON()).toEqual({ notificationIds: [arrivalBody.notificationId] })
+  expect(await confirmed.json()).toMatchObject({
+    contractVersion: "clinic-notifications-v1",
+    acknowledged: true,
+  })
+  await expect(center.getByText("Marked as read.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Notifications, 1 unread notification" })).toBeVisible()
+  const personalAfterMark = await page.evaluate(async () => {
+    const response = await fetch("/api/notifications?mode=page&view=all", { cache: "no-store" })
+    return response.json()
+  })
+  const markedOccurrence = personalAfterMark.items
+    .flatMap((item: { members: Array<{ notificationId: string; readAt: string | null }> }) => item.members)
+    .find((member: { notificationId: string }) => member.notificationId === arrivalBody.notificationId)
+  expect(markedOccurrence?.readAt).toEqual(expect.any(String))
+  const firstReadAt = markedOccurrence.readAt
+
+  const anotherReader = await request.get(
+    `${websiteOrigin}/api/clinic-dashboard/notifications?mode=page&view=all`,
+    {
+      headers: {
+        Authorization: `Bearer ${secondClinicToken}`,
+        "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+        "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
+      },
+    },
+  )
+  expect(anotherReader.status()).toBe(200)
+  const anotherReaderBody = await anotherReader.json()
+  expect(anotherReaderBody.unreadCount).toBe(2)
+  expect(anotherReaderBody.items).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        members: [expect.objectContaining({ notificationId: arrivalBody.notificationId, readAt: null })],
+      }),
+    ]),
+  )
+
+  const repeated = await page.evaluate(async (notificationId) => {
+    const csrf = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("clinic_dashboard_csrf="))
+      ?.split("=")[1]
+    const response = await fetch("/api/notifications/read", {
+      method: "POST",
+      body: JSON.stringify({ notificationIds: [notificationId] }),
+      headers: { "content-type": "application/json", "x-csrf-token": decodeURIComponent(csrf ?? "") },
+    })
+    return { status: response.status, body: await response.json() }
+  }, arrivalBody.notificationId)
+  expect(repeated).toMatchObject({ status: 200, body: { acknowledged: true } })
+
+  await page.reload()
+  await page.getByRole("button", { name: "Notifications, 1 unread notification" }).click()
+  await center.getByRole("tab", { name: "All" }).click()
+  await expect(center.getByText("Notification Arrival", { exact: true })).toBeVisible()
+  await expect(
+    center.getByRole("button", { name: "Options for New inquiry from Notification Arrival" }),
+  ).not.toBeVisible()
+  const afterReload = await page.evaluate(async () =>
+    (await fetch("/api/notifications?mode=page&view=all", { cache: "no-store" })).json(),
+  )
+  expect(
+    afterReload.items
+      .flatMap((item: { members: Array<{ notificationId: string; readAt: string | null }> }) => item.members)
+      .find((member: { notificationId: string }) => member.notificationId === arrivalBody.notificationId)
+      ?.readAt,
+  ).toBe(firstReadAt)
+
+  const secondSession = await browser.newContext()
+  const secondSessionPage = await secondSession.newPage()
+  await secondSessionPage.goto(page.url())
+  await secondSessionPage.getByLabel("Email address").fill("clinic-staff@example.com")
+  await secondSessionPage.getByLabel("Password").fill("clinic-dashboard-cross-app")
+  await secondSessionPage.getByRole("button", { name: "Sign in" }).click()
+  await expect(
+    secondSessionPage.getByRole("button", { name: "Notifications, 1 unread notification" }),
+  ).toBeVisible()
+  await secondSessionPage.getByRole("button", { name: "Notifications, 1 unread notification" }).click()
+  const secondSessionCenter = secondSessionPage.getByRole("dialog", { name: "Notifications" })
+  await secondSessionCenter.getByRole("tab", { name: "All" }).click()
+  await expect(secondSessionCenter.getByText("Notification Arrival", { exact: true })).toBeVisible()
+  await expect(
+    secondSessionCenter.getByRole("button", { name: "Options for New inquiry from Notification Arrival" }),
+  ).not.toBeVisible()
+  await secondSession.close()
   await center.getByRole("button", { name: "Close notifications" }).click()
   await page.screenshot({ fullPage: true, path: "output/playwright/notification-cross-app.png" })
 

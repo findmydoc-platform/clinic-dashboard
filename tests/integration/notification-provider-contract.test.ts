@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { createControlledNotificationProvider } from "@/features/clinic-dashboard/notifications/server/controlled-notifications"
+import {
+  createControlledNotificationProvider,
+  resetControlledNotificationProvider,
+} from "@/features/clinic-dashboard/notifications/server/controlled-notifications"
 import { createPayloadNotificationProvider } from "@/features/clinic-dashboard/notifications/server/payload-notifications"
 import type { NotificationProvider } from "@/features/clinic-dashboard/notifications/server/notification-provider"
 import cases from "../fixtures/clinic-notifications-v1.json"
@@ -14,7 +17,35 @@ const environment = {
   SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
 }
 describe("notification provider read contract", () => {
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    vi.restoreAllMocks()
+    resetControlledNotificationProvider()
+  })
+  it("retains personal first receipts across provider composition without changing another reader", async () => {
+    const first = createControlledNotificationProvider("reader-a", "clinic-a")
+    await first.markRead({ notificationIds: ["controlled-notification-0"] })
+    const reloaded = createControlledNotificationProvider("reader-a", "clinic-a")
+    const all = await reloaded.load({ mode: "page", view: "all" })
+    expect(all).toMatchObject({
+      ok: true,
+      value: { unreadCount: 3, items: [{ members: [{ readAt: expect.any(String) }] }, {}, {}, {}] },
+    })
+    const readAt = all.ok && all.value.mode === "page" ? all.value.items[0]?.members[0]?.readAt : null
+    await reloaded.markRead({ notificationIds: ["controlled-notification-0"] })
+    const repeated = await createControlledNotificationProvider("reader-a", "clinic-a").load({
+      mode: "page",
+      view: "all",
+    })
+    expect(
+      repeated.ok && repeated.value.mode === "page" ? repeated.value.items[0]?.members[0]?.readAt : null,
+    ).toBe(readAt)
+    expect(
+      await createControlledNotificationProvider("reader-b", "clinic-a").load({ mode: "summary" }),
+    ).toMatchObject({ ok: true, value: { unreadCount: 4 } })
+    expect(
+      await createControlledNotificationProvider("reader-a", "clinic-b").load({ mode: "summary" }),
+    ).toMatchObject({ ok: true, value: { unreadCount: 4 } })
+  })
   it("exposes validated complete summary and feed through both providers", async () => {
     const fetcher = vi.fn<typeof fetch>(
       async (url) =>

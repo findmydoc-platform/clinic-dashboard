@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import cases from "../fixtures/clinic-notifications-v1.json"
+import readCases from "../fixtures/clinic-notification-read-v1.json"
 
 const accessMocks = vi.hoisted(() => ({ resolveClinicDashboardRouteAccess: vi.fn() }))
 vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
@@ -9,6 +10,24 @@ vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
   resolveClinicDashboardRouteAccess: accessMocks.resolveClinicDashboardRouteAccess,
 }))
 import { handleNotificationsLoad } from "@/features/clinic-dashboard/server"
+import { handleNotificationsMarkRead } from "@/features/clinic-dashboard/server"
+import { createCsrfToken } from "@/lib/security/csrf"
+import { CLINIC_DASHBOARD_CSRF_COOKIE, CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
+
+function markingRequest(body: string, extraHeaders: Record<string, string> = {}) {
+  const token = createCsrfToken(new NextRequest("http://localhost:3000/api/notifications/read"))
+  return new NextRequest("http://localhost:3000/api/notifications/read", {
+    method: "POST",
+    body,
+    headers: {
+      origin: "http://localhost:3000",
+      "content-type": "application/json",
+      cookie: `${CLINIC_DASHBOARD_CSRF_COOKIE}=${token}`,
+      [CLINIC_DASHBOARD_CSRF_HEADER]: token,
+      ...extraHeaders,
+    },
+  })
+}
 
 function upstream(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -71,6 +90,209 @@ describe("notification BFF contract", () => {
         Authorization: "Bearer verified-session-token",
         "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
       },
+    })
+  })
+
+  it("marks exactly the supplied personal selection through the private guarded BFF", async () => {
+    const fixture = {
+      contractVersion: "clinic-notifications-v1",
+      serverTime: "2026-10-14T09:01:00.000Z",
+      acknowledged: true,
+    }
+    const fetcher = vi.fn<typeof fetch>(async () => upstream(fixture))
+    vi.stubGlobal("fetch", fetcher)
+    const response = await handleNotificationsMarkRead(
+      markingRequest('{"notificationIds":["notification-a","notification-b"]}'),
+    )
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual(fixture)
+    expect(response.headers.get("x-session-applied")).toBe("true")
+    expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: '{"notificationIds":["notification-a","notification-b"]}',
+      redirect: "error",
+      cache: "no-store",
+    })
+  })
+  it.each(readCases)(
+    "accepts the literal Website-owned marking $name case",
+    async ({ response: fixture, status, retryAfter }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>(async () => {
+          const response = upstream(fixture, status)
+          if (retryAfter) response.headers.set("retry-after", retryAfter)
+          return response
+        }),
+      )
+      const response = await handleNotificationsMarkRead(
+        markingRequest('{"notificationIds":["notification-a"]}'),
+      )
+      expect(response.status).toBe(status)
+      await expect(response.json()).resolves.toEqual(fixture)
+    },
+  )
+  it.each([
+    ['{"notificationIds":[],"clinicId":"foreign"}', "INVALID_INPUT", 400],
+    ['{"notificationIds":[],"readAt":"2026-10-14T09:00:00.000Z"}', "INVALID_INPUT", 400],
+    ['{"notificationIds":"notification-a"}', "INVALID_INPUT", 400],
+    ['{"notificationIds":[""]}', "INVALID_INPUT", 400],
+    ["{", "INVALID_INPUT", 400],
+  ])("rejects invalid personal marking before any write: %s", async (body, code, status) => {
+    const fetcher = vi.fn()
+    vi.stubGlobal("fetch", fetcher)
+    const response = await handleNotificationsMarkRead(markingRequest(body))
+    expect(response.status).toBe(status)
+    await expect(response.json()).resolves.toEqual({
+      contractVersion: "clinic-notifications-v1",
+      error: { code },
+      writeOutcome: "not_committed",
+    })
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(response.headers.get("cache-control")).toBe("private, no-store")
+    expect(response.headers.get("x-session-applied")).toBe("true")
+  })
+  it.each([
+    { origin: "https://foreign.example" },
+    { "x-csrf-token": "invalid" },
+    { "content-type": "text/plain" },
+    { "content-type": "application/jsonevil" },
+  ] as Record<string, string>[])(
+    "rejects invalid mutation guard before session/source: %j",
+    async (headers) => {
+      const fetcher = vi.fn()
+      vi.stubGlobal("fetch", fetcher)
+      const response = await handleNotificationsMarkRead(markingRequest('{"notificationIds":[]}', headers))
+      expect(response.status).toBe(403)
+      await expect(response.json()).resolves.toMatchObject({
+        error: { code: "REQUEST_REJECTED" },
+        writeOutcome: "not_committed",
+      })
+      expect(accessMocks.resolveClinicDashboardRouteAccess).not.toHaveBeenCalled()
+      expect(fetcher).not.toHaveBeenCalled()
+    },
+  )
+  it("enforces the actual 4 MiB UTF-8 body boundary before an atomic write", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      upstream({
+        contractVersion: "clinic-notifications-v1",
+        serverTime: "2026-10-14T09:01:00.000Z",
+        acknowledged: true,
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    const valid = '{"notificationIds":[]}'
+    const exact = valid + " ".repeat(4_194_304 - new TextEncoder().encode(valid).byteLength)
+    expect((await handleNotificationsMarkRead(markingRequest(exact))).status).toBe(200)
+    const tooLarge = await handleNotificationsMarkRead(markingRequest(exact + " "))
+    expect(tooLarge.status).toBe(413)
+    await expect(tooLarge.json()).resolves.toMatchObject({
+      writeOutcome: "not_committed",
+      error: { code: "PAYLOAD_TOO_LARGE" },
+    })
+    const declared = await handleNotificationsMarkRead(markingRequest(valid, { "content-length": "4194305" }))
+    expect(declared.status).toBe(413)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it("sends a large complete selection once with no numeric cap or independent chunks", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      upstream({
+        contractVersion: "clinic-notifications-v1",
+        serverTime: "2026-10-14T09:01:00.000Z",
+        acknowledged: true,
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    const notificationIds = Array.from({ length: 12_001 }, (_, i) => `notification-${i}`)
+    const response = await handleNotificationsMarkRead(markingRequest(JSON.stringify({ notificationIds })))
+    expect(response.status).toBe(200)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({ notificationIds })
+  })
+  it.each([{ notificationIds: [] }, { notificationIds: ["notification-a", "notification-a"] }])(
+    "preserves an authorized empty or repeated selection %j",
+    async ({ notificationIds }) => {
+      const fetcher = vi.fn<typeof fetch>(async () =>
+        upstream({
+          contractVersion: "clinic-notifications-v1",
+          serverTime: "2026-10-14T09:01:00.000Z",
+          acknowledged: true,
+        }),
+      )
+      vi.stubGlobal("fetch", fetcher)
+      expect(
+        (await handleNotificationsMarkRead(markingRequest(JSON.stringify({ notificationIds })))).status,
+      ).toBe(200)
+    },
+  )
+  it.each(["not_committed", "unknown"])(
+    "preserves explicit %s outcome and validated Retry-After without retry",
+    async (writeOutcome) => {
+      const fetcher = vi.fn<typeof fetch>(async () => {
+        const response = upstream(
+          { contractVersion: "clinic-notifications-v1", error: { code: "RATE_LIMITED" }, writeOutcome },
+          429,
+        )
+        response.headers.set("retry-after", "30")
+        return response
+      })
+      vi.stubGlobal("fetch", fetcher)
+      const response = await handleNotificationsMarkRead(
+        markingRequest('{"notificationIds":["notification-a"]}'),
+      )
+      expect(response.status).toBe(429)
+      expect(response.headers.get("retry-after")).toBe("30")
+      await expect(response.json()).resolves.toMatchObject({ writeOutcome })
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    },
+  )
+  it("reports an unknown write after a lost response and never automatically repeats it", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => {
+      throw new Error("Connection lost after submission")
+    })
+    vi.stubGlobal("fetch", fetcher)
+    const response = await handleNotificationsMarkRead(
+      markingRequest('{"notificationIds":["notification-a"]}'),
+    )
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toMatchObject({
+      writeOutcome: "unknown",
+      error: { code: "SERVICE_UNAVAILABLE" },
+    })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it.each([
+    [
+      {
+        contractVersion: "clinic-notifications-v2",
+        serverTime: "2026-10-14T09:01:00.000Z",
+        acknowledged: true,
+      },
+      200,
+    ],
+    [
+      {
+        contractVersion: "clinic-notifications-v1",
+        serverTime: "2026-10-14T09:01:00.000Z",
+        acknowledged: true,
+        notificationIds: ["protected"],
+      },
+      200,
+    ],
+    [{ contractVersion: "clinic-notifications-v1", error: { code: "SERVICE_UNAVAILABLE" } }, 503],
+  ])("treats an invalid submitted-write response as unknown", async (body, status) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => upstream(body, status as number)),
+    )
+    const response = await handleNotificationsMarkRead(
+      markingRequest('{"notificationIds":["notification-a"]}'),
+    )
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      contractVersion: "clinic-notifications-v1",
+      error: { code: "CONTRACT_INCOMPATIBLE" },
+      writeOutcome: "unknown",
     })
   })
 

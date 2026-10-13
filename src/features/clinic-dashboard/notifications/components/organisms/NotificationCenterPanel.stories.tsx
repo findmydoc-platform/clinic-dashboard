@@ -12,7 +12,7 @@ const meta = {
     open: true,
     onOpenChange: fn(),
     model: { state: { status: "ready", response: notificationPageFixture }, unreadCount: 2, view: "unread" },
-    actions: { selectView: fn(), retry: fn() },
+    actions: { selectView: fn(), retry: fn(), markRead: fn(), repeatMark: fn() },
   },
   decorators: [
     (Story) => (

@@ -1,20 +1,33 @@
 "use client"
-import { useEffect, useId, useRef } from "react"
-import { Bell, X } from "lucide-react"
+import { useEffect, useId, useRef, useState, useCallback } from "react"
+import { Bell, X, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu } from "@/components/ui/dropdown-menu"
 import { RatingStars } from "@/components/ui/rating-stars"
 import { cn } from "@/lib/utils"
 import {
   notificationFailureCopy,
   type NotificationLoadState,
   type NotificationView,
+  type NotificationMarkState,
 } from "../../model/notifications"
 
 type NotificationCenterPanelProps = Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
-  model: Readonly<{ state: NotificationLoadState; unreadCount?: number; view: NotificationView }>
-  actions: Readonly<{ selectView: (view: NotificationView) => void; retry: () => void }>
+  model: Readonly<{
+    state: NotificationLoadState
+    unreadCount?: number
+    view: NotificationView
+    marking?: NotificationMarkState
+    isRetryBlocked?: boolean
+  }>
+  actions: Readonly<{
+    selectView: (view: NotificationView) => void
+    retry: () => void
+    markRead: (ids: readonly string[]) => void
+    repeatMark: () => void
+  }>
 }>
 export function NotificationCenterPanel({
   open,
@@ -24,9 +37,15 @@ export function NotificationCenterPanel({
 }: NotificationCenterPanelProps) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const [portalContainer, setPortalContainer] = useState<HTMLDialogElement | null>(null)
+  const attachDialog = useCallback((node: HTMLDialogElement | null) => {
+    dialogRef.current = node
+    setPortalContainer(node)
+  }, [])
   const unreadRef = useRef<HTMLButtonElement>(null)
   const allRef = useRef<HTMLButtonElement>(null)
   const id = useId()
+  const [menuId, setMenuId] = useState<string | null>(null)
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
@@ -56,6 +75,7 @@ export function NotificationCenterPanel({
     }
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (event.target instanceof Element && event.target.closest('[role="menu"]')) return
         event.preventDefault()
         onOpenChange(false)
       }
@@ -76,6 +96,39 @@ export function NotificationCenterPanel({
       : `Notifications, ${count} unread ${count === 1 ? "notification" : "notifications"}`
   const state = model.state
   const items = state.status === "ready" && state.response.mode === "page" ? state.response.items : []
+  const marking = model.marking ?? { status: "idle" }
+  const markedSelection = "notificationIds" in marking ? marking.notificationIds : undefined
+  const restoredSelection = useRef<readonly string[] | undefined>(undefined)
+  const hasReadyFeed = state.status === "ready"
+  useEffect(() => {
+    if (
+      !open ||
+      marking.status !== "confirmed" ||
+      !hasReadyFeed ||
+      restoredSelection.current === markedSelection
+    )
+      return
+    const frame = requestAnimationFrame(() => {
+      restoredSelection.current = markedSelection
+      if (document.activeElement === document.body)
+        (model.view === "unread" ? unreadRef : allRef).current?.focus()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [open, marking.status, markedSelection, hasReadyFeed, model.view])
+  const markMessage =
+    marking.status === "pending"
+      ? "Marking as read…"
+      : marking.status === "confirmed"
+        ? "Marked as read."
+        : marking.status === "refresh-failed"
+          ? "Marked as read. Notifications couldn't be refreshed."
+          : marking.status === "unknown"
+            ? "We couldn't confirm whether these notifications were marked as read."
+            : marking.status === "rejected"
+              ? marking.error === "PAYLOAD_TOO_LARGE"
+                ? "These notifications couldn't be marked as read together."
+                : "Notifications weren't marked as read."
+              : null
   return (
     <div className="relative self-start">
       <Button
@@ -100,7 +153,7 @@ export function NotificationCenterPanel({
         ) : null}
       </Button>
       <dialog
-        ref={dialogRef}
+        ref={attachDialog}
         id={id}
         aria-labelledby={`${id}-title`}
         onCancel={(event) => {
@@ -123,6 +176,43 @@ export function NotificationCenterPanel({
               <X aria-hidden="true" className="size-5" />
             </Button>
           </div>
+          {markMessage ? (
+            <div className="shrink-0 border-b border-[var(--border)] px-4 py-3 text-sm">
+              <p
+                role={
+                  marking.status === "rejected" ||
+                  marking.status === "unknown" ||
+                  marking.status === "refresh-failed"
+                    ? "alert"
+                    : "status"
+                }
+              >
+                {markMessage}
+              </p>
+              {marking.status === "refresh-failed" ? (
+                <p className="mt-1">List and unread count may be outdated.</p>
+              ) : null}
+              {marking.status === "unknown" ? (
+                <Button variant="ghost" disabled={model.isRetryBlocked} onClick={actions.retry}>
+                  Check status
+                </Button>
+              ) : null}
+              {marking.status === "rejected" || marking.status === "unknown" ? (
+                <Button variant="outline" disabled={model.isRetryBlocked} onClick={actions.repeatMark}>
+                  Try again
+                </Button>
+              ) : marking.status === "refresh-failed" ? (
+                <Button variant="outline" disabled={model.isRetryBlocked} onClick={actions.retry}>
+                  Try again
+                </Button>
+              ) : null}
+              {model.isRetryBlocked ? (
+                <p role="status" className="mt-2">
+                  Please wait before trying again.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <div
             role="tablist"
             aria-label="Notification view"
@@ -184,7 +274,7 @@ export function NotificationCenterPanel({
                   state.error,
                 ) ? (
                   <Button variant="outline" className="mt-4" onClick={actions.retry}>
-                    Try again
+                    {marking.status === "idle" ? "Try again" : "Reload notifications"}
                   </Button>
                 ) : null}
               </div>
@@ -236,12 +326,41 @@ export function NotificationCenterPanel({
                             <RatingStars value={item.display.rating} className="mt-1" />
                           ) : null}
                         </div>
-                        <time className="shrink-0 text-xs" dateTime={member.occurredAt}>
-                          {new Intl.DateTimeFormat("en", {
-                            timeStyle: "short",
-                            timeZone: "UTC",
-                          }).format(new Date(member.occurredAt))}
-                        </time>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <time className="text-xs" dateTime={member.occurredAt}>
+                            {new Intl.DateTimeFormat("en", {
+                              timeStyle: "short",
+                              timeZone: "UTC",
+                            }).format(new Date(member.occurredAt))}
+                          </time>
+                          {isUnread ? (
+                            <DropdownMenu
+                              open={menuId === item.presentationId}
+                              onOpenChange={(next) => setMenuId(next ? item.presentationId : null)}
+                            >
+                              <DropdownMenu.Trigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Options for ${item.display.eventLabel}${item.display.displayName ? ` from ${item.display.displayName}` : ""}`}
+                                  disabled={marking.status === "pending" || model.isRetryBlocked}
+                                >
+                                  <MoreHorizontal aria-hidden="true" className="size-4" />
+                                </Button>
+                              </DropdownMenu.Trigger>
+                              <DropdownMenu.Content portalContainer={portalContainer} align="end">
+                                <DropdownMenu.Item
+                                  aria-label={`Mark as read: ${item.display.eventLabel}${item.display.displayName ? ` from ${item.display.displayName}` : ""}`}
+                                  onSelect={() =>
+                                    actions.markRead(item.members.map((member) => member.notificationId))
+                                  }
+                                >
+                                  Mark as read
+                                </DropdownMenu.Item>
+                              </DropdownMenu.Content>
+                            </DropdownMenu>
+                          ) : null}
+                        </div>
                       </div>
                     </li>
                   )

@@ -1,3 +1,3 @@
 import "server-only"
-export { handleNotificationsLoad, loadInitialNotifications } from "./actions"
+export { handleNotificationsLoad, handleNotificationsMarkRead, loadInitialNotifications } from "./actions"
 export type { NotificationProviderFactory } from "./notification-provider"

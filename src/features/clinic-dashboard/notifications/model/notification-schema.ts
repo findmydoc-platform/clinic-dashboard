@@ -4,6 +4,7 @@ export const CLINIC_NOTIFICATIONS_CONTRACT_VERSION = "clinic-notifications-v1"
 export const CLINIC_NOTIFICATIONS_CONTRACT_HEADER = "X-Findmydoc-Clinic-Notifications-Contract"
 export const CLINIC_NOTIFICATIONS_SUPPORT_HEADER = "X-Findmydoc-Clinic-Notifications-Support"
 export const NOTIFICATION_PAGE_MAX_BYTES = 524_288
+export const NOTIFICATION_READ_MAX_BYTES = 4_194_304
 const NOTIFICATION_PAGE_MAX_ENTRIES = 25
 export const NOTIFICATION_RETENTION_MS = 90 * 24 * 60 * 60 * 1000
 
@@ -164,6 +165,10 @@ const summaryFields = {
   nextUnreadCountChangeAt: timestamp.nullable(),
 }
 const envelope = { contractVersion: z.literal(CLINIC_NOTIFICATIONS_CONTRACT_VERSION), serverTime: timestamp }
+export const notificationReadInputSchema = z.object({ notificationIds: z.array(id) }).strict()
+export const notificationReadSuccessSchema = z.object({ ...envelope, acknowledged: z.literal(true) }).strict()
+export type NotificationReadInput = z.infer<typeof notificationReadInputSchema>
+export type NotificationReadSuccess = z.infer<typeof notificationReadSuccessSchema>
 const pageFields = {
   ...envelope,
   mode: z.literal("page"),
