@@ -527,10 +527,19 @@ export const MobileUnmountClosesDialog: Story = {
   globals: { viewport: { value: "mobile320Short" } },
   render: function UnmountableCenter(args) {
     const [visible, setVisible] = useState(true)
-    return visible ? (
-      <NotificationCenter {...args} open onOpenChange={(next) => !next && setVisible(false)} />
-    ) : (
-      <p>Notification center removed</p>
+    const [continued, setContinued] = useState(false)
+    return (
+      <div>
+        {visible ? (
+          <NotificationCenter {...args} open onOpenChange={(next) => !next && setVisible(false)} />
+        ) : (
+          <p>Notification center removed</p>
+        )}
+        <button type="button" onClick={() => setContinued(true)}>
+          Continue after notifications
+        </button>
+        {continued ? <p>Background controls are available</p> : null}
+      </div>
     )
   },
   play: async ({ canvasElement }) => {
@@ -539,6 +548,8 @@ export const MobileUnmountClosesDialog: Story = {
     await userEvent.click(within(dialog).getByRole("button", { name: "Close notifications" }))
     await expect(await canvas.findByText("Notification center removed")).toBeVisible()
     await expect(dialog.open).toBe(false)
+    await userEvent.click(canvas.getByRole("button", { name: "Continue after notifications" }))
+    await expect(await canvas.findByText("Background controls are available")).toBeVisible()
   },
 }
 export const DarkOpenedTargetWithUnknownReceipt: Story = {

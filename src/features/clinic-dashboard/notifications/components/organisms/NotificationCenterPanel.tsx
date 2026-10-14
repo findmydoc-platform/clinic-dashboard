@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useId, useRef, useState, useCallback } from "react"
+import { useEffect, useId, useLayoutEffect, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { Bell, X, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -69,6 +69,12 @@ export function NotificationCenterPanel({
     dialogRef.current = node
     setPortalContainer(node)
   }, [])
+  useLayoutEffect(() => {
+    if (!portalContainer) return
+    return () => {
+      if (portalContainer.open) portalContainer.close()
+    }
+  }, [portalContainer])
   const unreadRef = useRef<HTMLButtonElement>(null)
   const allRef = useRef<HTMLButtonElement>(null)
   const id = useId()
