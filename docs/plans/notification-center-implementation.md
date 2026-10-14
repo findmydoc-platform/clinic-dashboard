@@ -30,7 +30,7 @@ Capture the seven approved event groups: new inquiry; patient message in an exis
 - Preserve immutable occurrence identity, source references, `occurredAt`, and `expiresAt`. Enforce canonical event uniqueness and occurrence/reader receipt uniqueness. Cover every executable qualifying write path, including Admin, REST, and Local API review workflows.
 - Recheck current authorization and expiry before count, grouping, sorting, and pagination. Personally unread patient messages for an inquiry form a complete group. In All, read messages appear individually. Other events remain individual entries.
 - Use deterministic live cursor pagination and deduplication. The accepted omission of an unloaded group that moves ahead of the cursor lasts until refresh. Do not add stored snapshots or a total loaded-list limit.
-- At acknowledgement commit, recheck access, authorization, and expiry. Atomically acknowledge all remaining eligible unread members or none. Preserve the first `readAt`; skip ineligible members without protected details.
+- Recheck access, authorization, membership, and expiry at the final atomic server decision immediately before the native commit call, after preparing receipts and while current authorization is serialized. A decision before expiry may finish committing afterward; a decision at or after expiry cannot create a new receipt. Atomically acknowledge all remaining eligible unread members or none. Preserve the first `readAt`; skip ineligible members without protected details.
 - Add ordinary authorized review detail reads by exact ID in #204. Notification visibility and target availability remain separate. An unavailable target may leave an independently authorized notification with only permitted details.
 
 ### Dashboard behavior and design
@@ -51,7 +51,9 @@ Use English UI copy, WCAG 2.2 AA, the WAI-ARIA Modal Dialog Pattern where applic
 
 ## Independent retention and diagnostics
 
-Logical expiry is exact: `expiresAt = occurredAt + 90 days`. From that instant, each occurrence is invisible, uncounted, and ineligible for new receipts, even if cleanup fails. Reads, grouping, retries, redelivery, schema conversion, and staff reassignment never extend expiry or recreate expired history.
+Logical expiry is exact: `expiresAt = occurredAt + 90 days`. From that instant, each occurrence is invisible and uncounted, even if cleanup fails. An acknowledgement whose final atomic decision is at or after that deadline cannot create a new receipt. A decision before the deadline may finish committing afterward. Reads, grouping, retries, redelivery, schema conversion, and staff reassignment never extend expiry or recreate expired history.
+
+The user approved this acknowledgement boundary and the corresponding [specification clarification](https://github.com/findmydoc-platform/clinic-dashboard/issues/200#issuecomment-6161446477) on 2026-10-14. Payload's native API cannot guarantee the physical commit time. The Website-owned v1 contract records the decision; no direct SQL exception is part of it.
 
 Website owns an independent cleanup cronjob scheduled every five minutes. Physically delete expired occurrences and their receipts in the next successful scheduled execution. Normal scheduling delay is allowed and is not a deadline violation. Record observed missed executions and deletion failures immediately, and retry idempotently with bounded attempts. Invisible rows are not evidence of physical deletion.
 
