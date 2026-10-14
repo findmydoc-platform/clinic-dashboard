@@ -827,20 +827,14 @@ export const MarkDisplayedUnreadEntries: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    console.error("displayed selection probe: play started")
     await userEvent.click(await canvas.findByRole("tab", { name: "All" }))
-    console.error("displayed selection probe: all selected")
     await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
-    console.error("displayed selection probe: mark button visible")
     await userEvent.click(canvas.getByRole("button", { name: "Mark 2 shown as read" }))
-    console.error("displayed selection probe: mark clicked")
+    if (typeof window !== "undefined") throw new Error("CI probe: MarkDisplayed click completed")
     await expect(await canvas.findByText("Marked as read.")).toBeVisible()
-    console.error("displayed selection probe: confirmation visible")
     await expect(canvas.getByRole("button", { name: "Notifications, 0 unread notifications" })).toBeVisible()
     await expect(canvas.queryByRole("button", { name: /Mark \d+ shown as read/ })).not.toBeInTheDocument()
-    console.error("displayed selection probe: count and action updated")
     await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
-    throw new Error("CI probe: MarkDisplayed play completed")
   },
 }
 export const DisplayedUnreadAction: Story = {
