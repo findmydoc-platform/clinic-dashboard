@@ -20,6 +20,7 @@ export type ReviewDialogModel =
     }>
 
 export type ReviewsViewModel = Readonly<{
+  exactReview?: import("./review-opening").ReviewDetailState
   dialog: ReviewDialogModel
   filters: Readonly<{
     draft: ReviewListFilters

@@ -1,6 +1,8 @@
 import "server-only"
 
 import { z } from "zod"
+import { clinicDashboardContractHeaders } from "../../payload-contract"
+import { clinicReviewDetailIdSchema, clinicReviewDetailResponseSchema } from "./review-detail-contract"
 import { validateEnvironment } from "@/lib/env"
 import type {
   ClinicReviewRecord,
@@ -164,7 +166,30 @@ const rawAppealVersionListSchema = z.object({ docs: z.array(rawAppealVersionSche
 type PayloadJsonResult =
   | Readonly<{ ok: true; value: unknown }>
   | Readonly<{ kind: "network" | "timeout"; ok: false }>
-  | Readonly<{ ok: false; status: number }>
+  | Readonly<{ ok: false; status: number; value: unknown }>
+
+const exactReviewErrorSchema = z
+  .object({
+    error: z
+      .object({
+        code: z.enum([
+          "INVALID_INPUT",
+          "UNAUTHENTICATED",
+          "CONTENT_ACCESS_DENIED",
+          "TARGET_UNAVAILABLE",
+          "SERVICE_UNAVAILABLE",
+        ]),
+      })
+      .strict(),
+  })
+  .strict()
+const exactReviewErrorStatuses = {
+  INVALID_INPUT: 400,
+  UNAUTHENTICATED: 401,
+  CONTENT_ACCESS_DENIED: 403,
+  TARGET_UNAVAILABLE: 404,
+  SERVICE_UNAVAILABLE: 503,
+} as const
 
 const PAGE_LIMIT = 10
 const SUMMARY_PAGE_LIMIT = 100
@@ -193,7 +218,8 @@ async function requestPayloadJson(
 ): Promise<PayloadJsonResult> {
   try {
     const response = await fetcher(endpoint, init)
-    if (!response.ok) return { ok: false, status: response.status }
+    if (!response.ok)
+      return { ok: false, status: response.status, value: await response.json().catch(() => null) }
     return { ok: true, value: await response.json().catch(() => null) }
   } catch (error) {
     return error instanceof DOMException && error.name === "TimeoutError"
@@ -202,12 +228,14 @@ async function requestPayloadJson(
   }
 }
 
-function readInit(accessToken: string, timeoutMs = REQUEST_TIMEOUT_MS): RequestInit {
+function readInit(accessToken: string, timeoutMs = REQUEST_TIMEOUT_MS, signal?: AbortSignal): RequestInit {
   return {
     cache: "no-store",
     headers: requestHeaders(accessToken),
     redirect: "error",
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
+      : AbortSignal.timeout(timeoutMs),
   }
 }
 
@@ -379,7 +407,12 @@ function workflowsEndpoint(collection: "reviewAppeals" | "reviewResponses", revi
   return endpoint
 }
 
-async function loadWorkflows(accessToken: string, reviewIds: readonly string[], fetcher: typeof fetch) {
+async function loadWorkflows(
+  accessToken: string,
+  reviewIds: readonly string[],
+  fetcher: typeof fetch,
+  signal?: AbortSignal,
+) {
   if (reviewIds.length === 0) {
     return {
       appeals: new Map<string, ReviewAppealWorkflow>(),
@@ -389,8 +422,16 @@ async function loadWorkflows(accessToken: string, reviewIds: readonly string[], 
   }
 
   const [responseResult, appealResult] = await Promise.all([
-    requestPayloadJson(workflowsEndpoint("reviewResponses", reviewIds), readInit(accessToken), fetcher),
-    requestPayloadJson(workflowsEndpoint("reviewAppeals", reviewIds), readInit(accessToken), fetcher),
+    requestPayloadJson(
+      workflowsEndpoint("reviewResponses", reviewIds),
+      readInit(accessToken, REQUEST_TIMEOUT_MS, signal),
+      fetcher,
+    ),
+    requestPayloadJson(
+      workflowsEndpoint("reviewAppeals", reviewIds),
+      readInit(accessToken, REQUEST_TIMEOUT_MS, signal),
+      fetcher,
+    ),
   ])
   if (!responseResult.ok) return { error: readError(responseResult), ok: false } as const
   if (!appealResult.ok) return { error: readError(appealResult), ok: false } as const
@@ -505,6 +546,36 @@ export function createPayloadReviewProvider(
   fetcher: typeof fetch = fetch,
 ): ReviewProvider {
   return {
+    async loadReview(reviewId, signal) {
+      if (!clinicReviewDetailIdSchema.safeParse(reviewId).success)
+        return { ok: false, error: "invalid-input" }
+      const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      const sharedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
+      const result = await requestPayloadJson(
+        endpointFor(`/api/clinic-dashboard/reviews/${encodeURIComponent(reviewId)}`),
+        {
+          ...readInit(accessToken, REQUEST_TIMEOUT_MS, sharedSignal),
+          headers: { ...requestHeaders(accessToken), ...clinicDashboardContractHeaders() },
+        },
+        fetcher,
+      )
+      if (!result.ok) {
+        if ("status" in result) {
+          const parsedError = exactReviewErrorSchema.safeParse(result.value)
+          if (!parsedError.success || exactReviewErrorStatuses[parsedError.data.error.code] !== result.status)
+            return { ok: false, error: "invalid-data" }
+        }
+        const error = changeError(result)
+        return { ok: false, error: error === "conflict" ? "unavailable" : error }
+      }
+      const parsed = clinicReviewDetailResponseSchema.safeParse(result.value)
+      if (!parsed.success || parsed.data.data.id !== reviewId) return { ok: false, error: "invalid-data" }
+      const workflows = await loadWorkflows(accessToken, [reviewId], fetcher, sharedSignal)
+      if (!workflows.ok) return workflows
+      if (sharedSignal.aborted) return { ok: false, error: "timeout" }
+      const review = mapReview(parsed.data.data, workflows.responses, workflows.appeals)
+      return review ? { ok: true, value: review } : { ok: false, error: "invalid-data" }
+    },
     async loadHistory(reviewId, cursor) {
       const reviewResult = await requestPayloadJson(
         endpointFor(`/api/reviews/${encodeURIComponent(reviewId)}?depth=1`),

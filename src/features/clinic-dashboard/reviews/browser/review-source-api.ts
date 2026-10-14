@@ -15,6 +15,9 @@ const errorSchema = z.object({ code: z.string() })
 async function parseError(response: Response | undefined) {
   if (!response) return new ReviewSourceCommandError("unknown", "The review service is unavailable.")
   const parsed = errorSchema.safeParse(await response.json().catch(() => null))
+  if (response.status === 401) return new ReviewSourceCommandError("unauthorized", "Your session has ended.")
+  if (response.status === 403)
+    return new ReviewSourceCommandError("forbidden", "Review access is unavailable.")
   if (response.status === 404) return new ReviewSourceCommandError("not-found", "The review was not found.")
   if (response.status === 409 && parsed.success && parsed.data.code === "REVIEW_HISTORY_CHANGED") {
     return new ReviewSourceCommandError("history-changed", "The history changed while it was open.")
@@ -29,9 +32,10 @@ async function parseError(response: Response | undefined) {
   return new ReviewSourceCommandError("unknown", "The review service is unavailable.")
 }
 
-async function getJson<T>(url: string, schema: z.ZodType<T>) {
+async function getJson<T>(url: string, schema: z.ZodType<T>, signal?: AbortSignal) {
   const response = await fetch(url, {
     cache: "no-store",
+    signal,
     credentials: "same-origin",
     redirect: "error",
   }).catch(() => undefined)
@@ -62,6 +66,17 @@ async function postJson<T>(url: string, body: unknown, schema: z.ZodType<T>) {
 
 export function createReviewSourceApiCommands(): ReviewSourceCommands {
   return {
+    async loadReview(reviewId, signal) {
+      const timeout = AbortSignal.timeout(8_000)
+      const review = await getJson(
+        `/api/dashboard/reviews/${encodeURIComponent(reviewId)}`,
+        clinicReviewRecordSchema,
+        signal ? AbortSignal.any([signal, timeout]) : timeout,
+      )
+      if (review.id !== reviewId)
+        throw new ReviewSourceCommandError("unknown", "The review response was invalid.")
+      return review
+    },
     loadHistory(reviewId, cursor) {
       const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
       return getJson(

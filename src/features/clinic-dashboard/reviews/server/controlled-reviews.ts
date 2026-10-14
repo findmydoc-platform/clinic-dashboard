@@ -316,6 +316,10 @@ function history(reviewId: string, cursor?: string): ReviewHistorySnapshot {
 
 export function createControlledReviewProvider(): ReviewProvider {
   return {
+    async loadReview(reviewId) {
+      const review = controlledState().reviews.find(({ id }) => id === reviewId)
+      return review ? { ok: true, value: structuredClone(review) } : { ok: false, error: "not-found" }
+    },
     async loadHistory(reviewId, cursor) {
       const review = controlledState().reviews.find(({ id }) => id === reviewId)
       return review ? { ok: true, value: history(reviewId, cursor) } : { error: "not-found", ok: false }

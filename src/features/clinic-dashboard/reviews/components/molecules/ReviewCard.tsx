@@ -88,6 +88,9 @@ export function ReviewCard({ onAppealOpen, onHistoryOpen, onResponseOpen, review
 
       {review.response ? (
         <section
+          data-review-anchor-kind="response"
+          data-review-anchor-id={review.response.id}
+          tabIndex={-1}
           aria-label={`Clinic response for ${review.author}, ${review.treatment.label}`}
           className="mt-5 space-y-3 border-l-4 border-[var(--primary)] bg-[var(--surface)] p-4"
         >
@@ -112,7 +115,13 @@ export function ReviewCard({ onAppealOpen, onHistoryOpen, onResponseOpen, review
       ) : null}
 
       {review.appeal ? (
-        <section aria-label="Review appeal" className="mt-5 rounded-lg border border-[var(--border)] p-4">
+        <section
+          data-review-anchor-kind="appeal"
+          data-review-anchor-id={review.appeal.id}
+          tabIndex={-1}
+          aria-label="Review appeal"
+          className="mt-5 rounded-lg border border-[var(--border)] p-4"
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-bold">Appeal · {reviewAppealReasonLabel(review.appeal.reason)}</h3>
             <span className="text-xs font-bold text-[var(--foreground)]">

@@ -1,3 +1,4 @@
+import reviewDetailCases from "../fixtures/clinic-review-detail-v1.json"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   createControlledReviewProvider,
@@ -411,5 +412,133 @@ describe("review provider contract", () => {
       ),
     ).resolves.toEqual({ error: "invalid-data", ok: false })
     expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("ordinary exact review detail contract", () => {
+  beforeEach(() => {
+    vi.stubEnv("CSRF_SIGNING_SECRET", "controlled-review-provider-test-secret")
+    vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
+    vi.stubEnv("NODE_ENV", "test")
+    vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
+    vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
+  })
+  it.each(reviewDetailCases.accepted)(
+    "accepts a Website-owned minimized current projection",
+    async (body) => {
+      const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input))
+        return Response.json(url.pathname.startsWith("/api/clinic-dashboard/reviews/") ? body : { docs: [] })
+      })
+      const result = await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview(
+        "review-204",
+      )
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value.id).toBe("review-204")
+        expect(result.value.author).toBe(body.data.publicAuthorName ?? "Anonymous patient")
+        expect(result.value.publicText).toBe(
+          "comment" in body.data
+            ? body.data.comment
+            : "publicComment" in body.data
+              ? body.data.publicComment
+              : undefined,
+        )
+      }
+      expect(fetcher.mock.calls[0][0].toString()).toBe(
+        "https://preview.findmydoc.eu/api/clinic-dashboard/reviews/review-204",
+      )
+    },
+  )
+  it.each(reviewDetailCases.rejected)("rejects unknown and prohibited projected details", async (body) => {
+    const fetcher = vi.fn(async () => Response.json(body))
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("review-204"),
+    ).toEqual({ ok: false, error: "invalid-data" })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it("rejects a detail for another selected record", async () => {
+    const fetcher = vi.fn(async () => Response.json(reviewDetailCases.accepted[0]))
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("another-review"),
+    ).toEqual({ ok: false, error: "invalid-data" })
+  })
+})
+
+describe("exact review read failure boundaries", () => {
+  beforeEach(() => {
+    vi.stubEnv("CSRF_SIGNING_SECRET", "controlled-review-provider-test-secret")
+    vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
+    vi.stubEnv("NODE_ENV", "test")
+    vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
+    vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
+  })
+  it.each([
+    { status: 400, code: "INVALID_INPUT", error: "invalid-input" },
+    { status: 401, code: "UNAUTHENTICATED", error: "unauthorized" },
+    { status: 403, code: "CONTENT_ACCESS_DENIED", error: "forbidden" },
+    { status: 404, code: "TARGET_UNAVAILABLE", error: "not-found" },
+    { status: 503, code: "SERVICE_UNAVAILABLE", error: "unavailable" },
+  ])("preserves the closed $code outcome without a historical read", async ({ status, code, error }) => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ error: { code } }, { status }),
+    )
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("review-204"),
+    ).toEqual({ ok: false, error })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(fetcher.mock.calls[0][1]).toMatchObject({
+      cache: "no-store",
+      redirect: "error",
+      headers: {
+        Authorization: "Bearer access-token",
+        "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+      },
+    })
+  })
+  it("rejects an unknown error instead of claiming the exact target is missing", async () => {
+    const fetcher = vi.fn(async () => Response.json({ error: { code: "FUTURE_ERROR" } }, { status: 404 }))
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("review-204"),
+    ).toEqual({ ok: false, error: "invalid-data" })
+  })
+  it("bounds the combined detail and workflow reads by eight seconds", async () => {
+    vi.useFakeTimers()
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((delay) => {
+      const abort = new AbortController()
+      setTimeout(() => abort.abort(new DOMException("Timed out", "TimeoutError")), delay)
+      return abort.signal
+    })
+    try {
+      const fetcher = vi.fn(
+        (input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((resolve, reject) => {
+            const signal = init!.signal!
+            signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+            setTimeout(
+              () =>
+                resolve(
+                  Response.json(
+                    new URL(String(input)).pathname.startsWith("/api/clinic-dashboard/reviews/")
+                      ? reviewDetailCases.accepted[0]
+                      : { docs: [] },
+                  ),
+                ),
+              5_000,
+            )
+          }),
+      )
+      const read = createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("review-204")
+      await vi.advanceTimersByTimeAsync(8_000)
+      expect(await read).toEqual({ ok: false, error: "timeout" })
+      expect(fetcher).toHaveBeenCalledTimes(3)
+    } finally {
+      timeout.mockRestore()
+      vi.useRealTimers()
+    }
   })
 })

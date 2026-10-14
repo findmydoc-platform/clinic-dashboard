@@ -1,3 +1,5 @@
+import type { ReviewOpeningRequest, ReviewOpeningResult } from "../../model/review-opening"
+import { ReviewDetailPanel } from "./ReviewDetailPanel"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageHeading } from "@/components/ui/page-heading"
@@ -57,10 +59,16 @@ function DialogSlot({
 export function ReviewsScreen({
   actions,
   model,
+  openingRequest,
+  onOpeningResult,
+  onExactReviewClose,
   onNavigationRequestChange,
 }: Readonly<{
   actions: ReviewsActions
   model: ReviewsViewModel
+  openingRequest?: ReviewOpeningRequest
+  onOpeningResult?: (result: ReviewOpeningResult) => void
+  onExactReviewClose?: () => void
   onNavigationRequestChange?: NavigationRegistration
 }>) {
   return (
@@ -78,6 +86,16 @@ export function ReviewsScreen({
         </Button>
       </div>
 
+      {model.exactReview ? (
+        <ReviewDetailPanel
+          detail={model.exactReview}
+          actions={actions}
+          showManagement={model.showManagement}
+          openingRequest={openingRequest}
+          onOpeningResult={onOpeningResult}
+          onClose={onExactReviewClose}
+        />
+      ) : null}
       {model.summary ? (
         <section aria-label="Review summary" className="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
           <Card>

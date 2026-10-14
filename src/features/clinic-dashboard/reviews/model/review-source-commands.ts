@@ -7,7 +7,14 @@ import type {
 } from "./review-source"
 
 export type ReviewSourceCommandErrorKind =
-  "conflict" | "history-changed" | "not-found" | "rejected" | "timeout" | "unknown"
+  | "unauthorized"
+  | "forbidden"
+  | "conflict"
+  | "history-changed"
+  | "not-found"
+  | "rejected"
+  | "timeout"
+  | "unknown"
 
 export class ReviewSourceCommandError extends Error {
   readonly kind: ReviewSourceCommandErrorKind
@@ -20,6 +27,7 @@ export class ReviewSourceCommandError extends Error {
 }
 
 export type ReviewSourceCommands = Readonly<{
+  loadReview: (reviewId: string, signal?: AbortSignal) => Promise<ClinicReviewRecord>
   loadHistory: (reviewId: string, cursor?: string) => Promise<ReviewHistorySnapshot>
   loadReviews: (filters: ReviewListFilters, page: number) => Promise<ReviewsSourceSnapshot>
   submitAppeal: (

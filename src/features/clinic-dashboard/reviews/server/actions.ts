@@ -137,3 +137,17 @@ export async function handleReviewHistoryLoad(
     return result.ok ? privateJson(result.value) : historyError(result.error)
   })
 }
+
+export async function handleReviewDetailLoad(
+  request: NextRequest,
+  reviewIdValue: string,
+  factory: ReviewProviderFactory,
+) {
+  const reviewId = reviewIdSchema.safeParse(reviewIdValue)
+  if (!reviewId.success || request.nextUrl.searchParams.size > 0)
+    return privateJson({ code: "INVALID_INPUT" }, 400)
+  return withAccess(request, factory, async (provider) => {
+    const result = await provider.loadReview(reviewId.data, request.signal)
+    return result.ok ? privateJson(result.value) : changeError(result.error)
+  })
+}

@@ -21,6 +21,7 @@ export function useNotificationCenterController(
   const generation = useRef(0)
   const pending = useRef(false)
   const openingAbort = useRef<AbortController | undefined>(undefined)
+  const [openingKind, setOpeningKind] = useState<NotificationItem["destination"]["kind"]>()
   const [openingId, setOpeningId] = useState<string>()
   const [opening, setOpening] = useState<NotificationOpeningState>("idle")
   const mounted = useRef(true)
@@ -183,6 +184,7 @@ export function useNotificationCenterController(
     openingAbort.current = abort
     const selection = Object.freeze(item.members.map((member) => member.notificationId))
     const requestId = crypto.randomUUID()
+    setOpeningKind(item.destination.kind)
     setOpeningId(requestId)
     setOpening("pending")
     setMarking({ status: "idle" })
@@ -204,6 +206,7 @@ export function useNotificationCenterController(
       marking,
       opening,
       openingId,
+      openingKind,
       isRetryBlocked: retryAt !== undefined && retryAt > now,
     },
     actions: {

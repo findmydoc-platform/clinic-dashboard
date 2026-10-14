@@ -10,12 +10,17 @@ import type {
 
 export type ReviewReadError = "forbidden" | "invalid-data" | "timeout" | "unauthorized" | "unavailable"
 export type ReviewChangeError = ReviewReadError | "conflict" | "invalid-input" | "not-found"
+export type ReviewDetailError = ReviewReadError | "invalid-input" | "not-found"
 export type ReviewHistoryError = ReviewReadError | "history-changed" | "not-found"
 
 export type ReviewProviderResult<TValue, TError extends string> =
   Readonly<{ ok: true; value: TValue }> | Readonly<{ error: TError; ok: false }>
 
 export type ReviewProvider = Readonly<{
+  loadReview: (
+    reviewId: string,
+    signal?: AbortSignal,
+  ) => Promise<ReviewProviderResult<ClinicReviewRecord, ReviewDetailError>>
   loadHistory: (
     reviewId: string,
     cursor?: string,

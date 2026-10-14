@@ -30,7 +30,7 @@ import {
   notificationCommandsFixture,
   notificationPageFixture,
 } from "@/features/clinic-dashboard/notifications/testing/public"
-import type { ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
+import type { ReviewSourceCommands, ReviewsSnapshot } from "@/features/clinic-dashboard/reviews/public"
 import {
   createReviewSourceCommandsFixture,
   reviewSourceSnapshotFixture,
@@ -52,6 +52,7 @@ import {
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
   Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
+    reviewCommands?: ReviewSourceCommands
     inquiryCommands?: InquiryWorkspaceCommands
     notificationCommands?: NotificationCommands
     notificationState?: Readonly<{
@@ -191,6 +192,7 @@ export const clinicDashboardWorkspaceFixture = {
 export function ClinicDashboardWorkspaceHarness({
   focusInquiryId,
   inquiryCommands,
+  reviewCommands: suppliedReviewCommands,
   notificationCommands,
   notificationState,
   profileProgress,
@@ -223,7 +225,7 @@ export function ClinicDashboardWorkspaceHarness({
         isSourceRefreshPending={false}
         onSourceRefresh={() => undefined}
         prototypeMode={prototypeMode}
-        reviewCommands={reviewCommands}
+        reviewCommands={suppliedReviewCommands ?? reviewCommands}
         showPrototypeModeToggle={showPrototypeModeToggle}
         start={start}
         workspaceInput={{
