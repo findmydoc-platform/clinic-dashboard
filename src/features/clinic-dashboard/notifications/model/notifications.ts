@@ -55,3 +55,14 @@ export function notificationFailureCopy(error: NotificationErrorCode) {
   if (error === "PAYLOAD_TOO_LARGE") return "Some notifications couldn't be loaded."
   return "Notifications couldn't be loaded."
 }
+
+export type NotificationOpeningRequest = Readonly<{
+  requestId: string
+  destination: NotificationItem["destination"]
+}>
+export type NotificationOpeningOutcome = "displayed" | "unavailable" | "cancelled"
+export type NotificationDestinationOpen = (
+  request: NotificationOpeningRequest,
+  signal: AbortSignal,
+) => Promise<NotificationOpeningOutcome>
+export type NotificationOpeningState = "idle" | "pending" | NotificationOpeningOutcome

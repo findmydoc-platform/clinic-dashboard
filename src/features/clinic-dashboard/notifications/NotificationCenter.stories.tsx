@@ -348,3 +348,201 @@ export const KeyboardMarkingInAll: Story = {
     await waitFor(() => expect(canvas.getByRole("tab", { name: "All" })).toHaveFocus())
   },
 }
+
+export const OpensBeforePersonalMarking: Story = {
+  args: { onDestinationOpen: fn(), commands: { ...commands, markRead: fn(commands.markRead) } },
+  render: function Opening(args) {
+    const [open, setOpen] = useState(true)
+    const [target] = useState(() => {
+      let display: (() => void) | undefined
+      return {
+        open: async () => {
+          await new Promise<void>((resolve) => {
+            display = resolve
+          })
+          return "displayed" as const
+        },
+        display: () => display?.(),
+      }
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <button onClick={target.display}>Display exact destination</button>
+        <NotificationCenter {...args} open={open} onOpenChange={setOpen} onDestinationOpen={target.open} />
+      </div>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Open Synthetic event" }))
+    await expect(args.commands.markRead).not.toHaveBeenCalled()
+    await userEvent.click(canvas.getByRole("button", { name: "Display exact destination" }))
+    await waitFor(() =>
+      expect(args.commands.markRead).toHaveBeenCalledWith({ notificationIds: ["notification-001"] }),
+    )
+  },
+}
+export const UnavailableTargetAllowsExplicitMarking: Story = {
+  args: {
+    onDestinationOpen: fn(async () => "unavailable" as const),
+    commands: { ...commands, markRead: fn(commands.markRead) },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "Notifications, 1 unread notification" }))
+    await userEvent.click(await canvas.findByRole("button", { name: "Open Synthetic event" }))
+    await expect(
+      await canvas.findByText("This inquiry is unavailable. You can still mark the notification as read."),
+    ).toBeVisible()
+    await expect(args.commands.markRead).not.toHaveBeenCalled()
+    await userEvent.click(await canvas.findByRole("button", { name: "Options for Synthetic event" }))
+    await userEvent.click(await canvas.findByRole("menuitem", { name: "Mark as read: Synthetic event" }))
+    await waitFor(() => expect(args.commands.markRead).toHaveBeenCalledOnce())
+  },
+}
+
+export const OpeningKeepsOriginalMembersDuringRefresh: Story = {
+  args: { commands: { ...commands, markRead: fn(commands.markRead) } },
+  render: function FixedOpening(args) {
+    const [source] = useState(() => {
+      let finish: (() => void) | undefined
+      let reads = 0
+      return {
+        finish: () => finish?.(),
+        open: async () => {
+          await new Promise<void>((resolve) => {
+            finish = resolve
+          })
+          return "displayed" as const
+        },
+        commands: {
+          ...args.commands,
+          async load(query: import("./model/notifications").NotificationReadQuery) {
+            reads += 1
+            if (page.mode !== "page") throw new Error("Expected page")
+            const base = page.items[0]!
+            return {
+              ok: true as const,
+              value: {
+                ...page,
+                view: query.mode === "page" ? query.view : ("unread" as const),
+                items: [
+                  {
+                    ...base,
+                    kind: "patient_message_group" as const,
+                    display: { eventLabel: reads > 1 ? "3 new messages" : "2 new messages" },
+                    members: ["selected-a", "selected-b", ...(reads > 1 ? ["later-c"] : [])].map((id) => ({
+                      ...base.members[0]!,
+                      sourceRecord: { kind: "inquiry" as const, id: "record-001" },
+                      notificationId: id,
+                      eventType: "patient_message_received" as const,
+                      sourceOccurrence: { kind: "patient_message" as const, id },
+                    })),
+                  },
+                ],
+              },
+            }
+          },
+        },
+      }
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <button onClick={source.finish}>Display selected inquiry</button>
+        <NotificationCenter
+          {...args}
+          commands={source.commands}
+          open={true}
+          onDestinationOpen={source.open}
+        />
+      </div>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Open 2 new messages" }))
+    await userEvent.click(canvas.getByRole("tab", { name: "All" }))
+    await expect(await canvas.findByText("3 new messages")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Display selected inquiry" }))
+    await waitFor(() =>
+      expect(args.commands.markRead).toHaveBeenCalledWith({ notificationIds: ["selected-a", "selected-b"] }),
+    )
+  },
+}
+export const ScopeReplacementCancelsPendingOpening: Story = {
+  args: { commands: { ...commands, markRead: fn(commands.markRead) } },
+  render: function ChangedScope(args) {
+    const [scope, setScope] = useState("first-scope")
+    const [target] = useState(() => {
+      let finish: (() => void) | undefined
+      return {
+        finish: () => finish?.(),
+        open: async () => {
+          await new Promise<void>((resolve) => {
+            finish = resolve
+          })
+          return "displayed" as const
+        },
+      }
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <button onClick={() => setScope("new-scope")}>Change authenticated scope</button>
+        <button onClick={target.finish}>Finish previous opening</button>
+        <NotificationCenter key={scope} {...args} open={true} onDestinationOpen={target.open} />
+      </div>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Open Synthetic event" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Change authenticated scope" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Finish previous opening" }))
+    await expect(args.commands.markRead).not.toHaveBeenCalled()
+  },
+}
+
+export const MobileKeyboardOpening: Story = {
+  args: {
+    open: true,
+    onDestinationOpen: fn(async () => "displayed" as const),
+    commands: { ...commands, markRead: fn(commands.markRead) },
+  },
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByRole("button", { name: "Open Synthetic event" })).toBeVisible()
+    await userEvent.keyboard("{Tab}{Tab}")
+    await expect(canvas.getByRole("button", { name: "Open Synthetic event" })).toHaveFocus()
+    await userEvent.keyboard("{Enter}")
+    await waitFor(() => expect(args.onDestinationOpen).toHaveBeenCalledOnce())
+    await waitFor(() =>
+      expect(args.commands.markRead).toHaveBeenCalledWith({ notificationIds: ["notification-001"] }),
+    )
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+export const DarkOpenedTargetWithUnknownReceipt: Story = {
+  args: {
+    open: true,
+    onDestinationOpen: fn(async () => "displayed" as const),
+    commands: {
+      ...commands,
+      markRead: fn(async () => ({
+        ok: false as const,
+        error: "SERVICE_UNAVAILABLE" as const,
+        writeOutcome: "unknown" as const,
+      })),
+    },
+  },
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Open Synthetic event" }))
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "We couldn't confirm whether these notifications were marked as read.",
+    )
+    await expect(args.onDestinationOpen).toHaveBeenCalledOnce()
+    await expect(canvas.getByRole("button", { name: "Check status" })).toBeEnabled()
+  },
+}

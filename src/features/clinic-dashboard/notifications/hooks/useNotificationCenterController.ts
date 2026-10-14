@@ -2,6 +2,9 @@
 import { useEffect, useRef, useState, useEffectEvent } from "react"
 import {
   notificationRetryAt,
+  type NotificationDestinationOpen,
+  type NotificationOpeningState,
+  type NotificationItem,
   type NotificationCommands,
   type NotificationLoadState,
   type NotificationView,
@@ -12,10 +15,14 @@ export function useNotificationCenterController(
   commands: NotificationCommands,
   initialState: NotificationLoadState,
   open: boolean,
+  onDestinationOpen?: NotificationDestinationOpen,
 ) {
   const blockAutomaticReads = useRef(false)
   const generation = useRef(0)
   const pending = useRef(false)
+  const openingAbort = useRef<AbortController | undefined>(undefined)
+  const [openingId, setOpeningId] = useState<string>()
+  const [opening, setOpening] = useState<NotificationOpeningState>("idle")
   const mounted = useRef(true)
   const [marking, setMarking] = useState<NotificationMarkState>({ status: "idle" })
   const hasConfirmedMark = useEffectEvent(
@@ -25,6 +32,7 @@ export function useNotificationCenterController(
   useEffect(() => {
     mounted.current = true
     return () => {
+      openingAbort.current?.abort()
       mounted.current = false
       generation.current += 1
     }
@@ -88,8 +96,11 @@ export function useNotificationCenterController(
         if (
           !result.ok &&
           ["UNAUTHENTICATED", "CLINIC_ACCESS_DENIED", "CONTENT_ACCESS_DENIED"].includes(result.error)
-        )
+        ) {
+          openingAbort.current?.abort()
+          setOpening("cancelled")
           setCountState(state)
+        }
       })
       .catch(() => {
         if (!abort.signal.aborted && currentGeneration === generation.current) {
@@ -137,8 +148,9 @@ export function useNotificationCenterController(
     countState.status === "ready" && "unreadCount" in countState.response
       ? countState.response.unreadCount
       : undefined
-  async function markRead(notificationIds: readonly string[]) {
+  async function markRead(notificationIds: readonly string[], fromOpening = false) {
     if (pending.current || (retryAt !== undefined && retryAt > Date.now())) return
+    if (!fromOpening) setOpening("idle")
     const selection = Object.freeze([...notificationIds])
     pending.current = true
     generation.current += 1
@@ -164,9 +176,38 @@ export function useNotificationCenterController(
       setNow(Date.now())
     }
   }
+  async function openItem(item: NotificationItem) {
+    if (!onDestinationOpen || pending.current || (retryAt !== undefined && retryAt > Date.now())) return
+    openingAbort.current?.abort()
+    const abort = new AbortController()
+    openingAbort.current = abort
+    const selection = Object.freeze(item.members.map((member) => member.notificationId))
+    const requestId = crypto.randomUUID()
+    setOpeningId(requestId)
+    setOpening("pending")
+    setMarking({ status: "idle" })
+    let outcome
+    try {
+      outcome = await onDestinationOpen({ requestId, destination: item.destination }, abort.signal)
+    } catch {
+      outcome = "unavailable" as const
+    }
+    if (abort.signal.aborted || !mounted.current) return
+    setOpening(outcome)
+    if (outcome === "displayed") await markRead(selection, true)
+  }
   return {
-    model: { state, unreadCount, view, marking, isRetryBlocked: retryAt !== undefined && retryAt > now },
+    model: {
+      state,
+      unreadCount,
+      view,
+      marking,
+      opening,
+      openingId,
+      isRetryBlocked: retryAt !== undefined && retryAt > now,
+    },
     actions: {
+      openItem: onDestinationOpen ? openItem : undefined,
       selectView: (next: NotificationView) => {
         blockAutomaticReads.current = false
         setView(next)

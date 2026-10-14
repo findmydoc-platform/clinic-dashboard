@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useId, useRef, useState, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { Bell, X, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu } from "@/components/ui/dropdown-menu"
@@ -7,6 +8,8 @@ import { RatingStars } from "@/components/ui/rating-stars"
 import { cn } from "@/lib/utils"
 import {
   notificationFailureCopy,
+  type NotificationOpeningState,
+  type NotificationItem,
   type NotificationLoadState,
   type NotificationView,
   type NotificationMarkState,
@@ -16,6 +19,8 @@ type NotificationCenterPanelProps = Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
   model: Readonly<{
+    openingId?: string
+    opening?: NotificationOpeningState
     state: NotificationLoadState
     unreadCount?: number
     view: NotificationView
@@ -23,6 +28,7 @@ type NotificationCenterPanelProps = Readonly<{
     isRetryBlocked?: boolean
   }>
   actions: Readonly<{
+    openItem?: (item: NotificationItem) => void
     selectView: (view: NotificationView) => void
     retry: () => void
     markRead: (ids: readonly string[]) => void
@@ -97,6 +103,8 @@ export function NotificationCenterPanel({
   const state = model.state
   const items = state.status === "ready" && state.response.mode === "page" ? state.response.items : []
   const marking = model.marking ?? { status: "idle" }
+  const [dismissedFeedback, setDismissedFeedback] =
+    useState<Readonly<{ openingId?: string; selection?: readonly string[] }>>()
   const markedSelection = "notificationIds" in marking ? marking.notificationIds : undefined
   const restoredSelection = useRef<readonly string[] | undefined>(undefined)
   const hasReadyFeed = state.status === "ready"
@@ -152,6 +160,36 @@ export function NotificationCenterPanel({
           </span>
         ) : null}
       </Button>
+      {!open &&
+      (markMessage || model.opening === "unavailable") &&
+      (!dismissedFeedback ||
+        dismissedFeedback.openingId !== model.openingId ||
+        dismissedFeedback.selection !== markedSelection)
+        ? createPortal(
+            <div className="fixed right-4 bottom-4 z-50 max-w-[calc(100vw-2rem)] rounded-lg border border-[var(--border)] bg-[var(--background)] p-4 shadow-lg">
+              <p role={marking.status === "unknown" || marking.status === "rejected" ? "alert" : "status"}>
+                {model.opening === "unavailable"
+                  ? "This inquiry is unavailable. You can still mark the notification as read."
+                  : `${model.opening === "displayed" ? "Inquiry opened. " : ""}${markMessage}`}
+              </p>
+              <Button variant="ghost" onClick={() => onOpenChange(true)}>
+                View notification status
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Dismiss notification status"
+                disabled={marking.status === "pending"}
+                onClick={() =>
+                  setDismissedFeedback({ openingId: model.openingId, selection: markedSelection })
+                }
+              >
+                <X aria-hidden="true" className="size-4" />
+              </Button>
+            </div>,
+            document.body,
+          )
+        : null}
       <dialog
         ref={attachDialog}
         id={id}
@@ -176,6 +214,16 @@ export function NotificationCenterPanel({
               <X aria-hidden="true" className="size-5" />
             </Button>
           </div>
+          {model.opening === "unavailable" ? (
+            <p role="status" className="px-4 py-3 text-sm">
+              This inquiry is unavailable. You can still mark the notification as read.
+            </p>
+          ) : null}
+          {model.opening === "pending" ? (
+            <p role="status" className="px-4 py-3 text-sm">
+              Opening inquiry…
+            </p>
+          ) : null}
           {markMessage ? (
             <div className="shrink-0 border-b border-[var(--border)] px-4 py-3 text-sm">
               <p
@@ -316,9 +364,24 @@ export function NotificationCenterPanel({
                         )}
                       >
                         <div className="min-w-0">
-                          <p className={cn("text-sm break-words", isUnread && "font-bold")}>
-                            {item.display.eventLabel}
-                          </p>
+                          {actions.openItem && item.destination.kind === "inquiry" ? (
+                            <button
+                              type="button"
+                              aria-label={`Open ${item.display.eventLabel}${item.display.displayName ? ` from ${item.display.displayName}` : ""}`}
+                              className={cn(
+                                "min-h-11 text-left text-sm break-words underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-[var(--primary)]",
+                                isUnread && "font-bold",
+                              )}
+                              disabled={marking.status === "pending" || model.isRetryBlocked}
+                              onClick={() => actions.openItem?.(item)}
+                            >
+                              {item.display.eventLabel}
+                            </button>
+                          ) : (
+                            <p className={cn("text-sm break-words", isUnread && "font-bold")}>
+                              {item.display.eventLabel}
+                            </p>
+                          )}
                           {item.display.displayName ? (
                             <p className="mt-1 text-sm break-words">{item.display.displayName}</p>
                           ) : null}

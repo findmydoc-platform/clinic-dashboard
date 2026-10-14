@@ -8,7 +8,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   optimizeDeps: {
-    include: ["next/link"],
+    include: ["next/link", "react-dom"],
   },
   resolve: {
     alias: {

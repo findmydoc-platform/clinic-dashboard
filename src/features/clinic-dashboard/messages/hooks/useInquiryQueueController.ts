@@ -104,6 +104,7 @@ export function useInquiryQueueController({
 }: UseInquiryQueueControllerInput): Readonly<{
   actions: InquiryWorkspaceActions
   model: InquiryWorkspaceViewModel
+  openInquiry: (inquiryId: string) => Promise<boolean>
 }> {
   const [state, dispatch] = useReducer(inquiryQueueReducer, snapshot, createInquiryQueueState)
   const isMountedRef = useRef(true)
@@ -451,7 +452,7 @@ export function useInquiryQueueController({
         ...(knownChangeCursor === undefined ? {} : { knownChangeCursor }),
       })
       if (!isMountedRef.current || applySessionLoss(result)) return result
-      if (requestGeneration !== detailRequestGenerationRef.current) return result
+      if (requestGeneration !== detailRequestGenerationRef.current) return undefined
       if (!result.ok) {
         if (kind === "initial" && automaticReadIntentRef.current === inquiryId) {
           automaticReadIntentRef.current = undefined
@@ -1019,5 +1020,14 @@ export function useInquiryQueueController({
     updateReadPosition,
   ])
 
-  return { actions, model: { ...model, attachmentAccessPaths } }
+  const openInquiry = useCallback(
+    async (inquiryId: string) => {
+      selectedInquiryIdRef.current = inquiryId
+      const result = await loadSelectedInquiry(inquiryId, "initial")
+      return Boolean(result?.ok && result.value.inquiry.id === inquiryId)
+    },
+    [loadSelectedInquiry],
+  )
+
+  return { actions, model: { ...model, attachmentAccessPaths }, openInquiry }
 }

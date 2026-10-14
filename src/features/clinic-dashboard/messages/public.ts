@@ -16,3 +16,5 @@ export {
   type PatientInquiryDetail,
   type PatientInquiryQueueSnapshot,
 } from "./model/inquiries"
+
+export type { InquiryOpeningRequest, InquiryOpeningResult } from "./model/inquiry-opening"

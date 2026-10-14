@@ -23,6 +23,8 @@ import {
   type DashboardProfileProgressState,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
+import type { InquiryWorkspaceCommands } from "@/features/clinic-dashboard/messages/public"
+import type { NotificationCommands } from "@/features/clinic-dashboard/notifications/public"
 import { inquiryQueueFixture } from "@/features/clinic-dashboard/messages/testing/public"
 import {
   notificationCommandsFixture,
@@ -50,6 +52,8 @@ import {
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
   Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
+    inquiryCommands?: InquiryWorkspaceCommands
+    notificationCommands?: NotificationCommands
     notificationState?: Readonly<{
       isOpen?: boolean
     }>
@@ -186,6 +190,8 @@ export const clinicDashboardWorkspaceFixture = {
 
 export function ClinicDashboardWorkspaceHarness({
   focusInquiryId,
+  inquiryCommands,
+  notificationCommands,
   notificationState,
   profileProgress,
   profileSourceSnapshot,
@@ -209,8 +215,9 @@ export function ClinicDashboardWorkspaceHarness({
         clinicTreatmentCommands={clinicTreatmentCommands}
         doctorProfileCommands={doctorProfileCommands}
         focusInquiryId={focusInquiryId}
+        inquiryCommands={inquiryCommands}
         initialNotifications={{ status: "ready", response: notificationPageFixture }}
-        notificationCommands={notificationCommandsFixture}
+        notificationCommands={notificationCommands ?? notificationCommandsFixture}
         initialNotificationsOpen={notificationState?.isOpen}
         initialReporting={{ reporting: clinicDashboardReportingFixture, status: "ready" }}
         isSourceRefreshPending={false}

@@ -52,6 +52,7 @@ export function ClinicDashboardWorkspace({
 
   return (
     <ClinicDashboardWorkspaceComposition
+      key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
       authenticatedContext={authenticatedContext}
       clinicGalleryCommands={clinicGalleryCommands}
       clinicProfileSourceCommands={clinicProfileSourceCommands}

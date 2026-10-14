@@ -1,5 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, userEvent, waitFor, within } from "storybook/test"
+import { expect, fn, userEvent, waitFor, within } from "storybook/test"
+import {
+  inquiryCommandsFixture,
+  closedInquiryFixture,
+} from "@/features/clinic-dashboard/messages/testing/public"
+import {
+  notificationCommandsFixture,
+  notificationPageFixture,
+} from "@/features/clinic-dashboard/notifications/testing/public"
 import { ClinicDashboardWorkspaceHarness } from "@/features/clinic-dashboard/workspace/testing/public"
 
 const meta = {
@@ -44,7 +52,7 @@ export const PresentationSupportFlowIsAvailable: Story = {
   },
 }
 
-export const NotificationsAreReadOnlyUntilDestinationSupport: Story = {
+export const NotificationsKeepWorkspaceUntilOpening: Story = {
   args: { prototypeMode: "presentation" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -104,5 +112,79 @@ export const MobileNavigation: Story = {
     const navigation = await canvas.findByRole("dialog", { name: "Clinic navigation" })
     await userEvent.click(within(navigation).getByRole("button", { name: "Clinic profile" }))
     await expect(await canvas.findByRole("heading", { level: 1, name: "Clinic profile" })).toBeVisible()
+  },
+}
+
+export const NotificationOpeningPreservesInquiryDraftOnCancel: Story = {
+  args: {
+    prototypeMode: "presentation",
+    start: { section: "messages" },
+    inquiryCommands: { ...inquiryCommandsFixture, loadDetail: fn(inquiryCommandsFixture.loadDetail) },
+    notificationCommands: {
+      ...notificationCommandsFixture,
+      markRead: fn(notificationCommandsFixture.markRead),
+      load: async (query) =>
+        query.mode === "summary"
+          ? notificationCommandsFixture.load(query)
+          : {
+              ok: true,
+              value: {
+                ...notificationPageFixture,
+                view: query.view,
+                items: [
+                  {
+                    ...notificationPageFixture.items[0]!,
+                    destination: { kind: "inquiry", inquiryId: closedInquiryFixture.id },
+                  },
+                ],
+              },
+            },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: /Lukas Weber/ }))
+    await userEvent.type(
+      await canvas.findByRole("textbox", { name: "Reply to patient" }),
+      "Keep this unsent reply.",
+    )
+    await userEvent.click(canvas.getByRole("button", { name: "Internal note" }))
+    await userEvent.type(canvas.getByRole("textbox", { name: "Internal note" }), "Keep this internal note.")
+    await userEvent.click(canvas.getByRole("button", { name: "Reply to patient" }))
+    await userEvent.upload(
+      canvas.getByLabelText("Choose reply attachment"),
+      new File(["synthetic attachment"], "unsent.png", { type: "image/png" }),
+    )
+    await expect(await canvas.findByText("unsent.png", { exact: true })).toBeVisible()
+    const calls = (args.inquiryCommands!.loadDetail as ReturnType<typeof fn>).mock.calls.length
+    const originalConfirm = window.confirm
+    window.confirm = fn(() => false)
+    try {
+      await userEvent.click(canvas.getByRole("button", { name: "Notifications, 2 unread notifications" }))
+      await userEvent.click(await canvas.findByRole("button", { name: "Open New inquiry from Ada Patient" }))
+      await expect(args.inquiryCommands!.loadDetail).toHaveBeenCalledTimes(calls)
+      await expect(args.notificationCommands!.markRead).not.toHaveBeenCalled()
+      await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
+      await expect(canvas.getByRole("textbox", { name: "Reply to patient" })).toHaveValue(
+        "Keep this unsent reply.",
+      )
+      await expect(canvas.getByText("unsent.png", { exact: true })).toBeVisible()
+      await userEvent.click(canvas.getByRole("button", { name: "Internal note" }))
+      await expect(canvas.getByRole("textbox", { name: "Internal note" })).toHaveValue(
+        "Keep this internal note.",
+      )
+      await userEvent.click(canvas.getByRole("button", { name: "Reply to patient" }))
+      window.confirm = fn(() => true)
+      await userEvent.click(canvas.getByRole("button", { name: "Notifications, 2 unread notifications" }))
+      await userEvent.click(await canvas.findByRole("button", { name: "Open New inquiry from Ada Patient" }))
+      await expect(await canvas.findByRole("region", { name: "Inquiry from Markus Schmidt" })).toBeVisible()
+      await waitFor(() =>
+        expect(args.notificationCommands!.markRead).toHaveBeenCalledWith({
+          notificationIds: ["fixture-notification-1"],
+        }),
+      )
+    } finally {
+      window.confirm = originalConfirm
+    }
   },
 }

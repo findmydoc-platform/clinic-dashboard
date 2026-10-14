@@ -200,13 +200,35 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
       }),
     ]),
   )
-  await center.getByRole("button", { name: "Options for New inquiry from Notification Arrival" }).click()
+  await center.getByRole("button", { name: "Close notifications" }).click()
+  await refreshedDetail
+    .getByRole("textbox", { name: "Reply to patient" })
+    .fill("Preserve this unsent cross-app draft.")
+  await page.getByRole("button", { name: /Notifications,.*unread/ }).click()
+  page.once("dialog", (dialog) => dialog.dismiss())
+  await center.getByRole("button", { name: "Open New inquiry from Notification Arrival" }).click()
+  await expect(refreshedDetail.getByRole("textbox", { name: "Reply to patient" })).toHaveValue(
+    "Preserve this unsent cross-app draft.",
+  )
+  const afterCancel = await page.evaluate(async () =>
+    (await fetch("/api/notifications?mode=page&view=all", { cache: "no-store" })).json(),
+  )
+  expect(
+    afterCancel.items
+      .flatMap((item: { members: Array<{ notificationId: string; readAt: string | null }> }) => item.members)
+      .find((member: { notificationId: string }) => member.notificationId === arrivalBody.notificationId)
+      ?.readAt,
+  ).toBeNull()
   const markResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/notifications/read" &&
       response.request().method() === "POST",
   )
-  await center.getByRole("menuitem", { name: "Mark as read: New inquiry from Notification Arrival" }).click()
+  page.once("dialog", (dialog) => dialog.accept())
+  await center.getByRole("button", { name: "Open New inquiry from Notification Arrival" }).click()
+  const arrivalDetail = page.getByRole("region", { name: "Inquiry from Notification Arrival" })
+  await expect(arrivalDetail).toBeVisible()
+  await expect(arrivalDetail.getByRole("heading", { name: "Notification Arrival" })).toBeFocused()
   const confirmed = await markResponse
   expect(confirmed.status()).toBe(200)
   expect(confirmed.request().postDataJSON()).toEqual({ notificationIds: [arrivalBody.notificationId] })
@@ -214,8 +236,24 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
     contractVersion: "clinic-notifications-v1",
     acknowledged: true,
   })
-  await expect(center.getByText("Marked as read.")).toBeVisible()
+  await expect(page.getByText("Inquiry opened. Marked as read.")).toBeVisible()
   await expect(page.getByRole("button", { name: "Notifications, 1 unread notification" })).toBeVisible()
+  await expect(page.locator("nextjs-portal").getByText(/Compiling/)).not.toBeVisible()
+  await expect(page.locator("nextjs-portal").getByText(/Rendering/)).not.toBeVisible()
+  await page.screenshot({ fullPage: true, path: "output/playwright/notification-213-desktop.png" })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.locator("nextjs-portal").getByText(/Compiling/)).not.toBeVisible()
+  await page.screenshot({ fullPage: true, path: "output/playwright/notification-213-mobile.png" })
+  await page.getByRole("button", { name: /Open account menu for/ }).click()
+  await page.getByRole("menuitemcheckbox", { name: "Dark mode" }).click()
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.keyboard.press("Escape")
+  await expect(page.locator("nextjs-portal").getByText(/Compiling/)).not.toBeVisible()
+  await page.screenshot({ fullPage: true, path: "output/playwright/notification-213-dark-mobile.png" })
+  await page.getByRole("button", { name: /Open account menu for/ }).click()
+  await page.getByRole("menuitemcheckbox", { name: "Dark mode" }).click()
+  await page.keyboard.press("Escape")
+  await page.setViewportSize({ width: 1440, height: 960 })
   const personalAfterMark = await page.evaluate(async () => {
     const response = await fetch("/api/notifications?mode=page&view=all", { cache: "no-store" })
     return response.json()
@@ -247,20 +285,29 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
     ]),
   )
 
-  const repeated = await page.evaluate(async (notificationId) => {
-    const csrf = document.cookie
-      .split(";")
-      .map((part) => part.trim())
-      .find((part) => part.startsWith("clinic_dashboard_csrf="))
-      ?.split("=")[1]
-    const response = await fetch("/api/notifications/read", {
-      method: "POST",
-      body: JSON.stringify({ notificationIds: [notificationId] }),
-      headers: { "content-type": "application/json", "x-csrf-token": decodeURIComponent(csrf ?? "") },
-    })
-    return { status: response.status, body: await response.json() }
-  }, arrivalBody.notificationId)
-  expect(repeated).toMatchObject({ status: 200, body: { acknowledged: true } })
+  await page.getByRole("button", { name: "Notifications, 1 unread notification" }).click()
+  await center.getByRole("tab", { name: "All" }).click()
+  const repeatedDetail = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/inquiries/detail" &&
+      response.request().method() === "GET",
+  )
+  await page.route(
+    "**/api/notifications/read",
+    async (route) => {
+      const committed = await route.fetch()
+      expect(committed.status()).toBe(200)
+      await route.abort("connectionclosed")
+    },
+    { times: 1 },
+  )
+  page.once("dialog", (dialog) => dialog.accept())
+  await center.getByRole("button", { name: "Open New inquiry from Notification Arrival" }).click()
+  expect((await repeatedDetail).status()).toBe(200)
+  await expect(
+    page.getByText("Inquiry opened. We couldn't confirm whether these notifications were marked as read."),
+  ).toBeVisible()
+  await expect(arrivalDetail).toBeVisible()
 
   await page.reload()
   await page.getByRole("button", { name: "Notifications, 1 unread notification" }).click()
@@ -299,6 +346,41 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   await center.getByRole("button", { name: "Close notifications" }).click()
   await page.screenshot({ fullPage: true, path: "output/playwright/notification-cross-app.png" })
 
+  const unavailableArrival = await request.post(`${controlOrigin}/create-notification-inquiry`, {
+    headers: { Authorization: `Bearer ${controlToken}` },
+  })
+  expect(unavailableArrival.status()).toBe(200)
+  const unavailableBody = (await unavailableArrival.json()) as { notificationId: string }
+  expect(
+    (
+      await request.post(`${controlOrigin}/remove-notification-inquiry`, {
+        headers: { Authorization: `Bearer ${controlToken}` },
+      })
+    ).status(),
+  ).toBe(204)
+  await page.getByRole("button", { name: /Notifications,.*unread/ }).click()
+  await expect(center.getByRole("button", { name: "Open New inquiry", exact: true })).toBeVisible()
+  page.once("dialog", (dialog) => dialog.accept())
+  await center.getByRole("button", { name: "Open New inquiry", exact: true }).click()
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "This inquiry is unavailable. You can still mark the notification as read." }),
+  ).toBeVisible()
+  const unavailableBeforeMark = await page.evaluate(async () =>
+    (await fetch("/api/notifications?mode=page&view=all", { cache: "no-store" })).json(),
+  )
+  expect(
+    unavailableBeforeMark.items
+      .flatMap((item: { members: Array<{ notificationId: string; readAt: string | null }> }) => item.members)
+      .find((member: { notificationId: string }) => member.notificationId === unavailableBody.notificationId)
+      ?.readAt,
+  ).toBeNull()
+  await page.getByRole("button", { name: /Notifications,.*unread/ }).click()
+  await center.getByRole("button", { name: "Options for New inquiry", exact: true }).click()
+  await center.getByRole("menuitem", { name: "Mark as read: New inquiry", exact: true }).click()
+  await expect(center.getByText("Marked as read.")).toBeVisible()
+  await center.getByRole("button", { name: "Close notifications" }).click()
   const offboardResponse = await request.post(`${controlOrigin}/offboard-clinic-staff`, {
     headers: { Authorization: `Bearer ${controlToken}` },
   })

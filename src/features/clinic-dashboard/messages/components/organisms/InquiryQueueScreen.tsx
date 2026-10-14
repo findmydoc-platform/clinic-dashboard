@@ -43,7 +43,11 @@ import {
   type PatientInquiryDetail,
 } from "../../model/inquiries"
 
+import type { InquiryOpeningRequest, InquiryOpeningResult } from "../../model/inquiry-opening"
+
 type InquiryQueueScreenProps = Readonly<{
+  openingRequest?: InquiryOpeningRequest
+  onOpeningResult?: (result: InquiryOpeningResult) => void
   actions: InquiryWorkspaceActions
   focusHeading?: boolean
   focusInquiryId?: string
@@ -592,7 +596,19 @@ function InquiryTimeline({
         </div>
         {inquiry.timeline.length > 0 ? (
           inquiry.timeline.map((item) => (
-            <TimelineEntry attachmentAccessPaths={attachmentAccessPaths} item={item} key={item.id} />
+            <div
+              key={item.id}
+              data-inquiry-message-id={item.kind === "external-message" ? item.id : undefined}
+              role={item.kind === "external-message" ? "group" : undefined}
+              aria-label={
+                item.kind === "external-message"
+                  ? `Message from ${item.author.label} at ${item.timeLabel}`
+                  : undefined
+              }
+              tabIndex={-1}
+            >
+              <TimelineEntry attachmentAccessPaths={attachmentAccessPaths} item={item} />
+            </div>
           ))
         ) : (
           <p className="py-10 text-center text-sm text-[var(--foreground)]">No conversation activity yet.</p>
@@ -925,6 +941,8 @@ export function InquiryQueueScreen({
   actions,
   focusHeading,
   focusInquiryId,
+  openingRequest,
+  onOpeningResult,
   model,
   onFocusHandled,
 }: InquiryQueueScreenProps) {
@@ -932,7 +950,44 @@ export function InquiryQueueScreen({
   const listHeadingRef = useRef<HTMLHeadingElement>(null)
   const detailHeadingRef = useRef<HTMLHeadingElement>(null)
 
+  const displayedRequestRef = useRef<string | undefined>(undefined)
   useEffect(() => {
+    if (
+      !openingRequest ||
+      displayedRequestRef.current === openingRequest.requestId ||
+      model.detailStatus !== "ready" ||
+      model.selectedInquiry?.id !== openingRequest.inquiryId
+    )
+      return
+    const frame = requestAnimationFrame(() => {
+      const heading = detailHeadingRef.current
+      if (!heading || !heading.isConnected || heading.getClientRects().length === 0) return
+      const anchor = openingRequest.anchor
+      const matchingMessage =
+        anchor?.kind === "message" &&
+        model.selectedInquiry?.timeline.some(
+          (item) => item.kind === "external-message" && item.id === anchor.id,
+        )
+      const target = matchingMessage
+        ? heading
+            .closest("section")
+            ?.querySelector<HTMLElement>(`[data-inquiry-message-id="${CSS.escape(anchor.id)}"]`)
+        : undefined
+      const focusTarget = target ?? heading
+      focusTarget.focus()
+      if (document.activeElement !== focusTarget) return
+      displayedRequestRef.current = openingRequest.requestId
+      onOpeningResult?.({
+        requestId: openingRequest.requestId,
+        inquiryId: openingRequest.inquiryId,
+        status: "displayed",
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [openingRequest, model.detailStatus, model.selectedInquiry, onOpeningResult])
+
+  useEffect(() => {
+    if (focusInquiryId && model.detailStatus !== "ready") return
     if (!focusHeading && (!focusInquiryId || focusInquiryId !== model.selectedInquiry?.id)) return
 
     const frame = requestAnimationFrame(() => {
@@ -941,7 +996,7 @@ export function InquiryQueueScreen({
       onFocusHandled?.()
     })
     return () => cancelAnimationFrame(frame)
-  }, [focusHeading, focusInquiryId, model.selectedInquiry?.id, onFocusHandled])
+  }, [focusHeading, focusInquiryId, model.detailStatus, model.selectedInquiry?.id, onFocusHandled])
 
   const returnToInquiryList = () => {
     const inquiryId = model.selectedInquiryId
