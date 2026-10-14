@@ -828,9 +828,9 @@ export const MarkDisplayedUnreadEntries: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.click(await canvas.findByRole("tab", { name: "All" }))
+    if (typeof window !== "undefined") throw new Error("CI probe: MarkDisplayed all selected")
     await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Mark 2 shown as read" }))
-    if (typeof window !== "undefined") throw new Error("CI probe: MarkDisplayed click completed")
     await expect(await canvas.findByText("Marked as read.")).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Notifications, 0 unread notifications" })).toBeVisible()
     await expect(canvas.queryByRole("button", { name: /Mark \d+ shown as read/ })).not.toBeInTheDocument()
