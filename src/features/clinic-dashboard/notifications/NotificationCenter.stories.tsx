@@ -698,3 +698,84 @@ export const PatientMessageDarkNewestTime: Story = {
   play: PatientMessageNewestTime.play,
   globals: { theme: "dark", viewport: { value: "mobile320Short" } },
 }
+
+function reviewDecisionStory(caseName: string, outcomeLabel: string): Story {
+  const example = cases.find((item) => item.name === caseName)
+  if (!example) throw new Error(`Missing approved notification contract case: ${caseName}`)
+  const response = notificationsResponseSchema.parse(example.response)
+  if (response.mode !== "page") throw new Error(`Expected page contract case: ${caseName}`)
+  const item = response.items[0]!
+  if (item.destination.kind !== "review") throw new Error(`Expected review destination: ${caseName}`)
+  const current = {
+    ...response,
+    items: [
+      {
+        ...item,
+        display: {
+          ...item.display,
+          eventLabel: caseName.startsWith("clinic") ? "Review response decision" : "Review appeal decision",
+          ...("outcome" in item.members[0]! ? { outcome: item.members[0]!.outcome } : {}),
+        },
+      },
+    ],
+  }
+  const markRead = fn(async () => ({
+    ok: true as const,
+    value: {
+      contractVersion: "clinic-notifications-v1" as const,
+      serverTime: current.serverTime,
+      acknowledged: true as const,
+    },
+  }))
+  return {
+    args: {
+      open: true,
+      initialState: { status: "ready", response: current },
+      commands: {
+        load: fn(async () => ({ ok: true as const, value: current })),
+        markRead,
+      },
+      onDestinationOpen: fn(async () => "displayed" as const),
+    },
+    play: async ({ args, canvasElement }) => {
+      const canvas = within(canvasElement)
+      await expect(await canvas.findByText(outcomeLabel)).toBeVisible()
+      await expect(
+        canvas.queryByText(/internal moderation reason|unapproved response body/i),
+      ).not.toBeInTheDocument()
+      await userEvent.click(
+        canvas.getByRole("button", { name: `Open ${current.items[0]!.display.eventLabel}` }),
+      )
+      await waitFor(() =>
+        expect(args.onDestinationOpen).toHaveBeenCalledWith(
+          expect.objectContaining({ destination: { kind: "review", reviewId: "record-001" } }),
+          expect.any(AbortSignal),
+        ),
+      )
+      await waitFor(() =>
+        expect(markRead).toHaveBeenCalledWith({ notificationIds: [item.members[0]!.notificationId] }),
+      )
+    },
+  }
+}
+
+export const ReviewResponseDecisionApproved: Story = reviewDecisionStory(
+  "clinic_response_decided_approved",
+  "Response approved",
+)
+export const ReviewResponseDecisionRejected: Story = reviewDecisionStory(
+  "clinic_response_decided_rejected",
+  "Decision rejected",
+)
+export const ReviewResponseDecisionBlocked: Story = reviewDecisionStory(
+  "clinic_response_decided_blocked",
+  "Response blocked",
+)
+export const ReviewAppealDecisionUpheld: Story = reviewDecisionStory(
+  "review_appeal_decided_upheld",
+  "Appeal upheld",
+)
+export const ReviewAppealDecisionRejected: Story = reviewDecisionStory(
+  "review_appeal_decided_rejected",
+  "Decision rejected",
+)
