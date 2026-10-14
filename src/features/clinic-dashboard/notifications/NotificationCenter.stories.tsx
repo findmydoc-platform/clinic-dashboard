@@ -827,8 +827,11 @@ export const MarkDisplayedUnreadEntries: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    await expect(
+      await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
+    ).toBeVisible()
+    await expect(await canvas.findByText("2 new messages")).toBeVisible()
     await userEvent.click(await canvas.findByRole("tab", { name: "All" }))
-    if (typeof window !== "undefined") throw new Error("CI probe: MarkDisplayed all selected")
     await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Mark 2 shown as read" }))
     await expect(await canvas.findByText("Marked as read.")).toBeVisible()
@@ -842,6 +845,9 @@ export const DisplayedUnreadAction: Story = {
   render: MarkDisplayedUnreadEntries.render,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    await expect(
+      await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
+    ).toBeVisible()
     await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
     await expect(canvas.getByText("2 new messages")).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
