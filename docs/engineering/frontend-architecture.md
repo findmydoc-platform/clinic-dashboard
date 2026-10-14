@@ -227,6 +227,12 @@ A controller is a named React hook or a thin component that connects state, comm
 
 Controllers may use React state, reducers where related transitions need one, effects, and named command contracts. They return semantic models and actions. They do not render large JSX trees.
 
+The dashboard overview controller owns reporting requests, period and metric selection. The workspace connects its public
+controller, screen and period control to the shell's existing header slot. Reporting state survives section navigation and
+resets with the workspace's authenticated principal/clinic scope. Published profile progress remains the server's atomic
+projection; the presentation mapper uses it for both the KPI and task card. Notification refresh and failure are independent
+of reporting. The V1 runtime does not consume historical demo reporting snapshots or fabricate time series.
+
 ### Shell
 
 `ClinicDashboardShell` renders app chrome, navigation, header utilities, responsive layout, and content slots.

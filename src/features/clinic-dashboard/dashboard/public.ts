@@ -1,8 +1,8 @@
 export { ProfileTaskDialog } from "./components/molecules/ProfileTaskDialog"
-export {
-  ClinicDashboardReportingController,
-  type ClinicDashboardReportingControllerProps,
-} from "./ClinicDashboardReporting"
+export { DashboardOverviewScreen } from "./components/organisms/DashboardOverviewScreen"
+export { ReportingPeriodControl } from "./components/molecules/ReportingPeriodControl"
+export { useDashboardOverviewController } from "./hooks/useDashboardOverviewController"
+export { createDashboardClinicPreview } from "./dashboard-overview.mapper"
 export type { DashboardSnapshot } from "./model/dashboard-snapshot"
 export type {
   DashboardActions,

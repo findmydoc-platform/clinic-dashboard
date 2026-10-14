@@ -21,6 +21,8 @@ import {
 import {
   createDashboardProfileProgress,
   type DashboardProfileProgressState,
+  type ClinicDashboardReporting,
+  type ClinicDashboardReportingPeriodDays,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
 import type { InquiryWorkspaceCommands } from "@/features/clinic-dashboard/messages/public"
@@ -60,6 +62,9 @@ type ClinicDashboardWorkspaceHarnessProps = Readonly<
     }>
     profileProgress?: DashboardProfileProgressState
     profileSourceSnapshot?: ClinicProfileSnapshot
+    loadReporting?: (
+      days: ClinicDashboardReportingPeriodDays,
+    ) => Promise<ClinicDashboardReporting | undefined>
     start?: ClinicDashboardWorkspaceStartState
   }
 >
@@ -197,6 +202,7 @@ export function ClinicDashboardWorkspaceHarness({
   notificationState,
   profileProgress,
   profileSourceSnapshot,
+  loadReporting,
   prototypeMode,
   showPrototypeModeToggle = false,
   start,
@@ -222,6 +228,13 @@ export function ClinicDashboardWorkspaceHarness({
         notificationCommands={notificationCommands ?? notificationCommandsFixture}
         initialNotificationsOpen={notificationState?.isOpen}
         initialReporting={{ reporting: clinicDashboardReportingFixture, status: "ready" }}
+        loadReporting={
+          loadReporting ??
+          (async (days) => ({
+            ...clinicDashboardReportingFixture,
+            period: { ...clinicDashboardReportingFixture.period, days },
+          }))
+        }
         isSourceRefreshPending={false}
         onSourceRefresh={() => undefined}
         prototypeMode={prototypeMode}
@@ -230,7 +243,19 @@ export function ClinicDashboardWorkspaceHarness({
         start={start}
         workspaceInput={{
           ...clinicDashboardWorkspaceFixture,
-          profileProgress: profileProgress ?? clinicDashboardWorkspaceFixture.profileProgress,
+          profileProgress:
+            profileProgress ??
+            (profileSourceSnapshot
+              ? createDashboardProfileProgress({
+                  gallery: { snapshot: clinicGallerySnapshotFixture, status: "ready" },
+                  profile: {
+                    draft: evaluateClinicProfileDraftCompleteness(profileSourceSnapshot),
+                    published: evaluateClinicProfileCompleteness(profileSourceSnapshot),
+                  },
+                  taskActionability: { canEditGallery: true, canEditProfile: true, canEditTreatments: true },
+                  treatments: clinicTreatmentSnapshotFixture,
+                })
+              : clinicDashboardWorkspaceFixture.profileProgress),
           profileSourceSnapshot:
             profileSourceSnapshot ?? clinicDashboardWorkspaceFixture.profileSourceSnapshot,
         }}

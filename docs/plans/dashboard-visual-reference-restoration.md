@@ -57,3 +57,21 @@ Cover available zero, missing denominator, incomplete current and comparison cov
 Run formatting, checks, relevant unit/integration/browser tests, controlled E2E, Storybook build and application build. Capture synthetic screenshots. Recommend routed reviewers after validation and run them only after user confirmation. Deployment, new reporting metrics, provider caches, credentials and migrations are excluded.
 
 Rollback reverts only this presentation restoration. It retains the reporting and notification integrations.
+
+## Implementation record
+
+The isolated presentation preparation was validated before the branch was rebased onto the completed notification
+baseline. Runtime integration now uses the public overview controller, screen and period control; the former reporting
+controller wrapper remains a directly covered standalone example rather than the workspace entry.
+
+The reporting and notification server providers, routes and wire contracts have no restoration changes. Existing
+notification destination handling, personal receipts, unsaved-change guards and authenticated scope resets remain intact.
+The shared workspace connects profile tasks and review navigation to their existing owners.
+
+Local validation on 2026-10-14 used Node 24: 952 unit, 157 integration, 490 Storybook and 27 controlled E2E tests passed.
+Application and Storybook builds passed. Desktop and mobile captures cover both themes. These are synthetic local
+acceptance results; they do not establish Preview or Production availability. Cross-application backend acceptance belongs
+to the notification baseline and was not repeated for this presentation-only change.
+
+Screenshots are generated under `output/playwright/` and remain local test artifacts. AI reviewer approval and deployment
+are not included in these validation results.

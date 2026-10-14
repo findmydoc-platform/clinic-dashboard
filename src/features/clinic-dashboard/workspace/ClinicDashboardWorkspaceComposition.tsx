@@ -18,9 +18,14 @@ import {
   type DoctorProfileCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
-  ClinicDashboardReportingController,
+  DashboardOverviewScreen,
+  ReportingPeriodControl,
+  useDashboardOverviewController,
+  createDashboardClinicPreview,
   ProfileTaskDialog,
   type ClinicDashboardReportingLoadState,
+  type ClinicDashboardReporting,
+  type ClinicDashboardReportingPeriodDays,
 } from "@/features/clinic-dashboard/dashboard/public"
 import {
   InquiryQueue,
@@ -85,6 +90,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   notificationCommands: NotificationCommands
   initialNotificationsOpen?: boolean
   initialReporting?: ClinicDashboardReportingLoadState
+  loadReporting?: (days: ClinicDashboardReportingPeriodDays) => Promise<ClinicDashboardReporting | undefined>
   inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
   isSourceRefreshPending: boolean
@@ -108,6 +114,7 @@ export function ClinicDashboardWorkspaceComposition({
   notificationCommands,
   initialNotificationsOpen = false,
   initialReporting,
+  loadReporting,
   isSourceRefreshPending,
   onSourceRefresh,
   prototypeMode,
@@ -252,6 +259,18 @@ export function ClinicDashboardWorkspaceComposition({
     .map((part) => part[0]?.toUpperCase())
     .join("")
 
+  const dashboard = useDashboardOverviewController({
+    initialReporting: initialReporting ?? { status: "temporarily-unavailable" },
+    loadReporting,
+    profileProgress,
+    clinicPreview: createDashboardClinicPreview({
+      clinicName: authenticatedContext.clinic.name,
+      profile: workspaceInput.profileSourceSnapshot,
+      gallery: effectiveGallerySnapshot,
+      galleryStatus: effectiveGalleryStatus,
+    }),
+  })
+
   const signOut = async () => {
     if (
       hasUnsavedInquiryDrafts &&
@@ -364,7 +383,14 @@ export function ClinicDashboardWorkspaceComposition({
       }
       activeSection={activeSection}
       clinicIdentity={
-        activeSection === "dashboard" ? undefined : (
+        activeSection === "dashboard" ? (
+          <span
+            className="min-w-0 truncate font-bold text-[var(--secondary)]"
+            title={authenticatedContext.clinic.name}
+          >
+            {authenticatedContext.clinic.name}
+          </span>
+        ) : (
           <ClinicLocationSelector
             canSwitchLocations={capabilities.canSwitchLocations}
             isDemoData
@@ -374,6 +400,15 @@ export function ClinicDashboardWorkspaceComposition({
             value={selectedLocation.id}
           />
         )
+      }
+      headerActions={
+        activeSection === "dashboard" ? (
+          <ReportingPeriodControl
+            disabled={dashboard.model.reportingStatus === "loading"}
+            value={dashboard.model.periodDays}
+            onValueChange={dashboard.actions.changePeriodDays}
+          />
+        ) : undefined
       }
       interfaceModeControls={
         showPrototypeModeToggle
@@ -426,7 +461,19 @@ export function ClinicDashboardWorkspaceComposition({
       </p>
 
       {activeSection === "dashboard" ? (
-        <ClinicDashboardReportingController initialReporting={initialReporting} />
+        <DashboardOverviewScreen
+          model={dashboard.model}
+          onMetricSelect={dashboard.actions.selectMetric}
+          onProfileTaskOpen={actions.openProfileTask}
+          onProfileProgressRetry={onSourceRefresh}
+          onReportingRetry={() => void dashboard.actions.changePeriodDays(dashboard.model.periodDays)}
+          onReviewsOpen={() =>
+            continueAfterGalleryGuard(() => {
+              cancelOpening()
+              actions.navigateToReviews()
+            })
+          }
+        />
       ) : null}
       <div hidden={activeSection !== "messages"}>
         <InquiryQueue

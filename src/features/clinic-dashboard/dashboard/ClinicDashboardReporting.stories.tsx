@@ -1,11 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, within } from "storybook/test"
+import { expect, fn, within } from "storybook/test"
 import { clinicDashboardReportingFixture } from "./testing/clinic-dashboard-reporting.fixtures"
 import { ClinicDashboardReportingController } from "./ClinicDashboardReporting"
+import { dashboardProfileProgressReady } from "./testing/dashboard.fixtures"
 
 const meta = {
   args: {
     initialReporting: { reporting: clinicDashboardReportingFixture, status: "ready" },
+    profileProgress: dashboardProfileProgressReady,
+    clinicPreview: { status: "unavailable", name: "Controlled clinic" },
+    onProfileTaskOpen: fn(),
+    onProfileProgressRetry: fn(),
+    onReviewsOpen: fn(),
   },
   component: ClinicDashboardReportingController,
   parameters: { layout: "fullscreen" },
@@ -20,7 +26,9 @@ export const Available: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
-    await expect(canvas.getByText("284", { exact: true })).toBeVisible()
+    await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+    await expect(
+      within(canvas.getByRole("region", { name: "Dashboard metrics" })).getByText("284", { exact: true }),
+    ).toBeVisible()
   },
 }
