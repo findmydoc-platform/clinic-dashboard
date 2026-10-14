@@ -59,6 +59,7 @@ import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-
 import { defaultReviewListFilters } from "./reviews/model/review-source"
 import {
   handleReviewAppealSubmit as handleReviewAppealSubmitWithProvider,
+  handleReviewDetailLoad as handleReviewDetailLoadWithProvider,
   handleReviewHistoryLoad as handleReviewHistoryLoadWithProvider,
   handleReviewListLoad as handleReviewListLoadWithProvider,
   handleReviewResponseSubmit as handleReviewResponseSubmitWithProvider,
@@ -116,6 +117,10 @@ const createClinicTreatmentProvider: ClinicTreatmentProviderFactory = (accessTok
 
 const createClinicDashboardReportingProvider = (accessToken: string, clinicId: string) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).reporting
+
+export function handleReviewDetailLoad(request: NextRequest, reviewId: string) {
+  return handleReviewDetailLoadWithProvider(request, reviewId, createReviewProvider)
+}
 
 export function handleReviewListLoad(request: NextRequest) {
   return handleReviewListLoadWithProvider(request, createReviewProvider)

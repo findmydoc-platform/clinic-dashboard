@@ -161,6 +161,11 @@ export function createReviewSourceCommandsFixture(): ReviewSourceCommands {
     },
   })
   return {
+    async loadReview(reviewId) {
+      const review = records.find(({ id }) => id === reviewId)
+      if (!review) throw new Error("Review unavailable")
+      return structuredClone(review)
+    },
     async loadHistory(reviewId) {
       return { ...reviewHistoryFixture, reviewId }
     },

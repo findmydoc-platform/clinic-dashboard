@@ -10,10 +10,12 @@ import {
   type ReviewListFilters,
   type ReviewsSourceSnapshot,
 } from "../model/review-source"
+import type { ReviewDetailState } from "../model/review-opening"
 import type { ReviewDialogModel, ReviewsActions } from "../model/reviews-view-model"
 
 type Input = Readonly<{
   commands: ReviewSourceCommands
+  onSessionLost?: () => void
   showManagement: boolean
   snapshot?: ReviewsSourceSnapshot
 }>
@@ -31,11 +33,19 @@ function errorMessage(error: unknown, action: "history" | "load" | "mutation") {
   return "Reviews are temporarily unavailable. Try again."
 }
 
-export function useReviewsController({ commands, showManagement, snapshot: initialSnapshot }: Input) {
+export function useReviewsController({
+  commands,
+  onSessionLost,
+  showManagement,
+  snapshot: initialSnapshot,
+}: Input) {
+  const [exactReview, setExactReview] = useState<ReviewDetailState>()
+  const exactGeneration = useRef(0)
   const [snapshot, setSnapshot] = useState(initialSnapshot)
   const [appliedFilters, setAppliedFilters] = useState<ReviewListFilters>(defaultReviewListFilters)
   const [draftFilters, setDraftFilters] = useState<ReviewListFilters>(defaultReviewListFilters)
   const [dialog, setDialog] = useState<ReviewDialogModel>({ kind: "closed" })
+  const [isListStale, setIsListStale] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [statusMessage, setStatusMessage] = useState(
@@ -53,6 +63,12 @@ export function useReviewsController({ commands, showManagement, snapshot: initi
         const next = await commands.loadReviews(filters, page)
         if (currentRequest !== requestId.current) return
         setSnapshot(next)
+        setIsListStale(false)
+        setExactReview((current) => {
+          if (current?.status !== "ready") return current
+          const matching = next.page.items.find(({ id }) => id === current.review.id)
+          return matching ? { status: "ready", review: matching } : current
+        })
         setStatusMessage(successMessage)
       } catch (error) {
         if (currentRequest !== requestId.current) return
@@ -64,8 +80,106 @@ export function useReviewsController({ commands, showManagement, snapshot: initi
     [commands],
   )
 
-  const findReview = (reviewId: string) => snapshot?.page.items.find(({ id }) => id === reviewId)
+  const loadExactReview = useCallback(
+    async (reviewId: string, signal: AbortSignal) => {
+      const generation = ++exactGeneration.current
+      requestId.current += 1
+      setIsLoading(false)
+      setExactReview({ status: "loading" })
+      try {
+        const review = await commands.loadReview(reviewId, signal)
+        if (generation !== exactGeneration.current || signal.aborted) return false
+        if (review.id !== reviewId) {
+          setExactReview({ status: "unavailable" })
+          return false
+        }
+        requestId.current += 1
+        setIsLoading(false)
+        setSnapshot((current) =>
+          current
+            ? {
+                ...current,
+                page: {
+                  ...current.page,
+                  items: current.page.items.map((item) => (item.id === reviewId ? review : item)),
+                },
+              }
+            : current,
+        )
+        setDialog((current) => {
+          if (current.kind === "closed" || current.review.id !== reviewId) return current
+          if (current.kind === "history")
+            return {
+              ...current,
+              review,
+              history: undefined,
+              isLoading: false,
+              isLoadingOlder: false,
+              error: "Review details changed. Reopen history to load the current record.",
+            }
+          return { ...current, review }
+        })
+        if (
+          snapshot?.page.items.some(({ id }) => id === reviewId) ||
+          review.publicMeasure === "removed" ||
+          review.withdrawalState === "withdrawn"
+        ) {
+          setIsListStale(true)
+          setStatusMessage("Review list needs refresh.")
+        }
+        setExactReview({ status: "ready", review })
+        return true
+      } catch (error) {
+        if (generation === exactGeneration.current && !signal.aborted) {
+          setExactReview({ status: "unavailable" })
+          if (error instanceof ReviewSourceCommandError && error.kind === "not-found") {
+            requestId.current += 1
+            setIsLoading(false)
+            setSnapshot((current) =>
+              current
+                ? {
+                    ...current,
+                    page: { ...current.page, items: current.page.items.filter(({ id }) => id !== reviewId) },
+                  }
+                : current,
+            )
+            setDialog((current) =>
+              current.kind !== "closed" && current.review.id === reviewId ? { kind: "closed" } : current,
+            )
+            setIsListStale(true)
+            setStatusMessage("Review list needs refresh.")
+          }
+          if (
+            error instanceof ReviewSourceCommandError &&
+            (error.kind === "unauthorized" || error.kind === "forbidden")
+          ) {
+            setSnapshot(undefined)
+            setDialog({ kind: "closed" })
+            setIsListStale(false)
+            onSessionLost?.()
+          }
+        }
+        return false
+      }
+    },
+    [commands, onSessionLost, snapshot],
+  )
+  const cancelExactReviewRead = useCallback(() => {
+    exactGeneration.current += 1
+    setExactReview((current) => (current?.status === "loading" ? undefined : current))
+  }, [])
+  const closeExactReview = useCallback(() => {
+    exactGeneration.current += 1
+    setExactReview(undefined)
+  }, [])
+  const findReview = (reviewId: string) =>
+    (exactReview?.status === "ready" && exactReview.review.id === reviewId
+      ? exactReview.review
+      : undefined) ?? snapshot?.page.items.find(({ id }) => id === reviewId)
   const replaceReview = (reviewId: string, review: NonNullable<ReturnType<typeof findReview>>) => {
+    setExactReview((current) =>
+      current?.status === "ready" && current.review.id === reviewId ? { status: "ready", review } : current,
+    )
     setSnapshot((current) =>
       current
         ? {
@@ -224,7 +338,11 @@ export function useReviewsController({ commands, showManagement, snapshot: initi
       (reviewId: string) => Boolean(snapshot?.page.items.some(({ id }) => id === reviewId)),
       [snapshot],
     ),
+    cancelExactReviewRead,
+    closeExactReview,
+    loadExactReview,
     model: {
+      exactReview,
       dialog,
       filters: {
         draft: draftFilters,
@@ -233,10 +351,11 @@ export function useReviewsController({ commands, showManagement, snapshot: initi
         treatmentOptions: snapshot?.treatments ?? [],
       },
       isLoading,
+      isListStale,
       list: snapshot?.page,
       showManagement,
       statusMessage,
-      summary: snapshot?.summary,
+      summary: isListStale ? undefined : snapshot?.summary,
     },
   }
 }

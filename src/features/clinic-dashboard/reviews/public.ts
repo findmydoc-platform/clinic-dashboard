@@ -17,3 +17,5 @@ export type {
   ReviewListFilters,
   ReviewsSourceSnapshot,
 } from "./model/review-source"
+
+export type { ReviewOpeningRequest, ReviewOpeningResult } from "./model/review-opening"
