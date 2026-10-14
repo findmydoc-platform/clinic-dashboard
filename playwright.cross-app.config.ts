@@ -55,6 +55,7 @@ const crossAppSpecs = [
   "inquiry-cross-app.spec.ts",
   "patient-message-notification-cross-app.spec.ts",
   "review-notification-cross-app.spec.ts",
+  "review-decision-notification-cross-app.spec.ts",
   "inquiry-moderation-cross-app.spec.ts",
   "notification-pagination-cross-app.spec.ts",
 ] as const

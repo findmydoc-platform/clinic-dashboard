@@ -277,6 +277,50 @@ export const ResponseAnchorUsesNormalDetail: Story = {
     expect(args.commands.loadHistory).not.toHaveBeenCalled()
   },
 }
+export const AppealAnchorUsesNormalDetail: Story = {
+  args: {
+    commands: {
+      ...createReviewSourceCommandsFixture(),
+      loadReview: fn(async () => ({
+        ...exactReview,
+        appeal: {
+          id: "normal-appeal",
+          createdAt: "2026-10-14T09:00:00.000Z",
+          decidedAt: "2026-10-14T10:00:00.000Z",
+          decisionReason: "Ordinary authorized review detail supplies this outcome.",
+          details: "Ordinary authorized review detail supplies this appeal.",
+          reason: "other" as const,
+          status: "dismissed" as const,
+        },
+      })),
+    },
+    showManagement: true,
+    snapshot: reviewSourceSnapshotFixture,
+    isActive: true,
+    openingRequest: {
+      requestId: "appeal-1",
+      reviewId: "off-list-review",
+      anchor: { kind: "appeal", id: "normal-appeal" },
+    },
+    onOpeningResult: fn(),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const detail = await canvas.findByRole("region", { name: "Selected review" })
+    await waitFor(() =>
+      expect(
+        within(detail).getByRole("region", {
+          name: "Selected review by Quinn R., Dentistry · Review appeal",
+        }),
+      ).toHaveFocus(),
+    )
+    expect(args.onOpeningResult).toHaveBeenCalledWith({
+      requestId: "appeal-1",
+      reviewId: "off-list-review",
+      status: "displayed",
+    })
+  },
+}
 export const MissingAnchorFocusesExactReview: Story = {
   args: {
     commands: { ...createReviewSourceCommandsFixture(), loadReview: fn(async () => exactReview) },
