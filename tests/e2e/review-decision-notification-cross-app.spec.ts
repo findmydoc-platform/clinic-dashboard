@@ -25,6 +25,12 @@ test("opens exact authorized review decisions before personal acknowledgment and
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill("clinic-dashboard-cross-app")
   await page.getByRole("button", { name: "Sign in" }).click()
+  await page.getByRole("button", { name: "Reviews", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Reviews", exact: true })).toBeVisible()
+  const rating = page.getByRole("combobox", { name: "Rating", exact: true })
+  await rating.selectOption("1")
+  await page.getByRole("button", { name: "Apply", exact: true }).click()
+  await expect(page.getByText("Filters applied.", { exact: true })).toBeVisible()
 
   const create = async (route: string): Promise<SourceEvidence> => {
     const result = await request.post(`${controlOrigin}${route}`, { headers })
@@ -57,6 +63,10 @@ test("opens exact authorized review decisions before personal acknowledgment and
   await expect(page.getByText("Review opened. Marked as read.", { exact: true })).toBeVisible()
   expect(submitted).toEqual({ notificationIds: [responseOccurrence!.notificationId] })
   await page.unroute("**/api/notifications/read")
+  expect(await rating.inputValue()).toBe("1")
+  await expect(
+    page.getByRole("region", { name: "Review list" }).getByText("Synthetic decision review 1."),
+  ).toHaveCount(0)
   const otherReader = await request.get(
     `${websiteOrigin}/api/clinic-dashboard/notifications?mode=page&view=all`,
     {
