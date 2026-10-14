@@ -112,6 +112,7 @@ test("opens exact authorized review decisions before personal acknowledgment and
   await page.screenshot({ path: "output/playwright/notification-205-cross-app-desktop.png", fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("button", { name: /^Notifications,/ }).click()
+  await center.getByRole("tab", { name: "All", exact: true }).click()
   await expect(center.getByText("Decision rejected", { exact: true })).toBeVisible()
   await page.screenshot({ path: "output/playwright/notification-205-cross-app-mobile.png", fullPage: true })
 })
