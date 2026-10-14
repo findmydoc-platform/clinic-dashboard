@@ -167,7 +167,9 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
 
   await page.getByRole("button", { name: /Notifications,.*unread/ }).click()
   const center = page.getByRole("dialog", { name: "Notifications" })
-  await expect(center.getByText("Ada Patient", { exact: true })).toBeVisible()
+  await expect(center.getByRole("tab", { name: "Unread (2)" })).toBeVisible()
+  await expect(center.getByRole("button", { name: "Open 1 new message from Ada Patient" })).toBeVisible()
+  await expect(center.getByRole("button", { name: "Open New inquiry from Ada Patient" })).toBeVisible()
   const arrival = await request.post(`${controlOrigin}/create-notification-inquiry`, {
     headers: { Authorization: `Bearer ${controlToken}` },
   })
@@ -237,7 +239,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
     acknowledged: true,
   })
   await expect(page.getByText("Inquiry opened. Marked as read.")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Notifications, 1 unread notification" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Notifications, 2 unread notifications" })).toBeVisible()
   await expect(page.locator("nextjs-portal").getByText(/Compiling/)).not.toBeVisible()
   await expect(page.locator("nextjs-portal").getByText(/Rendering/)).not.toBeVisible()
   await page.screenshot({ fullPage: true, path: "output/playwright/notification-213-desktop.png" })
@@ -258,6 +260,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
     const response = await fetch("/api/notifications?mode=page&view=all", { cache: "no-store" })
     return response.json()
   })
+  expect(personalAfterMark.unreadCount).toBe(2)
   const markedOccurrence = personalAfterMark.items
     .flatMap((item: { members: Array<{ notificationId: string; readAt: string | null }> }) => item.members)
     .find((member: { notificationId: string }) => member.notificationId === arrivalBody.notificationId)
@@ -276,7 +279,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   )
   expect(anotherReader.status()).toBe(200)
   const anotherReaderBody = await anotherReader.json()
-  expect(anotherReaderBody.unreadCount).toBe(2)
+  expect(anotherReaderBody.unreadCount).toBe(3)
   expect(anotherReaderBody.items).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -285,7 +288,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
     ]),
   )
 
-  await page.getByRole("button", { name: "Notifications, 1 unread notification" }).click()
+  await page.getByRole("button", { name: "Notifications, 2 unread notifications" }).click()
   await center.getByRole("tab", { name: "All" }).click()
   const repeatedDetail = page.waitForResponse(
     (response) =>
@@ -310,7 +313,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   await expect(arrivalDetail).toBeVisible()
 
   await page.reload()
-  await page.getByRole("button", { name: "Notifications, 1 unread notification" }).click()
+  await page.getByRole("button", { name: "Notifications, 2 unread notifications" }).click()
   await center.getByRole("tab", { name: "All" }).click()
   await expect(center.getByText("Notification Arrival", { exact: true })).toBeVisible()
   await expect(
@@ -333,9 +336,9 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   await secondSessionPage.getByLabel("Password").fill("clinic-dashboard-cross-app")
   await secondSessionPage.getByRole("button", { name: "Sign in" }).click()
   await expect(
-    secondSessionPage.getByRole("button", { name: "Notifications, 1 unread notification" }),
+    secondSessionPage.getByRole("button", { name: "Notifications, 2 unread notifications" }),
   ).toBeVisible()
-  await secondSessionPage.getByRole("button", { name: "Notifications, 1 unread notification" }).click()
+  await secondSessionPage.getByRole("button", { name: "Notifications, 2 unread notifications" }).click()
   const secondSessionCenter = secondSessionPage.getByRole("dialog", { name: "Notifications" })
   await secondSessionCenter.getByRole("tab", { name: "All" }).click()
   await expect(secondSessionCenter.getByText("Notification Arrival", { exact: true })).toBeVisible()
