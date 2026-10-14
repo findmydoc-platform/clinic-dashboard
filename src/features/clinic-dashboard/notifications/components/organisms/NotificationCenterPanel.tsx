@@ -74,7 +74,7 @@ export function NotificationCenterPanel({
   const [menuId, setMenuId] = useState<string | null>(null)
   useEffect(() => {
     const dialog = dialogRef.current
-    if (!dialog) return
+    if (!dialog?.isConnected) return
     if (!open) {
       if (dialog.open) {
         dialog.close()
@@ -84,6 +84,7 @@ export function NotificationCenterPanel({
     }
     const mobile = window.matchMedia("(max-width: 639px)")
     const show = () => {
+      if (!dialog.isConnected) return
       if (dialog.open) dialog.close()
       if (mobile.matches) dialog.showModal()
       else dialog.show()
