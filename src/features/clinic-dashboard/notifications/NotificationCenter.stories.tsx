@@ -699,6 +699,17 @@ export const ModerationDistinctRestorationAndAppeal: Story = {
   render: moderationHistoryRender,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const clickStep = async (label: string, element: HTMLElement) => {
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      const watchdog = new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`Notification story click stalled: ${label}`)), 4_000)
+      })
+      try {
+        await Promise.race([userEvent.click(element), watchdog])
+      } finally {
+        if (timeout) clearTimeout(timeout)
+      }
+    }
     await expect(await canvas.findByText("Inquiry restricted")).toBeVisible()
     await expect(canvas.getByText("Inquiry restored")).toBeVisible()
     await expect(canvas.getByText("Restriction lifted")).toBeVisible()
@@ -720,15 +731,18 @@ export const ModerationDistinctRestorationAndAppeal: Story = {
         `Notification action is covered: hit=${hit?.tagName ?? "none"}, dialogs=${JSON.stringify(dialogs)}`,
       )
     }
-    await userEvent.click(options)
-    await userEvent.click(await canvas.findByRole("menuitem", { name: "Mark as read: Inquiry restricted" }))
+    await clickStep("open restriction menu", options)
+    await clickStep(
+      "mark restriction read",
+      await canvas.findByRole("menuitem", { name: "Mark as read: Inquiry restricted" }),
+    )
     await expect(
       await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
     ).toBeVisible()
     await expect(canvas.queryByText("Inquiry restricted")).not.toBeInTheDocument()
     await expect(canvas.getByText("Inquiry restored")).toBeVisible()
     await expect(canvas.getByText("Restriction lifted")).toBeVisible()
-    await userEvent.click(canvas.getByRole("tab", { name: "All" }))
+    await clickStep("switch to all", canvas.getByRole("tab", { name: "All" }))
     await expect(await canvas.findByText("Inquiry restricted")).toBeVisible()
     await expect(
       canvas.queryByRole("button", { name: "Options for Inquiry restricted" }),
