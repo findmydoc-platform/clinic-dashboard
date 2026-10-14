@@ -66,6 +66,7 @@ const levelLabels: Record<(typeof doctorSpecializationLevelValues)[number], stri
 type DoctorProfileDialogProps = Readonly<{
   initialDoctor?: DoctorProfile
   medicalSpecialties: readonly MedicalSpecialtyOption[]
+  navigationNotice?: string
   onOpenChange: (open: boolean) => void
   onSave: (draft: DoctorProfileDraft, persistedDoctor?: DoctorProfile) => Promise<DoctorProfileSaveResult>
   open: boolean
@@ -180,6 +181,7 @@ function saveFailureMessage(
 export function DoctorProfileDialog({
   initialDoctor,
   medicalSpecialties,
+  navigationNotice,
   onOpenChange,
   onSave,
   open,
@@ -326,6 +328,11 @@ export function DoctorProfileDialog({
       panelClassName="max-w-[59rem]"
       title={persistedDoctor ? "Edit doctor" : "Add doctor"}
     >
+      {navigationNotice ? (
+        <p className="px-5 pt-4 text-sm font-bold text-[var(--destructive)]" role="alert">
+          {navigationNotice}
+        </p>
+      ) : null}
       <fieldset className="grid md:grid-cols-[minmax(17rem,0.34fr)_minmax(0,0.66fr)]" disabled={isSaving}>
         <legend className="sr-only">Doctor profile</legend>
 

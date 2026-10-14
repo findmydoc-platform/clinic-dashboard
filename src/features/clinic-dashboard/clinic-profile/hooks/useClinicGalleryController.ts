@@ -280,6 +280,8 @@ export function useClinicGalleryController({
     (continuation?: () => void, onCancel?: () => void) => {
       cancelPendingNavigation()
       if (operation !== "idle") {
+        setMessage("Finish the current gallery operation before opening a notification.")
+        setMessageTone("info")
         onCancel?.()
         return
       }

@@ -618,3 +618,63 @@ export const ProfileNavigationRefusesBusySave: Story = {
     expect(continuation).not.toHaveBeenCalled()
   },
 }
+
+export const TreatmentEditorRefusesNotificationNavigation: Story = {
+  args: { onNavigationRequestChange: fn(), focusTarget: "treatments" },
+  play: async ({ args, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body)
+    const input = await body.findByRole("spinbutton", { name: "Price (EUR)" })
+    await userEvent.type(input, "375")
+    const continuation = fn()
+    const cancelled = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    expect(request).toEqual(expect.any(Function))
+    await act(() => request?.(continuation, cancelled))
+    expect(cancelled).toHaveBeenCalledTimes(1)
+    expect(continuation).not.toHaveBeenCalled()
+    expect(input).toHaveValue(375)
+    expect(
+      await body.findByText("Save or close the current editor before opening a notification."),
+    ).toBeVisible()
+  },
+}
+export const DoctorEditorRefusesNotificationNavigation: Story = {
+  args: { onNavigationRequestChange: fn() },
+  play: async ({ args, canvasElement }) => {
+    const page = within(canvasElement)
+    const body = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("button", { name: "Add doctor" }))
+    const input = await body.findByRole("textbox", { name: "First name" })
+    await userEvent.type(input, "Preserved doctor")
+    const continuation = fn()
+    const cancelled = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    expect(request).toEqual(expect.any(Function))
+    await act(() => request?.(continuation, cancelled))
+    expect(cancelled).toHaveBeenCalledTimes(1)
+    expect(continuation).not.toHaveBeenCalled()
+    expect(input).toHaveValue("Preserved doctor")
+    expect(
+      await body.findByText("Save or close the current editor before opening a notification."),
+    ).toBeVisible()
+  },
+}
+export const AddressEditorRefusesNotificationNavigation: Story = {
+  args: { onNavigationRequestChange: fn(), focusTarget: "address" },
+  play: async ({ args, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body)
+    const input = await body.findByRole("textbox", { name: "Street" })
+    await userEvent.clear(input)
+    await userEvent.type(input, "Preserved street")
+    const continuation = fn()
+    const cancelled = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    await act(() => request?.(continuation, cancelled))
+    expect(cancelled).toHaveBeenCalledTimes(1)
+    expect(continuation).not.toHaveBeenCalled()
+    expect(input).toHaveValue("Preserved street")
+    expect(
+      await body.findByText("Save or close the current editor before opening a notification."),
+    ).toBeVisible()
+  },
+}

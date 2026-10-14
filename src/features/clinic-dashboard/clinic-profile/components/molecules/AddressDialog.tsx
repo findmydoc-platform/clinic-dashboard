@@ -13,12 +13,21 @@ type AddressDialogProps = Readonly<{
   address: ClinicProfileDraftInput["address"]
   cities: readonly ClinicProfileCity[]
   errors: ClinicProfileValidationErrors
+  navigationNotice?: string
   onOpenChange: (open: boolean) => void
   onSave: (address: ClinicProfileDraftInput["address"]) => void
   open: boolean
 }>
 
-export function AddressDialog({ address, cities, errors, onOpenChange, onSave, open }: AddressDialogProps) {
+export function AddressDialog({
+  address,
+  cities,
+  errors,
+  navigationNotice,
+  onOpenChange,
+  onSave,
+  open,
+}: AddressDialogProps) {
   const [draft, setDraft] = useState(address)
 
   return (
@@ -43,6 +52,11 @@ export function AddressDialog({ address, cities, errors, onOpenChange, onSave, o
       open={open}
       title="Edit address"
     >
+      {navigationNotice ? (
+        <p className="mb-3 text-sm font-bold text-[var(--destructive)]" role="alert">
+          {navigationNotice}
+        </p>
+      ) : null}
       <div className="grid gap-5 sm:grid-cols-2">
         <Field error={errors["address.street"]} label="Street">
           {(controlProps) => (

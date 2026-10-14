@@ -19,6 +19,7 @@ type TreatmentDialogProps = Readonly<{
   isBusy: boolean
   isReadOnly: boolean
   message?: string
+  navigationNotice?: string
   onOpenChange: (open: boolean) => void
   onSave: (input: ClinicTreatmentFormInput) => Promise<boolean>
   onTreatmentMissing?: () => void
@@ -31,6 +32,7 @@ export function TreatmentDialog({
   isBusy,
   isReadOnly,
   message,
+  navigationNotice,
   onOpenChange,
   onSave,
   onTreatmentMissing,
@@ -103,6 +105,11 @@ export function TreatmentDialog({
       title={isReadOnly ? "Treatment details" : initialTreatment ? "Edit treatment" : "Add treatment"}
     >
       <div className="grid gap-5">
+        {navigationNotice ? (
+          <p className="mb-3 text-sm font-bold text-[var(--destructive)]" role="alert">
+            {navigationNotice}
+          </p>
+        ) : null}
         {message ? (
           <p className="text-sm font-bold text-[var(--destructive)]" role="alert">
             {message}

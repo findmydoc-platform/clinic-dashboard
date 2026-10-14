@@ -80,10 +80,17 @@ export type ClinicProfileScreenActions = Readonly<{
 
 type ClinicProfileScreenProps = Readonly<{
   actions: ClinicProfileScreenActions
+  navigationNotice?: string
+  onDoctorEditorPresenceChange?: (isOpen: boolean) => void
   model: ClinicProfileScreenModel
 }>
 
-export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps) {
+export function ClinicProfileScreen({
+  actions,
+  model,
+  navigationNotice,
+  onDoctorEditorPresenceChange,
+}: ClinicProfileScreenProps) {
   const basicsRef = useRef<HTMLDivElement>(null)
   const conflictRef = useRef<HTMLDivElement>(null)
   const reviewReturnFocusRef = useRef<HTMLButtonElement>(null)
@@ -297,6 +304,8 @@ export function ClinicProfileScreen({ actions, model }: ClinicProfileScreenProps
             canManage={canManageDoctors}
             commands={model.doctorCommands}
             onDoctorsChange={actions.onDoctorsChange}
+            navigationNotice={navigationNotice}
+            onEditorPresenceChange={onDoctorEditorPresenceChange}
             snapshot={model.doctorDirectory}
           />
           {isClinicProfileManagementVisible(model.treatmentManagement) ? (

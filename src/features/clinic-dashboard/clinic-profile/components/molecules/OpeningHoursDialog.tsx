@@ -15,12 +15,20 @@ import { clinicProfileWeekdayValues, type ClinicProfileOpeningHours } from "../.
 type OpeningHoursDialogProps = Readonly<{
   entries?: ClinicProfileOpeningHours
   errors: ClinicProfileValidationErrors
+  navigationNotice?: string
   onOpenChange: (open: boolean) => void
   onSave: (entries: ClinicProfileOpeningHours | undefined) => void
   open: boolean
 }>
 
-export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open }: OpeningHoursDialogProps) {
+export function OpeningHoursDialog({
+  entries,
+  errors,
+  navigationNotice,
+  onOpenChange,
+  onSave,
+  open,
+}: OpeningHoursDialogProps) {
   const errorIdPrefix = useId()
   const [isConfigured, setIsConfigured] = useState(Boolean(entries))
   const [draft, setDraft] = useState<ClinicProfileOpeningHours>(
@@ -51,6 +59,11 @@ export function OpeningHoursDialog({ entries, errors, onOpenChange, onSave, open
       panelClassName="max-w-3xl"
       title="Edit opening hours"
     >
+      {navigationNotice ? (
+        <p className="mb-3 text-sm font-bold text-[var(--destructive)]" role="alert">
+          {navigationNotice}
+        </p>
+      ) : null}
       <label className="mb-3 flex items-center gap-3 text-sm font-bold">
         <input
           checked={isConfigured}

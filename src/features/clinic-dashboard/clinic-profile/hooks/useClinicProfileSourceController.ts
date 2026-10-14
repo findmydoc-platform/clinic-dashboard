@@ -458,6 +458,11 @@ export function useClinicProfileSourceController({
     (continuation: () => void, onCancel?: () => void) => {
       cancelPendingNavigation()
       if (operation !== "idle" || unresolvedPublish || dialog) {
+        setStatusMessage(
+          operation !== "idle"
+            ? "Finish the current profile operation before opening a notification."
+            : "Save or close the current editor before opening a notification.",
+        )
         onCancel?.()
         return
       }
