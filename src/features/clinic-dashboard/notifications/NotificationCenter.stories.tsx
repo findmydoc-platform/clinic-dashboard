@@ -703,7 +703,24 @@ export const ModerationDistinctRestorationAndAppeal: Story = {
     await expect(canvas.getByText("Inquiry restored")).toBeVisible()
     await expect(canvas.getByText("Restriction lifted")).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Notifications, 3 unread notifications" })).toBeVisible()
-    await userEvent.click(canvas.getByRole("button", { name: "Options for Inquiry restricted" }))
+    const options = canvas.getByRole("button", { name: "Options for Inquiry restricted" })
+    options.scrollIntoView({ block: "center" })
+    const bounds = options.getBoundingClientRect()
+    const hit = canvasElement.ownerDocument.elementFromPoint(
+      bounds.left + bounds.width / 2,
+      bounds.top + bounds.height / 2,
+    )
+    if (!hit || !options.contains(hit)) {
+      const dialogs = [...canvasElement.ownerDocument.querySelectorAll("dialog")].map((dialog) => ({
+        connected: dialog.isConnected,
+        modal: dialog.matches(":modal"),
+        open: dialog.open,
+      }))
+      throw new Error(
+        `Notification action is covered: hit=${hit?.tagName ?? "none"}, dialogs=${JSON.stringify(dialogs)}`,
+      )
+    }
+    await userEvent.click(options)
     await userEvent.click(await canvas.findByRole("menuitem", { name: "Mark as read: Inquiry restricted" }))
     await expect(
       await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),

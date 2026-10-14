@@ -21,7 +21,7 @@
     "test": "vitest run --project unit",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "test:storybook": "STORYBOOK_DISABLE_TELEMETRY=1 vitest run --project storybook",
+    "test:storybook": "STORYBOOK_DISABLE_TELEMETRY=1 vitest run --project storybook --bail=1",
     "test:e2e": "playwright test",
     "test:e2e:cross-app": "node scripts/inquiry-cross-app-lane.mjs",
     "test:e2e:smoke": "playwright test --project chromium",
