@@ -699,6 +699,7 @@ export const ModerationDistinctRestorationAndAppeal: Story = {
   render: moderationHistoryRender,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    console.info("moderation history: started")
     const clickStep = async (label: string, element: HTMLElement) => {
       let timeout: ReturnType<typeof setTimeout> | undefined
       const watchdog = new Promise<never>((_, reject) => {
@@ -714,6 +715,7 @@ export const ModerationDistinctRestorationAndAppeal: Story = {
     await expect(canvas.getByText("Inquiry restored")).toBeVisible()
     await expect(canvas.getByText("Restriction lifted")).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Notifications, 3 unread notifications" })).toBeVisible()
+    console.info("moderation history: initial assertions complete")
     const options = canvas.getByRole("button", { name: "Options for Inquiry restricted" })
     options.scrollIntoView({ block: "center" })
     const bounds = options.getBoundingClientRect()
@@ -731,18 +733,23 @@ export const ModerationDistinctRestorationAndAppeal: Story = {
         `Notification action is covered: hit=${hit?.tagName ?? "none"}, dialogs=${JSON.stringify(dialogs)}`,
       )
     }
+    console.info("moderation history: options visible and uncovered")
     await clickStep("open restriction menu", options)
+    console.info("moderation history: menu opened")
     await clickStep(
       "mark restriction read",
       await canvas.findByRole("menuitem", { name: "Mark as read: Inquiry restricted" }),
     )
+    console.info("moderation history: restriction marked")
     await expect(
       await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
     ).toBeVisible()
+    console.info("moderation history: updated count visible")
     await expect(canvas.queryByText("Inquiry restricted")).not.toBeInTheDocument()
     await expect(canvas.getByText("Inquiry restored")).toBeVisible()
     await expect(canvas.getByText("Restriction lifted")).toBeVisible()
     await clickStep("switch to all", canvas.getByRole("tab", { name: "All" }))
+    console.info("moderation history: all selected")
     await expect(await canvas.findByText("Inquiry restricted")).toBeVisible()
     await expect(
       canvas.queryByRole("button", { name: "Options for Inquiry restricted" }),
