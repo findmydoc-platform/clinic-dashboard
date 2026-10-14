@@ -523,6 +523,24 @@ export const MobileKeyboardOpening: Story = {
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },
 }
+export const MobileUnmountClosesDialog: Story = {
+  globals: { viewport: { value: "mobile320Short" } },
+  render: function UnmountableCenter(args) {
+    const [visible, setVisible] = useState(true)
+    return visible ? (
+      <NotificationCenter {...args} open onOpenChange={(next) => !next && setVisible(false)} />
+    ) : (
+      <p>Notification center removed</p>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const dialog = (await canvas.findByRole("dialog", { name: "Notifications" })) as HTMLDialogElement
+    await userEvent.click(within(dialog).getByRole("button", { name: "Close notifications" }))
+    await expect(await canvas.findByText("Notification center removed")).toBeVisible()
+    await expect(dialog.open).toBe(false)
+  },
+}
 export const DarkOpenedTargetWithUnknownReceipt: Story = {
   args: {
     open: true,

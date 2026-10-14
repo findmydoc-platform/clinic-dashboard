@@ -65,6 +65,7 @@ export function NotificationCenterPanel({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [portalContainer, setPortalContainer] = useState<HTMLDialogElement | null>(null)
   const attachDialog = useCallback((node: HTMLDialogElement | null) => {
+    if (dialogRef.current && dialogRef.current !== node && dialogRef.current.open) dialogRef.current.close()
     dialogRef.current = node
     setPortalContainer(node)
   }, [])
