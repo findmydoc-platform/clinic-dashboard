@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
   areClinicProfileDraftInputsEqual,
@@ -81,7 +81,26 @@ export function useClinicProfileSourceController({
     initialConflictDraft,
   )
   const [dialog, setDialog] = useState<ClinicProfileSourceDialog>(null)
-  const [confirmation, setConfirmation] = useState<ClinicProfileSourceConfirmation>(null)
+  const [confirmation, setConfirmationState] = useState<ClinicProfileSourceConfirmation>(null)
+  const pendingNavigation = useRef<{ continuation: () => void; onCancel?: () => void } | null>(null)
+  const cancelPendingNavigation = useCallback(() => {
+    const pending = pendingNavigation.current
+    pendingNavigation.current = null
+    pending?.onCancel?.()
+  }, [])
+  const continuePendingNavigation = useCallback(() => {
+    const pending = pendingNavigation.current
+    pendingNavigation.current = null
+    pending?.continuation()
+  }, [])
+  const setConfirmation = useCallback(
+    (next: ClinicProfileSourceConfirmation) => {
+      if (next === null) cancelPendingNavigation()
+      setConfirmationState(next)
+    },
+    [cancelPendingNavigation],
+  )
+  useEffect(() => cancelPendingNavigation, [cancelPendingNavigation])
   const [operation, setOperation] = useState<"discarding" | "idle" | "loading" | "publishing" | "saving">(
     "idle",
   )
@@ -121,7 +140,7 @@ export function useClinicProfileSourceController({
       const nextConflictDraft = getPersistedConflictDraft(nextSnapshot)
       acceptSnapshot(nextSnapshot)
       setDialog(null)
-      setConfirmation(null)
+      setConfirmationState(null)
       setValidationErrors({})
       setUnresolvedPublish(undefined)
       setStatusMessage(nextConflictDraft ? clinicProfileConflictMessage : "")
@@ -151,13 +170,16 @@ export function useClinicProfileSourceController({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [isDirty])
 
-  const enterConflict = useCallback((message?: string) => {
-    setDialog(null)
-    setConfirmation(null)
-    setUnresolvedPublish(undefined)
-    setMode("conflict")
-    setStatusMessage(message ?? clinicProfileConflictMessage)
-  }, [])
+  const enterConflict = useCallback(
+    (message?: string) => {
+      setDialog(null)
+      setConfirmation(null)
+      setUnresolvedPublish(undefined)
+      setMode("conflict")
+      setStatusMessage(message ?? clinicProfileConflictMessage)
+    },
+    [setConfirmation],
+  )
 
   const startEditing = useCallback(() => {
     if (!snapshot) return
@@ -221,13 +243,14 @@ export function useClinicProfileSourceController({
       acceptSnapshot(nextSnapshot)
       setWorkingDraft(saved)
       setSavedBaseline(saved)
-      setConfirmation(null)
+      setConfirmationState(null)
       setMode(leaveAfterSave ? "view" : "edit")
       setStatusMessage("Draft saved.")
       onSnapshotChanged?.(nextSnapshot)
+      if (leaveAfterSave) continuePendingNavigation()
       return true
     },
-    [acceptSnapshot, enterConflict, onSnapshotChanged],
+    [acceptSnapshot, continuePendingNavigation, enterConflict, onSnapshotChanged],
   )
 
   const reconcileUnknownSave = useCallback(
@@ -431,6 +454,25 @@ export function useClinicProfileSourceController({
     ],
   )
 
+  const requestNavigation = useCallback(
+    (continuation: () => void, onCancel?: () => void) => {
+      cancelPendingNavigation()
+      if (operation !== "idle" || unresolvedPublish || dialog) {
+        onCancel?.()
+        return
+      }
+      if (!isDirty && mode !== "conflict") {
+        setMode("view")
+        setDialog(null)
+        continuation()
+        return
+      }
+      pendingNavigation.current = { continuation, onCancel }
+      setConfirmationState("leave")
+    },
+    [cancelPendingNavigation, dialog, isDirty, mode, operation, unresolvedPublish],
+  )
+
   const requestCancel = useCallback(() => {
     if (!isDirty) {
       setMode("view")
@@ -438,16 +480,18 @@ export function useClinicProfileSourceController({
       return
     }
     setConfirmation("leave")
-  }, [isDirty])
+  }, [isDirty, setConfirmation])
 
   const leaveWithoutSaving = useCallback(() => {
-    setConfirmation(null)
+    if (operation !== "idle") return
+    setConfirmationState(null)
     setMode("view")
     setWorkingDraft(undefined)
     setSavedBaseline(undefined)
     setStatusMessage("")
     setValidationErrors({})
-  }, [])
+    continuePendingNavigation()
+  }, [continuePendingNavigation, operation])
 
   const requestReview = useCallback(() => {
     if (!snapshot?.draft || isDirty || !hasSavedChanges) return
@@ -574,7 +618,7 @@ export function useClinicProfileSourceController({
       setStatusMessage("Draft discarded.")
       onSnapshotChanged?.(nextSnapshot)
     },
-    [acceptSnapshot, onSnapshotChanged],
+    [acceptSnapshot, onSnapshotChanged, setConfirmation],
   )
 
   const discardDraft = useCallback(async () => {
@@ -620,7 +664,7 @@ export function useClinicProfileSourceController({
     } finally {
       setOperation("idle")
     }
-  }, [acceptSnapshot, commands, enterConflict, finishDraftDiscarded, operation, snapshot])
+  }, [acceptSnapshot, commands, enterConflict, finishDraftDiscarded, operation, setConfirmation, snapshot])
 
   const reloadLatest = useCallback(async () => {
     if (operation !== "idle") return
@@ -649,7 +693,7 @@ export function useClinicProfileSourceController({
     } finally {
       setOperation("idle")
     }
-  }, [acceptSnapshot, commands, operation])
+  }, [acceptSnapshot, commands, operation, setConfirmation])
 
   return {
     actions: {
@@ -662,6 +706,7 @@ export function useClinicProfileSourceController({
       resolvePublishOutcome,
       reloadLatest,
       requestCancel,
+      requestNavigation,
       requestReview,
       saveAddress,
       saveDraft,

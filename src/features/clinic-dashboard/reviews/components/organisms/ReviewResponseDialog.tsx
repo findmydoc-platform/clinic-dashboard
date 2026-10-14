@@ -4,9 +4,13 @@ import { ReviewTextMutationDialog } from "../molecules/ReviewTextMutationDialog"
 
 export function ReviewResponseDialog({
   onClose,
+  onNavigationRequestChange,
   onSubmit,
   review,
 }: Readonly<{
+  onNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onClose: () => void
   onSubmit: (body: string) => Promise<ReviewMutationResult>
   review: ClinicReviewRecord
@@ -17,6 +21,7 @@ export function ReviewResponseDialog({
       initialValue={review.response?.pending?.body ?? review.response?.published?.body}
       label="Clinic response"
       onClose={onClose}
+      onNavigationRequestChange={onNavigationRequestChange}
       onSubmit={onSubmit}
       placeholder="Thank the patient and address their feedback…"
       review={review}

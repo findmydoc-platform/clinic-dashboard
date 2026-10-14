@@ -9,6 +9,9 @@ import type { ReviewsSourceSnapshot } from "./model/review-source"
 export type ReviewsProps = Readonly<{
   commands: ReviewSourceCommands
   focusTarget?: ReviewFocusTarget
+  onNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onFocusHandled?: () => void
   showManagement: boolean
   snapshot?: ReviewsSourceSnapshot
@@ -16,10 +19,28 @@ export type ReviewsProps = Readonly<{
 
 export type ReviewFocusTarget = Readonly<{ kind: "heading" }> | Readonly<{ kind: "review"; reviewId: string }>
 
-export function Reviews({ commands, focusTarget, onFocusHandled, showManagement, snapshot }: ReviewsProps) {
+export function Reviews({
+  commands,
+  focusTarget,
+  onFocusHandled,
+  onNavigationRequestChange,
+  showManagement,
+  snapshot,
+}: ReviewsProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const controller = useReviewsController({ commands, showManagement, snapshot })
   const { focusReview } = controller
+  const closeReviewDialog = controller.actions.closeReviewDialog
+  const dialogKind = controller.model.dialog.kind
+  useEffect(() => {
+    if (dialogKind === "closed") onNavigationRequestChange?.(null)
+    if (dialogKind !== "history") return
+    onNavigationRequestChange?.((continuation) => {
+      closeReviewDialog()
+      continuation()
+    })
+    return () => onNavigationRequestChange?.(null)
+  }, [closeReviewDialog, dialogKind, onNavigationRequestChange])
 
   useEffect(() => {
     if (!focusTarget) return
@@ -60,7 +81,11 @@ export function Reviews({ commands, focusTarget, onFocusHandled, showManagement,
 
   return (
     <div ref={rootRef}>
-      <ReviewsScreen actions={controller.actions} model={controller.model} />
+      <ReviewsScreen
+        actions={controller.actions}
+        model={controller.model}
+        onNavigationRequestChange={onNavigationRequestChange}
+      />
     </div>
   )
 }

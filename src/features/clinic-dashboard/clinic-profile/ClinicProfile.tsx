@@ -44,6 +44,9 @@ export type ClinicProfileProps = Readonly<{
   initialDialog?: "treatment"
   onFocusHandled: () => void
   onGallerySaved?: (snapshot: ClinicGallerySnapshot) => void
+  onNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onGalleryNavigationRequestChange?: (request?: (continuation: () => void) => void) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   onSourceProfileChanged?: (snapshot: ClinicProfileSnapshot) => void
@@ -70,6 +73,7 @@ export function ClinicProfile({
   onFocusHandled,
   onGallerySaved,
   onGalleryNavigationRequestChange,
+  onNavigationRequestChange,
   onDoctorsChange,
   onSourceProfileChanged,
   onTreatmentMissing,
@@ -117,6 +121,31 @@ export function ClinicProfile({
     onSnapshotChanged: onSourceProfileChanged,
   })
   const { actions: sourceActions, model: sourceModel } = source
+  const requestSourceNavigation = sourceActions.requestNavigation
+  const requestGalleryNavigation = galleryController.actions.requestNavigation
+  const isGalleryOpen = galleryController.model.open
+  const requestNavigation = useCallback(
+    (continuation: () => void, onCancel?: () => void) => {
+      const continueAfterSource = () => {
+        if (isGalleryOpen) requestGalleryNavigation(continuation, onCancel)
+        else continuation()
+      }
+      requestSourceNavigation(continueAfterSource, onCancel)
+    },
+    [isGalleryOpen, requestGalleryNavigation, requestSourceNavigation],
+  )
+  useEffect(() => {
+    const hasEditor =
+      sourceModel.mode !== "view" || sourceModel.operation !== "idle" || galleryController.model.open
+    onNavigationRequestChange?.(hasEditor ? requestNavigation : null)
+    return () => onNavigationRequestChange?.(null)
+  }, [
+    galleryController.model.open,
+    onNavigationRequestChange,
+    requestNavigation,
+    sourceModel.mode,
+    sourceModel.operation,
+  ])
   const openGallery = galleryController.actions.openGallery
   const openTreatmentCreate = treatmentController.actions.openCreate
   const requestProfileReview = sourceActions.requestReview

@@ -10,11 +10,23 @@ import { ReviewAppealDialog } from "./ReviewAppealDialog"
 import { ReviewHistoryDialog } from "./ReviewHistoryDialog"
 import { ReviewResponseDialog } from "./ReviewResponseDialog"
 
-function DialogSlot({ actions, dialog }: Pick<ReviewsViewModel, "dialog"> & { actions: ReviewsActions }) {
+type NavigationRegistration = (
+  request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+) => void
+
+function DialogSlot({
+  actions,
+  dialog,
+  onNavigationRequestChange,
+}: Pick<ReviewsViewModel, "dialog"> & {
+  actions: ReviewsActions
+  onNavigationRequestChange?: NavigationRegistration
+}) {
   if (dialog.kind === "appeal") {
     return (
       <ReviewAppealDialog
         onClose={actions.closeReviewDialog}
+        onNavigationRequestChange={onNavigationRequestChange}
         onSubmit={actions.submitReviewAppeal}
         review={dialog.review}
       />
@@ -24,6 +36,7 @@ function DialogSlot({ actions, dialog }: Pick<ReviewsViewModel, "dialog"> & { ac
     return (
       <ReviewResponseDialog
         onClose={actions.closeReviewDialog}
+        onNavigationRequestChange={onNavigationRequestChange}
         onSubmit={actions.submitReviewResponse}
         review={dialog.review}
       />
@@ -44,7 +57,12 @@ function DialogSlot({ actions, dialog }: Pick<ReviewsViewModel, "dialog"> & { ac
 export function ReviewsScreen({
   actions,
   model,
-}: Readonly<{ actions: ReviewsActions; model: ReviewsViewModel }>) {
+  onNavigationRequestChange,
+}: Readonly<{
+  actions: ReviewsActions
+  model: ReviewsViewModel
+  onNavigationRequestChange?: NavigationRegistration
+}>) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -147,7 +165,11 @@ export function ReviewsScreen({
           total={model.list.total}
         />
       ) : null}
-      <DialogSlot actions={actions} dialog={model.dialog} />
+      <DialogSlot
+        actions={actions}
+        dialog={model.dialog}
+        onNavigationRequestChange={onNavigationRequestChange}
+      />
     </div>
   )
 }
