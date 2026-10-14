@@ -57,9 +57,11 @@ export function ReviewCard({
             </div>
           </div>
         </div>
-        <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-[var(--foreground)]">
-          <ShieldCheck aria-hidden="true" className="size-4" /> Approved review
-        </span>
+        {!isUnavailable ? (
+          <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-[var(--foreground)]">
+            <ShieldCheck aria-hidden="true" className="size-4" /> Approved review
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-5">
