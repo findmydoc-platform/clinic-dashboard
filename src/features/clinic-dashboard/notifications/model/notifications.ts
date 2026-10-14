@@ -31,6 +31,10 @@ export type NotificationLoadState =
   | Readonly<{ status: "loading" }>
   | Readonly<{ status: "unavailable"; error: NotificationErrorCode }>
 
+export type NotificationPaginationState =
+  | Readonly<{ status: "idle" | "loading" }>
+  | Readonly<{ status: "unavailable"; error: NotificationErrorCode; retryAt?: number }>
+
 export type NotificationMarkState =
   | Readonly<{ status: "idle" }>
   | Readonly<{ status: "pending"; notificationIds: readonly string[] }>

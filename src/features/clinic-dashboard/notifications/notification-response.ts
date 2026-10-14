@@ -76,7 +76,9 @@ export async function readNotificationResponse(
         query.mode !== "page" ||
         parsed.data.view !== query.view ||
         (!query.cursor && !("unreadCount" in parsed.data)) ||
-        (query.cursor && "unreadCount" in parsed.data)
+        (query.cursor && "unreadCount" in parsed.data) ||
+        (parsed.data.items.length === 0 && parsed.data.nextCursor !== null) ||
+        (query.cursor && parsed.data.nextCursor === query.cursor)
       )
         return incompatible
       const ids = new Set<string>()

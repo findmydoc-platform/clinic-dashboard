@@ -301,7 +301,10 @@ describe("notification BFF contract", () => {
       "fetch",
       vi.fn<typeof fetch>(async () => upstream(fixture)),
     )
-    const query = fixture.mode === "summary" ? "mode=summary" : `mode=page&view=${fixture.view}`
+    const query =
+      fixture.mode === "summary"
+        ? "mode=summary"
+        : `mode=page&view=${fixture.view}${"unreadCount" in fixture ? "" : "&cursor=opaque-page-2"}`
     const response = await handleNotificationsLoad(
       new NextRequest(`http://localhost:3000/api/notifications?${query}`),
     )
@@ -400,6 +403,25 @@ describe("notification BFF contract", () => {
         )
       ).status,
     ).toBe(409)
+  })
+
+  it.each([
+    ["empty with a continuation", [], "next-page"],
+    ["repeated cursor", cases[0]!.response.items!, "opaque"],
+  ])("rejects a %s page instead of forwarding it to the browser", async (_name, items, nextCursor) => {
+    const { unreadCount: _count, nextUnreadCountChangeAt: _change, ...continuation } = cases[0]!.response
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => upstream({ ...continuation, items, nextCursor })),
+    )
+    const response = await handleNotificationsLoad(
+      new NextRequest("http://localhost:3000/api/notifications?mode=page&view=unread&cursor=opaque"),
+    )
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      contractVersion: "clinic-notifications-v1",
+      error: { code: "CONTRACT_INCOMPATIBLE" },
+    })
   })
 
   it("rejects an oversized streamed response without returning a truncated group", async () => {

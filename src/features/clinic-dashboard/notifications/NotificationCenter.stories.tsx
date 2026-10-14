@@ -964,3 +964,213 @@ export const ReviewAppealDecisionRejected: Story = reviewDecisionStory(
   "review_appeal_decided_rejected",
   "Decision rejected",
 )
+export const PaginatedHistory: Story = {
+  args: messageGroupArgs,
+  render: function PaginatedHistoryCenter(args) {
+    const [source] = useState(() => ({
+      load: fn(async (query: import("./model/notifications").NotificationReadQuery) => {
+        if (query.mode === "summary")
+          return {
+            ok: true as const,
+            value: {
+              contractVersion: "clinic-notifications-v1" as const,
+              mode: "summary" as const,
+              serverTime: fixture.serverTime,
+              unreadCount: 1,
+              nextUnreadCountChangeAt: "2027-01-12T09:09:00.000Z",
+            },
+          }
+        if (!query.cursor)
+          return {
+            ok: true as const,
+            value: { ...fixture, view: query.view, items: [group], nextCursor: "page-2" },
+          }
+        expect(query).toEqual({ mode: "page", view: "all", cursor: "page-2" })
+        return {
+          ok: true as const,
+          value: {
+            contractVersion: "clinic-notifications-v1" as const,
+            mode: "page" as const,
+            serverTime: fixture.serverTime,
+            view: "all" as const,
+            items: [group, fixture.items[1]!],
+            nextCursor: null,
+          },
+        }
+      }),
+      markRead: fn(messageGroupCommands.markRead),
+    }))
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter {...args} commands={source} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("tab", { name: "All" }))
+    await expect(await canvas.findByRole("button", { name: "Load more" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Load more" }))
+    await expect(await canvas.findByText("New patient message")).toBeVisible()
+    await expect(canvas.getAllByText("2 new messages")).toHaveLength(1)
+    await expect(canvas.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Notifications, 1 unread notification" })).toBeVisible()
+  },
+}
+
+export const PaginationFailureRecovery: Story = {
+  args: messageGroupArgs,
+  render: function PaginatedFailureCenter(args) {
+    const [source] = useState(() => {
+      let continuationAttempts = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          if (!query.cursor)
+            return {
+              ok: true as const,
+              value: { ...fixture, view: query.view, items: [group], nextCursor: "page-2" },
+            }
+          continuationAttempts += 1
+          if (continuationAttempts === 1) return { ok: false as const, error: "SERVICE_UNAVAILABLE" as const }
+          return {
+            ok: true as const,
+            value: {
+              contractVersion: "clinic-notifications-v1" as const,
+              mode: "page" as const,
+              serverTime: fixture.serverTime,
+              view: query.view,
+              items: [fixture.items[1]!],
+              nextCursor: null,
+            },
+          }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter {...args} commands={source} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Load more" }))
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Older notifications couldn't be loaded.",
+    )
+    await expect(canvas.getByText("2 new messages")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Try loading again" }))
+    await expect(await canvas.findByText("New patient message")).toBeVisible()
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument()
+  },
+}
+
+export const IncompatiblePaginationReload: Story = {
+  args: messageGroupArgs,
+  render: function IncompatiblePageCenter(args) {
+    const [source] = useState(() => {
+      let firstPageLoads = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          if (!query.cursor) {
+            firstPageLoads += 1
+            return {
+              ok: true as const,
+              value: {
+                ...fixture,
+                view: query.view,
+                items: firstPageLoads === 1 ? [group] : [group, fixture.items[1]!],
+                nextCursor: firstPageLoads === 1 ? "page-2" : null,
+              },
+            }
+          }
+          return {
+            ok: true as const,
+            value: {
+              contractVersion: "clinic-notifications-v1" as const,
+              mode: "page" as const,
+              serverTime: fixture.serverTime,
+              view: query.view,
+              items: [],
+              nextCursor: "page-3",
+            },
+          }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter {...args} commands={source} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Load more" }))
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Older notifications couldn't be loaded.",
+    )
+    await expect(canvas.getByText("2 new messages")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Reload notifications" }))
+    await expect(await canvas.findByText("New patient message")).toBeVisible()
+    await expect(canvas.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument()
+  },
+}
+
+export const ObsoletePaginationIgnored: Story = {
+  args: messageGroupArgs,
+  render: function ObsoletePageCenter(args) {
+    const [source] = useState(() => ({
+      load: fn(async (query: import("./model/notifications").NotificationReadQuery, signal?: AbortSignal) => {
+        if (query.mode === "summary") return messageGroupCommands.load(query)
+        if (!query.cursor)
+          return {
+            ok: true as const,
+            value: {
+              ...fixture,
+              view: query.view,
+              items: [group],
+              nextCursor: query.view === "unread" ? "unread-page-2" : null,
+            },
+          }
+        return new Promise<Awaited<ReturnType<NotificationCommands["load"]>>>((resolve) => {
+          signal?.addEventListener(
+            "abort",
+            () =>
+              resolve({
+                ok: true,
+                value: {
+                  contractVersion: "clinic-notifications-v1",
+                  mode: "page",
+                  serverTime: fixture.serverTime,
+                  view: "unread",
+                  items: [fixture.items[1]!],
+                  nextCursor: null,
+                },
+              }),
+            { once: true },
+          )
+        })
+      }),
+      markRead: messageGroupCommands.markRead,
+    }))
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter {...args} commands={source} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Load more" }))
+    await expect(canvas.getByRole("button", { name: "Loading older notifications…" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("tab", { name: "All" }))
+    await expect(await canvas.findByText("2 new messages")).toBeVisible()
+    await expect(canvas.queryByText("New patient message")).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument()
+  },
+}
