@@ -349,11 +349,11 @@ export function NotificationCenterPanel({
             ) : (
               <ul aria-label="Notifications" className="divide-y divide-[var(--border)]">
                 {items.map((item, index) => {
-                  const member = item.members[0]!
+                  const member = item.members.at(-1)!
                   const isUnread = item.members.some((member) => member.readAt === null)
                   const date = member.occurredAt.slice(0, 10)
                   const showDate =
-                    index === 0 || items[index - 1]?.members[0]?.occurredAt.slice(0, 10) !== date
+                    index === 0 || items[index - 1]?.members.at(-1)?.occurredAt.slice(0, 10) !== date
                   return (
                     <li key={item.presentationId}>
                       {showDate ? (

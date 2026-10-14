@@ -4,7 +4,7 @@ import { expect, fn, userEvent, within, waitFor } from "storybook/test"
 import cases from "../../../../tests/fixtures/clinic-notifications-v1.json"
 import { NotificationCenter } from "./NotificationCenter"
 import { notificationsResponseSchema } from "./model/notification-schema"
-import type { NotificationCommands, NotificationMarkResult } from "./model/notifications"
+import type { NotificationCommands, NotificationMarkResult, NotificationItem } from "./model/notifications"
 
 const page = notificationsResponseSchema.parse(cases[0]!.response)
 const commands = {
@@ -731,4 +731,155 @@ export const ModerationCancelledOpening: Story = {
     await expect(args.commands.markRead).not.toHaveBeenCalled()
     await expect(canvas.getByText("Restriction confirmed")).toBeVisible()
   },
+}
+const fixture = notificationsResponseSchema.parse(
+  cases.find((item) => item.name === "complete_unread_group_and_individual_read_history")!.response,
+)
+if (fixture.mode !== "page") throw new Error("Expected complete group fixture")
+const group = fixture.items[0]!
+const messageGroupCommands: NotificationCommands = {
+  load: fn(async (query) => ({
+    ok: true as const,
+    value:
+      query.mode === "summary"
+        ? {
+            contractVersion: "clinic-notifications-v1" as const,
+            serverTime: fixture.serverTime,
+            mode: "summary" as const,
+            unreadCount: 1,
+            nextUnreadCountChangeAt: "2027-01-12T09:09:00.000Z",
+          }
+        : { ...fixture, view: query.view, items: query.view === "unread" ? [group] : fixture.items },
+  })),
+  markRead: fn(async () => ({
+    ok: true as const,
+    value: {
+      contractVersion: "clinic-notifications-v1" as const,
+      serverTime: fixture.serverTime,
+      acknowledged: true as const,
+    },
+  })),
+}
+const messageGroupArgs = {
+  commands: messageGroupCommands,
+  initialState: {
+    status: "ready" as const,
+    response: { ...fixture, view: "unread" as const, items: [group] },
+  },
+  open: true,
+}
+export const PatientMessageNewestTime: Story = {
+  args: messageGroupArgs,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByText("2 new messages")).toBeVisible()
+    await expect(canvas.getByText("9:09 AM")).toBeVisible()
+    await expect(canvas.queryByText("9:05 AM")).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Notifications, 1 unread notification" })).toBeVisible()
+  },
+}
+export const PatientMessagePersonalHistory: Story = {
+  args: messageGroupArgs,
+  render: function PersonalGroup(args) {
+    const [source] = useState(() => {
+      let acknowledged = false
+      return {
+        async load(query) {
+          const items: NotificationItem[] = acknowledged
+            ? query.mode === "page" && query.view === "all"
+              ? group.members.map((member) => ({
+                  ...group,
+                  kind: "occurrence",
+                  presentationId: member.notificationId,
+                  display: { eventLabel: "New patient message" },
+                  members: [{ ...member, readAt: fixture.serverTime }],
+                }))
+              : []
+            : [group]
+          return {
+            ok: true as const,
+            value: {
+              ...fixture,
+              view: query.mode === "page" ? query.view : ("unread" as const),
+              unreadCount: acknowledged ? 0 : 1,
+              nextUnreadCountChangeAt: acknowledged ? null : "2027-01-12T09:09:00.000Z",
+              items,
+            },
+          }
+        },
+        markRead: fn(async (input) => {
+          expect(input.notificationIds).toEqual(["group-oldest", "group-newest"])
+          acknowledged = true
+          return {
+            ok: true as const,
+            value: {
+              contractVersion: "clinic-notifications-v1" as const,
+              serverTime: fixture.serverTime,
+              acknowledged: true as const,
+            },
+          }
+        }),
+      } satisfies NotificationCommands
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter {...args} commands={source} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Options for 2 new messages from Synthetic Patient" }),
+    )
+    await userEvent.click(
+      await canvas.findByRole("menuitem", { name: "Mark as read: 2 new messages from Synthetic Patient" }),
+    )
+    await expect(await canvas.findByText("You're all caught up.")).toBeVisible()
+    await userEvent.click(canvas.getByRole("tab", { name: "All" }))
+    await waitFor(() => expect(canvas.getAllByText("New patient message")).toHaveLength(2))
+    await expect(canvas.queryByRole("button", { name: /Options for/ })).not.toBeInTheDocument()
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+export const PatientMessageOldestAnchor: Story = {
+  args: {
+    ...messageGroupArgs,
+    onDestinationOpen: fn(async () => "displayed" as const),
+    commands: { ...messageGroupCommands, markRead: fn(messageGroupCommands.markRead) },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Open 2 new messages from Synthetic Patient" }),
+    )
+    await waitFor(() =>
+      expect(args.onDestinationOpen).toHaveBeenCalledWith(
+        expect.objectContaining({
+          destination: {
+            kind: "inquiry",
+            inquiryId: "record-203",
+            anchor: { kind: "message", id: "source-oldest" },
+          },
+        }),
+        expect.any(AbortSignal),
+      ),
+    )
+    await waitFor(() =>
+      expect(args.commands.markRead).toHaveBeenCalledWith({
+        notificationIds: ["group-oldest", "group-newest"],
+      }),
+    )
+  },
+}
+export const PatientMessageMobileHistory: Story = {
+  args: messageGroupArgs,
+  render: PatientMessagePersonalHistory.render,
+  play: PatientMessagePersonalHistory.play,
+  globals: { viewport: { value: "mobile320Short" } },
+}
+export const PatientMessageDarkNewestTime: Story = {
+  args: messageGroupArgs,
+  play: PatientMessageNewestTime.play,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
 }
