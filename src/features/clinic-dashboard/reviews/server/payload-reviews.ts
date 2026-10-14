@@ -24,6 +24,7 @@ import {
 } from "../model/review-source"
 import type {
   ReviewChangeError,
+  ReviewDetailError,
   ReviewHistoryError,
   ReviewProvider,
   ReviewProviderResult,
@@ -447,7 +448,85 @@ async function loadWorkflows(
   } as const
 }
 
-async function loadSummary(accessToken: string, fetcher: typeof fetch) {
+type RawReview = z.infer<typeof rawReviewSchema>
+type ResolvedReview = ReviewProviderResult<RawReview, ReviewReadError>
+type ResolveReview = (review: RawReview) => Promise<ResolvedReview>
+
+async function loadExactReviewData(
+  accessToken: string,
+  reviewId: string,
+  fetcher: typeof fetch,
+  signal: AbortSignal,
+): Promise<ReviewProviderResult<RawReview, ReviewDetailError>> {
+  if (!clinicReviewDetailIdSchema.safeParse(reviewId).success) return { ok: false, error: "invalid-input" }
+  if (signal.aborted) return { ok: false, error: "timeout" }
+  const result = await requestPayloadJson(
+    endpointFor(`/api/clinic-dashboard/reviews/${encodeURIComponent(reviewId)}`),
+    {
+      ...readInit(accessToken, REQUEST_TIMEOUT_MS, signal),
+      headers: { ...requestHeaders(accessToken), ...clinicDashboardContractHeaders() },
+    },
+    fetcher,
+  )
+  if (!result.ok) {
+    if ("status" in result) {
+      const parsedError = exactReviewErrorSchema.safeParse(result.value)
+      if (!parsedError.success || exactReviewErrorStatuses[parsedError.data.error.code] !== result.status)
+        return { ok: false, error: "invalid-data" }
+    }
+    const error = changeError(result)
+    return { ok: false, error: error === "conflict" ? "unavailable" : error }
+  }
+  if (signal.aborted) return { ok: false, error: "timeout" }
+  const parsed = clinicReviewDetailResponseSchema.safeParse(result.value)
+  return parsed.success && parsed.data.data.id === reviewId
+    ? { ok: true, value: parsed.data.data }
+    : { ok: false, error: "invalid-data" }
+}
+
+function scalarReviewResolver(
+  accessToken: string,
+  fetcher: typeof fetch,
+  signal: AbortSignal,
+): ResolveReview {
+  const reads = new Map<string, Promise<ResolvedReview>>()
+  return async (review) => {
+    if (typeof review.treatment !== "string") return { ok: true, value: review }
+    let read = reads.get(review.id)
+    if (!read) {
+      read = loadExactReviewData(accessToken, review.id, fetcher, signal).then((result): ResolvedReview => {
+        if (result.ok) return result
+        if (result.error === "invalid-input") return { ok: false, error: "invalid-data" }
+        if (result.error === "not-found") return { ok: false, error: "unavailable" }
+        return { ok: false, error: result.error }
+      })
+      reads.set(review.id, read)
+    }
+    return read
+  }
+}
+
+async function resolveReviewDocuments(
+  reviews: readonly RawReview[],
+  resolveReview: ResolveReview,
+): Promise<ReviewProviderResult<readonly RawReview[], ReviewReadError>> {
+  const resolved: RawReview[] = []
+  for (let offset = 0; offset < reviews.length; offset += PAGE_LIMIT) {
+    const results = await Promise.all(reviews.slice(offset, offset + PAGE_LIMIT).map(resolveReview))
+    for (const result of results) {
+      if (!result.ok) return result
+      resolved.push(result.value)
+    }
+  }
+  return { ok: true, value: resolved }
+}
+
+async function loadSummary(
+  accessToken: string,
+  fetcher: typeof fetch,
+  resolveReview: ResolveReview,
+  signal: AbortSignal,
+) {
   const ratings: number[] = []
   const treatments = new Map<string, ReviewTreatmentOption>()
   let page = 1
@@ -456,7 +535,7 @@ async function loadSummary(accessToken: string, fetcher: typeof fetch) {
 
   do {
     const remainingTime = SUMMARY_TOTAL_TIMEOUT_MS - (Date.now() - startedAt)
-    if (remainingTime <= 0) return { error: "timeout", ok: false } as const
+    if (remainingTime <= 0 || signal.aborted) return { error: "timeout", ok: false } as const
     const endpoint = endpointFor("/api/reviews")
     endpoint.searchParams.set("depth", "1")
     endpoint.searchParams.set("limit", String(SUMMARY_PAGE_LIMIT))
@@ -464,14 +543,16 @@ async function loadSummary(accessToken: string, fetcher: typeof fetch) {
     endpoint.searchParams.set("sort", "-reviewDate")
     const result = await requestPayloadJson(
       endpoint,
-      readInit(accessToken, Math.min(REQUEST_TIMEOUT_MS, remainingTime)),
+      readInit(accessToken, Math.min(REQUEST_TIMEOUT_MS, remainingTime), signal),
       fetcher,
     )
     if (!result.ok) return { error: readError(result), ok: false } as const
     const parsed = rawReviewListSchema.safeParse(result.value)
     if (!parsed.success) return { error: "invalid-data", ok: false } as const
 
-    for (const review of parsed.data.docs) {
+    const resolved = await resolveReviewDocuments(parsed.data.docs, resolveReview)
+    if (!resolved.ok) return resolved
+    for (const review of resolved.value) {
       ratings.push(review.starRating)
       const option = treatment(review.treatment)
       if (option) treatments.set(option.id, option)
@@ -547,33 +628,14 @@ export function createPayloadReviewProvider(
 ): ReviewProvider {
   return {
     async loadReview(reviewId, signal) {
-      if (!clinicReviewDetailIdSchema.safeParse(reviewId).success)
-        return { ok: false, error: "invalid-input" }
       const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
       const sharedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
-      const result = await requestPayloadJson(
-        endpointFor(`/api/clinic-dashboard/reviews/${encodeURIComponent(reviewId)}`),
-        {
-          ...readInit(accessToken, REQUEST_TIMEOUT_MS, sharedSignal),
-          headers: { ...requestHeaders(accessToken), ...clinicDashboardContractHeaders() },
-        },
-        fetcher,
-      )
-      if (!result.ok) {
-        if ("status" in result) {
-          const parsedError = exactReviewErrorSchema.safeParse(result.value)
-          if (!parsedError.success || exactReviewErrorStatuses[parsedError.data.error.code] !== result.status)
-            return { ok: false, error: "invalid-data" }
-        }
-        const error = changeError(result)
-        return { ok: false, error: error === "conflict" ? "unavailable" : error }
-      }
-      const parsed = clinicReviewDetailResponseSchema.safeParse(result.value)
-      if (!parsed.success || parsed.data.data.id !== reviewId) return { ok: false, error: "invalid-data" }
+      const result = await loadExactReviewData(accessToken, reviewId, fetcher, sharedSignal)
+      if (!result.ok) return result
       const workflows = await loadWorkflows(accessToken, [reviewId], fetcher, sharedSignal)
       if (!workflows.ok) return workflows
       if (sharedSignal.aborted) return { ok: false, error: "timeout" }
-      const review = mapReview(parsed.data.data, workflows.responses, workflows.appeals)
+      const review = mapReview(result.value, workflows.responses, workflows.appeals)
       return review ? { ok: true, value: review } : { ok: false, error: "invalid-data" }
     },
     async loadHistory(reviewId, cursor) {
@@ -657,19 +719,29 @@ export function createPayloadReviewProvider(
 
     async loadReviews(filters, requestedPage) {
       const page = Math.max(1, requestedPage)
+      const sharedSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      const resolveReview = scalarReviewResolver(accessToken, fetcher, sharedSignal)
       const [listResult, summaryResult] = await Promise.all([
-        requestPayloadJson(listEndpoint(filters, page), readInit(accessToken), fetcher),
-        loadSummary(accessToken, fetcher),
+        requestPayloadJson(
+          listEndpoint(filters, page),
+          readInit(accessToken, REQUEST_TIMEOUT_MS, sharedSignal),
+          fetcher,
+        ),
+        loadSummary(accessToken, fetcher, resolveReview, sharedSignal),
       ])
       if (!listResult.ok) return { error: readError(listResult), ok: false }
       if (!summaryResult.ok) return summaryResult
       const list = rawReviewListSchema.safeParse(listResult.value)
       if (!list.success) return { error: "invalid-data", ok: false }
+      const resolved = await resolveReviewDocuments(list.data.docs, resolveReview)
+      if (!resolved.ok) return resolved
+      if (sharedSignal.aborted) return { error: "timeout", ok: false }
 
-      const reviewIds = list.data.docs.map((review) => review.id)
-      const workflows = await loadWorkflows(accessToken, reviewIds, fetcher)
+      const reviewIds = resolved.value.map((review) => review.id)
+      const workflows = await loadWorkflows(accessToken, reviewIds, fetcher, sharedSignal)
       if (!workflows.ok) return workflows
-      const items = list.data.docs.map((review) => mapReview(review, workflows.responses, workflows.appeals))
+      if (sharedSignal.aborted) return { error: "timeout", ok: false }
+      const items = resolved.value.map((review) => mapReview(review, workflows.responses, workflows.appeals))
       if (items.some((review) => review === null)) return { error: "invalid-data", ok: false }
 
       const snapshot: ReviewsSourceSnapshot = {
