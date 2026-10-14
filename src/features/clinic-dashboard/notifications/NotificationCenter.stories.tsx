@@ -622,6 +622,7 @@ export const ModerationLiftedOutcome: Story = {
     const canvas = within(canvasElement)
     await expect(await canvas.findByText("Restriction lifted")).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Open Inquiry appeal decision" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
   },
 }
 export const ModerationUnavailableTarget: Story = {
@@ -709,6 +710,7 @@ export const PatientMessageNewestTime: Story = {
 export const PatientMessagePersonalHistory: Story = {
   args: messageGroupArgs,
   render: function PersonalGroup(args) {
+    const [open, setOpen] = useState(args.open)
     const [source] = useState(() => {
       let acknowledged = false
       return {
@@ -751,7 +753,7 @@ export const PatientMessagePersonalHistory: Story = {
     })
     return (
       <div className="flex min-h-screen justify-end p-4">
-        <NotificationCenter {...args} commands={source} />
+        <NotificationCenter {...args} commands={source} open={open} onOpenChange={setOpen} />
       </div>
     )
   },
@@ -768,6 +770,7 @@ export const PatientMessagePersonalHistory: Story = {
     await waitFor(() => expect(canvas.getAllByText("New patient message")).toHaveLength(2))
     await expect(canvas.queryByRole("button", { name: /Options for/ })).not.toBeInTheDocument()
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+    await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
   },
 }
 export const MarkDisplayedUnreadEntries: Story = {
