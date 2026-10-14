@@ -902,6 +902,14 @@ export const MarkDisplayedUnreadEntries: Story = {
     await expect(canvas.queryByRole("button", { name: /Mark \d+ shown as read/ })).not.toBeInTheDocument()
   },
 }
+export const DisplayedUnreadAction: Story = {
+  render: MarkDisplayedUnreadEntries.render,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
+    await expect(canvas.getByText("2 new messages")).toBeVisible()
+  },
+}
 export const MarkLoadedPagesKeepsOriginalSelection: Story = {
   args: messageGroupArgs,
   render: function LoadedSelection(args) {

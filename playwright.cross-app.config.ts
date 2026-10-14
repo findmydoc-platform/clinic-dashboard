@@ -58,6 +58,7 @@ const crossAppSpecs = [
   "review-decision-notification-cross-app.spec.ts",
   "inquiry-moderation-cross-app.spec.ts",
   "notification-pagination-cross-app.spec.ts",
+  "notification-bulk-cross-app.spec.ts",
 ] as const
 const selectedSpec = process.env.INQUIRY_ACCEPTANCE_SPEC ?? "inquiry-cross-app.spec.ts"
 if (!crossAppSpecs.some((spec) => spec === selectedSpec))
