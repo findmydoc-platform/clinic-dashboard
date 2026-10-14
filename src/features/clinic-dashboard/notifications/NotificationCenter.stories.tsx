@@ -775,6 +775,7 @@ export const PatientMessagePersonalHistory: Story = {
 }
 export const MarkDisplayedUnreadEntries: Story = {
   render: function DisplayedSelection(args) {
+    if (typeof window !== "undefined") throw new Error("CI probe: DisplayedSelection render reached")
     const [source] = useState(() => {
       let marked = false
       const separate = page.mode === "page" ? page.items[0]! : fixture.items[0]!
