@@ -113,14 +113,44 @@ export async function handleNotificationsLoad(
   request: NextRequest,
   createProvider: NotificationProviderFactory,
 ) {
+  const started = performance.now()
+  const finish = (
+    result: NotificationResult,
+    apply?: (response: ReturnType<typeof resultResponse>) => Response,
+  ) => {
+    if (!result.ok) {
+      try {
+        console.error(
+          JSON.stringify({
+            event: "clinic_dashboard.notifications.read",
+            application: "clinic-dashboard",
+            contractVersion: CLINIC_NOTIFICATIONS_CONTRACT_VERSION,
+            operation: request.nextUrl.searchParams.get("mode") === "summary" ? "summary_read" : "feed_read",
+            result: "failure",
+            errorCode: result.error,
+            elapsedMs: Math.round(performance.now() - started),
+          }),
+        )
+      } catch {
+        // Diagnostic failure cannot change the read result.
+      }
+    }
+    const response = resultResponse(result)
+    return apply ? apply(response) : response
+  }
   const entries = [...request.nextUrl.searchParams.entries()]
   const parsed = notificationReadQuerySchema.safeParse(Object.fromEntries(entries))
   if (!parsed.success || new Set(entries.map(([key]) => key)).size !== entries.length)
-    return resultResponse({ ok: false, error: "INVALID_INPUT" })
-  const access = await resolveClinicDashboardRouteAccess(request)
+    return finish({ ok: false, error: "INVALID_INPUT" })
+  let access
+  try {
+    access = await resolveClinicDashboardRouteAccess(request)
+  } catch {
+    return finish({ ok: false, error: "SERVICE_UNAVAILABLE" })
+  }
   if (access.status !== "approved")
-    return access.applyToResponse(
-      resultResponse({
+    return finish(
+      {
         ok: false,
         error:
           access.status === "denied"
@@ -128,13 +158,14 @@ export async function handleNotificationsLoad(
             : access.status === "temporarily-unavailable"
               ? "SERVICE_UNAVAILABLE"
               : "UNAUTHENTICATED",
-      }),
+      },
+      access.applyToResponse,
     )
   try {
     const result = await createProvider(access.accessToken, access.clinicId).load(parsed.data, request.signal)
-    return access.applyToResponse(resultResponse(result))
+    return finish(result, access.applyToResponse)
   } catch {
-    return access.applyToResponse(resultResponse({ ok: false, error: "SERVICE_UNAVAILABLE" }))
+    return finish({ ok: false, error: "SERVICE_UNAVAILABLE" }, access.applyToResponse)
   }
 }
 

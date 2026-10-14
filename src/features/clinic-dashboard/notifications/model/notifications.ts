@@ -8,6 +8,58 @@ import type {
 
 export type { NotificationItem, NotificationReadQuery, NotificationsResponse }
 export type NotificationView = "unread" | "all"
+export function visibleNotificationItems(
+  items: readonly NotificationItem[],
+  now: number,
+): NotificationItem[] {
+  const visible: NotificationItem[] = []
+  for (const item of items) {
+    const members = item.members.filter((member) => Date.parse(member.expiresAt) > now)
+    if (!members.length) continue
+    if (item.kind === "patient_message_group") {
+      const oldest = members[0]!
+      const anchorId = `message:${oldest.sourceOccurrence.id}`
+      visible.push({
+        ...item,
+        members,
+        display: {
+          ...item.display,
+          eventLabel: members.length === 1 ? "1 new message" : `${members.length} new messages`,
+        },
+        destination:
+          item.members[0]?.notificationId === oldest.notificationId
+            ? item.destination
+            : {
+                kind: "inquiry",
+                inquiryId: oldest.sourceRecord.id,
+                ...(anchorId.length <= 200 ? { anchor: { kind: "message", id: anchorId } as const } : {}),
+              },
+      })
+    } else visible.push(item)
+  }
+  return visible.sort((left, right) => {
+    const newestLeft = left.members.at(-1)!
+    const newestRight = right.members.at(-1)!
+    return (
+      newestRight.occurredAt.localeCompare(newestLeft.occurredAt) ||
+      newestRight.sourceOccurrence.id.localeCompare(newestLeft.sourceOccurrence.id, "en", {
+        numeric: true,
+      }) ||
+      newestRight.notificationId.localeCompare(newestLeft.notificationId) ||
+      right.presentationId.localeCompare(left.presentationId)
+    )
+  })
+}
+
+export function nextNotificationExpiry(items: readonly NotificationItem[], now: number): number | undefined {
+  let next: number | undefined
+  for (const item of items)
+    for (const member of item.members) {
+      const expiry = Date.parse(member.expiresAt)
+      if (expiry > now && (next === undefined || expiry < next)) next = expiry
+    }
+  return next
+}
 export function displayedUnreadSelection(items: readonly NotificationItem[]) {
   const notificationIds = new Set<string>()
   let entryCount = 0

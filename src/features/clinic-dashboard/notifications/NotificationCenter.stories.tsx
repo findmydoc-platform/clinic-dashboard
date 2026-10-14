@@ -7,6 +7,7 @@ import { notificationsResponseSchema } from "./model/notification-schema"
 import type { NotificationCommands, NotificationMarkResult, NotificationItem } from "./model/notifications"
 
 const page = notificationsResponseSchema.parse(cases[0]!.response)
+if (page.mode !== "page") throw new Error("Expected notification page fixture")
 const commands = {
   markRead: fn(async () => ({
     ok: true as const,
@@ -311,7 +312,7 @@ export const FixedSelectionAfterLaterArrival: Story = {
     await expect(await canvas.findByText("3 new messages")).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Try again" }))
     await expect(await canvas.findByText("Marked as read.")).toBeVisible()
-    await expect(await canvas.findByText("1 new messages")).toBeVisible()
+    await expect(await canvas.findByText("1 new message")).toBeVisible()
   },
 }
 export const MobileExplicitMarking: Story = {
@@ -1271,6 +1272,419 @@ export const IncompatiblePaginationReload: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Reload notifications" }))
     await expect(await canvas.findByText("New patient message")).toBeVisible()
     await expect(canvas.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument()
+  },
+}
+
+export const TransientRefreshKeepsPermittedHistory: Story = {
+  args: messageGroupArgs,
+  render: function TransientHistory(args) {
+    const [source] = useState(() => {
+      let reads = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          reads += 1
+          return reads === 1
+            ? { ok: true as const, value: { ...fixture, view: query.view, items: [group] } }
+            : { ok: false as const, error: "RATE_LIMITED" as const, retryAfter: "1" }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByText("2 new messages")).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(await canvas.findByRole("alert")).toHaveTextContent("Notifications may be outdated")
+    await expect(canvas.getByText("2 new messages")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Notifications, 1 unread notification" })).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Try again" })).toBeDisabled()
+  },
+}
+
+export const AccessLossClearsPreviousHistory: Story = {
+  args: messageGroupArgs,
+  render: function AccessLoss(args) {
+    const [source] = useState(() => {
+      let reads = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          reads += 1
+          return reads === 1
+            ? { ok: true as const, value: { ...fixture, view: query.view, items: [group] } }
+            : { ok: false as const, error: "CLINIC_ACCESS_DENIED" as const }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByText("2 new messages")).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(await canvas.findByText("Notifications are unavailable for this clinic.")).toBeVisible()
+    await expect(canvas.queryByText("2 new messages")).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Notifications, count unavailable" })).toBeVisible()
+  },
+}
+
+export const ExpiryRemovesEachGroupMemberAtItsDeadline: Story = {
+  args: messageGroupArgs,
+  render: function ExpiringGroup(args) {
+    const [source] = useState(() => {
+      const firstDeadline = Date.now() + 1_800
+      const finalDeadline = Date.now() + 3_600
+      const members = group.members.map((member, index) => {
+        const expiresAt = index === 0 ? firstDeadline : finalDeadline
+        return {
+          ...member,
+          occurredAt: new Date(expiresAt - 90 * 24 * 60 * 60 * 1_000).toISOString(),
+          expiresAt: new Date(expiresAt).toISOString(),
+        }
+      })
+      const current = {
+        ...fixture,
+        unreadCount: 1,
+        nextUnreadCountChangeAt: new Date(finalDeadline).toISOString(),
+        items: [{ ...group, members }],
+      }
+      return {
+        async load(query) {
+          const expired = Date.now() >= finalDeadline
+          if (query.mode === "summary")
+            return {
+              ok: true as const,
+              value: {
+                contractVersion: "clinic-notifications-v1" as const,
+                mode: "summary" as const,
+                serverTime: new Date().toISOString(),
+                unreadCount: expired ? 0 : 1,
+                nextUnreadCountChangeAt: expired ? null : new Date(finalDeadline).toISOString(),
+              },
+            }
+          return {
+            ok: true as const,
+            value: {
+              ...current,
+              serverTime: new Date().toISOString(),
+              view: query.view,
+              unreadCount: expired ? 0 : 1,
+              nextUnreadCountChangeAt: expired ? null : new Date(finalDeadline).toISOString(),
+              items: expired ? [] : current.items,
+            },
+          }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByText("2 new messages")).toBeVisible()
+    await waitFor(() => expect(canvas.getByText("1 new message")).toBeVisible(), { timeout: 3_500 })
+    await waitFor(
+      () =>
+        expect(canvas.getByRole("button", { name: "Notifications, 0 unread notifications" })).toBeVisible(),
+      { timeout: 4_000 },
+    )
+    await expect(canvas.getByText("You're all caught up.")).toBeVisible()
+  },
+}
+
+export const RefreshesLoadedHistoryWhenCountIsUnchanged: Story = {
+  args: { ...messageGroupArgs, open: true },
+  render: function RefreshLoadedHistory(args) {
+    const [source] = useState(() => {
+      let firstPages = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          if (query.cursor)
+            return {
+              ok: true as const,
+              value: {
+                contractVersion: "clinic-notifications-v1" as const,
+                mode: "page" as const,
+                serverTime: fixture.serverTime,
+                view: query.view,
+                items: [
+                  {
+                    ...fixture.items[1]!,
+                    display: { eventLabel: firstPages > 1 ? "Updated older inquiry" : "Older inquiry" },
+                  },
+                ],
+                nextCursor: null,
+              },
+            }
+          firstPages += 1
+          return {
+            ok: true as const,
+            value: {
+              ...fixture,
+              view: query.view,
+              unreadCount: 2,
+              items: [group],
+              nextCursor: "older-page",
+            },
+          }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter {...args} commands={source} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Load more" }))
+    await expect(await canvas.findByText("Older inquiry")).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(await canvas.findByText("Updated older inquiry")).toBeVisible()
+    await expect(canvas.getByText("2 new messages")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Notifications, 2 unread notifications" })).toBeVisible()
+  },
+}
+
+export const FailedContinuationKeepsTheLastCompleteView: Story = {
+  args: messageGroupArgs,
+  render: function CompleteView(args) {
+    const [source] = useState(() => {
+      let firstPages = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          if (!query.cursor) {
+            firstPages += 1
+            return {
+              ok: true as const,
+              value: {
+                ...fixture,
+                view: query.view,
+                unreadCount: 2,
+                items: [group],
+                nextCursor: "older-page",
+              },
+            }
+          }
+          if (firstPages > 1) return { ok: false as const, error: "SERVICE_UNAVAILABLE" as const }
+          return {
+            ok: true as const,
+            value: {
+              contractVersion: "clinic-notifications-v1" as const,
+              mode: "page" as const,
+              serverTime: fixture.serverTime,
+              view: query.view,
+              items: [{ ...fixture.items[1]!, display: { eventLabel: "Older inquiry" } }],
+              nextCursor: null,
+            },
+          }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Load more" }))
+    await expect(await canvas.findByText("Older inquiry")).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(await canvas.findByRole("alert")).toHaveTextContent("Notifications may be outdated")
+    await expect(canvas.getByText("Older inquiry")).toBeVisible()
+    await expect(canvas.getByText("2 new messages")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Notifications, 2 unread notifications" })).toBeVisible()
+  },
+}
+
+export const ResumeFromHiddenAndOfflineRefreshesTheOpenView: Story = {
+  args: { ...messageGroupArgs, open: true },
+  render: function ResumingView(args) {
+    const [source] = useState(() => {
+      let reads = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          reads += 1
+          return {
+            ok: true as const,
+            value: {
+              ...fixture,
+              view: query.view,
+              items: [
+                {
+                  ...page.items[0]!,
+                  display: {
+                    eventLabel:
+                      reads === 1 ? "Initial inquiry" : reads === 2 ? "Visible inquiry" : "Online inquiry",
+                  },
+                },
+              ],
+              nextCursor: null,
+            },
+          }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByText("Initial inquiry")).toBeVisible()
+    const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState")
+    try {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" })
+      document.dispatchEvent(new Event("visibilitychange"))
+      await expect(canvas.getByText("Initial inquiry")).toBeVisible()
+    } finally {
+      if (visibility) Object.defineProperty(document, "visibilityState", visibility)
+      else Reflect.deleteProperty(document, "visibilityState")
+    }
+    document.dispatchEvent(new Event("visibilitychange"))
+    await expect(await canvas.findByText("Visible inquiry")).toBeVisible()
+    const connectivity = Object.getOwnPropertyDescriptor(navigator, "onLine")
+    try {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: false })
+      window.dispatchEvent(new Event("online"))
+      await expect(canvas.getByText("Visible inquiry")).toBeVisible()
+    } finally {
+      if (connectivity) Object.defineProperty(navigator, "onLine", connectivity)
+      else Reflect.deleteProperty(navigator, "onLine")
+    }
+    window.dispatchEvent(new Event("online"))
+    await expect(await canvas.findByText("Online inquiry")).toBeVisible()
+  },
+}
+
+export const MultipleTriggersKeepOneFollowUpRefresh: Story = {
+  args: { ...messageGroupArgs, open: true },
+  render: function CoalescedRefresh(args) {
+    const [source] = useState(() => {
+      let reads = 0
+      let release = () => {}
+      return {
+        commands: {
+          async load(query) {
+            if (query.mode === "summary") return messageGroupCommands.load(query)
+            reads += 1
+            if (reads === 2)
+              await new Promise<void>((resolve) => {
+                release = resolve
+              })
+            return {
+              ok: true as const,
+              value: {
+                ...fixture,
+                view: query.view,
+                items: [
+                  {
+                    ...page.items[0]!,
+                    display: {
+                      eventLabel:
+                        reads === 1 ? "First inquiry" : reads === 2 ? "Second inquiry" : "Third inquiry",
+                    },
+                  },
+                ],
+                nextCursor: null,
+              },
+            }
+          },
+          markRead: messageGroupCommands.markRead,
+        } satisfies NotificationCommands,
+        release: () => release(),
+      }
+    })
+    return (
+      <div>
+        <button type="button" onClick={source.release}>
+          Complete pending read
+        </button>
+        <NotificationCenter {...args} commands={source.commands} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByText("First inquiry")).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(await canvas.findByText("Updating notifications…")).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(canvas.queryByText("Third inquiry")).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Complete pending read" }))
+    await expect(await canvas.findByText("Third inquiry")).toBeVisible()
+  },
+}
+
+export const SupersededRefreshCannotReplaceTheSelectedView: Story = {
+  args: { ...messageGroupArgs, open: true },
+  render: function SupersededRefresh(args) {
+    const [source] = useState(() => {
+      let unreadReads = 0
+      return {
+        async load(query, signal) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          if (query.view === "all")
+            return {
+              ok: true as const,
+              value: {
+                ...fixture,
+                view: "all" as const,
+                unreadCount: 2,
+                items: [{ ...page.items[0]!, display: { eventLabel: "Selected All inquiry" } }],
+                nextCursor: null,
+              },
+            }
+          unreadReads += 1
+          if (unreadReads === 1)
+            return {
+              ok: true as const,
+              value: {
+                ...fixture,
+                view: "unread" as const,
+                items: [{ ...page.items[0]!, display: { eventLabel: "Initial inquiry" } }],
+                nextCursor: null,
+              },
+            }
+          return new Promise<Awaited<ReturnType<NotificationCommands["load"]>>>((resolve) => {
+            signal?.addEventListener(
+              "abort",
+              () =>
+                resolve({
+                  ok: true,
+                  value: {
+                    ...fixture,
+                    view: "unread",
+                    unreadCount: 99,
+                    items: [{ ...page.items[0]!, display: { eventLabel: "Obsolete inquiry" } }],
+                    nextCursor: null,
+                  },
+                }),
+              { once: true },
+            )
+          })
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(await canvas.findByText("Initial inquiry")).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(await canvas.findByText("Updating notifications…")).toBeVisible()
+    await userEvent.click(canvas.getByRole("tab", { name: "All" }))
+    await expect(await canvas.findByText("Selected All inquiry")).toBeVisible()
+    await expect(canvas.queryByText("Obsolete inquiry")).not.toBeInTheDocument()
+    await expect(canvas.getByRole("button", { name: "Notifications, 2 unread notifications" })).toBeVisible()
   },
 }
 

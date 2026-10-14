@@ -38,6 +38,8 @@ type NotificationCenterPanelProps = Readonly<{
     view: NotificationView
     marking?: NotificationMarkState
     isRetryBlocked?: boolean
+    isReadRetryBlocked?: boolean
+    refreshState?: "idle" | "updating" | "stale"
     pagination?: NotificationPaginationState
     isPageRetryBlocked?: boolean
   }>
@@ -280,6 +282,26 @@ export function NotificationCenterPanel({
               ) : null}
             </div>
           ) : null}
+          {model.refreshState === "updating" && state.status === "ready" ? (
+            <p role="status" className="px-4 py-2 text-sm">
+              Updating notifications…
+            </p>
+          ) : null}
+          {model.refreshState === "stale" &&
+          state.status === "ready" &&
+          marking.status !== "refresh-failed" ? (
+            <div className="border-b border-[var(--border)] px-4 py-2 text-sm">
+              <p role="alert">Notifications may be outdated. Expired entries are hidden.</p>
+              <Button
+                variant="outline"
+                className="mt-2"
+                disabled={model.isReadRetryBlocked}
+                onClick={actions.retry}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : null}
           <div
             role="tablist"
             aria-label="Notification view"
@@ -352,7 +374,12 @@ export function NotificationCenterPanel({
                 {!["UNAUTHENTICATED", "CLINIC_ACCESS_DENIED", "CONTENT_ACCESS_DENIED"].includes(
                   state.error,
                 ) ? (
-                  <Button variant="outline" className="mt-4" onClick={actions.retry}>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    disabled={model.isReadRetryBlocked}
+                    onClick={actions.retry}
+                  >
                     {marking.status === "idle" ? "Try again" : "Reload notifications"}
                   </Button>
                 ) : null}

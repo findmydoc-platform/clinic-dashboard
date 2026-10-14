@@ -1,7 +1,9 @@
 "use client"
 import { useEffect, useRef, useState, useEffectEvent } from "react"
 import {
+  nextNotificationExpiry,
   notificationRetryAt,
+  visibleNotificationItems,
   type NotificationDestinationOpen,
   type NotificationOpeningState,
   type NotificationItem,
@@ -12,6 +14,12 @@ import {
   type NotificationPaginationState,
 } from "../model/notifications"
 
+const transientErrors = ["SERVICE_UNAVAILABLE", "SERVICE_TIMEOUT", "RATE_LIMITED"] as const
+const accessErrors = ["UNAUTHENTICATED", "CLINIC_ACCESS_DENIED", "CONTENT_ACCESS_DENIED"] as const
+const retryDelays = [5_000, 10_000, 20_000, 30_000] as const
+const isTransient = (error: string) => transientErrors.some((value) => value === error)
+const isAccessLoss = (error: string) => accessErrors.some((value) => value === error)
+
 export function useNotificationCenterController(
   commands: NotificationCommands,
   initialState: NotificationLoadState,
@@ -19,7 +27,12 @@ export function useNotificationCenterController(
   onDestinationOpen?: NotificationDestinationOpen,
 ) {
   const blockAutomaticReads = useRef(false)
+  const knownAccessLoss = useRef(false)
   const generation = useRef(0)
+  const refreshPending = useRef(false)
+  const refreshFollowUp = useRef(false)
+  const refreshAbort = useRef<AbortController | undefined>(undefined)
+  const failures = useRef(0)
   const pending = useRef(false)
   const openingAbort = useRef<AbortController | undefined>(undefined)
   const paginationAbort = useRef<AbortController | undefined>(undefined)
@@ -29,15 +42,13 @@ export function useNotificationCenterController(
   const [opening, setOpening] = useState<NotificationOpeningState>("idle")
   const mounted = useRef(true)
   const [marking, setMarking] = useState<NotificationMarkState>({ status: "idle" })
-  const hasConfirmedMark = useEffectEvent(
-    () => marking.status === "confirmed" || marking.status === "refresh-failed",
-  )
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     mounted.current = true
     return () => {
       openingAbort.current?.abort()
       paginationAbort.current?.abort()
+      refreshAbort.current?.abort()
       mounted.current = false
       generation.current += 1
     }
@@ -55,8 +66,13 @@ export function useNotificationCenterController(
   const [view, setView] = useState<NotificationView>("unread")
   const [attempt, setAttempt] = useState(0)
   const [countState, setCountState] = useState(initialState)
-  const [feed, setFeed] =
-    useState<Readonly<{ view: NotificationView; attempt: number; state: NotificationLoadState }>>()
+  const [feed, setFeed] = useState<Readonly<{ view: NotificationView; state: NotificationLoadState }>>()
+  const feedRef = useRef(feed)
+  useEffect(() => {
+    feedRef.current = feed
+  }, [feed])
+  const [refreshState, setRefreshState] = useState<"idle" | "updating" | "stale">("idle")
+  const [readRetryAt, setReadRetryAt] = useState<number | undefined>()
   const [pagination, setPagination] = useState<NotificationPaginationState>({ status: "idle" })
   const pageRetryAt = pagination.status === "unavailable" ? pagination.retryAt : undefined
   useEffect(() => {
@@ -68,70 +84,127 @@ export function useNotificationCenterController(
     return () => window.clearTimeout(timer)
   }, [pageRetryAt, now])
   useEffect(() => {
-    if (pending.current || (readBlockedUntil.current !== undefined && readBlockedUntil.current > Date.now()))
+    if (
+      pending.current ||
+      blockAutomaticReads.current ||
+      !navigator.onLine ||
+      document.visibilityState !== "visible"
+    )
       return
+    if (readBlockedUntil.current !== undefined && readBlockedUntil.current > Date.now()) return
     const abort = new AbortController()
+    const timeout = AbortSignal.timeout(8_000)
+    const signal = AbortSignal.any([abort.signal, timeout])
     const currentGeneration = ++generation.current
+    refreshAbort.current = abort
+    refreshPending.current = true
     paginationAbort.current?.abort()
     paginationPending.current = false
-    commands
-      .load(open ? { mode: "page", view } : { mode: "summary" }, abort.signal)
+    const previous = feedRef.current?.view === view ? feedRef.current : undefined
+    const previousItems =
+      previous?.state.status === "ready" && previous.state.response.mode === "page"
+        ? visibleNotificationItems(previous.state.response.items, Date.now())
+        : []
+    const previousTail = previousItems.at(-1)
+    setRefreshState("updating")
+    setPagination({ status: "idle" })
+    async function read(query: Parameters<NotificationCommands["load"]>[0]) {
+      return new Promise<Awaited<ReturnType<NotificationCommands["load"]>>>((resolve) => {
+        let settled = false
+        const finish = (result: Awaited<ReturnType<NotificationCommands["load"]>>) => {
+          if (settled) return
+          settled = true
+          signal.removeEventListener("abort", cancelled)
+          resolve(result)
+        }
+        const cancelled = () =>
+          finish({ ok: false, error: timeout.aborted ? "SERVICE_TIMEOUT" : "SERVICE_UNAVAILABLE" })
+        signal.addEventListener("abort", cancelled, { once: true })
+        if (signal.aborted) return cancelled()
+        void Promise.resolve()
+          .then(() => commands.load(query, signal))
+          .then(finish, () => finish({ ok: false, error: "SERVICE_UNAVAILABLE" }))
+      })
+    }
+    async function refresh() {
+      const first = await read(open ? { mode: "page", view } : { mode: "summary" })
+      if (!first.ok) return first
+      if (!open) {
+        if (first.value.mode !== "summary")
+          return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+        return first
+      }
+      if (first.value.mode !== "page" || first.value.view !== view || !("unreadCount" in first.value))
+        return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+      const items = [...first.value.items]
+      const ids = new Set(items.map((item) => item.presentationId))
+      const cursors = new Set<string>()
+      let cursor = first.value.nextCursor
+      while (previousTail && cursor) {
+        const tail = items.at(-1)
+        if (
+          items.some((item) => item.presentationId === previousTail.presentationId) ||
+          (tail && tail.members.at(-1)!.occurredAt < previousTail.members.at(-1)!.occurredAt)
+        )
+          break
+        if (cursors.has(cursor)) return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+        cursors.add(cursor)
+        const next = await read({ mode: "page", view, cursor })
+        if (!next.ok) return next
+        if (next.value.mode !== "page" || next.value.view !== view || "unreadCount" in next.value)
+          return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+        for (const item of next.value.items) {
+          if (ids.has(item.presentationId))
+            return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+          ids.add(item.presentationId)
+          items.push(item)
+        }
+        cursor = next.value.nextCursor
+      }
+      return { ok: true as const, value: { ...first.value, items, nextCursor: cursor } }
+    }
+    void refresh()
       .then((result) => {
         if (abort.signal.aborted || currentGeneration !== generation.current) return
-        const state: NotificationLoadState = result.ok
-          ? { status: "ready", response: result.value }
-          : { status: "unavailable", error: result.error }
-        const preserveConfirmedFeed =
-          hasConfirmedMark() &&
-          !result.ok &&
-          ["SERVICE_UNAVAILABLE", "SERVICE_TIMEOUT", "RATE_LIMITED"].includes(result.error)
-        if (open)
-          setFeed((current) => ({
-            view,
-            attempt,
-            state:
-              preserveConfirmedFeed && current?.view === view && current.state.status === "ready"
-                ? current.state
-                : state,
-          }))
-        if (open) setPagination({ status: "idle" })
-        if (result.ok && "unreadCount" in result.value) setCountState(state)
-        setMarking((current) =>
-          current.status === "confirmed" || current.status === "refresh-failed"
-            ? { ...current, status: result.ok ? "confirmed" : "refresh-failed" }
-            : current,
-        )
-        if (
-          !result.ok &&
-          [
-            "CONTRACT_INCOMPATIBLE",
-            "UNAUTHENTICATED",
-            "CLINIC_ACCESS_DENIED",
-            "CONTENT_ACCESS_DENIED",
-          ].includes(result.error)
-        )
-          blockAutomaticReads.current = true
-        if (
-          !result.ok &&
-          ["UNAUTHENTICATED", "CLINIC_ACCESS_DENIED", "CONTENT_ACCESS_DENIED"].includes(result.error)
-        ) {
-          openingAbort.current?.abort()
-          setOpening("cancelled")
-          setCountState(state)
-        }
-      })
-      .catch(() => {
-        if (!abort.signal.aborted && currentGeneration === generation.current) {
-          const preserveConfirmedFeed = hasConfirmedMark()
-          setFeed((current) => ({
-            view,
-            attempt,
-            state:
-              preserveConfirmedFeed && current?.view === view && current.state.status === "ready"
-                ? current.state
-                : { status: "unavailable", error: "SERVICE_UNAVAILABLE" },
-          }))
-          setPagination({ status: "idle" })
+        if (result.ok) {
+          knownAccessLoss.current = false
+          failures.current = 0
+          readBlockedUntil.current = undefined
+          setReadRetryAt(undefined)
+          setRefreshState("idle")
+          const state: NotificationLoadState = { status: "ready", response: result.value }
+          if ("unreadCount" in result.value) setCountState(state)
+          if (open && result.value.mode === "page") setFeed({ view, state })
+          setMarking((current) =>
+            current.status === "refresh-failed" ? { ...current, status: "confirmed" } : current,
+          )
+        } else {
+          const error = result.error
+          const unavailable: NotificationLoadState = { status: "unavailable", error }
+          if (isAccessLoss(error) || error === "CONTRACT_INCOMPATIBLE") {
+            blockAutomaticReads.current = true
+            refreshFollowUp.current = false
+            knownAccessLoss.current = isAccessLoss(error)
+            setCountState(unavailable)
+            setFeed(open ? { view, state: unavailable } : undefined)
+            openingAbort.current?.abort()
+            setOpening("cancelled")
+            if (isAccessLoss(error)) setMarking({ status: "idle" })
+            setRefreshState("idle")
+          } else {
+            setRefreshState("stale")
+            if (open && (!previous || previous.state.status !== "ready"))
+              setFeed({ view, state: unavailable })
+            setCountState((current) => (current.status === "ready" ? current : unavailable))
+            if (isTransient(error)) {
+              const delay = retryDelays[Math.min(failures.current, retryDelays.length - 1)]
+              failures.current += 1
+              const throttledUntil = notificationRetryAt(result.retryAfter, Date.now()) ?? 0
+              const next = Math.max(Date.now() + delay, throttledUntil)
+              readBlockedUntil.current = next
+              setReadRetryAt(next)
+            }
+          }
           setMarking((current) =>
             current.status === "confirmed" || current.status === "refresh-failed"
               ? { ...current, status: "refresh-failed" }
@@ -139,40 +212,112 @@ export function useNotificationCenterController(
           )
         }
       })
-    return () => abort.abort()
+      .finally(() => {
+        if (refreshAbort.current === abort) refreshAbort.current = undefined
+        if (currentGeneration === generation.current) {
+          refreshPending.current = false
+          if (refreshFollowUp.current) {
+            refreshFollowUp.current = false
+            setAttempt((current) => current + 1)
+          }
+        }
+      })
+    return () => {
+      abort.abort()
+      if (refreshAbort.current === abort) refreshAbort.current = undefined
+      refreshPending.current = false
+    }
   }, [attempt, commands, open, view])
+  const automaticRefresh = useEffectEvent(() => {
+    if (
+      pending.current ||
+      blockAutomaticReads.current ||
+      (readBlockedUntil.current !== undefined && readBlockedUntil.current > Date.now()) ||
+      document.visibilityState !== "visible" ||
+      !navigator.onLine
+    )
+      return
+    if (refreshPending.current) refreshFollowUp.current = true
+    else setAttempt((current) => current + 1)
+  })
   useEffect(() => {
-    const refresh = () => {
-      if (
-        !pending.current &&
-        (readBlockedUntil.current === undefined || readBlockedUntil.current <= Date.now()) &&
-        !blockAutomaticReads.current &&
-        document.visibilityState === "visible" &&
-        navigator.onLine
-      )
-        setAttempt((current) => current + 1)
+    const refresh = () => automaticRefresh()
+    const resume = () => {
+      setNow(Date.now())
+      refresh()
     }
     const timer = window.setInterval(refresh, 30_000)
-    document.addEventListener("visibilitychange", refresh)
-    window.addEventListener("online", refresh)
+    document.addEventListener("visibilitychange", resume)
+    window.addEventListener("online", resume)
     return () => {
       window.clearInterval(timer)
-      document.removeEventListener("visibilitychange", refresh)
-      window.removeEventListener("online", refresh)
+      document.removeEventListener("visibilitychange", resume)
+      window.removeEventListener("online", resume)
     }
   }, [])
-  const state =
-    feed?.view === view && feed.attempt === attempt ? feed.state : ({ status: "loading" } as const)
+  useEffect(() => {
+    if (readRetryAt === undefined) return
+    const timer = window.setTimeout(
+      () => {
+        setNow(Date.now())
+        automaticRefresh()
+      },
+      Math.max(0, readRetryAt - Date.now()) + 1,
+    )
+    return () => window.clearTimeout(timer)
+  }, [readRetryAt])
+  const countDeadline =
+    countState.status === "ready" && "nextUnreadCountChangeAt" in countState.response
+      ? countState.response.nextUnreadCountChangeAt
+      : null
+  const nextExpiry =
+    feed?.state.status === "ready" && feed.state.response.mode === "page"
+      ? nextNotificationExpiry(feed.state.response.items, now)
+      : undefined
+  const lastCountDeadline = useRef<string | null>(null)
+  useEffect(() => {
+    const deadline = countDeadline ? Date.parse(countDeadline) : undefined
+    const pendingDeadline = lastCountDeadline.current === countDeadline ? undefined : deadline
+    const wakeAt = Math.min(nextExpiry ?? Infinity, pendingDeadline ?? Infinity)
+    if (!Number.isFinite(wakeAt)) return
+    const timer = window.setTimeout(
+      () => {
+        setNow(Date.now())
+        if (deadline !== undefined && deadline <= Date.now() && lastCountDeadline.current !== countDeadline) {
+          lastCountDeadline.current = countDeadline
+          automaticRefresh()
+        }
+      },
+      Math.max(0, wakeAt - Date.now()),
+    )
+    return () => window.clearTimeout(timer)
+  }, [countDeadline, nextExpiry, now])
+  const state: NotificationLoadState =
+    feed?.view === view
+      ? feed.state.status === "ready" && feed.state.response.mode === "page"
+        ? {
+            status: "ready",
+            response: {
+              ...feed.state.response,
+              items: visibleNotificationItems(feed.state.response.items, now),
+            },
+          }
+        : feed.state
+      : { status: "loading" }
   const unreadCount =
-    countState.status === "ready" && "unreadCount" in countState.response
+    countState.status === "ready" &&
+    "unreadCount" in countState.response &&
+    (!countDeadline || Date.parse(countDeadline) > now)
       ? countState.response.unreadCount
       : undefined
   async function markRead(notificationIds: readonly string[], fromOpening = false) {
-    if (pending.current || (retryAt !== undefined && retryAt > Date.now())) return
+    if (knownAccessLoss.current || pending.current || (retryAt !== undefined && retryAt > Date.now())) return
     if (!fromOpening) setOpening("idle")
     const selection = Object.freeze([...notificationIds])
     pending.current = true
     generation.current += 1
+    refreshAbort.current?.abort()
+    refreshPending.current = false
     paginationAbort.current?.abort()
     paginationPending.current = false
     setPagination({ status: "idle" })
@@ -199,7 +344,13 @@ export function useNotificationCenterController(
     }
   }
   async function openItem(item: NotificationItem) {
-    if (!onDestinationOpen || pending.current || (retryAt !== undefined && retryAt > Date.now())) return
+    if (
+      !onDestinationOpen ||
+      knownAccessLoss.current ||
+      pending.current ||
+      (retryAt !== undefined && retryAt > Date.now())
+    )
+      return
     openingAbort.current?.abort()
     const abort = new AbortController()
     openingAbort.current = abort
@@ -223,13 +374,13 @@ export function useNotificationCenterController(
     if (
       paginationPending.current ||
       pending.current ||
+      refreshPending.current ||
       !open ||
       pagination.status === "loading" ||
       (pagination.status === "unavailable" &&
         pagination.retryAt !== undefined &&
         pagination.retryAt > Date.now()) ||
       feed?.view !== view ||
-      feed.attempt !== attempt ||
       feed.state.status !== "ready" ||
       feed.state.response.mode !== "page" ||
       !feed.state.response.nextCursor
@@ -254,10 +405,26 @@ export function useNotificationCenterController(
     }
     if (abort.signal.aborted || !mounted.current || currentGeneration !== generation.current) return
     if (!result.ok) {
+      if (isAccessLoss(result.error)) {
+        blockAutomaticReads.current = true
+        knownAccessLoss.current = true
+        refreshFollowUp.current = false
+        setCountState({ status: "unavailable", error: result.error })
+        setFeed({ view, state: { status: "unavailable", error: result.error } })
+        setMarking({ status: "idle" })
+        setPagination({ status: "idle" })
+        return
+      }
+      if (result.error === "CONTRACT_INCOMPATIBLE") blockAutomaticReads.current = true
+      const retryAt = notificationRetryAt(result.retryAfter, Date.now())
+      if (retryAt !== undefined && retryAt > Date.now()) {
+        readBlockedUntil.current = Math.max(readBlockedUntil.current ?? 0, retryAt)
+        setReadRetryAt(readBlockedUntil.current)
+      }
       setPagination({
         status: "unavailable",
         error: result.error,
-        retryAt: notificationRetryAt(result.retryAfter, Date.now()),
+        retryAt,
       })
       return
     }
@@ -268,6 +435,7 @@ export function useNotificationCenterController(
       result.value.nextCursor === cursor ||
       (result.value.items.length === 0 && result.value.nextCursor !== null)
     ) {
+      blockAutomaticReads.current = true
       setPagination({ status: "unavailable", error: "CONTRACT_INCOMPATIBLE" })
       return
     }
@@ -275,7 +443,6 @@ export function useNotificationCenterController(
     setFeed((current) => {
       if (
         current?.view !== view ||
-        current.attempt !== attempt ||
         current.state.status !== "ready" ||
         current.state.response.mode !== "page" ||
         current.state.response.nextCursor !== cursor
@@ -314,6 +481,8 @@ export function useNotificationCenterController(
       openingId,
       openingKind,
       isRetryBlocked: retryAt !== undefined && retryAt > now,
+      isReadRetryBlocked: readRetryAt !== undefined && readRetryAt > now,
+      refreshState,
       pagination,
       isPageRetryBlocked: pageRetryAt !== undefined && pageRetryAt > now,
     },
@@ -325,7 +494,11 @@ export function useNotificationCenterController(
         setView(next)
       },
       retry: () => {
-        if (retryAt !== undefined && retryAt > Date.now()) return
+        if (
+          (retryAt !== undefined && retryAt > Date.now()) ||
+          (readRetryAt !== undefined && readRetryAt > Date.now())
+        )
+          return
         blockAutomaticReads.current = false
         invalidatePagination()
         setAttempt((current) => current + 1)

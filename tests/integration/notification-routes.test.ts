@@ -93,6 +93,37 @@ describe("notification BFF contract", () => {
     })
   })
 
+  it("returns a handled read failure even when the technical diagnostic sink fails", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => {
+      throw new Error("Synthetic private upstream failure")
+    })
+    vi.stubGlobal("fetch", fetcher)
+    const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {
+      throw new Error("Diagnostic sink unavailable")
+    })
+    try {
+      const response = await handleNotificationsLoad(
+        new NextRequest("http://localhost:3000/api/notifications?mode=page&view=unread"),
+      )
+      expect(response.status).toBe(503)
+      await expect(response.json()).resolves.toMatchObject({ error: { code: "SERVICE_UNAVAILABLE" } })
+      expect(diagnostic).toHaveBeenCalledOnce()
+      const fields = JSON.parse(String(diagnostic.mock.calls[0]?.[0])) as Record<string, unknown>
+      expect(fields).toMatchObject({
+        event: "clinic_dashboard.notifications.read",
+        application: "clinic-dashboard",
+        operation: "feed_read",
+        errorCode: "SERVICE_UNAVAILABLE",
+      })
+      expect(fields.elapsedMs).toEqual(expect.any(Number))
+      expect(JSON.stringify(fields)).not.toMatch(
+        /verified-session-token|verified-clinic|Synthetic private upstream failure/,
+      )
+    } finally {
+      diagnostic.mockRestore()
+    }
+  })
+
   it("marks exactly the supplied personal selection through the private guarded BFF", async () => {
     const fixture = {
       contractVersion: "clinic-notifications-v1",
