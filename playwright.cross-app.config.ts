@@ -51,11 +51,21 @@ function dashboardEnvironment(origin: string, id: string, name: string, token: s
   }
 }
 
+const crossAppSpecs = [
+  "inquiry-cross-app.spec.ts",
+  "patient-message-notification-cross-app.spec.ts",
+  "review-notification-cross-app.spec.ts",
+  "inquiry-moderation-cross-app.spec.ts",
+] as const
+const selectedSpec = process.env.INQUIRY_ACCEPTANCE_SPEC ?? "inquiry-cross-app.spec.ts"
+if (!crossAppSpecs.some((spec) => spec === selectedSpec))
+  throw new Error("Invalid isolated cross-app acceptance spec")
+
 export default defineConfig({
   forbidOnly: true,
   retries: 0,
   testDir: "./tests/e2e",
-  testMatch: "inquiry-cross-app.spec.ts",
+  testMatch: selectedSpec,
   timeout: 90_000,
   use: {
     baseURL: dashboardOrigin,
