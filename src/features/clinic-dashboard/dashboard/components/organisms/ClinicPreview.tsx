@@ -3,12 +3,22 @@ import { ImageIcon, MapPin } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { isClinicGalleryImageProxyUrl } from "@/lib/clinic-gallery-image-proxy"
 import type { DashboardViewModel } from "../../model/dashboard-view-model"
+import type { DashboardClinicPreview } from "../../model/dashboard-overview"
 
 type ClinicPreviewProps = Readonly<{
-  clinic: DashboardViewModel["clinicPreview"]
+  clinic: DashboardViewModel["clinicPreview"] | DashboardClinicPreview
 }>
 
 export function ClinicPreview({ clinic }: ClinicPreviewProps) {
+  if ("status" in clinic && clinic.status === "unavailable") {
+    return (
+      <Card aria-label="Dashboard clinic location summary" className="h-full p-5">
+        <h2 className="text-lg font-bold text-[var(--secondary)]">Public clinic preview</h2>
+        <p className="mt-2 font-bold">{clinic.name}</p>
+        <p className="mt-2 text-sm">Public profile unavailable. No preview is shown.</p>
+      </Card>
+    )
+  }
   return (
     <Card aria-label="Dashboard clinic location summary" className="h-full overflow-hidden">
       <div className="relative h-28">
@@ -26,7 +36,11 @@ export function ClinicPreview({ clinic }: ClinicPreviewProps) {
           <div className="grid h-full place-items-center bg-[var(--surface)] text-center">
             <div>
               <ImageIcon aria-hidden="true" className="mx-auto size-6 text-[var(--primary)]" />
-              <span className="mt-2 block text-xs font-bold text-[var(--foreground)]">No gallery image</span>
+              <span className="mt-2 block text-xs font-bold text-[var(--foreground)]">
+                {"imageStatus" in clinic && clinic.imageStatus === "unavailable"
+                  ? "Gallery unavailable"
+                  : "No gallery image"}
+              </span>
             </div>
           </div>
         )}

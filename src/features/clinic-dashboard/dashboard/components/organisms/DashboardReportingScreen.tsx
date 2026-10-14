@@ -7,11 +7,11 @@ import type { ClinicDashboardReportingViewState } from "../../hooks/useClinicDas
 import {
   createCountMetricDisplay,
   createMetricValueDisplay,
+  createSessionConversionDisplay,
   formatReportingPercent,
 } from "../../model/clinic-dashboard-reporting-display"
 import type {
   ClinicDashboardReporting,
-  ClinicDashboardReportingMetricValue,
   ClinicDashboardReportingPeriodDays,
 } from "../../model/clinic-dashboard-reporting"
 import { ReportingMetricCard } from "../molecules/ReportingMetricCard"
@@ -23,22 +23,13 @@ type DashboardReportingScreenProps = Readonly<{
 }>
 
 function sessionConversionDisplay(reporting: ClinicDashboardReporting) {
-  const current = reporting.metrics.sessionConversion.current
-  if (current.state === "zero_denominator") {
-    return { detail: "No profile sessions were recorded in this period.", value: "0%" }
-  }
-
-  const display = createMetricValueDisplay({
-    state: current.state,
-    value: current.ratePercent,
-  } satisfies ClinicDashboardReportingMetricValue)
-  return { ...display, value: formatReportingPercent(current.ratePercent) }
+  return createSessionConversionDisplay(reporting.metrics.sessionConversion)
 }
 
 function reviewAverageDisplay(reporting: ClinicDashboardReporting) {
   const average = reporting.metrics.reviews.average
   if (average.state === "no_reviews")
-    return { detail: "No reviews were recorded in this period.", value: "No reviews" }
+    return { detail: "No public reviews are available.", value: "No reviews" }
 
   const display = createMetricValueDisplay({ state: average.state, value: average.value })
   return { ...display, value: average.value === null ? display.value : `${average.value.toFixed(1)} / 5` }
@@ -67,10 +58,37 @@ function reportingCards(reporting: ClinicDashboardReporting) {
   const profileCompleteness = profileCompletenessDisplay(reporting)
 
   return [
-    { ...profileViews, label: "Profile views" },
-    { ...ctaInteractions, label: "CTA interactions" },
+    {
+      ...profileViews,
+      information: [
+        "Recorded profile-view events from sessions with analytics consent. Repeated events count.",
+        profileViews.information,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      label: "Profile views",
+    },
+    {
+      ...ctaInteractions,
+      information: [
+        "Recorded CTA interactions from sessions with analytics consent. Repeated events count.",
+        ctaInteractions.information,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      label: "CTA interactions",
+    },
     { ...inquiries, label: "Inquiries" },
-    { ...sessionConversion, label: "Session conversion" },
+    {
+      ...sessionConversion,
+      information: [
+        "Consent-limited session conversion. Each session with a profile view followed by a successfully stored inquiry counts at most once. CTA interactions are not required.",
+        sessionConversion.information,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      label: "Session conversion",
+    },
     { ...reviewCount, label: "Reviews" },
     { ...reviews, label: "Review average" },
     { ...profileCompleteness, label: "Profile completeness" },
