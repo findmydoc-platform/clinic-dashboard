@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { fn } from "storybook/test"
+import { expect, fn, userEvent, within } from "storybook/test"
 import type { ClinicReviewRecord } from "../../model/review-source"
 import { reviewSourceRecordsFixture } from "../../testing/review-source.fixtures"
 import { ReviewCard } from "./ReviewCard"
@@ -51,10 +51,48 @@ export const Withdrawn: Story = {
     ...actions,
     review: storyReview({
       id: "withdrawn",
+      author: "Anonymous patient",
+      initials: "AP",
       publicText: undefined,
+      response: undefined,
       withdrawalState: "withdrawn",
       withdrawnAt: "2026-01-25T12:00:00.000Z",
     }),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    expect(canvas.queryByText("Approved review")).not.toBeInTheDocument()
+    expect(canvas.getByText("Review withdrawn")).toBeVisible()
+    expect(canvas.getByText("The original review text is not available to the clinic.")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Respond" }))
+    expect(args.onResponseOpen).toHaveBeenCalledWith(args.review.id)
+    await userEvent.click(canvas.getByRole("button", { name: "Submit appeal" }))
+    expect(args.onAppealOpen).toHaveBeenCalledWith(args.review.id)
+    expect(canvas.getByRole("button", { name: "View history" })).toBeVisible()
+  },
+}
+export const Removed: Story = {
+  args: {
+    ...actions,
+    review: storyReview({
+      id: "removed",
+      author: "Anonymous patient",
+      initials: "AP",
+      publicMeasure: "removed",
+      publicText: undefined,
+      response: undefined,
+    }),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    expect(canvas.queryByText("Approved review")).not.toBeInTheDocument()
+    expect(canvas.getByText("Review text removed")).toBeVisible()
+    expect(canvas.getByText("The original review text is not available to the clinic.")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Respond" }))
+    expect(args.onResponseOpen).toHaveBeenCalledWith(args.review.id)
+    await userEvent.click(canvas.getByRole("button", { name: "Submit appeal" }))
+    expect(args.onAppealOpen).toHaveBeenCalledWith(args.review.id)
+    expect(canvas.getByRole("button", { name: "View history" })).toBeVisible()
   },
 }
 export const RejectedReplacement: Story = {

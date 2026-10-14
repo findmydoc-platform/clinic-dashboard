@@ -29,9 +29,14 @@ import { createControlledReviewProvider } from "./reviews/server/controlled-revi
 import { createPayloadReviewProvider } from "./reviews/server/payload-reviews"
 import type { ReviewProvider } from "./reviews/server/review-provider"
 
+import { createControlledNotificationProvider } from "./notifications/server/controlled-notifications"
+import { createPayloadNotificationProvider } from "./notifications/server/payload-notifications"
+import type { NotificationProvider } from "./notifications/server/notification-provider"
+
 export type ClinicDashboardDataProviders = Readonly<{
   doctors: DoctorProfileProvider
   gallery: ClinicGalleryProvider
+  notifications: NotificationProvider
   inquiries: PatientInquiryProvider
   inquiryAttachmentDraftUpload?: PatientInquiryAttachmentDraftUpload
   profile: ClinicProfileProvider
@@ -62,6 +67,10 @@ export function composeClinicDashboardDataProviders(
     gallery: controlled
       ? createControlledClinicGalleryProvider(clinicId)
       : createPayloadClinicGalleryProvider(accessToken, clinicId),
+    notifications:
+      controlled && !localInquiryAcceptance
+        ? createControlledNotificationProvider(accessToken, clinicId)
+        : createPayloadNotificationProvider(accessToken, clinicId, fetch, validatedEnvironment),
     inquiries:
       controlled && !localInquiryAcceptance
         ? createControlledPatientInquiryProvider(clinicId)
@@ -75,9 +84,10 @@ export function composeClinicDashboardDataProviders(
     reporting: controlled
       ? createControlledClinicDashboardReportingProvider()
       : createPayloadClinicDashboardReportingProvider(accessToken),
-    reviews: controlled
-      ? createControlledReviewProvider()
-      : createPayloadReviewProvider(accessToken, clinicId),
+    reviews:
+      controlled && !localInquiryAcceptance
+        ? createControlledReviewProvider()
+        : createPayloadReviewProvider(accessToken, clinicId),
     treatments: controlled
       ? createControlledClinicTreatmentProvider(clinicId)
       : createPayloadClinicTreatmentProvider(accessToken, clinicId),

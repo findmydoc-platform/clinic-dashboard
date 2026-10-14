@@ -103,10 +103,18 @@ DropdownMenuTrigger.displayName = DropdownMenuPrimitive.Trigger.displayName
 
 const DropdownMenuContent = forwardRef<
   ComponentRef<typeof DropdownMenuPrimitive.Content>,
-  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
+  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & { portalContainer?: HTMLElement | null }
 >(
   (
-    { className, collisionPadding = 16, onCloseAutoFocus, onKeyDown, sideOffset = 8, ...props },
+    {
+      className,
+      collisionPadding = 16,
+      onCloseAutoFocus,
+      onKeyDown,
+      sideOffset = 8,
+      portalContainer,
+      ...props
+    },
     forwardedRef,
   ) => {
     const { onOpenChange, open, tabTargetRef, triggerRef } = useDropdownMenuContext()
@@ -128,7 +136,7 @@ const DropdownMenuContent = forwardRef<
     }, [open])
 
     return (
-      <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.Portal container={portalContainer}>
         <DropdownMenuPrimitive.Content
           className={cn(
             "z-50 min-w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)] p-1.5 text-[var(--foreground)] shadow-xl focus:outline-none",

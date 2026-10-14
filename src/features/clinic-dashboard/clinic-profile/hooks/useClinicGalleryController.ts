@@ -95,6 +95,14 @@ export function useClinicGalleryController({
   const uploadBatchActiveRef = useRef(false)
   const itemsRef = useRef(items)
   const pendingNavigationRef = useRef<(() => void) | undefined>(undefined)
+  const pendingNavigationCancelRef = useRef<(() => void) | undefined>(undefined)
+  const cancelPendingNavigation = useCallback(() => {
+    const cancelled = pendingNavigationCancelRef.current
+    pendingNavigationCancelRef.current = undefined
+    pendingNavigationRef.current = undefined
+    cancelled?.()
+  }, [])
+  useEffect(() => cancelPendingNavigation, [cancelPendingNavigation])
   const removedRef = useRef(removed)
 
   const hasGalleryChanges = snapshot ? clinicGalleryHasChanges(snapshot, items) : false
@@ -171,6 +179,7 @@ export function useClinicGalleryController({
   const continuePendingNavigation = useCallback(() => {
     const continuation = pendingNavigationRef.current
     pendingNavigationRef.current = undefined
+    pendingNavigationCancelRef.current = undefined
     continuation?.()
   }, [])
 
@@ -238,13 +247,13 @@ export function useClinicGalleryController({
       setOpen(false)
       continuePendingNavigation()
     } catch {
-      pendingNavigationRef.current = undefined
+      cancelPendingNavigation()
       setMessageTone("error")
       setMessage("Draft cleanup failed. Your uploads may still be stored. Try leaving again.")
     } finally {
       setOperation("idle")
     }
-  }, [continuePendingNavigation, discardNewDrafts, replaceWithSnapshot, snapshot])
+  }, [cancelPendingNavigation, continuePendingNavigation, discardNewDrafts, replaceWithSnapshot, snapshot])
 
   const reloadAfterConflict = useCallback(async () => {
     setConfirmation(null)
@@ -268,9 +277,16 @@ export function useClinicGalleryController({
   }, [commands, discardNewDrafts, replaceWithSnapshot])
 
   const requestNavigation = useCallback(
-    (continuation?: () => void) => {
-      if (operation !== "idle") return
+    (continuation?: () => void, onCancel?: () => void) => {
+      cancelPendingNavigation()
+      if (operation !== "idle") {
+        setMessage("Finish the current gallery operation before opening a notification.")
+        setMessageTone("info")
+        onCancel?.()
+        return
+      }
       pendingNavigationRef.current = continuation
+      pendingNavigationCancelRef.current = onCancel
       if (isDirty) {
         setConfirmation("leave")
         return
@@ -278,7 +294,7 @@ export function useClinicGalleryController({
       setOpen(false)
       continuePendingNavigation()
     },
-    [continuePendingNavigation, isDirty, operation],
+    [cancelPendingNavigation, continuePendingNavigation, isDirty, operation],
   )
 
   const requestClose = useCallback(() => requestNavigation(), [requestNavigation])
@@ -565,7 +581,7 @@ export function useClinicGalleryController({
       setOpen(false)
       continuePendingNavigation()
     } catch (error) {
-      pendingNavigationRef.current = undefined
+      cancelPendingNavigation()
       const isConflict = error instanceof ClinicGalleryCommandError && error.code === "conflict"
       setConflict(isConflict)
       setMessageTone("error")
@@ -581,6 +597,7 @@ export function useClinicGalleryController({
       setConfirmation(null)
     }
   }, [
+    cancelPendingNavigation,
     commands,
     conflict,
     continuePendingNavigation,
@@ -613,7 +630,7 @@ export function useClinicGalleryController({
       setOpen(false)
       continuePendingNavigation()
     } catch (error) {
-      pendingNavigationRef.current = undefined
+      cancelPendingNavigation()
       const isConflict = error instanceof ClinicGalleryCommandError && error.code === "conflict"
       setConflict(isConflict)
       setMessageTone("error")
@@ -628,6 +645,7 @@ export function useClinicGalleryController({
       setOperation("idle")
     }
   }, [
+    cancelPendingNavigation,
     commands,
     conflict,
     continuePendingNavigation,
@@ -640,10 +658,10 @@ export function useClinicGalleryController({
 
   const setConfirmationAction = useCallback(
     (next: "leave" | "reload-after-conflict" | "remove-and-save" | null) => {
-      if (next === null) pendingNavigationRef.current = undefined
+      if (next === null) cancelPendingNavigation()
       setConfirmation(next)
     },
-    [],
+    [cancelPendingNavigation],
   )
 
   return {

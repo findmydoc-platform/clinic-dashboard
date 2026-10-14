@@ -13,6 +13,10 @@ import {
 import type { ClinicDashboardPrototypeMode } from "@/features/clinic-dashboard/prototype/public"
 import { createReviewSourceApiCommands } from "@/features/clinic-dashboard/reviews/public"
 import type { ClinicDashboardReportingLoadState } from "@/features/clinic-dashboard/dashboard/public"
+import {
+  createNotificationApiCommands,
+  type NotificationLoadState,
+} from "@/features/clinic-dashboard/notifications/public"
 import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceComposition"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
 
@@ -20,7 +24,7 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
   focusInquiryId?: string
   initialReporting?: ClinicDashboardReportingLoadState
-  persistNotificationReadStateInSession?: boolean
+  initialNotifications?: NotificationLoadState
   prototypeMode: ClinicDashboardPrototypeMode
   showPrototypeModeToggle?: boolean
   workspaceInput: ClinicDashboardWorkspaceInput
@@ -30,7 +34,7 @@ export function ClinicDashboardWorkspace({
   authenticatedContext,
   focusInquiryId,
   initialReporting,
-  persistNotificationReadStateInSession = false,
+  initialNotifications,
   prototypeMode,
   showPrototypeModeToggle = false,
   workspaceInput,
@@ -41,12 +45,14 @@ export function ClinicDashboardWorkspace({
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
+  const notificationCommands = useMemo(() => createNotificationApiCommands(), [])
   const reviewSourceCommands = useMemo(() => createReviewSourceApiCommands(), [])
   const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
   const refreshSources = () => startSourceRefresh(() => router.refresh())
 
   return (
     <ClinicDashboardWorkspaceComposition
+      key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
       authenticatedContext={authenticatedContext}
       clinicGalleryCommands={clinicGalleryCommands}
       clinicProfileSourceCommands={clinicProfileSourceCommands}
@@ -56,7 +62,8 @@ export function ClinicDashboardWorkspace({
       initialReporting={initialReporting}
       isSourceRefreshPending={isSourceRefreshPending}
       onSourceRefresh={refreshSources}
-      persistNotificationReadStateInSession={persistNotificationReadStateInSession}
+      initialNotifications={initialNotifications}
+      notificationCommands={notificationCommands}
       prototypeMode={prototypeMode}
       reviewCommands={reviewSourceCommands}
       showPrototypeModeToggle={showPrototypeModeToggle}

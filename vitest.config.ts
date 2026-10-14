@@ -8,7 +8,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   optimizeDeps: {
-    include: ["next/link"],
+    include: ["next/link", "react-dom"],
   },
   resolve: {
     alias: {
@@ -63,6 +63,7 @@ export default defineConfig({
             instances: [{ browser: "chromium" }],
             provider: playwright({}),
           },
+          maxWorkers: 1,
           name: "storybook",
           setupFiles: [".storybook/vitest.setup.ts"],
         },

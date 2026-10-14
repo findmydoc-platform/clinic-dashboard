@@ -36,6 +36,7 @@ describe("clinic-managed media image configuration", () => {
   })
 
   it("fails closed when PAYLOAD_API_URL is missing", () => {
+    vi.stubEnv("PAYLOAD_API_URL", "")
     expect(createClinicManagedMediaRemotePatterns(undefined)).toEqual([])
     expect(createClinicManagedMediaImageConfig(undefined)).toEqual({
       dangerouslyAllowLocalIP: false,

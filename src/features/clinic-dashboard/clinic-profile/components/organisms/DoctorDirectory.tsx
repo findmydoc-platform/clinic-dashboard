@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Pencil, UserPlus } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,8 @@ import { DoctorProfileDialog } from "./DoctorProfileDialog"
 type DoctorDirectoryProps = Readonly<{
   canManage: boolean
   commands: DoctorProfileCommands
+  navigationNotice?: string
+  onEditorPresenceChange?: (isOpen: boolean) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   snapshot: DoctorDirectorySnapshot
 }>
@@ -29,13 +31,25 @@ function initials(doctor: DoctorProfile) {
   return `${doctor.firstName[0] ?? ""}${doctor.lastName[0] ?? ""}`.toUpperCase()
 }
 
-export function DoctorDirectory({ canManage, commands, onDoctorsChange, snapshot }: DoctorDirectoryProps) {
+export function DoctorDirectory({
+  canManage,
+  commands,
+  onDoctorsChange,
+  snapshot,
+  navigationNotice,
+  onEditorPresenceChange,
+}: DoctorDirectoryProps) {
   const [doctors, setDoctors] = useState(() => sortDoctors(snapshot.doctors))
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile>()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogSession, setDialogSession] = useState(0)
   const [statusMessage, setStatusMessage] = useState("")
   const isReady = snapshot.status === "ready"
+
+  useEffect(() => {
+    onEditorPresenceChange?.(dialogOpen && isReady)
+    return () => onEditorPresenceChange?.(false)
+  }, [dialogOpen, isReady, onEditorPresenceChange])
 
   const openDoctor = (doctor?: DoctorProfile) => {
     if (!canManage || !isReady) return
@@ -159,6 +173,7 @@ export function DoctorDirectory({ canManage, commands, onDoctorsChange, snapshot
       {dialogOpen && isReady ? (
         <DoctorProfileDialog
           initialDoctor={selectedDoctor}
+          navigationNotice={navigationNotice}
           key={dialogSession}
           medicalSpecialties={snapshot.medicalSpecialties}
           onOpenChange={setDialogOpen}

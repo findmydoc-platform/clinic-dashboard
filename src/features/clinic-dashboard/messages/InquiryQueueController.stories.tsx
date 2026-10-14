@@ -1,147 +1,13 @@
+import { useState } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import type { InquiryWorkspaceCommands } from "./model/inquiry-status-commands"
-import type { PatientInquiryDetail } from "./model/inquiries"
 import {
+  inquiryCommandsFixture as commands,
   closedInquiryFixture,
-  inquiryDetailFixtures,
   inquiryQueueFixture,
-  spamInquiryFixture,
 } from "./testing/public"
 import { InquiryQueue } from "./InquiryQueueController"
-
-function getDetail(inquiryId: string): PatientInquiryDetail {
-  if (inquiryId === inquiryDetailFixtures.open.id) return inquiryDetailFixtures.open
-  if (inquiryId === inquiryDetailFixtures.guest.id) return inquiryDetailFixtures.guest
-  if (inquiryId === closedInquiryFixture.id) return closedInquiryFixture
-  if (inquiryId === spamInquiryFixture.id) return spamInquiryFixture
-  return { ...inquiryDetailFixtures.open, id: inquiryId }
-}
-
-const commands = {
-  async addInternalNote(input) {
-    const inquiry = getDetail(input.inquiryId)
-    return {
-      ok: true,
-      value: {
-        inquiry: {
-          ...inquiry,
-          revision: inquiry.revision + 1,
-          timeline: [
-            ...inquiry.timeline,
-            {
-              authorName: "Sarah Schmidt",
-              body: input.text,
-              createdAt: "2026-08-24T10:12:00.000Z",
-              id: "story-note",
-              kind: "internal-note" as const,
-              timeLabel: "Just now",
-            },
-          ],
-        },
-      },
-    }
-  },
-  async changeReadPosition(input) {
-    return {
-      ok: true,
-      value: {
-        unread: input.mode === "read" ? { count: 0, isUnread: false } : { count: 1, isUnread: true },
-      },
-    }
-  },
-  async changeState(input) {
-    const inquiry = getDetail(input.inquiryId)
-    const next =
-      input.action === "set-handling-status"
-        ? { ...inquiry, handlingStatus: input.handlingStatus, revision: inquiry.revision + 1 }
-        : input.action === "close"
-          ? { ...inquiry, lifecycle: "closed" as const, revision: inquiry.revision + 1 }
-          : input.action === "reopen"
-            ? { ...inquiry, lifecycle: "open" as const, revision: inquiry.revision + 1 }
-            : input.action === "mark-spam"
-              ? {
-                  ...inquiry,
-                  contact: { state: "masked" as const },
-                  handlingStatus: "spam" as const,
-                  lifecycle: "closed" as const,
-                  revision: inquiry.revision + 1,
-                }
-              : {
-                  ...inquiry,
-                  handlingStatus: "submitted" as const,
-                  lifecycle: "closed" as const,
-                  revision: inquiry.revision + 1,
-                }
-    return { ok: true, value: { inquiry: next } }
-  },
-  async createAttachmentDraft({ file }) {
-    return {
-      ok: true,
-      value: {
-        draftId: "story-attachment-draft",
-        expiresAt: "2026-08-24T12:00:00.000Z",
-        fileName: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-        status: "ready" as const,
-      },
-    }
-  },
-  async discardAttachmentDraft() {
-    return { ok: true, value: { discarded: true } }
-  },
-  async loadDetail({ inquiryId, knownChangeCursor }) {
-    const inquiry = getDetail(inquiryId)
-    return {
-      ok: true,
-      value: {
-        changeCursor: inquiry.changeCursor,
-        inquiry,
-        unchanged: knownChangeCursor === inquiry.changeCursor,
-      },
-    }
-  },
-  async loadQueue() {
-    return { ok: true, value: inquiryQueueFixture }
-  },
-  async revealContact({ inquiryId }) {
-    const inquiry = getDetail(inquiryId)
-    return {
-      ok: true,
-      value: {
-        inquiry: {
-          ...inquiry,
-          contact: { email: "protected@example.com", phone: "+49 000 0000009", state: "full" as const },
-        },
-      },
-    }
-  },
-  async sendExternalMessage(input) {
-    const inquiry = getDetail(input.inquiryId)
-    return {
-      ok: true,
-      value: {
-        inquiry: {
-          ...inquiry,
-          handlingStatus: "contacted" as const,
-          revision: inquiry.revision + 1,
-          timeline: [
-            ...inquiry.timeline,
-            {
-              author: { kind: "clinic" as const, label: "Clinic", staffName: "Sarah Schmidt" },
-              body: input.text ?? "",
-              createdAt: "2026-08-24T10:10:00.000Z",
-              id: "story-reply",
-              kind: "external-message" as const,
-              timeLabel: "Just now",
-            },
-          ],
-        },
-      },
-    }
-  },
-} satisfies InquiryWorkspaceCommands
 
 const meta = {
   args: {
@@ -260,5 +126,153 @@ export const DetailFailure: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole("button", { name: /Lukas Weber/ }))
     await expect(await canvas.findByRole("heading", { name: "Inquiry could not be loaded" })).toBeVisible()
+  },
+}
+
+export const RepeatedExactOpeningWaitsForDisplay: Story = {
+  args: { onOpeningResult: fn() },
+  render: function RepeatedOpening(args) {
+    const [request, setRequest] = useState({ requestId: "opening-1", inquiryId: closedInquiryFixture.id })
+    const [source] = useState(() => {
+      let calls = 0
+      let finish: (() => void) | undefined
+      return {
+        finish: () => finish?.(),
+        commands: {
+          ...commands,
+          loadDetail: fn(async (input: Parameters<InquiryWorkspaceCommands["loadDetail"]>[0]) => {
+            calls += 1
+            if (calls > 1)
+              await new Promise<void>((resolve) => {
+                finish = resolve
+              })
+            return commands.loadDetail(input)
+          }),
+        },
+      }
+    })
+    return (
+      <>
+        <button onClick={() => setRequest({ ...request, requestId: "opening-2" })}>Open again</button>
+        <button onClick={source.finish}>Finish exact load</button>
+        <InquiryQueue {...args} commands={source.commands} openingRequest={request} />
+      </>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() =>
+      expect(args.onOpeningResult).toHaveBeenCalledWith({
+        requestId: "opening-1",
+        inquiryId: closedInquiryFixture.id,
+        status: "displayed",
+      }),
+    )
+    await userEvent.click(canvas.getByRole("button", { name: "Open again" }))
+    await expect(args.onOpeningResult).toHaveBeenCalledTimes(1)
+    await expect(
+      canvas.queryByRole("region", { name: "Inquiry from Markus Schmidt" }),
+    ).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Finish exact load" }))
+    await waitFor(() =>
+      expect(args.onOpeningResult).toHaveBeenCalledWith({
+        requestId: "opening-2",
+        inquiryId: closedInquiryFixture.id,
+        status: "displayed",
+      }),
+    )
+    await expect(canvas.getByRole("heading", { name: "Markus Schmidt" })).toHaveFocus()
+  },
+}
+
+export const ReplacedOpeningDiscardsOldResponse: Story = {
+  args: { onOpeningResult: fn() },
+  render: function ReplacedOpening(args) {
+    const [request, setRequest] = useState<{ requestId: string; inquiryId: string }>({
+      requestId: "old-opening",
+      inquiryId: closedInquiryFixture.id,
+    })
+    const [source] = useState(() => {
+      let release: (() => void) | undefined
+      return {
+        release: () => release?.(),
+        commands: {
+          ...commands,
+          async loadDetail(input: Parameters<InquiryWorkspaceCommands["loadDetail"]>[0]) {
+            if (input.inquiryId === closedInquiryFixture.id)
+              await new Promise<void>((resolve) => {
+                release = resolve
+              })
+            return commands.loadDetail(input)
+          },
+        },
+      }
+    })
+    return (
+      <>
+        <button onClick={() => setRequest({ requestId: "new-opening", inquiryId: "inquiry-lukas-weber" })}>
+          Replace opening
+        </button>
+        <button onClick={source.release}>Release old load</button>
+        <InquiryQueue {...args} commands={source.commands} openingRequest={request} />
+      </>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "Replace opening" }))
+    await waitFor(() =>
+      expect(args.onOpeningResult).toHaveBeenCalledWith({
+        requestId: "new-opening",
+        inquiryId: "inquiry-lukas-weber",
+        status: "displayed",
+      }),
+    )
+    await userEvent.click(canvas.getByRole("button", { name: "Release old load" }))
+    await expect(args.onOpeningResult).toHaveBeenCalledOnce()
+    await expect(
+      canvas.queryByRole("region", { name: "Inquiry from Markus Schmidt" }),
+    ).not.toBeInTheDocument()
+  },
+}
+export const MissingAnchorStillDisplaysExactRecord: Story = {
+  args: {
+    openingRequest: {
+      requestId: "missing-anchor",
+      inquiryId: closedInquiryFixture.id,
+      anchor: { kind: "message", id: "missing-message" },
+    },
+    onOpeningResult: fn(),
+  },
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() =>
+      expect(args.onOpeningResult).toHaveBeenCalledWith({
+        requestId: "missing-anchor",
+        inquiryId: closedInquiryFixture.id,
+        status: "displayed",
+      }),
+    )
+    await expect(canvas.getByRole("heading", { name: "Markus Schmidt" })).toHaveFocus()
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+
+export const AvailableMessageAnchorUsesNormalDetail: Story = {
+  args: {
+    openingRequest: {
+      requestId: "visible-message",
+      inquiryId: "inquiry-lukas-weber",
+      anchor: { kind: "message", id: "lukas-patient-file" },
+    },
+    onOpeningResult: fn(),
+    commands: { ...commands, loadDetail: fn(commands.loadDetail) },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() => expect(args.onOpeningResult).toHaveBeenCalledOnce())
+    await expect(canvas.getByRole("group", { name: "Message from Patient at 11:02" })).toHaveFocus()
+    await expect(args.commands!.loadDetail).toHaveBeenCalledOnce()
   },
 }

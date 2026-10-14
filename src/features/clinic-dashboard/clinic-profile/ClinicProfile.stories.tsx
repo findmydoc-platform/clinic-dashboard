@@ -1,6 +1,7 @@
+import { act } from "@testing-library/react"
 import { useState, type ComponentProps } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, userEvent, waitFor, within } from "storybook/test"
+import { expect, fn, mocked, userEvent, waitFor, within } from "storybook/test"
 import { ClinicProfile } from "./ClinicProfile"
 import {
   ClinicProfileSourceCommandError,
@@ -528,5 +529,152 @@ export const ProfileUnavailable: Story = {
   args: { sourceSnapshot: undefined },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText("Profile unavailable")).toBeVisible()
+  },
+}
+
+export const ProfileNavigationCancelThenSave: Story = {
+  args: { onNavigationRequestChange: fn() },
+  play: async ({ args, canvasElement }) => {
+    const page = within(canvasElement)
+    const body = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
+    const input = page.getByRole("textbox", { name: "Clinic name" })
+    await userEvent.clear(input)
+    await userEvent.type(input, "Preserved clinic draft")
+    const continuation = fn()
+    const cancelled = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    expect(request).toEqual(expect.any(Function))
+    await act(() => request?.(continuation, cancelled))
+    await userEvent.click(await body.findByRole("button", { name: "Keep editing" }))
+    expect(input).toHaveValue("Preserved clinic draft")
+    expect(continuation).not.toHaveBeenCalled()
+    expect(cancelled).toHaveBeenCalledTimes(1)
+    await act(() => request?.(continuation, cancelled))
+    await userEvent.click(await body.findByRole("button", { name: "Save draft and leave" }))
+    await waitFor(() => expect(continuation).toHaveBeenCalledTimes(1))
+    expect(page.queryByRole("textbox", { name: "Clinic name" })).not.toBeInTheDocument()
+    expect(page.getByRole("button", { name: "Continue editing" })).toBeVisible()
+  },
+}
+
+export const ProfileNavigationDiscardLocalChanges: Story = {
+  args: { onNavigationRequestChange: fn() },
+  play: async ({ args, canvasElement }) => {
+    const page = within(canvasElement)
+    const body = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
+    await userEvent.type(page.getByRole("textbox", { name: "Clinic name" }), " local unsaved change")
+    const continuation = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    await act(() => request?.(continuation))
+    await userEvent.click(await body.findByRole("button", { name: "Leave without saving" }))
+    expect(continuation).toHaveBeenCalledTimes(1)
+    expect(page.queryByRole("textbox", { name: "Clinic name" })).not.toBeInTheDocument()
+    await userEvent.click(page.getByRole("button", { name: "Edit profile" }))
+    expect(page.getByRole("textbox", { name: "Clinic name" })).toHaveValue(
+      clinicProfileSourceFixture.published.name,
+    )
+  },
+}
+
+export const ProfileNavigationRefusesBusySave: Story = {
+  args: {
+    onNavigationRequestChange: fn(),
+    sourceSnapshot: clinicProfileSourceDraftFixture,
+    sourceCommands: {
+      ...createClinicProfileSourceCommandsFixture(clinicProfileSourceDraftFixture),
+      saveDraft: fn(),
+    },
+  },
+  render: (args) => <ClinicProfileProvidedSourceCommandsStoryFixture {...args} />,
+  play: async ({ args, canvasElement }) => {
+    const page = within(canvasElement)
+    let resolveSave!: (snapshot: typeof clinicProfileSourceDraftFixture) => void
+    mocked(args.sourceCommands.saveDraft).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        }),
+    )
+    await userEvent.click(page.getByRole("button", { name: "Continue editing" }))
+    const input = page.getByRole("textbox", { name: "Clinic name" })
+    await userEvent.clear(input)
+    await userEvent.type(input, "Pending save clinic")
+    await userEvent.click(page.getByRole("button", { name: "Save draft" }))
+    const continuation = fn()
+    const cancelled = fn()
+    await waitFor(() => expect(args.sourceCommands.saveDraft).toHaveBeenCalledTimes(1))
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    await act(() => request?.(continuation, cancelled))
+    expect(continuation).not.toHaveBeenCalled()
+    expect(cancelled).toHaveBeenCalledTimes(1)
+    const saved = {
+      ...clinicProfileSourceDraftFixture,
+      draft: { ...clinicProfileSourceDraftFixture.draft!, name: "Pending save clinic" },
+    }
+    await act(() => resolveSave(saved))
+    await page.findByText("Draft saved.")
+    expect(continuation).not.toHaveBeenCalled()
+  },
+}
+
+export const TreatmentEditorRefusesNotificationNavigation: Story = {
+  args: { onNavigationRequestChange: fn(), focusTarget: "treatments" },
+  play: async ({ args, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body)
+    const input = await body.findByRole("spinbutton", { name: "Price (EUR)" })
+    await userEvent.type(input, "375")
+    const continuation = fn()
+    const cancelled = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    expect(request).toEqual(expect.any(Function))
+    await act(() => request?.(continuation, cancelled))
+    expect(cancelled).toHaveBeenCalledTimes(1)
+    expect(continuation).not.toHaveBeenCalled()
+    expect(input).toHaveValue(375)
+    expect(
+      await body.findByText("Save or close the current editor before opening a notification."),
+    ).toBeVisible()
+  },
+}
+export const DoctorEditorRefusesNotificationNavigation: Story = {
+  args: { onNavigationRequestChange: fn() },
+  play: async ({ args, canvasElement }) => {
+    const page = within(canvasElement)
+    const body = within(canvasElement.ownerDocument.body)
+    await userEvent.click(page.getByRole("button", { name: "Add doctor" }))
+    const input = await body.findByRole("textbox", { name: "First name" })
+    await userEvent.type(input, "Preserved doctor")
+    const continuation = fn()
+    const cancelled = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    expect(request).toEqual(expect.any(Function))
+    await act(() => request?.(continuation, cancelled))
+    expect(cancelled).toHaveBeenCalledTimes(1)
+    expect(continuation).not.toHaveBeenCalled()
+    expect(input).toHaveValue("Preserved doctor")
+    expect(
+      await body.findByText("Save or close the current editor before opening a notification."),
+    ).toBeVisible()
+  },
+}
+export const AddressEditorRefusesNotificationNavigation: Story = {
+  args: { onNavigationRequestChange: fn(), focusTarget: "address" },
+  play: async ({ args, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body)
+    const input = await body.findByRole("textbox", { name: "Street" })
+    await userEvent.clear(input)
+    await userEvent.type(input, "Preserved street")
+    const continuation = fn()
+    const cancelled = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    await act(() => request?.(continuation, cancelled))
+    expect(cancelled).toHaveBeenCalledTimes(1)
+    expect(continuation).not.toHaveBeenCalled()
+    expect(input).toHaveValue("Preserved street")
+    expect(
+      await body.findByText("Save or close the current editor before opening a notification."),
+    ).toBeVisible()
   },
 }

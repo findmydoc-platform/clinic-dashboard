@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   createClinicDashboardLoginPath,
   createClinicDashboardReturnTarget,
@@ -22,20 +22,36 @@ import {
   ProfileTaskDialog,
   type ClinicDashboardReportingLoadState,
 } from "@/features/clinic-dashboard/dashboard/public"
-import { InquiryQueue } from "@/features/clinic-dashboard/messages/public"
+import {
+  InquiryQueue,
+  type InquiryOpeningRequest,
+  type InquiryOpeningResult,
+  type InquiryWorkspaceCommands,
+} from "@/features/clinic-dashboard/messages/public"
 import {
   getClinicDashboardDemoInteractionPolicy,
   isClinicDashboardPrototypeMode,
   PrototypeModeSwitch,
   type ClinicDashboardPrototypeMode,
 } from "@/features/clinic-dashboard/prototype/public"
-import { Reviews, type ReviewSourceCommands } from "@/features/clinic-dashboard/reviews/public"
+import {
+  Reviews,
+  type ReviewOpeningRequest,
+  type ReviewOpeningResult,
+  type ReviewSourceCommands,
+} from "@/features/clinic-dashboard/reviews/public"
 import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
 import { ClinicLocationSelector } from "./components/molecules/ClinicLocationSelector"
 import { FutureAreaPlaceholderScreen } from "./components/organisms/FutureAreaPlaceholderScreen"
-import { NotificationCenter } from "./components/organisms/NotificationCenter"
+import {
+  NotificationCenter,
+  type NotificationDestinationOpen,
+  type NotificationOpeningOutcome,
+  type NotificationCommands,
+  type NotificationLoadState,
+} from "@/features/clinic-dashboard/notifications/public"
 import { getClinicDashboardLocation, type ClinicDashboardLocationId } from "./model/locations"
 import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/workspace"
 import {
@@ -65,13 +81,14 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
   doctorProfileCommands: DoctorProfileCommands
-  initialNotificationReadIds?: readonly string[]
+  initialNotifications?: NotificationLoadState
+  notificationCommands: NotificationCommands
   initialNotificationsOpen?: boolean
   initialReporting?: ClinicDashboardReportingLoadState
+  inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
   isSourceRefreshPending: boolean
   onSourceRefresh: () => void
-  persistNotificationReadStateInSession: boolean
   prototypeMode: ClinicDashboardPrototypeMode
   reviewCommands: ReviewSourceCommands
   showPrototypeModeToggle: boolean
@@ -86,12 +103,13 @@ export function ClinicDashboardWorkspaceComposition({
   clinicTreatmentCommands,
   doctorProfileCommands,
   focusInquiryId,
-  initialNotificationReadIds = [],
+  inquiryCommands,
+  initialNotifications = { status: "loading" },
+  notificationCommands,
   initialNotificationsOpen = false,
   initialReporting,
   isSourceRefreshPending,
   onSourceRefresh,
-  persistNotificationReadStateInSession,
   prototypeMode,
   reviewCommands,
   showPrototypeModeToggle,
@@ -104,6 +122,61 @@ export function ClinicDashboardWorkspaceComposition({
   const [inquiryUnreadCount, setInquiryUnreadCount] = useState(
     workspaceInput.inquiryQueue.status === "ready" ? workspaceInput.inquiryQueue.unreadCount : 0,
   )
+  const [inquiryOpeningRequest, setInquiryOpeningRequest] =
+    useState<Readonly<{ scope: string; request: InquiryOpeningRequest }>>()
+  const [reviewOpeningRequest, setReviewOpeningRequest] =
+    useState<Readonly<{ scope: string; request: ReviewOpeningRequest }>>()
+  const pendingOpeningRef = useRef<
+    | Readonly<{ requestId: string; resolve: (outcome: NotificationOpeningOutcome) => void; scope: string }>
+    | undefined
+  >(undefined)
+  const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
+  const scopeRef = useRef(scope)
+  const reviewNavigationRef = useRef<((continuation: () => void, onCancel?: () => void) => void) | null>(null)
+  const profileNavigationRef = useRef<((continuation: () => void, onCancel?: () => void) => void) | null>(
+    null,
+  )
+  const setReviewNavigation = useCallback(
+    (request: ((continuation: () => void, onCancel?: () => void) => void) | null) => {
+      reviewNavigationRef.current = request
+    },
+    [],
+  )
+  const setProfileNavigation = useCallback(
+    (request: ((continuation: () => void, onCancel?: () => void) => void) | null) => {
+      profileNavigationRef.current = request
+    },
+    [],
+  )
+  const cancelOpening = useCallback(() => {
+    pendingOpeningRef.current?.resolve("cancelled")
+    pendingOpeningRef.current = undefined
+    setInquiryOpeningRequest(undefined)
+    setReviewOpeningRequest(undefined)
+  }, [])
+  useEffect(() => {
+    scopeRef.current = scope
+    pendingOpeningRef.current?.resolve("cancelled")
+    pendingOpeningRef.current = undefined
+    return () => {
+      pendingOpeningRef.current?.resolve("cancelled")
+      pendingOpeningRef.current = undefined
+    }
+  }, [scope, cancelOpening])
+  const onInquiryOpeningResult = useCallback((result: InquiryOpeningResult) => {
+    const pending = pendingOpeningRef.current
+    if (!pending || pending.requestId !== result.requestId || pending.scope !== scopeRef.current) return
+    pendingOpeningRef.current = undefined
+    pending.resolve(result.status)
+    setInquiryOpeningRequest(undefined)
+  }, [])
+  const onReviewOpeningResult = useCallback((result: ReviewOpeningResult) => {
+    const pending = pendingOpeningRef.current
+    if (!pending || pending.requestId !== result.requestId || pending.scope !== scopeRef.current) return
+    pendingOpeningRef.current = undefined
+    pending.resolve(result.status)
+    setReviewOpeningRequest(undefined)
+  }, [])
   const galleryNavigationRequestRef = useRef<((continuation: () => void) => void) | undefined>(undefined)
   const setGalleryNavigationRequest = useCallback((request?: (continuation: () => void) => void) => {
     galleryNavigationRequestRef.current = request
@@ -125,12 +198,9 @@ export function ClinicDashboardWorkspaceComposition({
 
   const controller = useClinicDashboardController({
     initialLocationId: workspaceInput.defaultLocationId,
-    initialNotificationReadIds,
     initialNotificationsOpen,
     initialProfileTask,
     initialSection: focusInquiryId ? "messages" : (start.section ?? "dashboard"),
-    notifications: workspaceInput.notifications,
-    persistNotificationReadStateInSession,
     prototypeMode,
   })
   const { actions, model } = controller
@@ -203,16 +273,81 @@ export function ClinicDashboardWorkspaceComposition({
     window.location.assign(createClinicDashboardLoginPath(returnTarget))
   }, [])
 
+  const openNotificationDestination = useCallback<NotificationDestinationOpen>(
+    (request, signal) => {
+      if (model.supportOpen || model.profileTaskOpen) return Promise.resolve("cancelled")
+      if (signal.aborted) return Promise.resolve("cancelled")
+      cancelOpening()
+      return new Promise((resolve) => {
+        const pending = { requestId: request.requestId, resolve, scope }
+        pendingOpeningRef.current = pending
+        const cancel = () => {
+          if (pendingOpeningRef.current === pending) cancelOpening()
+        }
+        signal.addEventListener("abort", cancel, { once: true })
+        const current = () =>
+          pendingOpeningRef.current === pending && !signal.aborted && scopeRef.current === scope
+        if (
+          hasUnsavedInquiryDrafts &&
+          !window.confirm(
+            `Open this ${request.destination.kind === "review" ? "review" : "inquiry"}? Your unsent replies, internal notes and attachments will be kept.`,
+          )
+        ) {
+          cancel()
+          return
+        }
+        const begin = () => {
+          if (!current()) return
+          if (request.destination.kind === "review") {
+            actions.navigate("reviews")
+            actions.setNotificationsOpen(false)
+            setReviewOpeningRequest({
+              scope,
+              request: {
+                requestId: request.requestId,
+                reviewId: request.destination.reviewId,
+                anchor: request.destination.anchor,
+              },
+            })
+            return
+          }
+          actions.navigate("messages")
+          actions.setNotificationsOpen(false)
+          setInquiryOpeningRequest({
+            scope,
+            request: {
+              requestId: request.requestId,
+              inquiryId: request.destination.inquiryId,
+              anchor: request.destination.anchor,
+            },
+          })
+        }
+        const guardProfile = () => {
+          if (!current()) return
+          const guard = profileNavigationRef.current
+          if (guard) guard(begin, cancel)
+          else begin()
+        }
+        const guard = reviewNavigationRef.current
+        if (guard) guard(guardProfile, cancel)
+        else guardProfile()
+      })
+    },
+    [actions, cancelOpening, hasUnsavedInquiryDrafts, scope, model.supportOpen, model.profileTaskOpen],
+  )
+
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
     const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
 
     continueAfterGalleryGuard(() => {
+      cancelOpening()
       setGalleryProjection(undefined)
       actions.selectLocation(locationId, nextLocation.name)
     })
   }
 
   const openProfileDestination = (destination: ClinicProfileFocusTarget) => {
+    cancelOpening()
     actions.navigateToProfileTarget(destination)
   }
 
@@ -262,28 +397,29 @@ export function ClinicDashboardWorkspaceComposition({
       items={navigationItems}
       inquiryUnreadCount={inquiryUnreadCount}
       notificationCenter={
-        capabilities.showNotifications ? (
-          <NotificationCenter
-            notifications={workspaceInput.notifications}
-            onMarkAllAsRead={actions.markAllNotificationsRead}
-            onNotificationOpen={(notification) => {
-              const nextLocation = getClinicDashboardLocation(
-                workspaceInput.locations,
-                notification.locationId,
-              )
-              continueAfterGalleryGuard(() => {
-                setGalleryProjection(undefined)
-                actions.openNotification(notification, nextLocation.name)
-              })
-            }}
-            onOpenChange={actions.setNotificationsOpen}
-            open={model.notificationsOpen}
-            readNotificationIds={model.notificationReadIds}
-          />
-        ) : undefined
+        <NotificationCenter
+          key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
+          commands={notificationCommands}
+          initialState={initialNotifications}
+          onOpenChange={actions.setNotificationsOpen}
+          onDestinationOpen={openNotificationDestination}
+          open={model.notificationsOpen}
+        />
       }
-      onSectionSelect={(section) => continueAfterGalleryGuard(() => actions.navigate(section))}
-      onSupportRequest={capabilities.showSupport ? actions.openSupport : undefined}
+      onSectionSelect={(section) =>
+        continueAfterGalleryGuard(() => {
+          cancelOpening()
+          actions.navigate(section)
+        })
+      }
+      onSupportRequest={
+        capabilities.showSupport
+          ? () => {
+              cancelOpening()
+              actions.openSupport()
+            }
+          : undefined
+      }
     >
       <p aria-live="polite" className="sr-only" role="status">
         {model.locationAnnouncement}
@@ -294,6 +430,10 @@ export function ClinicDashboardWorkspaceComposition({
       ) : null}
       <div hidden={activeSection !== "messages"}>
         <InquiryQueue
+          commands={inquiryCommands}
+          key={scope}
+          openingRequest={inquiryOpeningRequest?.scope === scope ? inquiryOpeningRequest.request : undefined}
+          onOpeningResult={onInquiryOpeningResult}
           focusHeading={model.messageFocusTarget === "heading"}
           focusInquiryId={focusInquiryId}
           isActive={activeSection === "messages"}
@@ -306,6 +446,12 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "reviews"}>
         <Reviews
+          key={scope}
+          isActive={activeSection === "reviews"}
+          openingRequest={reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : undefined}
+          onOpeningResult={onReviewOpeningResult}
+          onSessionLost={handleInquirySessionLoss}
+          onNavigationRequestChange={setReviewNavigation}
           commands={reviewCommands}
           focusTarget={model.reviewFocusTarget}
           onFocusHandled={actions.clearReviewFocusRequest}
@@ -315,6 +461,7 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "profile"}>
         <ClinicProfile
+          onNavigationRequestChange={setProfileNavigation}
           galleryCommands={clinicGalleryCommands}
           galleryManagement={galleryManagement}
           galleryStatus={effectiveGalleryStatus}

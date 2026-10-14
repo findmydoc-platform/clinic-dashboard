@@ -6,3 +6,5 @@ export {
   inquiryQueueFixture,
   spamInquiryFixture,
 } from "./messages.fixtures"
+
+export { inquiryCommandsFixture } from "./inquiry-commands.fixtures"

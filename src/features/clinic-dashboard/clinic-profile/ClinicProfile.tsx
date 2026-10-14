@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -44,6 +44,9 @@ export type ClinicProfileProps = Readonly<{
   initialDialog?: "treatment"
   onFocusHandled: () => void
   onGallerySaved?: (snapshot: ClinicGallerySnapshot) => void
+  onNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onGalleryNavigationRequestChange?: (request?: (continuation: () => void) => void) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   onSourceProfileChanged?: (snapshot: ClinicProfileSnapshot) => void
@@ -70,6 +73,7 @@ export function ClinicProfile({
   onFocusHandled,
   onGallerySaved,
   onGalleryNavigationRequestChange,
+  onNavigationRequestChange,
   onDoctorsChange,
   onSourceProfileChanged,
   onTreatmentMissing,
@@ -81,6 +85,12 @@ export function ClinicProfile({
   treatmentManagement,
   treatmentSnapshot,
 }: ClinicProfileProps) {
+  const [isDoctorEditorOpen, setIsDoctorEditorOpen] = useState(false)
+  const [navigationNotice, setNavigationNotice] = useState("")
+  const handleDoctorEditorPresenceChange = useCallback((isOpen: boolean) => {
+    setIsDoctorEditorOpen(isOpen)
+    setNavigationNotice("")
+  }, [])
   const handleGallerySaved = useCallback(
     (snapshot: ClinicGallerySnapshot) => {
       onGallerySaved?.(snapshot)
@@ -117,6 +127,46 @@ export function ClinicProfile({
     onSnapshotChanged: onSourceProfileChanged,
   })
   const { actions: sourceActions, model: sourceModel } = source
+  const requestSourceNavigation = sourceActions.requestNavigation
+  const requestGalleryNavigation = galleryController.actions.requestNavigation
+  const isGalleryOpen = galleryController.model.open
+  const hasBlockingDialog =
+    isDoctorEditorOpen ||
+    treatmentController.model.dialogOpen ||
+    treatmentController.model.isBusy ||
+    Boolean(sourceModel.dialog)
+  const requestNavigation = useCallback(
+    (continuation: () => void, onCancel?: () => void) => {
+      if (hasBlockingDialog) {
+        setNavigationNotice("Save or close the current editor before opening a notification.")
+        onCancel?.()
+        return
+      }
+      setNavigationNotice("")
+      const continueAfterSource = () => {
+        if (isGalleryOpen) requestGalleryNavigation(continuation, onCancel)
+        else continuation()
+      }
+      requestSourceNavigation(continueAfterSource, onCancel)
+    },
+    [hasBlockingDialog, isGalleryOpen, requestGalleryNavigation, requestSourceNavigation],
+  )
+  useEffect(() => {
+    const hasEditor =
+      hasBlockingDialog ||
+      sourceModel.mode !== "view" ||
+      sourceModel.operation !== "idle" ||
+      galleryController.model.open
+    onNavigationRequestChange?.(hasEditor ? requestNavigation : null)
+    return () => onNavigationRequestChange?.(null)
+  }, [
+    hasBlockingDialog,
+    galleryController.model.open,
+    onNavigationRequestChange,
+    requestNavigation,
+    sourceModel.mode,
+    sourceModel.operation,
+  ])
   const openGallery = galleryController.actions.openGallery
   const openTreatmentCreate = treatmentController.actions.openCreate
   const requestProfileReview = sourceActions.requestReview
@@ -240,6 +290,8 @@ export function ClinicProfile({
       {!galleryController.model.open ? (
         <ClinicProfileScreen
           actions={screenActions}
+          navigationNotice={navigationNotice}
+          onDoctorEditorPresenceChange={handleDoctorEditorPresenceChange}
           model={{
             doctorCommands,
             doctorDirectory,
@@ -277,19 +329,27 @@ export function ClinicProfile({
 
       {sourceModel.dialog === "address" && sourceModel.workingDraft && sourceModel.snapshot ? (
         <AddressDialog
+          navigationNotice={navigationNotice}
           address={sourceModel.workingDraft.address}
           cities={sourceModel.snapshot.availableCities}
           errors={sourceModel.validationErrors}
-          onOpenChange={(open) => sourceActions.setDialog(open ? "address" : null)}
+          onOpenChange={(open) => {
+            if (!open) setNavigationNotice("")
+            sourceActions.setDialog(open ? "address" : null)
+          }}
           onSave={sourceActions.saveAddress}
           open
         />
       ) : null}
       {sourceModel.dialog === "hours" && sourceModel.workingDraft ? (
         <OpeningHoursDialog
+          navigationNotice={navigationNotice}
           entries={sourceModel.workingDraft.openingHours}
           errors={sourceModel.validationErrors}
-          onOpenChange={(open) => sourceActions.setDialog(open ? "hours" : null)}
+          onOpenChange={(open) => {
+            if (!open) setNavigationNotice("")
+            sourceActions.setDialog(open ? "hours" : null)
+          }}
           onSave={sourceActions.saveOpeningHours}
           open
         />
@@ -305,7 +365,11 @@ export function ClinicProfile({
           isBusy={treatments.isBusy}
           isReadOnly={!isClinicProfileManagementInteractive(treatmentManagement)}
           message={treatments.dialogMessage}
-          onOpenChange={treatmentController.actions.setDialogOpen}
+          navigationNotice={navigationNotice}
+          onOpenChange={(open) => {
+            if (!open) setNavigationNotice("")
+            treatmentController.actions.setDialogOpen(open)
+          }}
           onSave={treatmentController.actions.save}
           onTreatmentMissing={onTreatmentMissing}
           open

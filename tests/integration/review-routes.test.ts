@@ -13,6 +13,7 @@ vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
 import {
   handleReviewAppealSubmit,
   handleReviewHistoryLoad,
+  handleReviewDetailLoad,
   handleReviewListLoad,
   handleReviewResponseSubmit,
 } from "@/features/clinic-dashboard/server"
@@ -120,5 +121,59 @@ describe("review workflow BFF", () => {
     expect(response.status).toBe(409)
     expectPrivate(response)
     await expect(response.json()).resolves.toEqual({ code: "REVIEW_WORKFLOW_CONFLICT" })
+  })
+})
+
+describe("ordinary exact review BFF", () => {
+  beforeEach(() => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")
+    vi.stubEnv("CSRF_SIGNING_SECRET", "controlled-review-route-test-secret")
+    vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
+    vi.stubEnv("NODE_ENV", "test")
+    vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
+    vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
+    accessMocks.resolveClinicDashboardRouteAccess.mockResolvedValue({
+      accessToken: "access-token",
+      applyToResponse: (response: Response) => {
+        response.headers.set("set-cookie", "refreshed=session; HttpOnly")
+        return response
+      },
+      clinicId: "clinic-1",
+      status: "approved",
+    })
+  })
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+  })
+  it("loads exact authorized detail without list filters and preserves private cookies", async () => {
+    const response = await handleReviewDetailLoad(
+      new NextRequest("http://localhost:3000/api/dashboard/reviews/seed-review-01"),
+      "seed-review-01",
+    )
+    expect(response.status).toBe(200)
+    expectPrivate(response)
+    expect(response.headers.get("set-cookie")).toContain("refreshed=session")
+    expect(await response.json()).toMatchObject({ id: "seed-review-01" })
+  })
+  it.each(["?clinicId=other", "?visibility=all"])("rejects an extra query %s", async (query) => {
+    const response = await handleReviewDetailLoad(
+      new NextRequest(`http://localhost:3000/api/dashboard/reviews/seed-review-01${query}`),
+      "seed-review-01",
+    )
+    expect(response.status).toBe(400)
+    expect(accessMocks.resolveClinicDashboardRouteAccess).not.toHaveBeenCalled()
+  })
+  it("returns neutral not-found for an unavailable detail", async () => {
+    const response = await handleReviewDetailLoad(
+      new NextRequest("http://localhost:3000/api/dashboard/reviews/missing"),
+      "missing",
+    )
+    expect(response.status).toBe(404)
+    expectPrivate(response)
+    expect(await response.json()).toEqual({ code: "REVIEW_NOT_FOUND" })
   })
 })

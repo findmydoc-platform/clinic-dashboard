@@ -15,9 +15,13 @@ import { ReviewMutationDialog } from "../molecules/ReviewMutationDialog"
 
 export function ReviewAppealDialog({
   onClose,
+  onNavigationRequestChange,
   onSubmit,
   review,
 }: Readonly<{
+  onNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onClose: () => void
   onSubmit: (submission: { details: string; reason: ReviewAppealReason }) => Promise<ReviewMutationResult>
   review: ClinicReviewRecord
@@ -38,8 +42,10 @@ export function ReviewAppealDialog({
   return (
     <ReviewMutationDialog
       description="An appeal can be submitted once and cannot be edited. The platform team reviews the request; an upheld appeal does not by itself change the public review."
+      isDirty={details !== "" || reason !== ""}
       isSubmitDisabled={!reason || trimmed.length < 10}
       onClose={onClose}
+      onNavigationRequestChange={onNavigationRequestChange}
       onSubmit={submit}
       review={review}
       submitLabel="Submit appeal"

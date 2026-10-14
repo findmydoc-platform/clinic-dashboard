@@ -1,3 +1,5 @@
+import type { ReviewOpeningRequest, ReviewOpeningResult } from "../../model/review-opening"
+import { ReviewDetailPanel } from "./ReviewDetailPanel"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageHeading } from "@/components/ui/page-heading"
@@ -10,11 +12,23 @@ import { ReviewAppealDialog } from "./ReviewAppealDialog"
 import { ReviewHistoryDialog } from "./ReviewHistoryDialog"
 import { ReviewResponseDialog } from "./ReviewResponseDialog"
 
-function DialogSlot({ actions, dialog }: Pick<ReviewsViewModel, "dialog"> & { actions: ReviewsActions }) {
+type NavigationRegistration = (
+  request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+) => void
+
+function DialogSlot({
+  actions,
+  dialog,
+  onNavigationRequestChange,
+}: Pick<ReviewsViewModel, "dialog"> & {
+  actions: ReviewsActions
+  onNavigationRequestChange?: NavigationRegistration
+}) {
   if (dialog.kind === "appeal") {
     return (
       <ReviewAppealDialog
         onClose={actions.closeReviewDialog}
+        onNavigationRequestChange={onNavigationRequestChange}
         onSubmit={actions.submitReviewAppeal}
         review={dialog.review}
       />
@@ -24,6 +38,7 @@ function DialogSlot({ actions, dialog }: Pick<ReviewsViewModel, "dialog"> & { ac
     return (
       <ReviewResponseDialog
         onClose={actions.closeReviewDialog}
+        onNavigationRequestChange={onNavigationRequestChange}
         onSubmit={actions.submitReviewResponse}
         review={dialog.review}
       />
@@ -44,7 +59,18 @@ function DialogSlot({ actions, dialog }: Pick<ReviewsViewModel, "dialog"> & { ac
 export function ReviewsScreen({
   actions,
   model,
-}: Readonly<{ actions: ReviewsActions; model: ReviewsViewModel }>) {
+  openingRequest,
+  onOpeningResult,
+  onExactReviewClose,
+  onNavigationRequestChange,
+}: Readonly<{
+  actions: ReviewsActions
+  model: ReviewsViewModel
+  openingRequest?: ReviewOpeningRequest
+  onOpeningResult?: (result: ReviewOpeningResult) => void
+  onExactReviewClose?: () => void
+  onNavigationRequestChange?: NavigationRegistration
+}>) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -60,6 +86,16 @@ export function ReviewsScreen({
         </Button>
       </div>
 
+      {model.exactReview ? (
+        <ReviewDetailPanel
+          detail={model.exactReview}
+          actions={actions}
+          showManagement={model.showManagement}
+          openingRequest={openingRequest}
+          onOpeningResult={onOpeningResult}
+          onClose={onExactReviewClose}
+        />
+      ) : null}
       {model.summary ? (
         <section aria-label="Review summary" className="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
           <Card>
@@ -114,8 +150,15 @@ export function ReviewsScreen({
 
       <section aria-busy={model.isLoading} aria-label="Review list" className="space-y-4">
         {model.list?.items.length ? (
-          model.list.items.map((review) => (
+          model.list.items.map((review, index) => (
             <ReviewCard
+              accessibleLabel={
+                (model.list?.items.filter(
+                  (item) => item.author === review.author && item.treatment.label === review.treatment.label,
+                ).length ?? 0) > 1
+                  ? `Review by ${review.author}, ${review.treatment.label}, item ${index + 1}`
+                  : undefined
+              }
               key={review.id}
               onAppealOpen={actions.openReviewAppeal}
               onHistoryOpen={actions.openReviewHistory}
@@ -127,18 +170,24 @@ export function ReviewsScreen({
         ) : (
           <Card className="p-8 text-center">
             <h2 className="text-xl font-bold text-[var(--secondary)]">
-              {model.list ? "No matching reviews" : "Reviews unavailable"}
+              {model.isListStale
+                ? "Review list needs refresh"
+                : model.list
+                  ? "No matching reviews"
+                  : "Reviews unavailable"}
             </h2>
             <p className="mt-2 text-sm text-[var(--foreground)]">
-              {model.list
-                ? "Adjust the filters to show reviews."
-                : "Refresh to try loading clinic reviews again."}
+              {model.isListStale
+                ? "Refresh to load the current review list."
+                : model.list
+                  ? "Adjust the filters to show reviews."
+                  : "Refresh to try loading clinic reviews again."}
             </p>
           </Card>
         )}
       </section>
 
-      {model.list ? (
+      {model.list && !model.isListStale ? (
         <ReviewPagination
           onPageChange={actions.changePage}
           page={model.list.page}
@@ -147,7 +196,11 @@ export function ReviewsScreen({
           total={model.list.total}
         />
       ) : null}
-      <DialogSlot actions={actions} dialog={model.dialog} />
+      <DialogSlot
+        actions={actions}
+        dialog={model.dialog}
+        onNavigationRequestChange={onNavigationRequestChange}
+      />
     </div>
   )
 }

@@ -59,11 +59,36 @@ import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-
 import { defaultReviewListFilters } from "./reviews/model/review-source"
 import {
   handleReviewAppealSubmit as handleReviewAppealSubmitWithProvider,
+  handleReviewDetailLoad as handleReviewDetailLoadWithProvider,
   handleReviewHistoryLoad as handleReviewHistoryLoadWithProvider,
   handleReviewListLoad as handleReviewListLoadWithProvider,
   handleReviewResponseSubmit as handleReviewResponseSubmitWithProvider,
 } from "./reviews/server/actions"
 import type { ReviewProviderFactory } from "./reviews/server/review-provider"
+
+import {
+  handleNotificationsLoad as handleNotificationsLoadWithProvider,
+  handleNotificationsMarkRead as handleNotificationsMarkReadWithProvider,
+  loadInitialNotifications,
+  type NotificationProviderFactory,
+} from "./notifications/server/public"
+
+const createNotificationProvider: NotificationProviderFactory = (accessToken, clinicId) =>
+  composeClinicDashboardDataProviders(accessToken, clinicId).notifications
+
+export function handleNotificationsLoad(request: NextRequest) {
+  return handleNotificationsLoadWithProvider(request, createNotificationProvider)
+}
+export function handleNotificationsMarkRead(request: NextRequest) {
+  return handleNotificationsMarkReadWithProvider(request, createNotificationProvider)
+}
+
+export async function loadClinicDashboardInitialNotifications(clinicId: string) {
+  const token = await getClinicDashboardAccessToken()
+  return token
+    ? loadInitialNotifications(token, clinicId, createNotificationProvider)
+    : ({ status: "unavailable", error: "UNAUTHENTICATED" } as const)
+}
 
 export { getClinicDashboardAccess } from "./auth/server/public"
 
@@ -92,6 +117,10 @@ const createClinicTreatmentProvider: ClinicTreatmentProviderFactory = (accessTok
 
 const createClinicDashboardReportingProvider = (accessToken: string, clinicId: string) =>
   composeClinicDashboardDataProviders(accessToken, clinicId).reporting
+
+export function handleReviewDetailLoad(request: NextRequest, reviewId: string) {
+  return handleReviewDetailLoadWithProvider(request, reviewId, createReviewProvider)
+}
 
 export function handleReviewListLoad(request: NextRequest) {
   return handleReviewListLoadWithProvider(request, createReviewProvider)
@@ -266,6 +295,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
   if (!accessToken) {
     return {
       ...workspace,
+      notifications: [],
       doctorDirectory: {
         doctors: [],
         medicalSpecialties: [],
@@ -284,6 +314,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
   if (access.status !== "approved") {
     return {
       ...workspace,
+      notifications: [],
       doctorDirectory: {
         doctors: [],
         medicalSpecialties: [],
@@ -354,6 +385,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
 
   return {
     ...workspace,
+    notifications: [],
     doctorDirectory:
       doctorResult.status === "fulfilled" && doctorResult.value.ok
         ? doctorResult.value.value

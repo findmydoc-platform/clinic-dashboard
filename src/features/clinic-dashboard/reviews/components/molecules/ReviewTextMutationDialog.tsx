@@ -11,6 +11,9 @@ type ReviewTextMutationDialogProps = Readonly<{
   description: string
   initialValue?: string
   label: string
+  onNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onClose: () => void
   onSubmit: (value: string) => Promise<ReviewMutationResult>
   placeholder: string
@@ -24,6 +27,7 @@ export function ReviewTextMutationDialog({
   initialValue = "",
   label,
   onClose,
+  onNavigationRequestChange,
   onSubmit,
   placeholder,
   review,
@@ -53,8 +57,10 @@ export function ReviewTextMutationDialog({
   return (
     <ReviewMutationDialog
       description={description}
+      isDirty={value !== initialValue}
       isSubmitDisabled={trimmedValue.length < 10 || isUnchanged}
       onClose={onClose}
+      onNavigationRequestChange={onNavigationRequestChange}
       onSubmit={submit}
       review={review}
       submitLabel={submitLabel}
