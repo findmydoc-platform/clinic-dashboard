@@ -20,6 +20,7 @@ export type ReviewDialogModel =
     }>
 
 export type ReviewsViewModel = Readonly<{
+  exactReview?: import("./review-opening").ReviewDetailState
   dialog: ReviewDialogModel
   filters: Readonly<{
     draft: ReviewListFilters
@@ -28,6 +29,7 @@ export type ReviewsViewModel = Readonly<{
     treatmentOptions: ReviewsSourceSnapshot["treatments"]
   }>
   isLoading: boolean
+  isListStale?: boolean
   list?: ReviewsSourceSnapshot["page"]
   showManagement: boolean
   statusMessage: string

@@ -34,7 +34,12 @@ import {
   PrototypeModeSwitch,
   type ClinicDashboardPrototypeMode,
 } from "@/features/clinic-dashboard/prototype/public"
-import { Reviews, type ReviewSourceCommands } from "@/features/clinic-dashboard/reviews/public"
+import {
+  Reviews,
+  type ReviewOpeningRequest,
+  type ReviewOpeningResult,
+  type ReviewSourceCommands,
+} from "@/features/clinic-dashboard/reviews/public"
 import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
@@ -119,6 +124,8 @@ export function ClinicDashboardWorkspaceComposition({
   )
   const [inquiryOpeningRequest, setInquiryOpeningRequest] =
     useState<Readonly<{ scope: string; request: InquiryOpeningRequest }>>()
+  const [reviewOpeningRequest, setReviewOpeningRequest] =
+    useState<Readonly<{ scope: string; request: ReviewOpeningRequest }>>()
   const pendingOpeningRef = useRef<
     | Readonly<{ requestId: string; resolve: (outcome: NotificationOpeningOutcome) => void; scope: string }>
     | undefined
@@ -145,6 +152,7 @@ export function ClinicDashboardWorkspaceComposition({
     pendingOpeningRef.current?.resolve("cancelled")
     pendingOpeningRef.current = undefined
     setInquiryOpeningRequest(undefined)
+    setReviewOpeningRequest(undefined)
   }, [])
   useEffect(() => {
     scopeRef.current = scope
@@ -161,6 +169,13 @@ export function ClinicDashboardWorkspaceComposition({
     pendingOpeningRef.current = undefined
     pending.resolve(result.status)
     setInquiryOpeningRequest(undefined)
+  }, [])
+  const onReviewOpeningResult = useCallback((result: ReviewOpeningResult) => {
+    const pending = pendingOpeningRef.current
+    if (!pending || pending.requestId !== result.requestId || pending.scope !== scopeRef.current) return
+    pendingOpeningRef.current = undefined
+    pending.resolve(result.status)
+    setReviewOpeningRequest(undefined)
   }, [])
   const galleryNavigationRequestRef = useRef<((continuation: () => void) => void) | undefined>(undefined)
   const setGalleryNavigationRequest = useCallback((request?: (continuation: () => void) => void) => {
@@ -261,7 +276,7 @@ export function ClinicDashboardWorkspaceComposition({
   const openNotificationDestination = useCallback<NotificationDestinationOpen>(
     (request, signal) => {
       if (model.supportOpen || model.profileTaskOpen) return Promise.resolve("cancelled")
-      if (request.destination.kind !== "inquiry" || signal.aborted) return Promise.resolve("unavailable")
+      if (signal.aborted) return Promise.resolve("cancelled")
       cancelOpening()
       return new Promise((resolve) => {
         const pending = { requestId: request.requestId, resolve, scope }
@@ -275,7 +290,7 @@ export function ClinicDashboardWorkspaceComposition({
         if (
           hasUnsavedInquiryDrafts &&
           !window.confirm(
-            "Open this inquiry? Your unsent replies, internal notes and attachments will be kept.",
+            `Open this ${request.destination.kind === "review" ? "review" : "inquiry"}? Your unsent replies, internal notes and attachments will be kept.`,
           )
         ) {
           cancel()
@@ -283,7 +298,19 @@ export function ClinicDashboardWorkspaceComposition({
         }
         const begin = () => {
           if (!current()) return
-          if (request.destination.kind !== "inquiry") return
+          if (request.destination.kind === "review") {
+            actions.navigate("reviews")
+            actions.setNotificationsOpen(false)
+            setReviewOpeningRequest({
+              scope,
+              request: {
+                requestId: request.requestId,
+                reviewId: request.destination.reviewId,
+                anchor: request.destination.anchor,
+              },
+            })
+            return
+          }
           actions.navigate("messages")
           actions.setNotificationsOpen(false)
           setInquiryOpeningRequest({
@@ -419,6 +446,11 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "reviews"}>
         <Reviews
+          key={scope}
+          isActive={activeSection === "reviews"}
+          openingRequest={reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : undefined}
+          onOpeningResult={onReviewOpeningResult}
+          onSessionLost={handleInquirySessionLoss}
           onNavigationRequestChange={setReviewNavigation}
           commands={reviewCommands}
           focusTarget={model.reviewFocusTarget}

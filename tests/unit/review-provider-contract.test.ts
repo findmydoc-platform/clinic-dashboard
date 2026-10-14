@@ -1,3 +1,4 @@
+import reviewDetailCases from "../fixtures/clinic-review-detail-v1.json"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   createControlledReviewProvider,
@@ -125,6 +126,141 @@ describe("review provider contract", () => {
         1,
       ),
     ).resolves.toEqual({ error: "invalid-data", ok: false })
+  })
+
+  it.each([
+    { relation: 44, detail: reviewDetailCases.accepted[0] },
+    { relation: "44", detail: reviewDetailCases.accepted[3] },
+  ])(
+    "resolves scalar treatment $relation through the authorized current review",
+    async ({ relation, detail }) => {
+      const fetcher = vi.fn<typeof fetch>(async (input) => {
+        const endpoint = new URL(String(input))
+        if (endpoint.pathname === "/api/clinic-dashboard/reviews/review-1")
+          return json({
+            data: { ...detail.data, id: "review-1", treatment: { id: "44", name: "Dentistry" } },
+          })
+        if (endpoint.pathname === "/api/reviewResponses") return json({ docs: [pendingResponse] })
+        if (endpoint.pathname === "/api/reviewAppeals") return json({ docs: [] })
+        return json({
+          docs: [{ ...rawReview, treatment: relation }],
+          limit: Number(endpoint.searchParams.get("limit")),
+          page: 2,
+          totalDocs: 11,
+          totalPages: 2,
+        })
+      })
+      const filters = { ...defaultReviewListFilters, rating: "5" as const, treatment: "44" }
+      const result = await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReviews(
+        filters,
+        2,
+      )
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error(result.error)
+      expect(result.value.page).toMatchObject({ page: 2, total: 11, pageCount: 2 })
+      expect(result.value.page.items[0]).toMatchObject({
+        id: "review-1",
+        treatment: { id: "44", label: "Dentistry" },
+        withdrawalState: detail.data.withdrawalState,
+        response: { id: "response-1", status: "pending" },
+      })
+      expect(result.value.page.items[0].publicText).not.toBe(rawReview.comment)
+      if (detail.data.withdrawalState === "withdrawn") {
+        expect(result.value.page.items[0].author).toBe("Anonymous patient")
+        expect(result.value.page.items[0].publicText).toBeUndefined()
+      }
+      expect(result.value.treatments).toEqual([{ id: "44", label: "Dentistry" }])
+      expect(result.value.summary).toMatchObject({ rating: 5, total: 2 })
+      const paths = fetcher.mock.calls.map(([input]) => new URL(String(input)).pathname)
+      expect(paths.filter((path) => path === "/api/clinic-dashboard/reviews/review-1")).toHaveLength(1)
+      expect(paths.some((path) => path.startsWith("/api/treatments"))).toBe(false)
+      const pageRead = fetcher.mock.calls.find(
+        ([input]) => new URL(String(input)).searchParams.get("limit") === "10",
+      )
+      expect(new URL(String(pageRead?.[0])).searchParams.get("where[starRating][equals]")).toBe("5")
+      expect(new URL(String(pageRead?.[0])).searchParams.get("where[treatment][equals]")).toBe("44")
+      const detailRead = fetcher.mock.calls.find(([input]) =>
+        new URL(String(input)).pathname.startsWith("/api/clinic-dashboard/"),
+      )
+      expect(detailRead?.[1]).toMatchObject({
+        cache: "no-store",
+        redirect: "error",
+        headers: {
+          Authorization: "Bearer access-token",
+          "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+        },
+      })
+    },
+  )
+
+  it.each([
+    { body: { error: { code: "CONTENT_ACCESS_DENIED" } }, status: 403, error: "forbidden" },
+    { body: { error: { code: "TARGET_UNAVAILABLE" } }, status: 404, error: "unavailable" },
+    { body: reviewDetailCases.rejected[2], status: 200, error: "invalid-data" },
+    { body: reviewDetailCases.accepted[0], status: 200, error: "invalid-data" },
+  ])("fails the scalar list read closed on detail $status/$error", async ({ body, status, error }) => {
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const endpoint = new URL(String(input))
+      if (endpoint.pathname.startsWith("/api/clinic-dashboard/reviews/")) return json(body, status)
+      if (endpoint.pathname === "/api/reviews")
+        return json({
+          docs: [{ ...rawReview, treatment: 44 }],
+          limit: 10,
+          page: 1,
+          totalDocs: 1,
+          totalPages: 1,
+        })
+      return json({ docs: [] })
+    })
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReviews(
+        defaultReviewListFilters,
+        1,
+      ),
+    ).toEqual({ ok: false, error })
+  })
+
+  it("shares eight seconds across scalar list, detail and workflow reads", async () => {
+    vi.useFakeTimers()
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((delay) => {
+      const abort = new AbortController()
+      setTimeout(() => abort.abort(new DOMException("Timed out", "TimeoutError")), delay)
+      return abort.signal
+    })
+    try {
+      const fetcher = vi.fn<typeof fetch>(
+        (input, init) =>
+          new Promise<Response>((resolve, reject) => {
+            const signal = init!.signal!
+            signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+            setTimeout(() => {
+              const endpoint = new URL(String(input))
+              resolve(
+                endpoint.pathname === "/api/reviews"
+                  ? json({
+                      docs: [{ ...rawReview, treatment: 44 }],
+                      limit: 10,
+                      page: 1,
+                      totalDocs: 1,
+                      totalPages: 1,
+                    })
+                  : endpoint.pathname.startsWith("/api/clinic-dashboard/reviews/")
+                    ? json({ data: { ...reviewDetailCases.accepted[0].data, id: "review-1" } })
+                    : json({ docs: [] }),
+              )
+            }, 3_000)
+          }),
+      )
+      const read = createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReviews(
+        defaultReviewListFilters,
+        1,
+      )
+      await vi.advanceTimersByTimeAsync(8_000)
+      expect(await read).toEqual({ ok: false, error: "timeout" })
+    } finally {
+      timeout.mockRestore()
+      vi.useRealTimers()
+    }
   })
 
   it("removes every historical original text when the current review is removed", async () => {
@@ -411,5 +547,133 @@ describe("review provider contract", () => {
       ),
     ).resolves.toEqual({ error: "invalid-data", ok: false })
     expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("ordinary exact review detail contract", () => {
+  beforeEach(() => {
+    vi.stubEnv("CSRF_SIGNING_SECRET", "controlled-review-provider-test-secret")
+    vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
+    vi.stubEnv("NODE_ENV", "test")
+    vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
+    vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
+  })
+  it.each(reviewDetailCases.accepted)(
+    "accepts a Website-owned minimized current projection",
+    async (body) => {
+      const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input))
+        return Response.json(url.pathname.startsWith("/api/clinic-dashboard/reviews/") ? body : { docs: [] })
+      })
+      const result = await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview(
+        "review-204",
+      )
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value.id).toBe("review-204")
+        expect(result.value.author).toBe(body.data.publicAuthorName ?? "Anonymous patient")
+        expect(result.value.publicText).toBe(
+          "comment" in body.data
+            ? body.data.comment
+            : "publicComment" in body.data
+              ? body.data.publicComment
+              : undefined,
+        )
+      }
+      expect(fetcher.mock.calls[0][0].toString()).toBe(
+        "https://preview.findmydoc.eu/api/clinic-dashboard/reviews/review-204",
+      )
+    },
+  )
+  it.each(reviewDetailCases.rejected)("rejects unknown and prohibited projected details", async (body) => {
+    const fetcher = vi.fn(async () => Response.json(body))
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("review-204"),
+    ).toEqual({ ok: false, error: "invalid-data" })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it("rejects a detail for another selected record", async () => {
+    const fetcher = vi.fn(async () => Response.json(reviewDetailCases.accepted[0]))
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("another-review"),
+    ).toEqual({ ok: false, error: "invalid-data" })
+  })
+})
+
+describe("exact review read failure boundaries", () => {
+  beforeEach(() => {
+    vi.stubEnv("CSRF_SIGNING_SECRET", "controlled-review-provider-test-secret")
+    vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")
+    vi.stubEnv("NODE_ENV", "test")
+    vi.stubEnv("PAYLOAD_API_URL", "https://preview.findmydoc.eu")
+    vi.stubEnv("SUPABASE_URL", "https://abcdefghijklmnopqrst.supabase.co")
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "publishable-key")
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "abcdefghijklmnopqrst")
+  })
+  it.each([
+    { status: 400, code: "INVALID_INPUT", error: "invalid-input" },
+    { status: 401, code: "UNAUTHENTICATED", error: "unauthorized" },
+    { status: 403, code: "CONTENT_ACCESS_DENIED", error: "forbidden" },
+    { status: 404, code: "TARGET_UNAVAILABLE", error: "not-found" },
+    { status: 503, code: "SERVICE_UNAVAILABLE", error: "unavailable" },
+  ])("preserves the closed $code outcome without a historical read", async ({ status, code, error }) => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ error: { code } }, { status }),
+    )
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("review-204"),
+    ).toEqual({ ok: false, error })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(fetcher.mock.calls[0][1]).toMatchObject({
+      cache: "no-store",
+      redirect: "error",
+      headers: {
+        Authorization: "Bearer access-token",
+        "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+      },
+    })
+  })
+  it("rejects an unknown error instead of claiming the exact target is missing", async () => {
+    const fetcher = vi.fn(async () => Response.json({ error: { code: "FUTURE_ERROR" } }, { status: 404 }))
+    expect(
+      await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("review-204"),
+    ).toEqual({ ok: false, error: "invalid-data" })
+  })
+  it("bounds the combined detail and workflow reads by eight seconds", async () => {
+    vi.useFakeTimers()
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((delay) => {
+      const abort = new AbortController()
+      setTimeout(() => abort.abort(new DOMException("Timed out", "TimeoutError")), delay)
+      return abort.signal
+    })
+    try {
+      const fetcher = vi.fn(
+        (input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((resolve, reject) => {
+            const signal = init!.signal!
+            signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+            setTimeout(
+              () =>
+                resolve(
+                  Response.json(
+                    new URL(String(input)).pathname.startsWith("/api/clinic-dashboard/reviews/")
+                      ? reviewDetailCases.accepted[0]
+                      : { docs: [] },
+                  ),
+                ),
+              5_000,
+            )
+          }),
+      )
+      const read = createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview("review-204")
+      await vi.advanceTimersByTimeAsync(8_000)
+      expect(await read).toEqual({ ok: false, error: "timeout" })
+      expect(fetcher).toHaveBeenCalledTimes(3)
+    } finally {
+      timeout.mockRestore()
+      vi.useRealTimers()
+    }
   })
 })

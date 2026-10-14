@@ -179,6 +179,47 @@ describe("Clinic Dashboard data provider composition", () => {
     )
   })
 
+  it("uses ordinary Payload review detail in the same isolated local acceptance lane", async () => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")
+    vi.stubEnv("CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID", "clinic-acceptance")
+    vi.stubEnv("CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME", "Synthetic Acceptance Clinic")
+    vi.stubEnv("CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE", "inquiry-communication")
+    vi.stubEnv("CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN", "synthetic-clinic-token")
+    vi.stubEnv("PAYLOAD_API_URL", "http://localhost:3200")
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const endpoint = new URL(String(input))
+      return jsonResponse(
+        endpoint.pathname.startsWith("/api/clinic-dashboard/reviews/")
+          ? {
+              data: {
+                id: "acceptance-review",
+                reviewDate: "2026-10-14T10:00:00.000Z",
+                starRating: 5,
+                status: "approved",
+                treatment: { id: "dentistry", name: "Dentistry" },
+                publicMeasure: "none",
+                withdrawalState: "active",
+                comment: "Synthetic current review details.",
+              },
+            }
+          : { docs: [] },
+      )
+    })
+    vi.stubGlobal("fetch", fetcher)
+    const result = await composeClinicDashboardDataProviders(
+      "synthetic-clinic-token",
+      "clinic-acceptance",
+    ).reviews.loadReview("acceptance-review")
+    expect(result).toMatchObject({
+      ok: true,
+      value: { id: "acceptance-review", publicText: "Synthetic current review details." },
+    })
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe(
+      "http://localhost:3200/api/clinic-dashboard/reviews/acceptance-review",
+    )
+  })
+
   it("requires a verified request-scoped access token", () => {
     expect(() => composeClinicDashboardDataProviders("", "clinic-1")).toThrow(/verified clinic access token/)
     expect(() => composeClinicDashboardDataProviders("access-token", "")).toThrow(/verified clinic identity/)

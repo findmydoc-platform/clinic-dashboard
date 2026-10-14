@@ -20,6 +20,7 @@ type NotificationCenterPanelProps = Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
   model: Readonly<{
+    openingKind?: "inquiry" | "review"
     openingId?: string
     opening?: NotificationOpeningState
     state: NotificationLoadState
@@ -45,6 +46,9 @@ export function NotificationCenterPanel({
   model,
   actions,
 }: NotificationCenterPanelProps) {
+  const targetLabel = model.openingKind === "review" ? "review" : "inquiry"
+  const openedLabel = model.openingKind === "review" ? "Review opened. " : "Inquiry opened. "
+  const unavailableMessage = `This ${targetLabel} is unavailable. You can still mark the notification as read.`
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [portalContainer, setPortalContainer] = useState<HTMLDialogElement | null>(null)
@@ -173,8 +177,8 @@ export function NotificationCenterPanel({
             <div className="fixed right-4 bottom-4 z-50 max-w-[calc(100vw-2rem)] rounded-lg border border-[var(--border)] bg-[var(--background)] p-4 shadow-lg">
               <p role={marking.status === "unknown" || marking.status === "rejected" ? "alert" : "status"}>
                 {model.opening === "unavailable"
-                  ? "This inquiry is unavailable. You can still mark the notification as read."
-                  : `${model.opening === "displayed" ? "Inquiry opened. " : ""}${markMessage}`}
+                  ? unavailableMessage
+                  : `${model.opening === "displayed" ? openedLabel : ""}${markMessage}`}
               </p>
               <Button variant="ghost" onClick={() => onOpenChange(true)}>
                 View notification status
@@ -220,12 +224,12 @@ export function NotificationCenterPanel({
           </div>
           {model.opening === "unavailable" ? (
             <p role="status" className="px-4 py-3 text-sm">
-              This inquiry is unavailable. You can still mark the notification as read.
+              {unavailableMessage}
             </p>
           ) : null}
           {model.opening === "pending" ? (
             <p role="status" className="px-4 py-3 text-sm">
-              Opening inquiry…
+              Opening {targetLabel}…
             </p>
           ) : null}
           {markMessage ? (
@@ -368,7 +372,7 @@ export function NotificationCenterPanel({
                         )}
                       >
                         <div className="min-w-0">
-                          {actions.openItem && item.destination.kind === "inquiry" ? (
+                          {actions.openItem ? (
                             <button
                               type="button"
                               aria-label={`Open ${item.display.eventLabel}${item.display.displayName ? ` from ${item.display.displayName}` : ""}`}
