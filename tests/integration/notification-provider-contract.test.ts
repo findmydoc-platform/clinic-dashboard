@@ -50,7 +50,11 @@ describe("notification provider read contract", () => {
     const fetcher = vi.fn<typeof fetch>(
       async (url) =>
         new Response(
-          JSON.stringify(String(url).includes("mode=summary") ? cases.at(-1)!.response : cases[0]!.response),
+          JSON.stringify(
+            String(url).includes("mode=summary")
+              ? cases.find((item) => item.name === "empty_summary")!.response
+              : cases[0]!.response,
+          ),
           {
             headers: {
               "content-type": "application/json",
