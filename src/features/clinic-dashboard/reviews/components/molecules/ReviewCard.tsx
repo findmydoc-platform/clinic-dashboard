@@ -13,6 +13,7 @@ import {
 } from "../../model/review-source"
 
 type Props = Readonly<{
+  accessibleLabel?: string
   onAppealOpen: (reviewId: string) => void
   onHistoryOpen: (reviewId: string) => void
   onResponseOpen: (reviewId: string) => void
@@ -26,13 +27,20 @@ function formatDate(value: string) {
   )
 }
 
-export function ReviewCard({ onAppealOpen, onHistoryOpen, onResponseOpen, review, showManagement }: Props) {
+export function ReviewCard({
+  accessibleLabel,
+  onAppealOpen,
+  onHistoryOpen,
+  onResponseOpen,
+  review,
+  showManagement,
+}: Props) {
   const isUnavailable = review.withdrawalState === "withdrawn" || review.publicMeasure === "removed"
   const canSubmitResponse = canSubmitReviewResponse(review)
   const responseLabel = review.response?.pending ? "Edit pending response" : "Respond"
   return (
     <Card
-      aria-label={`Review by ${review.author}, ${review.treatment.label}`}
+      aria-label={accessibleLabel ?? `Review by ${review.author}, ${review.treatment.label}`}
       className="p-5 sm:p-6"
       data-review-id={review.id}
       tabIndex={-1}
@@ -91,7 +99,11 @@ export function ReviewCard({ onAppealOpen, onHistoryOpen, onResponseOpen, review
           data-review-anchor-kind="response"
           data-review-anchor-id={review.response.id}
           tabIndex={-1}
-          aria-label={`Clinic response for ${review.author}, ${review.treatment.label}`}
+          aria-label={
+            accessibleLabel
+              ? `${accessibleLabel} · Clinic response`
+              : `Clinic response for ${review.author}, ${review.treatment.label}`
+          }
           className="mt-5 space-y-3 border-l-4 border-[var(--primary)] bg-[var(--surface)] p-4"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -119,7 +131,7 @@ export function ReviewCard({ onAppealOpen, onHistoryOpen, onResponseOpen, review
           data-review-anchor-kind="appeal"
           data-review-anchor-id={review.appeal.id}
           tabIndex={-1}
-          aria-label="Review appeal"
+          aria-label={accessibleLabel ? `${accessibleLabel} · Review appeal` : "Review appeal"}
           className="mt-5 rounded-lg border border-[var(--border)] p-4"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">

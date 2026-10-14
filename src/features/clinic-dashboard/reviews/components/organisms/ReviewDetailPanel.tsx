@@ -72,6 +72,7 @@ export function ReviewDetailPanel({
       </div>
       {detail.status === "ready" ? (
         <ReviewCard
+          accessibleLabel={`Selected review by ${detail.review.author}, ${detail.review.treatment.label}`}
           review={detail.review}
           showManagement={showManagement}
           onAppealOpen={actions.openReviewAppeal}

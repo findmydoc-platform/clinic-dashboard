@@ -29,6 +29,7 @@ export type ReviewsViewModel = Readonly<{
     treatmentOptions: ReviewsSourceSnapshot["treatments"]
   }>
   isLoading: boolean
+  isListStale?: boolean
   list?: ReviewsSourceSnapshot["page"]
   showManagement: boolean
   statusMessage: string

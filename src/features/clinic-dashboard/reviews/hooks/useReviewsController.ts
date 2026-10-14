@@ -45,6 +45,7 @@ export function useReviewsController({
   const [appliedFilters, setAppliedFilters] = useState<ReviewListFilters>(defaultReviewListFilters)
   const [draftFilters, setDraftFilters] = useState<ReviewListFilters>(defaultReviewListFilters)
   const [dialog, setDialog] = useState<ReviewDialogModel>({ kind: "closed" })
+  const [isListStale, setIsListStale] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [statusMessage, setStatusMessage] = useState(
@@ -62,6 +63,12 @@ export function useReviewsController({
         const next = await commands.loadReviews(filters, page)
         if (currentRequest !== requestId.current) return
         setSnapshot(next)
+        setIsListStale(false)
+        setExactReview((current) => {
+          if (current?.status !== "ready") return current
+          const matching = next.page.items.find(({ id }) => id === current.review.id)
+          return matching ? { status: "ready", review: matching } : current
+        })
         setStatusMessage(successMessage)
       } catch (error) {
         if (currentRequest !== requestId.current) return
@@ -76,6 +83,8 @@ export function useReviewsController({
   const loadExactReview = useCallback(
     async (reviewId: string, signal: AbortSignal) => {
       const generation = ++exactGeneration.current
+      requestId.current += 1
+      setIsLoading(false)
       setExactReview({ status: "loading" })
       try {
         const review = await commands.loadReview(reviewId, signal)
@@ -84,23 +93,76 @@ export function useReviewsController({
           setExactReview({ status: "unavailable" })
           return false
         }
+        requestId.current += 1
+        setIsLoading(false)
+        setSnapshot((current) =>
+          current
+            ? {
+                ...current,
+                page: {
+                  ...current.page,
+                  items: current.page.items.map((item) => (item.id === reviewId ? review : item)),
+                },
+              }
+            : current,
+        )
+        setDialog((current) => {
+          if (current.kind === "closed" || current.review.id !== reviewId) return current
+          if (current.kind === "history")
+            return {
+              ...current,
+              review,
+              history: undefined,
+              isLoading: false,
+              isLoadingOlder: false,
+              error: "Review details changed. Reopen history to load the current record.",
+            }
+          return { ...current, review }
+        })
+        if (
+          snapshot?.page.items.some(({ id }) => id === reviewId) ||
+          review.publicMeasure === "removed" ||
+          review.withdrawalState === "withdrawn"
+        ) {
+          setIsListStale(true)
+          setStatusMessage("Review list needs refresh.")
+        }
         setExactReview({ status: "ready", review })
         return true
       } catch (error) {
         if (generation === exactGeneration.current && !signal.aborted) {
           setExactReview({ status: "unavailable" })
+          if (error instanceof ReviewSourceCommandError && error.kind === "not-found") {
+            requestId.current += 1
+            setIsLoading(false)
+            setSnapshot((current) =>
+              current
+                ? {
+                    ...current,
+                    page: { ...current.page, items: current.page.items.filter(({ id }) => id !== reviewId) },
+                  }
+                : current,
+            )
+            setDialog((current) =>
+              current.kind !== "closed" && current.review.id === reviewId ? { kind: "closed" } : current,
+            )
+            setIsListStale(true)
+            setStatusMessage("Review list needs refresh.")
+          }
           if (
             error instanceof ReviewSourceCommandError &&
             (error.kind === "unauthorized" || error.kind === "forbidden")
           ) {
             setSnapshot(undefined)
+            setDialog({ kind: "closed" })
+            setIsListStale(false)
             onSessionLost?.()
           }
         }
         return false
       }
     },
-    [commands, onSessionLost],
+    [commands, onSessionLost, snapshot],
   )
   const cancelExactReviewRead = useCallback(() => {
     exactGeneration.current += 1
@@ -289,10 +351,11 @@ export function useReviewsController({
         treatmentOptions: snapshot?.treatments ?? [],
       },
       isLoading,
+      isListStale,
       list: snapshot?.page,
       showManagement,
       statusMessage,
-      summary: snapshot?.summary,
+      summary: isListStale ? undefined : snapshot?.summary,
     },
   }
 }

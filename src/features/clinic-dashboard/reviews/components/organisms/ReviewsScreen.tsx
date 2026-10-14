@@ -150,8 +150,15 @@ export function ReviewsScreen({
 
       <section aria-busy={model.isLoading} aria-label="Review list" className="space-y-4">
         {model.list?.items.length ? (
-          model.list.items.map((review) => (
+          model.list.items.map((review, index) => (
             <ReviewCard
+              accessibleLabel={
+                (model.list?.items.filter(
+                  (item) => item.author === review.author && item.treatment.label === review.treatment.label,
+                ).length ?? 0) > 1
+                  ? `Review by ${review.author}, ${review.treatment.label}, item ${index + 1}`
+                  : undefined
+              }
               key={review.id}
               onAppealOpen={actions.openReviewAppeal}
               onHistoryOpen={actions.openReviewHistory}
@@ -163,18 +170,24 @@ export function ReviewsScreen({
         ) : (
           <Card className="p-8 text-center">
             <h2 className="text-xl font-bold text-[var(--secondary)]">
-              {model.list ? "No matching reviews" : "Reviews unavailable"}
+              {model.isListStale
+                ? "Review list needs refresh"
+                : model.list
+                  ? "No matching reviews"
+                  : "Reviews unavailable"}
             </h2>
             <p className="mt-2 text-sm text-[var(--foreground)]">
-              {model.list
-                ? "Adjust the filters to show reviews."
-                : "Refresh to try loading clinic reviews again."}
+              {model.isListStale
+                ? "Refresh to load the current review list."
+                : model.list
+                  ? "Adjust the filters to show reviews."
+                  : "Refresh to try loading clinic reviews again."}
             </p>
           </Card>
         )}
       </section>
 
-      {model.list ? (
+      {model.list && !model.isListStale ? (
         <ReviewPagination
           onPageChange={actions.changePage}
           page={model.list.page}

@@ -264,7 +264,9 @@ export const ResponseAnchorUsesNormalDetail: Story = {
     const detail = await canvas.findByRole("region", { name: "Selected review" })
     await waitFor(() =>
       expect(
-        within(detail).getByRole("region", { name: "Clinic response for Quinn R., Dentistry" }),
+        within(detail).getByRole("region", {
+          name: "Selected review by Quinn R., Dentistry · Clinic response",
+        }),
       ).toHaveFocus(),
     )
     expect(args.onOpeningResult).toHaveBeenCalledWith({
@@ -373,4 +375,129 @@ export const ExactOffListOpeningMobileDark: Story = {
   args: ExactOffListOpening.args,
   globals: { viewport: { value: "mobile390Tall" }, theme: "dark" },
   play: ExactOffListOpening.play,
+}
+
+function CachedReviewOpeningStory(props: ComponentProps<typeof Reviews>) {
+  const [shouldOpen, setShouldOpen] = useState(false)
+  return (
+    <>
+      <button onClick={() => setShouldOpen(true)}>Open cached review with current access</button>
+      <Reviews
+        {...props}
+        openingRequest={
+          shouldOpen ? { requestId: "cached-current", reviewId: "review-source-public" } : undefined
+        }
+      />
+    </>
+  )
+}
+const currentWithheldReview = {
+  id: "review-source-public",
+  author: "Anonymous patient",
+  initials: "AP",
+  publicMeasure: "removed" as const,
+  rating: 5 as const,
+  reviewDate: "2026-01-05T10:00:00.000Z",
+  treatment: { id: "dentistry", label: "Dentistry" },
+  withdrawalState: "active" as const,
+}
+export const RemovedCurrentDetailReplacesCachedPublicFields: Story = {
+  args: {
+    commands: { ...createReviewSourceCommandsFixture(), loadReview: fn(async () => currentWithheldReview) },
+    showManagement: true,
+    snapshot: reviewSourceSnapshotFixture,
+    isActive: true,
+    onOpeningResult: fn(),
+  },
+  render: (args) => <CachedReviewOpeningStory {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    expect(canvas.getByText("Outstanding implant process and excellent communication.")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Open cached review with current access" }))
+    await canvas.findByRole("region", { name: "Selected review" })
+    await waitFor(() =>
+      expect(
+        canvas.queryByText("Outstanding implant process and excellent communication."),
+      ).not.toBeInTheDocument(),
+    )
+    expect(canvas.queryByRole("heading", { name: "Maya K." })).not.toBeInTheDocument()
+    expect(canvas.getByRole("combobox", { name: "Visibility" })).toHaveValue("all")
+    expect(canvas.queryByRole("region", { name: "Review summary" })).not.toBeInTheDocument()
+    expect(canvas.queryByRole("navigation", { name: "Review pages" })).not.toBeInTheDocument()
+    expect(canvas.getByText("Review list needs refresh.")).toBeVisible()
+  },
+}
+export const WithdrawnCurrentDetailReplacesCachedPublicFields: Story = {
+  args: {
+    ...RemovedCurrentDetailReplacesCachedPublicFields.args,
+    commands: {
+      ...createReviewSourceCommandsFixture(),
+      loadReview: fn(async () => ({
+        ...currentWithheldReview,
+        publicMeasure: "none" as const,
+        withdrawalState: "withdrawn" as const,
+      })),
+    },
+  },
+  render: (args) => <CachedReviewOpeningStory {...args} />,
+  play: RemovedCurrentDetailReplacesCachedPublicFields.play,
+}
+export const KnownUnavailableDetailRemovesCachedRow: Story = {
+  args: {
+    ...RemovedCurrentDetailReplacesCachedPublicFields.args,
+    commands: {
+      ...createReviewSourceCommandsFixture(),
+      loadReview: fn(async () => {
+        throw new ReviewSourceCommandError("not-found", "Unavailable")
+      }),
+    },
+  },
+  render: (args) => <CachedReviewOpeningStory {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "Open cached review with current access" }))
+    expect(await canvas.findByText("This review is unavailable.")).toBeVisible()
+    expect(
+      canvas.queryByText("Outstanding implant process and excellent communication."),
+    ).not.toBeInTheDocument()
+    expect(canvas.queryByRole("heading", { name: "Maya K." })).not.toBeInTheDocument()
+    expect(canvas.queryByRole("region", { name: "Review summary" })).not.toBeInTheDocument()
+    expect(canvas.queryByRole("navigation", { name: "Review pages" })).not.toBeInTheDocument()
+    expect(canvas.getByText("Review list needs refresh.")).toBeVisible()
+    expect(canvas.getByRole("combobox", { name: "Visibility" })).toHaveValue("all")
+  },
+}
+export const OldListResponseCannotRestoreWithheldReview: Story = {
+  args: {
+    ...RemovedCurrentDetailReplacesCachedPublicFields.args,
+    commands: {
+      ...createReviewSourceCommandsFixture(),
+      loadReviews: fn(async () => reviewSourceSnapshotFixture),
+      loadReview: fn(async () => currentWithheldReview),
+    },
+  },
+  render: (args) => <CachedReviewOpeningStory {...args} />,
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    let resolveList!: (value: typeof reviewSourceSnapshotFixture) => void
+    mocked(args.commands.loadReviews).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveList = resolve
+        }),
+    )
+    await userEvent.click(canvas.getByRole("button", { name: "Refresh" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Open cached review with current access" }))
+    await waitFor(() =>
+      expect(
+        canvas.queryByText("Outstanding implant process and excellent communication."),
+      ).not.toBeInTheDocument(),
+    )
+    await act(() => resolveList(reviewSourceSnapshotFixture))
+    expect(
+      canvas.queryByText("Outstanding implant process and excellent communication."),
+    ).not.toBeInTheDocument()
+    expect(canvas.queryByRole("heading", { name: "Maya K." })).not.toBeInTheDocument()
+    expect(canvas.getByText("Review list needs refresh.")).toBeVisible()
+  },
 }
