@@ -15,6 +15,15 @@ import {
   type NotificationMarkState,
 } from "../../model/notifications"
 
+const outcomeLabels: Record<NonNullable<NotificationItem["display"]["outcome"]>, string> = {
+  approved: "Response approved",
+  rejected: "Decision rejected",
+  blocked: "Response blocked",
+  upheld: "Appeal upheld",
+  confirmed: "Restriction confirmed",
+  lifted: "Restriction lifted",
+}
+
 type NotificationCenterPanelProps = Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -384,6 +393,9 @@ export function NotificationCenterPanel({
                           )}
                           {item.display.displayName ? (
                             <p className="mt-1 text-sm break-words">{item.display.displayName}</p>
+                          ) : null}
+                          {item.display.outcome ? (
+                            <p className="mt-1 text-sm break-words">{outcomeLabels[item.display.outcome]}</p>
                           ) : null}
                           {item.display.rating ? (
                             <RatingStars value={item.display.rating} className="mt-1" />
