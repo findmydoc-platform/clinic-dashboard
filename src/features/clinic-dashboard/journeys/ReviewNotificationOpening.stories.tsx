@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, mocked, userEvent, waitFor, within } from "storybook/test"
-import { act } from "@testing-library/react"
 import { ClinicDashboardWorkspaceHarness } from "@/features/clinic-dashboard/workspace/testing/public"
 import { createReviewSourceCommandsFixture } from "@/features/clinic-dashboard/reviews/testing/public"
 import { inquiryCommandsFixture } from "@/features/clinic-dashboard/messages/testing/public"
@@ -73,7 +72,7 @@ export const DisplayBeforePersonalMark: Story = {
     await userEvent.click(await canvas.findByRole("button", { name: "Open Review published from Quinn R." }))
     expect(await canvas.findByText("Loading review details…")).toBeVisible()
     expect(args.notificationCommands!.markRead).not.toHaveBeenCalled()
-    await act(() => resolveDetail(review))
+    resolveDetail(review)
     expect(await canvas.findByText("Exact notification review outside the current list.")).toBeVisible()
     await waitFor(() =>
       expect(args.notificationCommands!.markRead).toHaveBeenCalledWith({
