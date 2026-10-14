@@ -301,7 +301,10 @@ describe("notification BFF contract", () => {
       "fetch",
       vi.fn<typeof fetch>(async () => upstream(fixture)),
     )
-    const query = fixture.mode === "summary" ? "mode=summary" : `mode=page&view=${fixture.view}`
+    const query =
+      fixture.mode === "summary"
+        ? "mode=summary"
+        : `mode=page&view=${fixture.view}${"unreadCount" in fixture ? "" : "&cursor=opaque-page-2"}`
     const response = await handleNotificationsLoad(
       new NextRequest(`http://localhost:3000/api/notifications?${query}`),
     )

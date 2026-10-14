@@ -9,6 +9,7 @@ import {
   type NotificationLoadState,
   type NotificationView,
   type NotificationMarkState,
+  type NotificationPaginationState,
 } from "../model/notifications"
 
 export function useNotificationCenterController(
@@ -21,6 +22,8 @@ export function useNotificationCenterController(
   const generation = useRef(0)
   const pending = useRef(false)
   const openingAbort = useRef<AbortController | undefined>(undefined)
+  const paginationAbort = useRef<AbortController | undefined>(undefined)
+  const paginationPending = useRef(false)
   const [openingId, setOpeningId] = useState<string>()
   const [opening, setOpening] = useState<NotificationOpeningState>("idle")
   const mounted = useRef(true)
@@ -33,6 +36,7 @@ export function useNotificationCenterController(
     mounted.current = true
     return () => {
       openingAbort.current?.abort()
+      paginationAbort.current?.abort()
       mounted.current = false
       generation.current += 1
     }
@@ -52,11 +56,23 @@ export function useNotificationCenterController(
   const [countState, setCountState] = useState(initialState)
   const [feed, setFeed] =
     useState<Readonly<{ view: NotificationView; attempt: number; state: NotificationLoadState }>>()
+  const [pagination, setPagination] = useState<NotificationPaginationState>({ status: "idle" })
+  const pageRetryAt = pagination.status === "unavailable" ? pagination.retryAt : undefined
+  useEffect(() => {
+    if (!pageRetryAt || pageRetryAt <= Date.now()) return
+    const timer = window.setTimeout(
+      () => setNow(Date.now()),
+      Math.min(pageRetryAt - Date.now(), 2_147_483_647),
+    )
+    return () => window.clearTimeout(timer)
+  }, [pageRetryAt, now])
   useEffect(() => {
     if (pending.current || (readBlockedUntil.current !== undefined && readBlockedUntil.current > Date.now()))
       return
     const abort = new AbortController()
     const currentGeneration = ++generation.current
+    paginationAbort.current?.abort()
+    paginationPending.current = false
     commands
       .load(open ? { mode: "page", view } : { mode: "summary" }, abort.signal)
       .then((result) => {
@@ -77,6 +93,7 @@ export function useNotificationCenterController(
                 ? current.state
                 : state,
           }))
+        if (open) setPagination({ status: "idle" })
         if (result.ok && "unreadCount" in result.value) setCountState(state)
         setMarking((current) =>
           current.status === "confirmed" || current.status === "refresh-failed"
@@ -113,6 +130,7 @@ export function useNotificationCenterController(
                 ? current.state
                 : { status: "unavailable", error: "SERVICE_UNAVAILABLE" },
           }))
+          setPagination({ status: "idle" })
           setMarking((current) =>
             current.status === "confirmed" || current.status === "refresh-failed"
               ? { ...current, status: "refresh-failed" }
@@ -154,6 +172,9 @@ export function useNotificationCenterController(
     const selection = Object.freeze([...notificationIds])
     pending.current = true
     generation.current += 1
+    paginationAbort.current?.abort()
+    paginationPending.current = false
+    setPagination({ status: "idle" })
     setMarking({ status: "pending", notificationIds: selection })
     let result
     try {
@@ -196,6 +217,91 @@ export function useNotificationCenterController(
     setOpening(outcome)
     if (outcome === "displayed") await markRead(selection, true)
   }
+  async function loadMore() {
+    if (
+      paginationPending.current ||
+      pending.current ||
+      !open ||
+      pagination.status === "loading" ||
+      (pagination.status === "unavailable" &&
+        pagination.retryAt !== undefined &&
+        pagination.retryAt > Date.now()) ||
+      feed?.view !== view ||
+      feed.attempt !== attempt ||
+      feed.state.status !== "ready" ||
+      feed.state.response.mode !== "page" ||
+      !feed.state.response.nextCursor
+    )
+      return
+    const cursor = feed.state.response.nextCursor
+    const currentGeneration = generation.current
+    const abort = new AbortController()
+    paginationAbort.current?.abort()
+    paginationAbort.current = abort
+    paginationPending.current = true
+    setPagination({ status: "loading" })
+    let result
+    try {
+      result = await commands.load({ mode: "page", view, cursor }, abort.signal)
+    } catch {
+      result = { ok: false as const, error: "SERVICE_UNAVAILABLE" as const }
+    }
+    if (paginationAbort.current === abort) {
+      paginationAbort.current = undefined
+      paginationPending.current = false
+    }
+    if (abort.signal.aborted || !mounted.current || currentGeneration !== generation.current) return
+    if (!result.ok) {
+      setPagination({
+        status: "unavailable",
+        error: result.error,
+        retryAt: notificationRetryAt(result.retryAfter, Date.now()),
+      })
+      return
+    }
+    if (
+      result.value.mode !== "page" ||
+      result.value.view !== view ||
+      "unreadCount" in result.value ||
+      result.value.nextCursor === cursor ||
+      (result.value.items.length === 0 && result.value.nextCursor !== null)
+    ) {
+      setPagination({ status: "unavailable", error: "CONTRACT_INCOMPATIBLE" })
+      return
+    }
+    const page = result.value
+    setFeed((current) => {
+      if (
+        current?.view !== view ||
+        current.attempt !== attempt ||
+        current.state.status !== "ready" ||
+        current.state.response.mode !== "page" ||
+        current.state.response.nextCursor !== cursor
+      )
+        return current
+      const seen = new Set(current.state.response.items.map((item) => item.presentationId))
+      const older = page.items.filter((item) => !seen.has(item.presentationId))
+      return {
+        ...current,
+        state: {
+          status: "ready",
+          response: {
+            ...current.state.response,
+            serverTime: page.serverTime,
+            items: [...current.state.response.items, ...older],
+            nextCursor: page.nextCursor,
+          },
+        },
+      }
+    })
+    setPagination({ status: "idle" })
+  }
+  function invalidatePagination() {
+    generation.current += 1
+    paginationAbort.current?.abort()
+    paginationPending.current = false
+    setPagination({ status: "idle" })
+  }
   return {
     model: {
       state,
@@ -205,18 +311,23 @@ export function useNotificationCenterController(
       opening,
       openingId,
       isRetryBlocked: retryAt !== undefined && retryAt > now,
+      pagination,
+      isPageRetryBlocked: pageRetryAt !== undefined && pageRetryAt > now,
     },
     actions: {
       openItem: onDestinationOpen ? openItem : undefined,
       selectView: (next: NotificationView) => {
         blockAutomaticReads.current = false
+        invalidatePagination()
         setView(next)
       },
       retry: () => {
         if (retryAt !== undefined && retryAt > Date.now()) return
         blockAutomaticReads.current = false
+        invalidatePagination()
         setAttempt((current) => current + 1)
       },
+      loadMore,
       markRead,
       repeatMark: () => {
         if (marking.status === "rejected" || marking.status === "unknown")

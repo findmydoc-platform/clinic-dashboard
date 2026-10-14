@@ -13,6 +13,7 @@ import {
   type NotificationLoadState,
   type NotificationView,
   type NotificationMarkState,
+  type NotificationPaginationState,
 } from "../../model/notifications"
 
 type NotificationCenterPanelProps = Readonly<{
@@ -26,6 +27,8 @@ type NotificationCenterPanelProps = Readonly<{
     view: NotificationView
     marking?: NotificationMarkState
     isRetryBlocked?: boolean
+    pagination?: NotificationPaginationState
+    isPageRetryBlocked?: boolean
   }>
   actions: Readonly<{
     openItem?: (item: NotificationItem) => void
@@ -33,6 +36,7 @@ type NotificationCenterPanelProps = Readonly<{
     retry: () => void
     markRead: (ids: readonly string[]) => void
     repeatMark: () => void
+    loadMore?: () => void
   }>
 }>
 export function NotificationCenterPanel({
@@ -430,6 +434,39 @@ export function NotificationCenterPanel({
                 })}
               </ul>
             )}
+            {state.status === "ready" &&
+            state.response.mode === "page" &&
+            items.length > 0 &&
+            state.response.nextCursor ? (
+              <div className="border-t border-[var(--border)] px-4 py-3">
+                {model.pagination?.status === "unavailable" ? (
+                  <p role="alert" className="mb-2 text-sm">
+                    {model.pagination.error === "CURSOR_INVALID"
+                      ? "Notification history changed. Reload to continue."
+                      : "Older notifications couldn't be loaded."}
+                  </p>
+                ) : null}
+                <Button
+                  variant="outline"
+                  disabled={model.pagination?.status === "loading" || model.isPageRetryBlocked}
+                  onClick={
+                    model.pagination?.status === "unavailable" &&
+                    ["CURSOR_INVALID", "CONTRACT_INCOMPATIBLE"].includes(model.pagination.error)
+                      ? actions.retry
+                      : actions.loadMore
+                  }
+                >
+                  {model.pagination?.status === "loading"
+                    ? "Loading older notifications…"
+                    : model.pagination?.status === "unavailable"
+                      ? model.pagination.error === "CURSOR_INVALID" ||
+                        model.pagination.error === "CONTRACT_INCOMPATIBLE"
+                        ? "Reload notifications"
+                        : "Try loading again"
+                      : "Load more"}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
       </dialog>
