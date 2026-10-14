@@ -74,7 +74,7 @@ export function NotificationCenterPanel({
   const [menuId, setMenuId] = useState<string | null>(null)
   useEffect(() => {
     const dialog = dialogRef.current
-    if (!dialog?.isConnected) return
+    if (!dialog) return
     if (!open) {
       if (dialog.open) {
         dialog.close()
@@ -83,8 +83,16 @@ export function NotificationCenterPanel({
       return
     }
     const mobile = window.matchMedia("(max-width: 639px)")
+    let pendingFrame: number | null = null
     const show = () => {
-      if (!dialog.isConnected) return
+      if (!dialog.isConnected) {
+        pendingFrame = requestAnimationFrame(show)
+        return
+      }
+      if (pendingFrame !== null) {
+        cancelAnimationFrame(pendingFrame)
+        pendingFrame = null
+      }
       if (dialog.open) dialog.close()
       if (mobile.matches) dialog.showModal()
       else dialog.show()
@@ -111,11 +119,12 @@ export function NotificationCenterPanel({
     document.addEventListener("pointerdown", outside)
     document.addEventListener("keydown", escape)
     return () => {
+      if (pendingFrame !== null) cancelAnimationFrame(pendingFrame)
       mobile.removeEventListener("change", show)
       document.removeEventListener("pointerdown", outside)
       document.removeEventListener("keydown", escape)
     }
-  }, [open, onOpenChange])
+  }, [open, onOpenChange, portalContainer])
   const count = model.unreadCount
   const countLabel =
     count === undefined
