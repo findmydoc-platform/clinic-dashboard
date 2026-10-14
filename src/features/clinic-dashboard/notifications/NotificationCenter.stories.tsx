@@ -328,7 +328,7 @@ export const MobileKeyboardMarking: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(await canvas.findByRole("button", { name: "Options for Synthetic event" })).toBeVisible()
-    await userEvent.keyboard("{Tab}{Tab}{Enter}")
+    await userEvent.keyboard("{Tab}{Tab}{Tab}{Enter}")
     await expect(await canvas.findByRole("menuitem", { name: "Mark as read: Synthetic event" })).toHaveFocus()
     await userEvent.keyboard("{Enter}")
     await expect(await canvas.findByText("You're all caught up.")).toBeVisible()
@@ -342,7 +342,7 @@ export const KeyboardMarkingInAll: Story = {
     await expect(await canvas.findByRole("button", { name: "Options for Synthetic event" })).toBeVisible()
     await userEvent.click(canvas.getByRole("tab", { name: "All" }))
     await expect(await canvas.findByRole("button", { name: "Options for Synthetic event" })).toBeVisible()
-    await userEvent.keyboard("{Tab}{Tab}{Enter}{Enter}")
+    await userEvent.keyboard("{Tab}{Tab}{Tab}{Enter}{Enter}")
     await expect(await canvas.findByText("Marked as read.")).toBeVisible()
     await expect(await canvas.findByText("Synthetic event")).toBeVisible()
     await waitFor(() => expect(canvas.getByRole("tab", { name: "All" })).toHaveFocus())
@@ -512,7 +512,7 @@ export const MobileKeyboardOpening: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(await canvas.findByRole("button", { name: "Open Synthetic event" })).toBeVisible()
-    await userEvent.keyboard("{Tab}{Tab}")
+    await userEvent.keyboard("{Tab}{Tab}{Tab}")
     await expect(canvas.getByRole("button", { name: "Open Synthetic event" })).toHaveFocus()
     await userEvent.keyboard("{Enter}")
     await waitFor(() => expect(args.onDestinationOpen).toHaveBeenCalledOnce())
@@ -840,6 +840,151 @@ export const PatientMessagePersonalHistory: Story = {
     await waitFor(() => expect(canvas.getAllByText("New patient message")).toHaveLength(2))
     await expect(canvas.queryByRole("button", { name: /Options for/ })).not.toBeInTheDocument()
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+export const MarkDisplayedUnreadEntries: Story = {
+  render: function DisplayedSelection(args) {
+    const [source] = useState(() => {
+      let marked = false
+      const separate = page.mode === "page" ? page.items[0]! : fixture.items[0]!
+      return {
+        async load(query) {
+          if (query.mode === "summary")
+            return {
+              ok: true as const,
+              value: {
+                contractVersion: "clinic-notifications-v1" as const,
+                serverTime: fixture.serverTime,
+                mode: "summary" as const,
+                unreadCount: marked ? 0 : 2,
+                nextUnreadCountChangeAt: marked ? null : "2027-01-12T09:09:00.000Z",
+              },
+            }
+          const unread = marked ? [] : [group, separate]
+          return {
+            ok: true as const,
+            value: {
+              ...fixture,
+              view: query.view,
+              unreadCount: marked ? 0 : 2,
+              nextUnreadCountChangeAt: marked ? null : "2027-01-12T09:09:00.000Z",
+              items: query.view === "unread" ? unread : [...unread, fixture.items[1]!],
+            },
+          }
+        },
+        markRead: fn(async (input) => {
+          expect(input.notificationIds).toEqual(["group-oldest", "group-newest", "notification-001"])
+          marked = true
+          return {
+            ok: true as const,
+            value: {
+              contractVersion: "clinic-notifications-v1" as const,
+              serverTime: fixture.serverTime,
+              acknowledged: true as const,
+            },
+          }
+        }),
+      } satisfies NotificationCommands
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter {...args} commands={source} open={true} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("tab", { name: "All" }))
+    await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Mark 2 shown as read" }))
+    await expect(await canvas.findByText("Marked as read.")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Notifications, 0 unread notifications" })).toBeVisible()
+    await expect(canvas.queryByRole("button", { name: /Mark \d+ shown as read/ })).not.toBeInTheDocument()
+  },
+}
+export const MarkLoadedPagesKeepsOriginalSelection: Story = {
+  args: messageGroupArgs,
+  render: function LoadedSelection(args) {
+    const [source] = useState(() => {
+      let submissions = 0
+      const separate = {
+        ...(page.mode === "page" ? page.items[0]! : fixture.items[0]!),
+        display: { eventLabel: "Older inquiry" },
+      } satisfies NotificationItem
+      const later = {
+        ...separate,
+        presentationId: "later-arrival",
+        display: { eventLabel: "Later inquiry" },
+        members: [{ ...separate.members[0]!, notificationId: "later-arrival" }],
+      } satisfies NotificationItem
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          if (query.cursor)
+            return {
+              ok: true as const,
+              value: {
+                contractVersion: "clinic-notifications-v1" as const,
+                serverTime: fixture.serverTime,
+                mode: "page" as const,
+                view: query.view,
+                items: [separate],
+                nextCursor: null,
+              },
+            }
+          return {
+            ok: true as const,
+            value: {
+              ...fixture,
+              view: query.view,
+              unreadCount: submissions === 2 ? 1 : submissions === 1 ? 3 : 2,
+              items: submissions === 2 ? [later] : submissions === 1 ? [later, group] : [group],
+              nextCursor: submissions === 0 ? "older-page" : null,
+            },
+          }
+        },
+        markRead: fn(async (input) => {
+          expect(input.notificationIds).toEqual(["group-oldest", "group-newest", "notification-001"])
+          submissions += 1
+          return submissions === 1
+            ? { ok: false as const, error: "SERVICE_UNAVAILABLE" as const, writeOutcome: "unknown" as const }
+            : {
+                ok: true as const,
+                value: {
+                  contractVersion: "clinic-notifications-v1" as const,
+                  serverTime: fixture.serverTime,
+                  acknowledged: true as const,
+                },
+              }
+        }),
+      } satisfies NotificationCommands
+    })
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter {...args} commands={source} />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Load more" }))
+    await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Mark 2 shown as read" }))
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "We couldn't confirm whether these notifications were marked as read.",
+    )
+    await userEvent.click(canvas.getByRole("button", { name: "Check status" }))
+    await expect(
+      await canvas.findByRole("button", { name: "Notifications, 3 unread notifications" }),
+    ).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Try again" }))
+    await expect(await canvas.findByText("Marked as read.")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Mark 1 shown as read" })).toBeVisible()
+    await expect(canvas.queryByText("2 new messages")).not.toBeInTheDocument()
+    await expect(canvas.queryByText("Older inquiry")).not.toBeInTheDocument()
+    await expect(canvas.getByText("Later inquiry")).toBeVisible()
+    await userEvent.click(canvas.getByRole("tab", { name: "All" }))
+    await expect(await canvas.findByRole("button", { name: "Mark 1 shown as read" })).toBeVisible()
   },
 }
 export const PatientMessageOldestAnchor: Story = {

@@ -8,6 +8,16 @@ import type {
 
 export type { NotificationItem, NotificationReadQuery, NotificationsResponse }
 export type NotificationView = "unread" | "all"
+export function displayedUnreadSelection(items: readonly NotificationItem[]) {
+  const notificationIds = new Set<string>()
+  let entryCount = 0
+  for (const item of items) {
+    if (!item.members.some((member) => member.readAt === null)) continue
+    entryCount += 1
+    for (const member of item.members) notificationIds.add(member.notificationId)
+  }
+  return { entryCount, notificationIds: [...notificationIds] } as const
+}
 export type NotificationResult =
   | Readonly<{ ok: true; value: NotificationsResponse }>
   | Readonly<{ ok: false; error: NotificationErrorCode; retryAfter?: string }>

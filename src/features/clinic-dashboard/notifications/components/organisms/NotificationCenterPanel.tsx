@@ -7,6 +7,7 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu"
 import { RatingStars } from "@/components/ui/rating-stars"
 import { cn } from "@/lib/utils"
 import {
+  displayedUnreadSelection,
   notificationFailureCopy,
   type NotificationOpeningState,
   type NotificationItem,
@@ -119,6 +120,7 @@ export function NotificationCenterPanel({
       : `Notifications, ${count} unread ${count === 1 ? "notification" : "notifications"}`
   const state = model.state
   const items = state.status === "ready" && state.response.mode === "page" ? state.response.items : []
+  const shown = displayedUnreadSelection(items)
   const marking = model.marking ?? { status: "idle" }
   const [dismissedFeedback, setDismissedFeedback] =
     useState<Readonly<{ openingId?: string; selection?: readonly string[] }>>()
@@ -317,6 +319,18 @@ export function NotificationCenterPanel({
               </button>
             ))}
           </div>
+          {shown.entryCount > 0 ? (
+            <div className="shrink-0 border-b border-[var(--border)] px-4 py-2">
+              <Button
+                variant="outline"
+                className="min-h-11 w-full sm:w-auto"
+                disabled={marking.status === "pending" || model.opening === "pending" || model.isRetryBlocked}
+                onClick={() => actions.markRead(shown.notificationIds)}
+              >
+                Mark {shown.entryCount} shown as read
+              </Button>
+            </div>
+          ) : null}
           <div
             id={`${id}-content`}
             role="tabpanel"
