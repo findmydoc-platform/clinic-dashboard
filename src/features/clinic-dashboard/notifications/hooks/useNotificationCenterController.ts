@@ -127,41 +127,52 @@ export function useNotificationCenterController(
       })
     }
     async function refresh() {
-      const first = await read(open ? { mode: "page", view } : { mode: "summary" })
-      if (!first.ok) return first
-      if (!open) {
-        if (first.value.mode !== "summary")
-          return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
-        return first
-      }
-      if (first.value.mode !== "page" || first.value.view !== view || !("unreadCount" in first.value))
-        return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
-      const items = [...first.value.items]
-      const ids = new Set(items.map((item) => item.presentationId))
-      const cursors = new Set<string>()
-      let cursor = first.value.nextCursor
-      while (previousTail && cursor) {
-        const tail = items.at(-1)
-        if (
-          items.some((item) => item.presentationId === previousTail.presentationId) ||
-          (tail && tail.members.at(-1)!.occurredAt < previousTail.members.at(-1)!.occurredAt)
-        )
-          break
-        if (cursors.has(cursor)) return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
-        cursors.add(cursor)
-        const next = await read({ mode: "page", view, cursor })
-        if (!next.ok) return next
-        if (next.value.mode !== "page" || next.value.view !== view || "unreadCount" in next.value)
-          return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
-        for (const item of next.value.items) {
-          if (ids.has(item.presentationId))
+      for (let restart = 0; restart < 2; restart += 1) {
+        const first = await read(open ? { mode: "page", view } : { mode: "summary" })
+        if (!first.ok) return first
+        if (!open) {
+          if (first.value.mode !== "summary")
             return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
-          ids.add(item.presentationId)
-          items.push(item)
+          return first
         }
-        cursor = next.value.nextCursor
+        if (first.value.mode !== "page" || first.value.view !== view || !("unreadCount" in first.value))
+          return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+        const items = [...first.value.items]
+        const ids = new Set(items.map((item) => item.presentationId))
+        const cursors = new Set<string>()
+        let cursor = first.value.nextCursor
+        let cursorInvalid = false
+        while (previousTail && cursor) {
+          const tail = items.at(-1)
+          if (
+            items.some((item) => item.presentationId === previousTail.presentationId) ||
+            (tail && tail.members.at(-1)!.occurredAt < previousTail.members.at(-1)!.occurredAt)
+          )
+            break
+          if (cursors.has(cursor)) return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+          cursors.add(cursor)
+          const next = await read({ mode: "page", view, cursor })
+          if (!next.ok) {
+            if (next.error === "CURSOR_INVALID" && restart === 0) {
+              cursorInvalid = true
+              break
+            }
+            return next
+          }
+          if (next.value.mode !== "page" || next.value.view !== view || "unreadCount" in next.value)
+            return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+          for (const item of next.value.items) {
+            if (ids.has(item.presentationId))
+              return { ok: false as const, error: "CONTRACT_INCOMPATIBLE" as const }
+            ids.add(item.presentationId)
+            items.push(item)
+          }
+          cursor = next.value.nextCursor
+        }
+        if (cursorInvalid) continue
+        return { ok: true as const, value: { ...first.value, items, nextCursor: cursor } }
       }
-      return { ok: true as const, value: { ...first.value, items, nextCursor: cursor } }
+      return { ok: false as const, error: "CURSOR_INVALID" as const }
     }
     void refresh()
       .then((result) => {
@@ -405,6 +416,11 @@ export function useNotificationCenterController(
     }
     if (abort.signal.aborted || !mounted.current || currentGeneration !== generation.current) return
     if (!result.ok) {
+      if (result.error === "CURSOR_INVALID") {
+        setPagination({ status: "loading" })
+        setAttempt((current) => current + 1)
+        return
+      }
       if (isAccessLoss(result.error)) {
         blockAutomaticReads.current = true
         knownAccessLoss.current = true

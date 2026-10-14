@@ -116,10 +116,12 @@ export function NotificationCenterPanel({
     }
   }, [open, onOpenChange])
   const count = model.unreadCount
-  const label =
+  const countLabel =
     count === undefined
       ? "Notifications, count unavailable"
       : `Notifications, ${count} unread ${count === 1 ? "notification" : "notifications"}`
+  const countIsStale = model.refreshState === "stale" && count !== undefined
+  const label = countIsStale ? `${countLabel}, count may be outdated` : countLabel
   const state = model.state
   const items = state.status === "ready" && state.response.mode === "page" ? state.response.items : []
   const shown = displayedUnreadSelection(items)
@@ -159,7 +161,7 @@ export function NotificationCenterPanel({
                 : "Notifications weren't marked as read."
               : null
   return (
-    <div className="relative self-start">
+    <div className="relative flex flex-col items-center self-start">
       <Button
         aria-label={label}
         aria-haspopup="dialog"
@@ -181,6 +183,11 @@ export function NotificationCenterPanel({
           </span>
         ) : null}
       </Button>
+      {countIsStale ? (
+        <span role="status" className="text-xs leading-3 text-[var(--foreground)]">
+          Outdated
+        </span>
+      ) : null}
       {!open &&
       (markMessage || model.opening === "unavailable") &&
       (!dismissedFeedback ||

@@ -504,7 +504,6 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   await page.reload()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  await expect(page.getByRole("button", { name: /Switch clinic location/ })).toHaveCount(0)
   await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
 
   const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })

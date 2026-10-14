@@ -59,7 +59,7 @@ export const NotificationsKeepWorkspaceUntilOpening: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Notifications, 2 unread notifications" }))
     const dialog = await canvas.findByRole("dialog", { name: "Notifications" })
     await expect(await within(dialog).findByText("Ada Patient")).toBeVisible()
-    await expect(within(dialog).queryByRole("button", { name: /mark.*read/i })).not.toBeInTheDocument()
+    await expect(within(dialog).getByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
     await userEvent.click(within(dialog).getByRole("tab", { name: "All" }))
     await expect(within(dialog).getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true")
     await expect(canvas.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()

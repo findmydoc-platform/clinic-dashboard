@@ -1026,6 +1026,53 @@ export const PatientMessageOldestAnchor: Story = {
     )
   },
 }
+export const PatientMessageAnchorAfterOldestExpires: Story = {
+  args: {
+    ...messageGroupArgs,
+    onDestinationOpen: fn(async () => "displayed" as const),
+  },
+  render: function ExpiredAnchorCenter(args) {
+    const [source] = useState(() => {
+      const now = Date.now()
+      const members = group.members.map((member, index) => {
+        const expiresAt = now + (index === 0 ? -1_000 : 60_000)
+        return {
+          ...member,
+          occurredAt: new Date(expiresAt - 90 * 24 * 60 * 60 * 1_000).toISOString(),
+          expiresAt: new Date(expiresAt).toISOString(),
+        }
+      })
+      const remaining = { ...group, members }
+      return {
+        load: fn(async (query: import("./model/notifications").NotificationReadQuery) =>
+          query.mode === "summary"
+            ? messageGroupCommands.load(query)
+            : { ok: true as const, value: { ...fixture, view: query.view, items: [remaining] } },
+        ),
+        markRead: fn(messageGroupCommands.markRead),
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Open 1 new message from Synthetic Patient" }),
+    )
+    await waitFor(() =>
+      expect(args.onDestinationOpen).toHaveBeenCalledWith(
+        expect.objectContaining({
+          destination: {
+            kind: "inquiry",
+            inquiryId: "record-203",
+            anchor: { kind: "message", id: "source-newest" },
+          },
+        }),
+        expect.any(AbortSignal),
+      ),
+    )
+  },
+}
 export const PatientMessageMobileHistory: Story = {
   args: messageGroupArgs,
   render: PatientMessagePersonalHistory.render,
@@ -1221,6 +1268,46 @@ export const PaginationFailureRecovery: Story = {
   },
 }
 
+export const InvalidCursorReloadsSelectedView: Story = {
+  args: messageGroupArgs,
+  render: function InvalidCursorCenter(args) {
+    const [source] = useState(() => {
+      let firstPageLoads = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          if (!query.cursor) {
+            firstPageLoads += 1
+            return {
+              ok: true as const,
+              value: {
+                ...fixture,
+                view: query.view,
+                items: [
+                  firstPageLoads === 1
+                    ? group
+                    : { ...group, display: { ...group.display, displayName: "Updated Patient" } },
+                ],
+                nextCursor: firstPageLoads === 1 ? "invalid-page" : null,
+              },
+            }
+          }
+          return { ok: false as const, error: "CURSOR_INVALID" as const }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Load more" }))
+    await expect(await canvas.findByText("Updated Patient")).toBeVisible()
+    await expect(canvas.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument()
+  },
+}
+
 export const IncompatiblePaginationReload: Story = {
   args: messageGroupArgs,
   render: function IncompatiblePageCenter(args) {
@@ -1299,8 +1386,45 @@ export const TransientRefreshKeepsPermittedHistory: Story = {
     window.dispatchEvent(new Event("online"))
     await expect(await canvas.findByRole("alert")).toHaveTextContent("Notifications may be outdated")
     await expect(canvas.getByText("2 new messages")).toBeVisible()
-    await expect(canvas.getByRole("button", { name: "Notifications, 1 unread notification" })).toBeVisible()
+    await expect(
+      canvas.getByRole("button", {
+        name: "Notifications, 1 unread notification, count may be outdated",
+      }),
+    ).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Try again" })).toBeDisabled()
+  },
+}
+
+export const FailedClosedRefreshLabelsRetainedCount: Story = {
+  args: { ...messageGroupArgs, open: false },
+  render: function ClosedSummaryFailure(args) {
+    const [source] = useState(() => {
+      let summaryReads = 0
+      return {
+        async load(query) {
+          if (query.mode !== "summary") return messageGroupCommands.load(query)
+          summaryReads += 1
+          return summaryReads === 1
+            ? messageGroupCommands.load(query)
+            : { ok: false as const, error: "SERVICE_UNAVAILABLE" as const }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(
+      await canvas.findByRole("button", { name: "Notifications, 1 unread notification" }),
+    ).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(
+      await canvas.findByRole("button", {
+        name: "Notifications, 1 unread notification, count may be outdated",
+      }),
+    ).toBeVisible()
+    await expect(canvas.getByText("Outdated")).toBeVisible()
   },
 }
 
@@ -1500,7 +1624,68 @@ export const FailedContinuationKeepsTheLastCompleteView: Story = {
     await expect(await canvas.findByRole("alert")).toHaveTextContent("Notifications may be outdated")
     await expect(canvas.getByText("Older inquiry")).toBeVisible()
     await expect(canvas.getByText("2 new messages")).toBeVisible()
-    await expect(canvas.getByRole("button", { name: "Notifications, 2 unread notifications" })).toBeVisible()
+    await expect(
+      canvas.getByRole("button", {
+        name: "Notifications, 2 unread notifications, count may be outdated",
+      }),
+    ).toBeVisible()
+  },
+}
+
+export const InvalidCursorDuringRefreshRestartsOnce: Story = {
+  args: { ...messageGroupArgs, open: true },
+  render: function InvalidRefreshCursorCenter(args) {
+    const [source] = useState(() => {
+      let firstPageLoads = 0
+      return {
+        async load(query) {
+          if (query.mode === "summary") return messageGroupCommands.load(query)
+          if (!query.cursor) {
+            firstPageLoads += 1
+            return {
+              ok: true as const,
+              value: {
+                ...fixture,
+                view: query.view,
+                items:
+                  firstPageLoads < 3
+                    ? [group]
+                    : [
+                        { ...group, display: { ...group.display, displayName: "Updated Patient" } },
+                        page.items[0]!,
+                      ],
+                nextCursor:
+                  firstPageLoads === 1 ? "older-page" : firstPageLoads === 2 ? "invalid-refresh" : null,
+              },
+            }
+          }
+          if (query.cursor === "invalid-refresh")
+            return { ok: false as const, error: "CURSOR_INVALID" as const }
+          return {
+            ok: true as const,
+            value: {
+              contractVersion: "clinic-notifications-v1" as const,
+              mode: "page" as const,
+              serverTime: fixture.serverTime,
+              view: query.view,
+              items: [page.items[0]!],
+              nextCursor: null,
+            },
+          }
+        },
+        markRead: messageGroupCommands.markRead,
+      } satisfies NotificationCommands
+    })
+    return <NotificationCenter {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole("button", { name: "Load more" }))
+    await expect(await canvas.findByText("Synthetic event")).toBeVisible()
+    window.dispatchEvent(new Event("online"))
+    await expect(await canvas.findByText("Updated Patient")).toBeVisible()
+    await expect(canvas.getByText("Synthetic event")).toBeVisible()
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument()
   },
 }
 

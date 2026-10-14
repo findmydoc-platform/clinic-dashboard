@@ -18,7 +18,7 @@ export function visibleNotificationItems(
     if (!members.length) continue
     if (item.kind === "patient_message_group") {
       const oldest = members[0]!
-      const anchorId = `message:${oldest.sourceOccurrence.id}`
+      const anchorId = oldest.sourceOccurrence.id
       visible.push({
         ...item,
         members,
