@@ -66,6 +66,7 @@ export default defineConfig({
           maxWorkers: 1,
           name: "storybook",
           setupFiles: [".storybook/vitest.setup.ts"],
+          testTimeout: 60_000,
         },
       },
     ],
