@@ -774,8 +774,9 @@ export const PatientMessagePersonalHistory: Story = {
   },
 }
 export const MarkDisplayedUnreadEntries: Story = {
+  args: { open: true },
   render: function DisplayedSelection(args) {
-    if (typeof window !== "undefined") throw new Error("CI probe: DisplayedSelection render reached")
+    const [open, setOpen] = useState(args.open)
     const [source] = useState(() => {
       let marked = false
       const separate = page.mode === "page" ? page.items[0]! : fixture.items[0]!
@@ -820,7 +821,7 @@ export const MarkDisplayedUnreadEntries: Story = {
     })
     return (
       <div className="flex min-h-screen justify-end p-4">
-        <NotificationCenter {...args} commands={source} open={true} />
+        <NotificationCenter {...args} commands={source} open={open} onOpenChange={setOpen} />
       </div>
     )
   },
@@ -832,14 +833,17 @@ export const MarkDisplayedUnreadEntries: Story = {
     await expect(await canvas.findByText("Marked as read.")).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Notifications, 0 unread notifications" })).toBeVisible()
     await expect(canvas.queryByRole("button", { name: /Mark \d+ shown as read/ })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
   },
 }
 export const DisplayedUnreadAction: Story = {
+  args: { open: true },
   render: MarkDisplayedUnreadEntries.render,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
     await expect(canvas.getByText("2 new messages")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
   },
 }
 export const MarkLoadedPagesKeepsOriginalSelection: Story = {
