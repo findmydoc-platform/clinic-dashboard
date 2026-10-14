@@ -179,8 +179,20 @@ test("shows real review transitions, exact off-page detail, current safe project
     expect.objectContaining({ notificationId: lastId, readAt: null }),
   )
   await page.getByRole("button", { name: /^Notifications,/ }).click()
+  await mobileCenter.getByRole("tab", { name: "All" }).click()
+  await expect(mobileCenter.getByRole("button", { name: "Open Review removed", exact: true })).toHaveCount(2)
+  await mobileCenter.getByRole("tab", { name: /^Unread/ }).click()
+  await expect(mobileCenter.getByRole("button", { name: "Open Review removed", exact: true })).toHaveCount(1)
+  const explicitMark = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/notifications/read" &&
+      response.request().method() === "POST",
+  )
   await mobileCenter.getByRole("button", { name: "Options for Review removed", exact: true }).click()
   await mobileCenter.getByRole("menuitem", { name: "Mark as read: Review removed", exact: true }).click()
+  const explicitMarkResponse = await explicitMark
+  expect(explicitMarkResponse.request().postDataJSON()).toEqual({ notificationIds: [lastId] })
+  expect(explicitMarkResponse.status()).toBe(200)
   await expect(mobileCenter.getByText("Marked as read.", { exact: true })).toBeVisible()
   await expectPersonalReceipt(lastId)
 })
