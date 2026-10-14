@@ -137,6 +137,7 @@ test("retains the selected period and metric through review and notification nav
 test("keeps published profile information usable when reporting and notifications fail", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await signIn(page)
+  let failedNotificationRequests = 0
   await page.route("**/api/dashboard/reporting?*", (route) =>
     route.fulfill({
       status: 503,
@@ -144,21 +145,45 @@ test("keeps published profile information usable when reporting and notification
       body: '{"code":"REPORTING_SERVICE_UNAVAILABLE"}',
     }),
   )
-  await page.route("**/api/notifications?*", (route) =>
-    route.fulfill({
+  await page.route("**/api/notifications?*", (route) => {
+    failedNotificationRequests += 1
+    return route.fulfill({
       status: 503,
       contentType: "application/json",
       body: '{"code":"NOTIFICATIONS_SERVICE_UNAVAILABLE"}',
-    }),
-  )
+    })
+  })
   await page.getByRole("button", { name: "90 days" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Public profile progress" })).toBeVisible()
   await expect(page.getByRole("region", { name: "Dashboard clinic location summary" })).toBeVisible()
   await page.getByRole("button", { name: /^Notifications,/ }).click()
+  await expect.poll(() => failedNotificationRequests).toBeGreaterThan(0)
+  await expect(page.getByRole("dialog", { name: "Notifications" }).getByRole("status")).toHaveText(
+    "Notifications can't be displayed right now.",
+  )
   await page.getByRole("button", { name: "Close notifications" }).click()
+  await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
   await page.getByRole("button", { name: "View reviews" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
+})
+
+test.describe("touch reporting explanations", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 760 } })
+
+  test("keeps an explanation open after a tap until it is dismissed", async ({ page }) => {
+    await signIn(page)
+    await page.getByRole("button", { name: "About Profile views", exact: true }).tap()
+    const explanation = page.getByRole("dialog", { name: "About Profile views", exact: true })
+    await expect(explanation).toBeVisible()
+    await expect(explanation).toContainText("Analytics include only sessions with consent.")
+    await page.getByRole("button", { name: "Close explanation" }).tap()
+    await expect(explanation).not.toBeVisible()
+  })
 })
 
 test("captures the restored dashboard without overflow in both themes and viewport sizes", async ({

@@ -46,7 +46,7 @@ export function ClinicPreview({ clinic }: ClinicPreviewProps) {
         )}
       </div>
       <div className="p-5">
-        <div className="text-xs font-bold text-[var(--foreground)]">Public clinic preview</div>
+        <h2 className="text-xs font-bold text-[var(--foreground)]">Public clinic preview</h2>
         <div className="mt-2 flex items-center justify-between">
           <strong>{clinic.name}</strong>
           <span className="font-bold text-[var(--primary)]">{clinic.ratingLabel}</span>

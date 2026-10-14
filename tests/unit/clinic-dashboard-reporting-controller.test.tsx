@@ -3,7 +3,10 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useClinicDashboardReportingController } from "@/features/clinic-dashboard/dashboard/hooks/useClinicDashboardReportingController"
-import type { ClinicDashboardReporting } from "@/features/clinic-dashboard/dashboard/model/clinic-dashboard-reporting"
+import type {
+  ClinicDashboardReporting,
+  ClinicDashboardReportingLoadState,
+} from "@/features/clinic-dashboard/dashboard/model/clinic-dashboard-reporting"
 import {
   clinicDashboardReportingFixture,
   clinicDashboardReportingWithSourceUnavailable,
@@ -132,6 +135,46 @@ describe("clinic dashboard reporting controller", () => {
         reporting: reportingFor90Days,
         status: "ready",
       })
+    })
+  })
+
+  it("keeps a newer period request when a server refresh supersedes an older request", async () => {
+    const resolvers: Array<(reporting: ClinicDashboardReporting | undefined) => void> = []
+    const loadReporting = vi.fn(
+      () =>
+        new Promise<ClinicDashboardReporting | undefined>((resolve) => {
+          resolvers.push(resolve)
+        }),
+    )
+    const { result, rerender } = renderHook(
+      ({ initialReporting }: { initialReporting: ClinicDashboardReportingLoadState }) =>
+        useClinicDashboardReportingController({ initialReporting, loadReporting }),
+      { initialProps: { initialReporting: { reporting: clinicDashboardReportingFixture, status: "ready" } } },
+    )
+    act(() => void result.current.actions.changePeriodDays(90))
+    rerender({
+      initialReporting: {
+        reporting: { ...clinicDashboardReportingFixture, asOf: "2026-09-18T12:00:00.000Z" },
+        status: "ready",
+      },
+    })
+    expect(loadReporting).toHaveBeenCalledTimes(2)
+
+    act(() => void result.current.actions.changePeriodDays(7))
+    act(() => {
+      resolvers[0]?.(clinicDashboardReportingFixture)
+      resolvers[1]?.(clinicDashboardReportingFixture)
+    })
+    expect(result.current.model).toEqual({ periodDays: 7, status: "loading" })
+
+    act(() =>
+      resolvers[2]?.({
+        ...clinicDashboardReportingFixture,
+        period: { ...clinicDashboardReportingFixture.period, days: 7 },
+      }),
+    )
+    await waitFor(() => {
+      expect(result.current.model).toMatchObject({ periodDays: 7, status: "ready" })
     })
   })
 })

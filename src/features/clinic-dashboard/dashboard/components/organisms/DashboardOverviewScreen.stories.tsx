@@ -54,7 +54,7 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   await expect(canvas.getByRole("heading", { name: "Public profile progress" })).toBeVisible()
   await expect(canvas.getByRole("list", { name: "Conversion stages" })).toBeVisible()
   await expect(canvas.getByText("Time series not available")).toBeVisible()
-  await expect(canvas.getByText("Public clinic preview")).toBeVisible()
+  await expect(canvas.getByRole("heading", { level: 2, name: "Public clinic preview" })).toBeVisible()
   await userEvent.click(canvas.getByRole("button", { name: "View details for Add clinic images" }))
   if (args.model.profileProgress.status !== "ready") throw new Error("Expected ready profile progress")
   await expect(args.onProfileTaskOpen).toHaveBeenCalledWith(args.model.profileProgress.tasks[0])
@@ -65,6 +65,45 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
 }
 
 export const Available: Story = { play: exerciseAvailable }
+
+export const PartialComparisonExplanation: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: {
+        status: "ready",
+        reporting: {
+          ...clinicDashboardReportingFixture,
+          metrics: {
+            ...clinicDashboardReportingFixture.metrics,
+            profileViews: {
+              ...clinicDashboardReportingFixture.metrics.profileViews,
+              comparison: {
+                state: "partial_coverage",
+                value: null,
+                absoluteDelta: null,
+                relativeDeltaPercent: null,
+              },
+            },
+          },
+        },
+      },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "profileViews",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const metrics = within(canvasElement).getByRole("region", { name: "Dashboard metrics" })
+    const canvas = within(metrics)
+    const page = within(document.body)
+    await expect(canvas.getByText("284", { exact: true })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "About Profile views" }))
+    await expect(page.getByRole("dialog", { name: "About Profile views" })).toHaveTextContent(
+      "The preceding period does not have complete measurement coverage.",
+    )
+  },
+}
 
 function SelectionHarness(args: React.ComponentProps<typeof DashboardOverviewScreen>) {
   const controller = useDashboardOverviewController({
