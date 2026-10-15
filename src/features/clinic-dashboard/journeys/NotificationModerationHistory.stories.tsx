@@ -105,23 +105,50 @@ export const ModerationDistinctRestorationAndAppeal: Story = {
   render: moderationHistoryRender,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(await canvas.findByText("Inquiry restricted")).toBeVisible()
-    await expect(canvas.getByText("Inquiry restored")).toBeVisible()
-    await expect(canvas.getByText("Restriction lifted")).toBeVisible()
-    await expect(canvas.getByRole("button", { name: "Notifications, 3 unread notifications" })).toBeVisible()
-    await userEvent.click(canvas.getByRole("button", { name: "Options for Inquiry restricted" }))
-    await userEvent.click(await canvas.findByRole("menuitem", { name: "Mark as read: Inquiry restricted" }))
-    await expect(
-      await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
-    ).toBeVisible()
-    await expect(canvas.queryByText("Inquiry restricted")).not.toBeInTheDocument()
-    await expect(canvas.getByText("Inquiry restored")).toBeVisible()
-    await expect(canvas.getByText("Restriction lifted")).toBeVisible()
-    await userEvent.click(canvas.getByRole("tab", { name: "All" }))
-    await expect(await canvas.findByText("Inquiry restricted")).toBeVisible()
-    await expect(
-      canvas.queryByRole("button", { name: "Options for Inquiry restricted" }),
-    ).not.toBeInTheDocument()
+    const stage = async (name: string, action: () => Promise<void>) => {
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      try {
+        await Promise.race([
+          action(),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(() => reject(new Error("Moderation history story stalled: " + name)), 4000)
+          }),
+        ])
+      } finally {
+        clearTimeout(timeout)
+      }
+    }
+
+    await stage("initial history", async () => {
+      await expect(await canvas.findByText("Inquiry restricted")).toBeVisible()
+      await expect(canvas.getByText("Inquiry restored")).toBeVisible()
+      await expect(canvas.getByText("Restriction lifted")).toBeVisible()
+      await expect(
+        canvas.getByRole("button", { name: "Notifications, 3 unread notifications" }),
+      ).toBeVisible()
+    })
+    await stage("open marking menu", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Options for Inquiry restricted" }))
+      await expect(
+        await canvas.findByRole("menuitem", { name: "Mark as read: Inquiry restricted" }),
+      ).toBeVisible()
+    })
+    await stage("mark restriction", async () => {
+      await userEvent.click(canvas.getByRole("menuitem", { name: "Mark as read: Inquiry restricted" }))
+      await expect(
+        await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
+      ).toBeVisible()
+      await expect(canvas.queryByText("Inquiry restricted")).not.toBeInTheDocument()
+      await expect(canvas.getByText("Inquiry restored")).toBeVisible()
+      await expect(canvas.getByText("Restriction lifted")).toBeVisible()
+    })
+    await stage("show read history", async () => {
+      await userEvent.click(canvas.getByRole("tab", { name: "All" }))
+      await expect(await canvas.findByText("Inquiry restricted")).toBeVisible()
+      await expect(
+        canvas.queryByRole("button", { name: "Options for Inquiry restricted" }),
+      ).not.toBeInTheDocument()
+    })
   },
 }
 export const ModerationMobileHistory: Story = {
