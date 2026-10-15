@@ -1,7 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, fn, userEvent, within } from "storybook/test"
 import { createDashboardOverview } from "../../dashboard-overview.mapper"
-import { clinicDashboardReportingFixture } from "../../testing/clinic-dashboard-reporting.fixtures"
+import {
+  clinicDashboardReportingFixture,
+  clinicDashboardReportingWithPartialCoverage,
+  clinicDashboardReportingWithSourceUnavailable,
+} from "../../testing/clinic-dashboard-reporting.fixtures"
 import { dashboardProfileProgressReady } from "../../testing/dashboard.fixtures"
 import {
   dashboardProfileProgressError,
@@ -51,6 +55,12 @@ type Story = StoryObj<typeof meta>
 async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable<Story["play"]>>[0]) {
   const canvas = within(canvasElement)
   await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
+  const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
+  await expect(metrics.getByText("284", { exact: true })).toBeVisible()
+  await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
+  await expect(metrics.queryByText("CTA interactions")).not.toBeInTheDocument()
+  await expect(metrics.queryByText("Session conversion")).not.toBeInTheDocument()
+
   await expect(canvas.getByRole("heading", { name: "Public profile progress" })).toBeVisible()
   await expect(canvas.getByRole("list", { name: "Conversion stages" })).toBeVisible()
   await expect(canvas.getByText("Time series not available")).toBeVisible()
@@ -149,12 +159,12 @@ export const MetricSelection: Story = {
   },
 }
 
-export const CtaInformationWithoutSelection: Story = {
+export const KpiInformationWithoutSelection: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: "About CTA interactions" }))
-    const dialog = within(document.body).getByRole("dialog", { name: "About CTA interactions" })
-    await expect(dialog).toHaveTextContent("Contact doctor: 3")
+    await userEvent.click(canvas.getByRole("button", { name: "About Contacts" }))
+    const dialog = within(document.body).getByRole("dialog", { name: "About Contacts" })
+    await expect(dialog).toHaveTextContent("Chat conversations are not measured")
     await expect(args.onMetricSelect).not.toHaveBeenCalled()
     await expect(canvas.getByRole("heading", { level: 2, name: "Profile views" })).toBeVisible()
   },
@@ -261,5 +271,40 @@ export const PublishTasks: Story = {
       clinicPreview: previewFixture,
       selectedMetricId: "profileViews",
     }),
+  },
+}
+
+export const PartialCoverage: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: { status: "ready", reporting: clinicDashboardReportingWithPartialCoverage },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "profileViews",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const metrics = within(within(canvasElement).getByRole("region", { name: "Dashboard metrics" }))
+    await expect(metrics.getByText("Incomplete data coverage")).toBeVisible()
+    await expect(metrics.queryByText("284", { exact: true })).not.toBeInTheDocument()
+    await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
+  },
+}
+export const AnalyticsUnavailable: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: { status: "ready", reporting: clinicDashboardReportingWithSourceUnavailable },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "profileViews",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const metrics = within(within(canvasElement).getByRole("region", { name: "Dashboard metrics" }))
+    await expect(metrics.getByText("Data source unavailable")).toBeVisible()
+    await expect(metrics.getByText("7", { exact: true })).toBeVisible()
+    await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
   },
 }

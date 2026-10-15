@@ -40,15 +40,7 @@ export function DashboardOverviewScreen({
       </PageHeading>
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {model.metrics.map((metric) => (
-          <ReportingMetricCard
-            key={metric.id}
-            {...metric}
-            information={
-              metric.id === "ctaInteractions"
-                ? `${metric.information} Interaction breakdown: ${model.ctaBreakdown.map((item) => `${item.label}: ${item.value}${item.detail ? ` (${item.detail})` : ""}`).join(". ")}.`
-                : metric.information
-            }
-          />
+          <ReportingMetricCard key={metric.id} {...metric} />
         ))}
       </section>
       {model.reportingStatus === "temporarily-unavailable" ? (
@@ -76,7 +68,7 @@ export function DashboardOverviewScreen({
             stages={model.journey}
             selectedId={model.selectedMetric.id}
             onSelect={onMetricSelect}
-            session={model.sessionFunnel}
+            session={model.sessionConversionSummary}
             periodDays={model.periodDays}
           />
         </div>

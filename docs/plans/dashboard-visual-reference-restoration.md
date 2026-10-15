@@ -23,7 +23,7 @@ Published profile progress and tasks use the existing atomic workspace projectio
 - Map Profile Views to consent-limited event counts, including repeated events. Map Inquiries to stored inquiries excluding spam for the selected period.
 - Show Not supported yet for Impressions, Unique Visitors and Contacts. Contacts means chat conversations. Never substitute sessions for visitors or CTA clicks for chats. Unsupported cards remain selectable without numbers, comparisons, retries or measured charts.
 - Replace the two session cards with a compact summary below the five cards. Show returned session denominator, numerator, valid rate and percentage-point comparison according to availability. With no qualifying sessions, show no numerical rate. Explain that this calculation is independent of the five cards.
-- Retain five KPIs: published profile completeness, profile views, CTA interactions, inquiries and session conversion. Remove KPI selection and selected-value highlighting. Keep CTA breakdown accessible through its information control.
+- Display exactly five KPIs in reference order: Public profile completion, Impressions, Profile views, Contacts and Inquiries. Reuse journey measurements and unsupported explanations. KPIs never select a journey stage. CTA remains in the reporting contract only; session conversion appears only below the journey cards.
 - Restore the grouped 7/30/90 control. Default journey selection to Profile Views and retain selection and period across section navigation and reporting refreshes.
 - Each journey card controls the central detail panel. Supported cards show their values and source states; unsupported cards explain the missing capability. Do not generate live curves or CSV from aggregate totals.
 - Retain profile tasks, review summary, authorized clinic preview, the approximately 1:2:1 desktop lower layout and mobile stacking.
@@ -138,3 +138,39 @@ Final local validation on 2026-10-15 used Node 24: formatting, checks, 956 unit 
 regenerated desktop and mobile captures in both themes. Six previously authorized reviewers covered planning,
 logic, architecture, security, tests, and UI; their five findings were fixed before this final validation.
 No deployment was performed.
+
+## KPI alignment and cleanup revision
+
+Approved on 2026-10-15. Continue from `1a005881` on the existing working branch.
+The Product Spec now defines the reference KPI order and removes the CTA display requirement.
+
+- Share supported and unsupported measurement presentation between KPIs and journey cards.
+- Keep Impressions and Contacts unsupported during loading and source failures; never substitute CTA clicks.
+- Remove CTA-only presentation mapping and controls, preserving the wire contract and provider coverage.
+- Remove the obsolete standalone Reporting screen and its stories. Transfer relevant coverage to the current overview.
+- Remove the Storybook-only reporting wrapper and its redundant story; keep the live reporting hook.
+- Rename the internal session-funnel model to session-conversion summary.
+- Remove orphaned imports, exports and fixtures after checking runtime and Storybook consumers. Keep the historical interactive demo.
+
+Validate exact KPI order, shared values, zero versus unsupported versus failure, non-selectable KPIs, accessible explanations,
+selection retention and the independent session summary. Retain profile and notification journeys. Compare 1440, 390 and
+320 pixels in both themes. Run format, checks, relevant tests and both builds; capture screenshots.
+CTA product relevance remains follow-up work. No new PR or deployment is included.
+
+### KPI revision validation, 2026-10-15
+
+The Reporting Product Spec was updated and read back before code changes. The KPI order is Public profile completion,
+Impressions, Profile views, Contacts and Inquiries. CTA remains in the reporting contract, without dashboard presentation.
+The obsolete Reporting screen and Storybook-only wrapper were deleted with their stories. Coverage for incomplete history
+and source failure now runs on DashboardOverviewScreen. Shared formatting remains internal where no external consumer exists.
+The historical demo and the live reporting hook remain in use.
+
+The full unit suite passed 957 tests; after adding three state regressions, the affected mapper suite passed all nine tests.
+All 157 integration tests, 21 affected dashboard/workspace Storybook tests and 28 controlled E2E journeys passed. Format,
+lint, typechecking, architecture/story governance, reviewer contracts, prose checks and unused-code checks passed.
+Application and Storybook builds passed. Storybook retained its advisory large-chunk warning.
+
+Fresh synthetic captures cover 320, 390 and 1440 pixels in both themes, including unavailable reporting. No horizontal
+overflow occurred. Desktop, mobile and source-failure captures were visually inspected. These results are local evidence,
+not deployment validation. No provider, BFF, reporting wire contract or notification implementation changed.
+Additional reviewers remain pending user confirmation. No new PR, push or deployment is part of this revision.

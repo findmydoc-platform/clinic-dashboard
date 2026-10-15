@@ -16,7 +16,7 @@ const meta = {
   component: ReportingJourneyFunnel,
   args: {
     stages: model.journey,
-    session: model.sessionFunnel,
+    session: model.sessionConversionSummary,
     periodDays: 30,
     selectedId: "profileViews",
     controlsId: "detail-panel",
@@ -66,7 +66,7 @@ export const Available: Story = {
 export const NoQualifyingSessions: Story = {
   args: {
     session: {
-      ...model.sessionFunnel,
+      ...model.sessionConversionSummary,
       profileSessions: "0",
       convertedSessions: "0",
       conversion: undefined,
@@ -84,7 +84,7 @@ export const NoQualifyingSessions: Story = {
 export const SourceUnavailable: Story = {
   args: {
     session: {
-      ...model.sessionFunnel,
+      ...model.sessionConversionSummary,
       profileSessions: "Not available",
       convertedSessions: "Not available",
       conversion: undefined,

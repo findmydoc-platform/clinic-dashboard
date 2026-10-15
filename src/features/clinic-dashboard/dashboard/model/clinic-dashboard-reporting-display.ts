@@ -83,7 +83,7 @@ export function createCountMetricDisplay<Source extends ClinicDashboardReporting
   }
 }
 
-export function formatReportingPercent(value: number | null) {
+function formatReportingPercent(value: number | null) {
   return value === null
     ? "Not available"
     : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value) + "%"

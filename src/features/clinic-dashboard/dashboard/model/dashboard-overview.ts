@@ -2,9 +2,6 @@ import type { ClinicProfileImageSource } from "@/features/clinic-dashboard/clini
 import type { ClinicDashboardReportingPeriodDays } from "./clinic-dashboard-reporting"
 import type { DashboardProfileProgressState } from "./profile-progress"
 
-export type DashboardReportingMetricId =
-  "profileViews" | "ctaInteractions" | "inquiries" | "sessionConversion"
-
 export type DashboardJourneyStageId =
   "impressions" | "profileViews" | "uniqueVisitors" | "contacts" | "inquiries"
 
@@ -22,7 +19,7 @@ export type DashboardJourneyStage =
     }>
 
 export type DashboardOverviewMetric = Readonly<{
-  id: DashboardReportingMetricId | "completion"
+  id: "profileViews" | "inquiries" | "completion"
   label: string
   value: string
   availability: "available" | "loading" | "unavailable"
@@ -51,7 +48,7 @@ export type DashboardReviewSummary = Readonly<{
   detail: string
 }>
 
-export type DashboardSessionFunnel = Readonly<{
+export type DashboardSessionConversionSummary = Readonly<{
   profileSessions: string
   convertedSessions: string
   conversion?: string
@@ -62,15 +59,16 @@ export type DashboardSessionFunnel = Readonly<{
 
 export type DashboardOverviewModel = Readonly<{
   clinicPreview: DashboardClinicPreview
-  metrics: readonly DashboardOverviewMetric[]
+  metrics: readonly (
+    DashboardOverviewMetric | Extract<DashboardJourneyStage, { availability: "unsupported" }>
+  )[]
   periodDays: ClinicDashboardReportingPeriodDays
   profileProgress: DashboardProfileProgressState
   reportingStatus: "ready" | "loading" | "temporarily-unavailable"
   journey: readonly DashboardJourneyStage[]
   selectedMetric: DashboardJourneyStage
-  ctaBreakdown: readonly Readonly<{ label: string; value: string; detail?: string }>[]
   reviews: DashboardReviewSummary
-  sessionFunnel: DashboardSessionFunnel
+  sessionConversionSummary: DashboardSessionConversionSummary
   timezone: "Europe/Istanbul"
   asOf?: string
 }>

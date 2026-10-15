@@ -11,7 +11,6 @@ import type {
   DashboardClinicPreview,
   DashboardOverviewMetric,
   DashboardOverviewModel,
-  DashboardReportingMetricId,
   DashboardJourneyStage,
   DashboardJourneyStageId,
 } from "./model/dashboard-overview"
@@ -23,16 +22,9 @@ import type {
 } from "@/features/clinic-dashboard/clinic-profile/public"
 
 const consentInformation =
-  "Analytics include only sessions with consent. Repeated profile-view and CTA events count separately. Sessions are not unique people or patients."
+  "Analytics include only sessions with consent. Repeated profile-view events count separately. Sessions are not unique people or patients."
 const sessionInformation =
   "Consent-limited sessions with a profile view followed by a successfully stored inquiry for the same clinic. Each session counts at most once. CTA interactions are not a required conversion step."
-const reportingMetricLabels = {
-  profileViews: "Profile views",
-  ctaInteractions: "CTA interactions",
-  inquiries: "Inquiries",
-  sessionConversion: "Session conversion",
-} as const
-
 type DashboardOverviewInput = Readonly<{
   reporting: ClinicDashboardReportingLoadState | Readonly<{ status: "loading" }>
   periodDays: ClinicDashboardReportingPeriodDays
@@ -100,36 +92,29 @@ export function createDashboardOverview({
           ? profileProgress.message
           : "Loading public profile",
   }
-  const metrics: DashboardOverviewMetric[] = [completion]
-  for (const id of Object.keys(reportingMetricLabels) as DashboardReportingMetricId[]) {
-    const display = !reporting
-      ? { value: missingValue, detail: missingDetail }
-      : id === "sessionConversion"
-        ? createSessionConversionDisplay(reporting.metrics.sessionConversion)
-        : createCountMetricDisplay(
-            id === "ctaInteractions" ? reporting.metrics.ctaInteractions.total : reporting.metrics[id],
-          )
-    const information =
-      id === "inquiries"
-        ? "Stored inquiries created in the selected period, excluding spam. This is not an inventory of open work."
-        : id === "sessionConversion"
-          ? sessionInformation
-          : consentInformation
-    const state = !reporting
-      ? undefined
-      : id === "sessionConversion"
-        ? reporting.metrics.sessionConversion.current.state
-        : id === "ctaInteractions"
-          ? reporting.metrics.ctaInteractions.total.current.state
-          : reporting.metrics[id].current.state
-    metrics.push({
+  const supportedStage = (id: "profileViews" | "inquiries"): DashboardJourneyStage => {
+    const display = reporting
+      ? createCountMetricDisplay(reporting.metrics[id])
+      : { value: missingValue, detail: missingDetail }
+    return {
       ...display,
-      availability:
-        state === "available" ? "available" : loadState.status === "loading" ? "loading" : "unavailable",
       id,
-      label: reportingMetricLabels[id],
-      information: [information, display.information].filter(Boolean).join(" "),
-    })
+      label: id === "profileViews" ? "Profile views" : "Inquiries",
+      availability:
+        reporting?.metrics[id].current.state === "available"
+          ? "available"
+          : loadState.status === "loading"
+            ? "loading"
+            : "unavailable",
+      information: [
+        id === "inquiries"
+          ? "Stored inquiries created in the selected period, excluding spam. This is not an inventory of open work."
+          : consentInformation,
+        display.information,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    }
   }
   const conversion = reporting?.metrics.sessionConversion.current
   const conversionDisplay = reporting
@@ -152,10 +137,6 @@ export function createDashboardOverview({
         }
     : { value: missingValue, detail: missingDetail }
   const rating = reviewAverage?.state === "available" ? reviewAverage.value : null
-  const supportedStage = (id: "profileViews" | "inquiries"): DashboardJourneyStage => ({
-    ...metrics.find((metric) => metric.id === id)!,
-    id,
-  })
   const journey: DashboardJourneyStage[] = [
     {
       id: "impressions",
@@ -188,31 +169,19 @@ export function createDashboardOverview({
       clinicPreview.status === "available"
         ? { ...clinicPreview, ratingLabel: rating === null ? undefined : `${rating.toFixed(1)} ★` }
         : clinicPreview,
-    metrics,
+    metrics: [completion, ...journey.filter((stage) => stage.id !== "uniqueVisitors")],
     periodDays,
     profileProgress,
     reportingStatus: loadState.status,
     journey,
     selectedMetric: journey.find((stage) => stage.id === selectedMetricId) ?? journey[1],
-    ctaBreakdown: (
-      [
-        ["choose_treatment", "Choose a treatment"],
-        ["contact", "Contact clinic"],
-        ["contact_doctor", "Contact doctor"],
-      ] as const
-    ).map(([id, label]) => ({
-      label,
-      ...(reporting
-        ? createCountMetricDisplay(reporting.metrics.ctaInteractions.byCtaId[id])
-        : { value: missingValue, detail: missingDetail }),
-    })),
     reviews: {
       average: reviewDisplay.value,
       count: reviewCount,
       rating,
       detail: reviewDisplay.detail ?? "Current public reviews",
     },
-    sessionFunnel: {
+    sessionConversionSummary: {
       profileSessions: sessionState
         ? createMetricValueDisplay({ state: sessionState, value: conversion?.denominatorSessions ?? null })
             .value

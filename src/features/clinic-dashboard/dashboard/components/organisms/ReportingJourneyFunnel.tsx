@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import type {
   DashboardJourneyStage,
   DashboardJourneyStageId,
-  DashboardSessionFunnel,
+  DashboardSessionConversionSummary,
 } from "../../model/dashboard-overview"
 import { ReportingInformation } from "../molecules/ReportingInformation"
 
@@ -30,7 +30,7 @@ type ReportingJourneyFunnelProps = Readonly<{
   selectedId: DashboardJourneyStageId
   onSelect: (id: DashboardJourneyStageId) => void
   periodDays: number
-  session: DashboardSessionFunnel
+  session: DashboardSessionConversionSummary
 }>
 
 export function ReportingJourneyFunnel({
