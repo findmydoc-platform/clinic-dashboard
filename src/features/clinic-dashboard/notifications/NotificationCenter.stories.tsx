@@ -825,19 +825,30 @@ export const MarkDisplayedUnreadEntries: Story = {
       </div>
     )
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, step }) => {
     const canvas = within(canvasElement)
-    await expect(
-      await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
-    ).toBeVisible()
-    await expect(await canvas.findByText("2 new messages")).toBeVisible()
-    await userEvent.click(await canvas.findByRole("tab", { name: "All" }))
-    await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
-    await userEvent.click(canvas.getByRole("button", { name: "Mark 2 shown as read" }))
-    await expect(await canvas.findByText("Marked as read.")).toBeVisible()
-    await expect(canvas.getByRole("button", { name: "Notifications, 0 unread notifications" })).toBeVisible()
-    await expect(canvas.queryByRole("button", { name: /Mark \d+ shown as read/ })).not.toBeInTheDocument()
-    await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
+    await step("loaded unread feed", async () => {
+      await expect(
+        await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
+      ).toBeVisible()
+      await expect(await canvas.findByText("2 new messages")).toBeVisible()
+    })
+    await step("select All view", async () => {
+      await userEvent.click(await canvas.findByRole("tab", { name: "All" }))
+      await expect(canvas.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true")
+      await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
+    })
+    await step("mark displayed entries", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Mark 2 shown as read" }))
+      await expect(await canvas.findByText("Marked as read.")).toBeVisible()
+    })
+    await step("verify result and close", async () => {
+      await expect(
+        canvas.getByRole("button", { name: "Notifications, 0 unread notifications" }),
+      ).toBeVisible()
+      await expect(canvas.queryByRole("button", { name: /Mark \d+ shown as read/ })).not.toBeInTheDocument()
+      await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
+    })
   },
 }
 export const DisplayedUnreadAction: Story = {

@@ -18,9 +18,18 @@ import {
   type DoctorProfileCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
-  ClinicDashboardReportingController,
+  DashboardOverviewScreen,
+  DashboardScreen,
+  DashboardPeriodControl,
+  useDashboardController,
+  ReportingPeriodControl,
+  useDashboardOverviewController,
+  createDashboardClinicPreview,
   ProfileTaskDialog,
   type ClinicDashboardReportingLoadState,
+  type ClinicDashboardReporting,
+  type ClinicDashboardReportingPeriodDays,
+  type DashboardSnapshot,
 } from "@/features/clinic-dashboard/dashboard/public"
 import {
   InquiryQueue,
@@ -85,11 +94,14 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   notificationCommands: NotificationCommands
   initialNotificationsOpen?: boolean
   initialReporting?: ClinicDashboardReportingLoadState
+  loadReporting?: (days: ClinicDashboardReportingPeriodDays) => Promise<ClinicDashboardReporting | undefined>
   inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
   isSourceRefreshPending: boolean
   onSourceRefresh: () => void
   prototypeMode: ClinicDashboardPrototypeMode
+  // Explicit Storybook/QA input. Normal workspace entry never supplies demo reporting.
+  reportingDemo?: DashboardSnapshot
   reviewCommands: ReviewSourceCommands
   showPrototypeModeToggle: boolean
   start?: ClinicDashboardWorkspaceStartState
@@ -108,9 +120,11 @@ export function ClinicDashboardWorkspaceComposition({
   notificationCommands,
   initialNotificationsOpen = false,
   initialReporting,
+  loadReporting,
   isSourceRefreshPending,
   onSourceRefresh,
   prototypeMode,
+  reportingDemo,
   reviewCommands,
   showPrototypeModeToggle,
   start = {},
@@ -252,6 +266,43 @@ export function ClinicDashboardWorkspaceComposition({
     .map((part) => part[0]?.toUpperCase())
     .join("")
 
+  const dashboard = useDashboardOverviewController({
+    initialReporting: initialReporting ?? { status: "temporarily-unavailable" },
+    loadReporting,
+    profileProgress,
+    clinicPreview: createDashboardClinicPreview({
+      clinicName: authenticatedContext.clinic.name,
+      profile: workspaceInput.profileSourceSnapshot,
+      gallery: effectiveGallerySnapshot,
+      galleryStatus: effectiveGalleryStatus,
+    }),
+  })
+  const demo = useDashboardController({
+    canExportProfileViews: reportingDemo !== undefined,
+    initialReportingPeriod: "30 days",
+    locationSummary: {
+      name: selectedLocation.name,
+      location: selectedLocation.location,
+      coverImage: selectedSnapshot.clinicProfile.gallery[0]?.src,
+      coverAlt: selectedSnapshot.clinicProfile.gallery[0]?.alt,
+    },
+    profileProgress,
+    snapshot: reportingDemo,
+  })
+  const clinicLocations = reportingDemo
+    ? workspaceInput.locations
+    : [
+        {
+          id: authenticatedContext.clinic.id,
+          name: authenticatedContext.clinic.name,
+          location:
+            dashboard.model.clinicPreview.status === "available"
+              ? dashboard.model.clinicPreview.location
+              : "",
+          selectorLabel: authenticatedContext.clinic.name,
+        },
+      ]
+
   const signOut = async () => {
     if (
       hasUnsavedInquiryDrafts &&
@@ -363,17 +414,32 @@ export function ClinicDashboardWorkspaceComposition({
         />
       }
       activeSection={activeSection}
+      environmentBadge={reportingDemo ? "Reporting demo" : undefined}
       clinicIdentity={
-        activeSection === "dashboard" ? undefined : (
-          <ClinicLocationSelector
-            canSwitchLocations={capabilities.canSwitchLocations}
-            isDemoData
-            locations={workspaceInput.locations}
-            onValueChange={selectLocation}
-            organizationName={authenticatedContext.clinic.name}
-            value={selectedLocation.id}
-          />
-        )
+        <ClinicLocationSelector
+          canSwitchLocations={reportingDemo !== undefined && capabilities.canSwitchLocations}
+          isDemoData={reportingDemo !== undefined}
+          locations={clinicLocations}
+          onValueChange={selectLocation}
+          organizationName={reportingDemo ? workspaceInput.organization.name : "Authorized clinic"}
+          value={reportingDemo ? selectedLocation.id : authenticatedContext.clinic.id}
+        />
+      }
+      headerActions={
+        activeSection === "dashboard" ? (
+          reportingDemo ? (
+            <DashboardPeriodControl
+              value={demo.model.reportingPeriod}
+              onValueChange={demo.actions.changeReportingPeriod}
+            />
+          ) : (
+            <ReportingPeriodControl
+              disabled={dashboard.model.reportingStatus === "loading"}
+              value={dashboard.model.periodDays}
+              onValueChange={dashboard.actions.changePeriodDays}
+            />
+          )
+        ) : undefined
       }
       interfaceModeControls={
         showPrototypeModeToggle
@@ -426,7 +492,38 @@ export function ClinicDashboardWorkspaceComposition({
       </p>
 
       {activeSection === "dashboard" ? (
-        <ClinicDashboardReportingController initialReporting={initialReporting} />
+        demo.model.viewModel ? (
+          <div className="space-y-6">
+            <p className="border-l-4 border-[var(--border)] bg-[color-mix(in_srgb,var(--warning)_35%,var(--background))] p-4 text-sm">
+              Reporting demo. Sample measurements, charts and downloads are illustrative.
+            </p>
+            <DashboardScreen
+              model={demo.model.viewModel}
+              canDownloadProfileViews
+              actions={{
+                onMetricSelect: demo.actions.selectMetric,
+                onProfileViewsDownload: demo.actions.exportProfileViews,
+                onProfileTaskOpen: actions.openProfileTask,
+                onProfileProgressRetry: onSourceRefresh,
+                onReviewsOpen: actions.navigateToReviews,
+              }}
+            />
+          </div>
+        ) : (
+          <DashboardOverviewScreen
+            model={dashboard.model}
+            onMetricSelect={dashboard.actions.selectMetric}
+            onProfileTaskOpen={actions.openProfileTask}
+            onProfileProgressRetry={onSourceRefresh}
+            onReportingRetry={() => void dashboard.actions.changePeriodDays(dashboard.model.periodDays)}
+            onReviewsOpen={() =>
+              continueAfterGalleryGuard(() => {
+                cancelOpening()
+                actions.navigateToReviews()
+              })
+            }
+          />
+        )
       ) : null}
       <div hidden={activeSection !== "messages"}>
         <InquiryQueue

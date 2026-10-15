@@ -17,19 +17,23 @@ export function ReportingPeriodControl({
   value,
 }: ReportingPeriodControlProps) {
   return (
-    <div aria-label="Reporting period" className="flex flex-wrap gap-2" role="group">
+    <div
+      aria-label="Reporting period"
+      className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-sm"
+      role="group"
+    >
       {clinicDashboardReportingPeriodDays.map((periodDays) => {
         const selected = periodDays === value
 
         return (
           <Button
             aria-pressed={selected}
-            className={cn("min-h-11 px-4", selected && "shadow-sm")}
+            className={cn("h-11 min-h-11 rounded-lg px-3 sm:h-8 sm:min-h-8", selected && "shadow-sm")}
             disabled={disabled}
             key={periodDays}
             onClick={() => onValueChange(periodDays)}
             size="small"
-            variant={selected ? "accent" : "outline"}
+            variant={selected ? "accent" : "ghost"}
           >
             {periodDays} days
           </Button>

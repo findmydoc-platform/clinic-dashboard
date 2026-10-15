@@ -14,7 +14,7 @@ type UseDashboardControllerInput = Readonly<{
   initialReportingPeriod: DashboardReportingPeriod
   locationSummary: DashboardLocationSummary
   profileProgress: DashboardProfileProgressState
-  snapshot: DashboardSnapshot
+  snapshot?: DashboardSnapshot
 }>
 
 export function useDashboardController({
@@ -26,23 +26,19 @@ export function useDashboardController({
 }: UseDashboardControllerInput) {
   const [reportingPeriod, setReportingPeriod] = useState(initialReportingPeriod)
   const [selectedMetricId, setSelectedMetricId] = useState<DashboardSelectableMetricId>("views")
-  const viewModel = createDashboardViewModel(
-    snapshot,
-    reportingPeriod,
-    locationSummary,
-    profileProgress,
-    selectedMetricId,
-  )
+  const viewModel = snapshot
+    ? createDashboardViewModel(snapshot, reportingPeriod, locationSummary, profileProgress, selectedMetricId)
+    : undefined
 
   const changeReportingPeriod = useCallback((period: DashboardReportingPeriod) => {
     setReportingPeriod(period)
   }, [])
 
   const exportProfileViews = useCallback(() => {
-    if (!canExportProfileViews) return
+    if (!canExportProfileViews || !viewModel) return
 
     downloadTextFile(createProfileViewsCsvExport(viewModel.reporting.chart.series.views, reportingPeriod))
-  }, [canExportProfileViews, reportingPeriod, viewModel.reporting.chart.series.views])
+  }, [canExportProfileViews, reportingPeriod, viewModel])
 
   const selectMetric = useCallback((metricId: DashboardSelectableMetricId) => {
     setSelectedMetricId(metricId)

@@ -27,7 +27,7 @@ export const PresentationDashboard: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
 
-    await expect(canvas.getByRole("heading", { level: 1, name: "Reporting" })).toBeInTheDocument()
+    await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
     await expect(canvas.getByRole("group", { name: "Reporting period" })).toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: /Switch clinic location/ })).not.toBeInTheDocument()
     await expect(
@@ -62,7 +62,7 @@ export const NotificationsKeepWorkspaceUntilOpening: Story = {
     await expect(within(dialog).getByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
     await userEvent.click(within(dialog).getByRole("tab", { name: "All" }))
     await expect(within(dialog).getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true")
-    await expect(canvas.getByRole("heading", { level: 1, name: "Reporting" })).toBeVisible()
+    await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   },
 }
 

@@ -88,13 +88,14 @@ export const NarrowViewport: Story = {
 
 export const StaticIdentity: Story = {
   args: { canSwitchLocations: false },
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-
     await expect(canvas.queryByRole("button", { name: /Switch clinic location/ })).not.toBeInTheDocument()
-    await expect(
-      canvas.getByRole("group", { name: "Current clinic identity: Berlin Health Clinic — Mitte" }),
-    ).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: /Current clinic location/ }))
+    const menu = within(within(document.body).getByRole("menu", { name: /Current clinic location/ }))
+    await expect(menu.getAllByRole("menuitem")).toHaveLength(1)
+    await userEvent.click(menu.getByRole("menuitem", { name: /Berlin Health Clinic — Mitte/ }))
+    await expect(args.onValueChange).not.toHaveBeenCalled()
     await expect(canvas.getByText(workspaceOrganizationFixture.name)).toBeInTheDocument()
   },
 }
@@ -114,8 +115,8 @@ export const DemoStaticIdentity: Story = {
   args: { canSwitchLocations: false, isDemoData: true },
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole("group", {
-        name: "Current clinic identity: Demo data · Berlin Health Clinic — Mitte",
+      within(canvasElement).getByRole("button", {
+        name: /Current clinic location. Current location: Demo data · Berlin Health Clinic — Mitte/,
       }),
     ).toBeInTheDocument()
   },

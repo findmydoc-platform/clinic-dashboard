@@ -51,23 +51,14 @@ export function ClinicLocationSelector({
   const selectedLocation = getClinicDashboardLocation(locations, value)
   const selectedClinicName = isDemoData ? `Demo data · ${selectedLocation.name}` : selectedLocation.name
 
-  if (!canSwitchLocations || locations.length < 2) {
-    return (
-      <div aria-label={`Current clinic identity: ${selectedClinicName}`} className="min-w-0" role="group">
-        <ClinicIdentity
-          clinicName={selectedClinicName}
-          compactName={selectedLocation.selectorLabel}
-          organizationName={organizationName}
-        />
-      </div>
-    )
-  }
+  const switchable = canSwitchLocations && locations.length > 1
+  const visibleLocations = switchable ? locations : [selectedLocation]
 
   return (
     <DropdownMenu onOpenChange={setOpen} open={open}>
       <DropdownMenu.Trigger asChild>
         <button
-          aria-label={`Switch clinic location. Current location: ${selectedClinicName}. Organization: ${organizationName}`}
+          aria-label={`${switchable ? "Switch clinic location" : "Current clinic location"}. Current location: ${selectedClinicName}. Organization: ${organizationName}`}
           className="group -ml-2 flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-md px-2 text-left transition-colors hover:bg-[var(--surface)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] focus-visible:outline-none"
           type="button"
         >
@@ -89,10 +80,12 @@ export function ClinicLocationSelector({
         collisionPadding={12}
         sideOffset={6}
       >
-        <div className="px-4 py-3 text-sm font-bold text-[var(--secondary)]">Switch location</div>
+        <div className="px-4 py-3 text-sm font-bold text-[var(--secondary)]">
+          {switchable ? "Switch location" : "Current clinic"}
+        </div>
         <DropdownMenu.Separator className="mx-0 my-0" />
         <div className="space-y-1 p-1.5">
-          {locations.map((location) => {
+          {visibleLocations.map((location) => {
             const isSelected = location.id === value
 
             return (
@@ -106,7 +99,7 @@ export function ClinicLocationSelector({
                 )}
                 key={location.id}
                 onSelect={() => {
-                  if (!isSelected) onValueChange(location.id)
+                  if (switchable && !isSelected) onValueChange(location.id)
                 }}
                 style={{ borderLeftColor: isSelected ? "var(--accent)" : "transparent" }}
               >

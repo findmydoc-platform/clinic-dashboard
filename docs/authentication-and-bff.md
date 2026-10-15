@@ -33,13 +33,21 @@ Production. Local inquiry acceptance is a narrow exception that uses a loopback 
 | Gallery    | Controlled provider; demo presentation remains                 | [Payload gallery provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-gallery.ts) selected      | Open: not verified   | Open: not verified      |
 | Inquiries  | Controlled provider; local acceptance can use loopback Payload | [Payload inquiry provider](../src/features/clinic-dashboard/messages/server/payload-inquiries.ts) selected                 | Open: not verified   | Open: not verified      |
 | Profile    | Controlled provider; demo presentation remains                 | [Payload profile provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-profile.ts) selected      | Open: not verified   | Open: not verified      |
-| Reporting  | Controlled provider; demo presentation remains                 | [Payload reporting provider](../src/features/clinic-dashboard/dashboard/server/payload-reporting.ts) selected              | Open: not verified   | Open: not verified      |
+| Reporting  | Controlled provider; source-backed dashboard presentation      | [Payload reporting provider](../src/features/clinic-dashboard/dashboard/server/payload-reporting.ts) selected              | Open: not verified   | Open: not verified      |
 | Reviews    | Controlled provider; demo presentation remains                 | [Payload review provider](../src/features/clinic-dashboard/reviews/server/payload-reviews.ts) selected                     | Open: not verified   | Open: not verified      |
 | Treatments | Controlled provider; demo presentation remains                 | [Payload treatment provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-treatments.ts) selected | Open: not verified   | Open: not verified      |
 
 "Open" means this documentation has no checked, capability-specific environment evidence. It does not mean the
 capability is absent. A selected adapter or a successful build does not prove a deployed, reachable, authorized
 workflow. Record a dated Preview or Production validation before changing either availability cell.
+
+The restored dashboard presentation consumes the existing V1 reporting contract through the same providers. Published
+profile progress and tasks remain independent of reporting failures. Five journey cards retain separate metric populations;
+only Profile Views and Inquiries have matching V1 values. The other three explain unsupported measurement capabilities.
+A supplementary session summary uses the returned session counts and rate. Live time-series charts and CSV downloads
+remain unavailable. Notification polling does not refresh reporting. See the
+[restoration plan](./plans/dashboard-visual-reference-restoration.md) for the source mapping and contract gaps. This UI
+validation does not change the environment availability recorded above.
 
 This document records the durable authentication and Backend for Frontend architecture of the stateless Next.js
 application. It is not an execution plan. The Dashboard owns no database, durable business cache, Supabase service-role

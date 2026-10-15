@@ -98,18 +98,10 @@ export const clinicDashboardReportingWithPartialCoverage = {
   ...clinicDashboardReportingFixture,
   metrics: {
     ...clinicDashboardReportingFixture.metrics,
-    ctaInteractions: {
-      ...clinicDashboardReportingFixture.metrics.ctaInteractions,
-      total: {
-        ...clinicDashboardReportingFixture.metrics.ctaInteractions.total,
-        comparison: {
-          absoluteDelta: null,
-          relativeDeltaPercent: null,
-          state: "partial_coverage",
-          value: null,
-        },
-        current: { state: "partial_coverage", value: null },
-      },
+    profileViews: {
+      ...clinicDashboardReportingFixture.metrics.profileViews,
+      comparison: { absoluteDelta: null, relativeDeltaPercent: null, state: "partial_coverage", value: null },
+      current: { state: "partial_coverage", value: null },
     },
   },
 } as const satisfies ClinicDashboardReporting
