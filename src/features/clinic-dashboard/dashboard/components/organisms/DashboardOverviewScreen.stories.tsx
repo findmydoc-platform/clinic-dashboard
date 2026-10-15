@@ -60,7 +60,10 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   await expect(args.onProfileTaskOpen).toHaveBeenCalledWith(args.model.profileProgress.tasks[0])
   await userEvent.click(canvas.getByRole("button", { name: "View reviews" }))
   await expect(args.onReviewsOpen).toHaveBeenCalledOnce()
-  await expect(canvas.queryByText("Impressions")).not.toBeInTheDocument()
+  await expect(
+    within(canvas.getByRole("list", { name: "Conversion stages" })).getAllByRole("listitem"),
+  ).toHaveLength(5)
+  await expect(canvas.getByRole("button", { name: /Impressions Not supported yet/ })).toBeVisible()
   await expect(canvas.queryByRole("button", { name: /Download/ })).not.toBeInTheDocument()
 }
 
@@ -134,15 +137,26 @@ export const MetricSelection: Story = {
   render: (args) => <SelectionHarness {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: "Show CTA interactions details" }))
-    await expect(canvas.getByRole("heading", { level: 2, name: "CTA interactions" })).toBeVisible()
-    await expect(canvas.getByText("Contact doctor")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: /Contacts Not supported yet/ }))
+    await expect(canvas.getByRole("heading", { level: 2, name: "Contacts" })).toBeVisible()
+    await expect(canvas.getByRole("status")).toHaveTextContent("Chat conversations are not measured")
     await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
-    await expect(canvas.getByRole("button", { name: "Show CTA interactions details" })).toHaveAttribute(
+    await expect(canvas.getByRole("button", { name: /Contacts Not supported yet/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     )
     await expect(canvas.getByRole("heading", { name: "Conversion funnel (7 days)" })).toBeVisible()
+  },
+}
+
+export const CtaInformationWithoutSelection: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "About CTA interactions" }))
+    const dialog = within(document.body).getByRole("dialog", { name: "About CTA interactions" })
+    await expect(dialog).toHaveTextContent("Contact doctor: 3")
+    await expect(args.onMetricSelect).not.toHaveBeenCalled()
+    await expect(canvas.getByRole("heading", { level: 2, name: "Profile views" })).toBeVisible()
   },
 }
 

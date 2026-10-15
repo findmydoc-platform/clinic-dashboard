@@ -9,24 +9,27 @@ import type { ClinicDashboardReportingLoadState } from "@/features/clinic-dashbo
 afterEach(cleanup)
 
 it("retains the selected measurement across a reporting period change", async () => {
+  const loadReporting = vi.fn(async (days: 7 | 30 | 90) => ({
+    ...clinicDashboardReportingFixture,
+    period: { ...clinicDashboardReportingFixture.period, days },
+  }))
   const { result } = renderHook(() =>
     useDashboardOverviewController({
       initialReporting: { status: "ready", reporting: clinicDashboardReportingFixture },
       profileProgress: dashboardProfileProgressReady,
       clinicPreview: { status: "unavailable", name: "Controlled clinic" },
-      loadReporting: async (days) => ({
-        ...clinicDashboardReportingFixture,
-        period: { ...clinicDashboardReportingFixture.period, days },
-      }),
+      loadReporting,
     }),
   )
-  act(() => result.current.actions.selectMetric("ctaInteractions"))
+  act(() => result.current.actions.selectMetric("contacts"))
+  expect(loadReporting).not.toHaveBeenCalled()
   await act(async () => {
     await result.current.actions.changePeriodDays(7)
   })
   expect(result.current.model.periodDays).toBe(7)
-  expect(result.current.model.selectedMetric.id).toBe("ctaInteractions")
+  expect(result.current.model.selectedMetric.id).toBe("contacts")
   expect(result.current.model.profileProgress).toBe(dashboardProfileProgressReady)
+  expect(loadReporting).toHaveBeenCalledExactlyOnceWith(7)
 })
 
 it("shows a refreshed server snapshot without resetting the selected measurement", () => {
@@ -51,12 +54,12 @@ it("shows a refreshed server snapshot without resetting the selected measurement
     { initialProps: { initialReporting: { status: "ready", reporting: clinicDashboardReportingFixture } } },
   )
 
-  act(() => result.current.actions.selectMetric("ctaInteractions"))
+  act(() => result.current.actions.selectMetric("uniqueVisitors"))
   rerender({ initialReporting: { status: "ready", reporting: updatedReporting } })
 
   expect(result.current.model.metrics.find((metric) => metric.id === "profileViews")?.value).toBe("301")
   expect(result.current.model.asOf).toBe(updatedReporting.asOf)
-  expect(result.current.model.selectedMetric.id).toBe("ctaInteractions")
+  expect(result.current.model.selectedMetric.id).toBe("uniqueVisitors")
 })
 
 it("reloads the selected non-default period when the server snapshot changes", async () => {
@@ -79,7 +82,7 @@ it("reloads the selected non-default period when the server snapshot changes", a
       }),
     { initialProps: { initialReporting: { status: "ready", reporting: clinicDashboardReportingFixture } } },
   )
-  act(() => result.current.actions.selectMetric("sessionConversion"))
+  act(() => result.current.actions.selectMetric("inquiries"))
   await act(async () => result.current.actions.changePeriodDays(90))
 
   currentReporting = updatedReporting
@@ -87,7 +90,7 @@ it("reloads the selected non-default period when the server snapshot changes", a
 
   expect(result.current.model.periodDays).toBe(90)
   expect(result.current.model.asOf).toBe(updatedReporting.asOf)
-  expect(result.current.model.selectedMetric.id).toBe("sessionConversion")
+  expect(result.current.model.selectedMetric.id).toBe("inquiries")
   expect(loadReporting).toHaveBeenCalledTimes(2)
 })
 

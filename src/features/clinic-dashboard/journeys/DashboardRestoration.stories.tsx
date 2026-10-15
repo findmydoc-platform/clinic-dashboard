@@ -32,17 +32,17 @@ type Story = StoryObj<typeof meta>
 export const RetainsPeriodAndMetricThroughReviewNavigation: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: "Show CTA interactions details" }))
+    await userEvent.click(canvas.getByRole("button", { name: /Contacts Not supported yet/ }))
     await userEvent.click(canvas.getByRole("button", { name: "90 days" }))
     await userEvent.click(canvas.getByRole("button", { name: "View reviews" }))
     await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Dashboard" }))
     await expect(canvas.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-    await expect(canvas.getByRole("button", { name: "Show CTA interactions details" })).toHaveAttribute(
+    await expect(canvas.getByRole("button", { name: /Contacts Not supported yet/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     )
-    await expect(canvas.getByRole("heading", { name: "CTA interactions" })).toBeVisible()
+    await expect(canvas.getByRole("heading", { name: "Contacts" })).toBeVisible()
   },
 }
 

@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui/card"
 import { ReportingInformation } from "./ReportingInformation"
-import { cn } from "@/lib/utils"
 
 type ReportingMetricCardProps = Readonly<{
   comparison?: string
@@ -9,9 +8,6 @@ type ReportingMetricCardProps = Readonly<{
   label: string
   value: string
   progress?: number
-  isSelected?: boolean
-  onSelect?: () => void
-  controlsId?: string
 }>
 
 export function ReportingMetricCard({
@@ -21,9 +17,6 @@ export function ReportingMetricCard({
   label,
   value,
   progress,
-  isSelected,
-  onSelect,
-  controlsId,
 }: ReportingMetricCardProps) {
   return (
     <Card className="min-w-0 shadow-none">
@@ -32,23 +25,7 @@ export function ReportingMetricCard({
           <p className="text-xs font-bold tracking-wide text-[var(--foreground)] uppercase">{label}</p>
           {information ? <ReportingInformation label={label}>{information}</ReportingInformation> : null}
         </div>
-        {onSelect ? (
-          <button
-            aria-controls={controlsId}
-            aria-label={`Show ${label} details`}
-            aria-pressed={isSelected}
-            className={cn(
-              "mt-2 min-h-11 w-full rounded-md text-left text-2xl font-bold tracking-tight text-[var(--secondary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-              isSelected && "bg-[var(--accent)] px-2 text-[var(--accent-foreground)]",
-            )}
-            onClick={onSelect}
-            type="button"
-          >
-            {value}
-          </button>
-        ) : (
-          <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--secondary)]">{value}</p>
-        )}
+        <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--secondary)]">{value}</p>
         {progress !== undefined ? (
           <div
             aria-label={`${label}: ${progress}%`}

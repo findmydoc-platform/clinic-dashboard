@@ -23,6 +23,7 @@ import {
   type DashboardProfileProgressState,
   type ClinicDashboardReporting,
   type ClinicDashboardReportingPeriodDays,
+  type DashboardSnapshot,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
 import type { InquiryWorkspaceCommands } from "@/features/clinic-dashboard/messages/public"
@@ -61,6 +62,7 @@ type ClinicDashboardWorkspaceHarnessProps = Readonly<
       isOpen?: boolean
     }>
     profileProgress?: DashboardProfileProgressState
+    reportingDemo?: DashboardSnapshot
     profileSourceSnapshot?: ClinicProfileSnapshot
     loadReporting?: (
       days: ClinicDashboardReportingPeriodDays,
@@ -201,6 +203,7 @@ export function ClinicDashboardWorkspaceHarness({
   notificationCommands,
   notificationState,
   profileProgress,
+  reportingDemo,
   profileSourceSnapshot,
   loadReporting,
   prototypeMode,
@@ -238,6 +241,7 @@ export function ClinicDashboardWorkspaceHarness({
         isSourceRefreshPending={false}
         onSourceRefresh={() => undefined}
         prototypeMode={prototypeMode}
+        reportingDemo={reportingDemo}
         reviewCommands={suppliedReviewCommands ?? reviewCommands}
         showPrototypeModeToggle={showPrototypeModeToggle}
         start={start}

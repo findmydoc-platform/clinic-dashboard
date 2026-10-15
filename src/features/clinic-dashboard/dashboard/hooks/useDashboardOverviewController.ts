@@ -7,7 +7,7 @@ import type {
   ClinicDashboardReportingLoadState,
   ClinicDashboardReportingPeriodDays,
 } from "../model/clinic-dashboard-reporting"
-import type { DashboardClinicPreview, DashboardReportingMetricId } from "../model/dashboard-overview"
+import type { DashboardClinicPreview, DashboardJourneyStageId } from "../model/dashboard-overview"
 import type { DashboardProfileProgressState } from "../model/profile-progress"
 import { useClinicDashboardReportingController } from "./useClinicDashboardReportingController"
 import { loadClinicDashboardReportingFromBrowser } from "../browser/reporting-api"
@@ -26,7 +26,7 @@ export function useDashboardOverviewController({
   loadReporting = loadClinicDashboardReportingFromBrowser,
 }: DashboardOverviewControllerInput) {
   const reporting = useClinicDashboardReportingController({ initialReporting, loadReporting })
-  const [selectedMetricId, selectMetric] = useState<DashboardReportingMetricId>("profileViews")
+  const [selectedMetricId, selectMetric] = useState<DashboardJourneyStageId>("profileViews")
   return {
     actions: { ...reporting.actions, selectMetric },
     model: createDashboardOverview({

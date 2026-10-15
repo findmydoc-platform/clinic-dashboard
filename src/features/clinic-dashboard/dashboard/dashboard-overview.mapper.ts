@@ -12,6 +12,8 @@ import type {
   DashboardOverviewMetric,
   DashboardOverviewModel,
   DashboardReportingMetricId,
+  DashboardJourneyStage,
+  DashboardJourneyStageId,
 } from "./model/dashboard-overview"
 import type { DashboardProfileProgressState } from "./model/profile-progress"
 import type {
@@ -36,7 +38,7 @@ type DashboardOverviewInput = Readonly<{
   periodDays: ClinicDashboardReportingPeriodDays
   profileProgress: DashboardProfileProgressState
   clinicPreview: DashboardClinicPreview
-  selectedMetricId: DashboardReportingMetricId
+  selectedMetricId: DashboardJourneyStageId
 }>
 
 export function createDashboardClinicPreview({
@@ -150,6 +152,36 @@ export function createDashboardOverview({
         }
     : { value: missingValue, detail: missingDetail }
   const rating = reviewAverage?.state === "available" ? reviewAverage.value : null
+  const supportedStage = (id: "profileViews" | "inquiries"): DashboardJourneyStage => ({
+    ...metrics.find((metric) => metric.id === id)!,
+    id,
+  })
+  const journey: DashboardJourneyStage[] = [
+    {
+      id: "impressions",
+      label: "Impressions",
+      availability: "unsupported",
+      value: "Not supported yet",
+      information: "Search impressions are not measured by the current reporting capability.",
+    },
+    supportedStage("profileViews"),
+    {
+      id: "uniqueVisitors",
+      label: "Unique visitors",
+      availability: "unsupported",
+      value: "Not supported yet",
+      information: "Unique visitors are not measured. Session counts are not unique-visitor counts.",
+    },
+    {
+      id: "contacts",
+      label: "Contacts",
+      availability: "unsupported",
+      value: "Not supported yet",
+      information:
+        "Chat conversations are not measured. Contact-button clicks are a separate CTA measurement.",
+    },
+    supportedStage("inquiries"),
+  ]
 
   return {
     clinicPreview:
@@ -160,7 +192,8 @@ export function createDashboardOverview({
     periodDays,
     profileProgress,
     reportingStatus: loadState.status,
-    selectedMetric: metrics.find((metric) => metric.id === selectedMetricId) ?? metrics[1],
+    journey,
+    selectedMetric: journey.find((stage) => stage.id === selectedMetricId) ?? journey[1],
     ctaBreakdown: (
       [
         ["choose_treatment", "Choose a treatment"],

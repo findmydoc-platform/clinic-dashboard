@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { ClinicDashboardWorkspaceHarness } from "./public"
 import { clinicProfileSourceFixture } from "@/features/clinic-dashboard/clinic-profile/testing/public"
+import { dashboardFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
 
 const productionArgs = {
   prototypeMode: "presentation",
@@ -55,12 +56,12 @@ export const RestoredDashboardTasksAndReviews: Story = {
 }
 
 export const VisualReferenceLocationSwitching: Story = {
-  args: { prototypeMode: "visual-reference" },
+  args: { prototypeMode: "visual-reference", reportingDemo: dashboardFixture },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const page = within(canvasElement.ownerDocument.body)
     const header = within(canvas.getByRole("banner"))
-    await expect(header.queryByRole("button", { name: /Switch clinic location/ })).not.toBeInTheDocument()
+    await expect(header.getByRole("button", { name: /Switch clinic location/ })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
     await expect(canvas.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeVisible()
     const locationSelector = await page.findByRole("button", { name: /Switch clinic location/ })
@@ -88,12 +89,12 @@ export const VisualReferenceLocationSwitching: Story = {
 }
 
 export const PresentationLocationSwitching: Story = {
-  args: { prototypeMode: "presentation" },
+  args: { prototypeMode: "presentation", reportingDemo: dashboardFixture },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const page = within(canvasElement.ownerDocument.body)
     const header = within(canvas.getByRole("banner"))
-    await expect(header.queryByRole("button", { name: /Switch clinic location/ })).not.toBeInTheDocument()
+    await expect(header.getByRole("button", { name: /Switch clinic location/ })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Clinic profile" }))
     await expect(canvas.getByRole("heading", { level: 1, name: "Clinic profile" })).toBeVisible()
     const locationSelector = await page.findByRole("button", { name: /Switch clinic location/ })
@@ -109,7 +110,7 @@ export const PresentationLocationSwitching: Story = {
 }
 
 export const LocationSwitchingAt320: Story = {
-  args: { prototypeMode: "visual-reference" },
+  args: { prototypeMode: "visual-reference", reportingDemo: dashboardFixture },
   globals: { viewport: { value: "mobile320Short" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -309,7 +310,7 @@ export const CertificatesAndAccreditationsDark: Story = {
 }
 
 export const PotsdamWorkspaceContent: Story = {
-  args: { prototypeMode: "visual-reference" },
+  args: { prototypeMode: "visual-reference", reportingDemo: dashboardFixture },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const page = within(canvasElement.ownerDocument.body)
@@ -378,7 +379,7 @@ export const GallerySaveReturnsWithToast: Story = {
 }
 
 export const GalleryLocationSwitchUsesLeaveGuard: Story = {
-  args: { prototypeMode: "visual-reference" },
+  args: { prototypeMode: "visual-reference", reportingDemo: dashboardFixture },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const page = within(canvasElement.ownerDocument.body)

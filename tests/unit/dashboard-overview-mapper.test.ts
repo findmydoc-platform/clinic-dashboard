@@ -10,13 +10,32 @@ import { clinicProfileSourceDraftFixture } from "@/features/clinic-dashboard/cli
 import { clinicGallerySnapshotFixture } from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile.fixtures"
 
 describe("dashboard overview presentation", () => {
-  it("uses session counts for the funnel and preserves independent Payload facts on an analytics outage", () => {
+  it("maps five journey cards without substituting sessions or CTA clicks for unsupported measurements", () => {
+    const model = createDashboardOverview({
+      reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: { status: "unavailable", name: "Controlled clinic" },
+      selectedMetricId: "contacts",
+    })
+    expect(model.journey.map(({ id, value, availability }) => ({ id, value, availability }))).toEqual([
+      { id: "impressions", value: "Not supported yet", availability: "unsupported" },
+      { id: "profileViews", value: "284", availability: "available" },
+      { id: "uniqueVisitors", value: "Not supported yet", availability: "unsupported" },
+      { id: "contacts", value: "Not supported yet", availability: "unsupported" },
+      { id: "inquiries", value: "7", availability: "available" },
+    ])
+    expect(model.selectedMetric.id).toBe("contacts")
+    expect(model.selectedMetric.information).toContain("Chat conversations")
+    expect(model.selectedMetric.comparison).toBeUndefined()
+  })
+  it("keeps session counts separate and preserves independent Payload facts on an analytics outage", () => {
     const ready = createDashboardOverview({
       reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
       periodDays: 30,
       profileProgress: dashboardProfileProgressReady,
       clinicPreview: { status: "unavailable", name: "Controlled clinic" },
-      selectedMetricId: "sessionConversion",
+      selectedMetricId: "inquiries",
     })
     expect(ready.sessionFunnel).toMatchObject({
       profileSessions: "200",

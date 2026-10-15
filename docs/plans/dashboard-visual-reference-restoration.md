@@ -1,62 +1,115 @@
 # Dashboard visual reference restoration
 
-Approved implementation plan, 2026-10-14. The [Clinic Dashboard reporting Product Spec](https://app.notion.com/p/3f9283c73e6181c894f2dca5292338c0) remains unchanged.
+Approved revision, 2026-10-15. The [Clinic Dashboard reporting Product Spec](https://app.notion.com/p/3f9283c73e6181c894f2dca5292338c0) defines reporting requirements. This engineering plan owns restoration provenance, implementation, the independent picker work and validation. Other Product Specs remain unchanged.
 
 ## Outcome and evidence
 
-Approved clinic staff recover the established dashboard composition while retaining tenant-safe reporting and the completed notification integration.
+Approved clinic staff use the established dashboard composition with tenant-safe reporting and the completed notification integration. The accepted reference is the rendered Workspace VisualReference story at `1d23beda62c7be249da02306128af09948520607`, immediately before PR #153, captured at desktop and mobile widths in both themes. The older static prototype image is not an acceptance reference.
 
-The baseline immediately before reporting PR #153 is `1d23beda62c7be249da02306128af09948520607`. Its hierarchy and the existing visual references govern layout. Later approved reporting and profile requirements govern metric meaning, tasks and permissions. Historical prototype figures, excluded metrics and unsupported causal claims are not runtime requirements.
+The implementation starts at saved restoration commit `c7a695e5b8e7ef99a66dfe43da47d2ed6c632e16` on `feature/dashboard-five-card-journey`. The pushed `feature/dashboard-ui-restoration-snapshot-20261015` branch remains unchanged.
 
-The spec review identified five defects: replacement of the dashboard and its independent workflows, a false zero conversion without a denominator, missing comparison explanations, missing consent information interactions, and review empty copy implying period filtering.
+The first restoration corrected five defects: loss of independent dashboard workflows, a false zero conversion without a denominator, missing comparison explanations, missing consent information interactions, and review empty copy implying period filtering. This revision aligns the journey cards and interactions with the accepted reference while retaining those corrections.
 
 ## Access and sources
 
-The application remains private. Reporting uses its existing authorized BFF, provider, strict DTO validation, source states and private no-store responses. Browser input selects only 7, 30 or 90 days. Reporting timezone remains Europe/Istanbul.
+Reporting retains the authorized BFF, provider, strict DTO validation, source states and private no-store responses. Browser input selects only 7, 30 or 90 days. Reporting timezone remains Europe/Istanbul. No Website reporting contract changes are required.
 
-Published profile progress and tasks use the existing atomic workspace projection. The upper profile metric and progress card use that same projection. Preview uses authorized published profile and gallery facts. Missing sources never produce demo identity, images, ratings, fabricated values or partial profile tasks.
+Published profile progress and tasks use the existing atomic workspace projection. The upper profile metric and progress card use that same projection. Preview uses authorized published profile and gallery facts. Missing sources never produce demo identity, images, ratings, fabricated values or partial profile tasks. Reviews remain a current snapshot.
 
 ## Presentation
 
-- Restore clinic identity and period control in the header.
-- Show five KPIs: published profile completeness, profile views, CTA interactions, inquiries and session conversion.
-- Restore the full-width funnel card with its two defined session stages. Keep event counts, Payload inquiries and session counts distinct.
-- Restore profile tasks, the central selectable metric panel, current review summary and published clinic preview.
-- Preserve the approximately 1:2:1 desktop lower layout and narrow mobile stacking.
-- Default metric selection to profile views and retain the selection and period across section navigation.
-- Show source failures and incomplete history locally. Keep available current values when comparison coverage is incomplete.
-- Explain consent and missing comparisons with keyboard, hover, click and touch interactions. Activated explanations remain open until dismissed and stay inside the viewport.
-- Show undefined conversion without a numerical rate. Show valid conversion comparisons as percentage points.
+- Restore exactly five selectable journey cards: Impressions, Profile Views, Unique Visitors, Contacts and Inquiries. Match the reference proportions, standard card surfaces, spacing, icons, connectors and accent selection.
+- Keep the title Conversion funnel. Directional arrows show journey order only, without measured conversion percentages. Provide an accessible explanation of the separate populations.
+- Map Profile Views to consent-limited event counts, including repeated events. Map Inquiries to stored inquiries excluding spam for the selected period.
+- Show Not supported yet for Impressions, Unique Visitors and Contacts. Contacts means chat conversations. Never substitute sessions for visitors or CTA clicks for chats. Unsupported cards remain selectable without numbers, comparisons, retries or measured charts.
+- Replace the two session cards with a compact summary below the five cards. Show returned session denominator, numerator, valid rate and percentage-point comparison according to availability. With no qualifying sessions, show no numerical rate. Explain that this calculation is independent of the five cards.
+- Retain five KPIs: published profile completeness, profile views, CTA interactions, inquiries and session conversion. Remove KPI selection and selected-value highlighting. Keep CTA breakdown accessible through its information control.
+- Restore the grouped 7/30/90 control. Default journey selection to Profile Views and retain selection and period across section navigation and reporting refreshes.
+- Each journey card controls the central detail panel. Supported cards show their values and source states; unsupported cards explain the missing capability. Do not generate live curves or CSV from aggregate totals.
+- Retain profile tasks, review summary, authorized clinic preview, the approximately 1:2:1 desktop lower layout and mobile stacking.
+- Keep zero activity, incomplete history, missing comparison, source failure and unsupported capability distinct. Independent available facts remain visible.
+- Information controls support keyboard, hover, click and touch. Activated explanations remain open until dismissed and stay within the viewport.
 
-## Contract gaps
+## Presentation models and demo
 
-| Reference area                                                    | V1 treatment                                                                                        | Future prerequisite                                         |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Time-series chart                                                 | Preserve the central panel and explain unavailable daily history. Do not derive curves from totals. | A separately approved Website reporting contract extension. |
-| CSV download                                                      | No runtime download control.                                                                        | Defined export semantics and authorized source data.        |
-| Impressions, unique visitors, generic contacts                    | Explicitly excluded from V1, rather than treated as temporarily missing measurements.               | A new product decision before implementation.               |
-| Historic review tags, pending-response totals and period activity | Omit unsourced supplementary claims. Use current public count and rating.                           | A source-backed requirement if these details are needed.    |
+Journey stages and supported reporting metrics have separate presentation models. Unsupported capability is a presentation state only; the Website wire contract gains no metrics or states. Card selection changes local state only. Period changes remain the only reporting query input.
 
-## Sequence and mandatory integration gate
+Reconnect the complete historical click demo through existing components and public feature contracts. Label it clearly and keep synthetic measurements, illustrative charts and existing demo exports confined to the separate demo and controlled tests. Normal reporting never uses demo fallback values.
 
-1. Prepare dashboard components, pure presentation mapping, Storybook states and regression tests in a separate worktree. Do not change shared workspace, navigation, header wiring or server composition in this phase.
-2. Stop before runtime integration until the notification work is complete, its review fixes and local validation are finished, and a final clean committed interface baseline exists.
-3. Read the notification task again, pin its final commit, update this branch onto that commit and integrate the dashboard through current public feature contracts.
-4. Validate combined navigation, independent source failures, state retention, both themes and responsive layout. Prepare the delivery diff without deployment.
+## Header and picker restoration
 
-The notification task completed its review fixes and validation on 2026-10-14. Its clean baseline is `ca35de5cb6f57249e26b35c7c7540e83cc09f1d4`. This fulfills the prerequisite once isolated dashboard preparation is validated. The notification worktree remains untouched.
+Restore the original header and clinic/location picker appearance. Normal reporting displays only the authorized clinic; the demo may select synthetic locations. Real multi-clinic selection is a separate extension. These are engineering restoration tasks and introduce no picker requirement in the Reporting Product Spec.
 
-Runtime integration must preserve notification polling, personal receipts, destination opening and focus, unsaved-change guards and principal/clinic resets. Notification refresh or failure must not reload reporting or hide profile tasks. Existing workspace files must not be restored wholesale from the old baseline.
+## Contract gaps and follow-up
 
-## Validation and delivery
+| Area                   | Current treatment                                                    | Follow-up                                                                       |
+| ---------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Impressions            | Visible, selectable, Not supported yet                               | Define search-impression measurement and authorized source.                     |
+| Unique Visitors        | Visible, selectable, Not supported yet                               | Define visitor identity, consent and measurement without substituting sessions. |
+| Contacts               | Visible, selectable, Not supported yet                               | Define chat-conversation measurement, separate from CTA clicks.                 |
+| Journey relationships  | Directional arrows without percentages                               | Define valid relationships and populations before measured stage conversions.   |
+| Time series            | Preserve detail panel with an honest unavailable-history explanation | Approve daily measurement contract.                                             |
+| CSV                    | No live download; retain existing demo export                        | Define export semantics and authorized data.                                    |
+| Multi-clinic selection | Authorized clinic only; synthetic demo selection                     | Separate access, scope and selection requirements.                              |
+| Review extras          | Current public count and average only                                | Source-backed requirements for tags, pending totals or period activity.         |
 
-Outside-In TDD seams are the presentation mapper, public screen/Storybook interactions, reporting controller and combined controlled workspace journeys. Existing BFF and tenant-input rejection tests remain required.
+These capabilities remain explicit follow-up work. They are neither silently implemented nor permanently discarded.
 
-Cover available zero, missing denominator, incomplete current and comparison coverage, source-specific outage, request outage, profile-source failure, published-versus-draft preview, profile task navigation, review navigation, and notification destination opening. Verify 320px and 1440px layouts in light and dark themes.
+## Notification integration gate
 
-Run formatting, checks, relevant unit/integration/browser tests, controlled E2E, Storybook build and application build. Capture synthetic screenshots. Recommend routed reviewers after validation and run them only after user confirmation. Deployment, new reporting metrics, provider caches, credentials and migrations are excluded.
+The notification integration prerequisite is fulfilled. Its final reviewed baseline was `ca35de5cb6f57249e26b35c7c7540e83cc09f1d4`; its merge into main is `90f234c0e0172053feb9713c4f67ba078927a3af`. The saved restoration already includes this integration.
 
-Rollback reverts only this presentation restoration. It retains the reporting and notification integrations.
+Preserve notification polling, personal receipts, exact destination opening and focus, unsaved-change guards and principal/clinic resets. Notification refresh or failure must not reload reporting or hide profile tasks. Do not copy old Workspace files wholesale or change the notification worktree.
+
+## Implementation sequence
+
+1. Save and verify the approved Product Spec amendments, then update this plan before code changes.
+2. Add behavior coverage at the mapper, public screen and controlled workspace seams.
+3. Implement the five-card presentation, summary, KPI information and grouped period control. Reconnect the separate demo and restore picker presentation through public feature contracts.
+4. Validate combined navigation, source isolation, selection retention, responsiveness and both themes. Capture synthetic screenshots.
+5. Record new validation separately from prior implementation evidence. Recommend reviewers after validation and run them only after user confirmation.
+
+## Acceptance and validation
+
+Outside-In TDD seams are the presentation mapper, public screen/Storybook interactions, reporting controller and controlled workspace journeys. Keep BFF and tenant-input rejection tests.
+
+- Exactly five journey cards in order, with no sixth session card.
+- Only matching Profile Views and Inquiries contract values appear in their cards.
+- Unsupported capability, source outage, incomplete history and measured zero remain distinguishable.
+- Every card controls the detail panel. Card selection and period survive section navigation and reporting refreshes.
+- Keyboard and touch selection, accessible explanations and focus work.
+- Compare 1440, 390 and 320 pixel layouts in light and dark themes, including data gaps and failures.
+- Retain reporting, profile-task/editor and notification-destination journeys. Notification polling and failure remain independent of reporting.
+
+Run format, checks, relevant unit/integration/Storybook tests, controlled E2E, Storybook build and application build. Include screenshots in handoff. New PRs, deployment, backend reporting extensions, caches, credentials and migrations are outside this task. Rollback affects only this presentation revision and retains reporting and notification integrations.
+
+## Five-card revision evidence, 2026-10-15
+
+The approved Product Spec amendments were saved and read back before implementation. The Reporting Spec contains no
+picker requirements, commit links or restoration narrative. Existing metric, access and snapshot definitions remain intact.
+
+The revision implements the five journey cards, presentation-only unsupported capability, independent session summary,
+non-selectable KPIs with CTA information, and grouped period control. Normal mode lists only the authorized clinic.
+The complete click demo is separately accessible in Storybook under Workspace / Pages / Clinic Dashboard Workspace /
+Visual Reference. Its initial state is Profile Views and 30 days. Reporting Demo Interactions exercises card, period and
+synthetic location changes. Demo CSV retains the existing profile-view export; no live export or time series was added.
+
+Validation used Node 24. The full suites passed 957 unit tests, 157 integration tests and 494 Storybook tests. After separating
+the initial reference story from its interaction story, the seven affected Storybook tests passed. All 28 controlled E2E
+journeys passed across the full run and focused screenshot rerun. The simulated 503 failure is explicitly expected in the
+screenshot test; the successful-data captures require a clean browser console. Storybook and application builds passed.
+
+Synthetic captures under `output/playwright/` cover normal reporting, unavailable reporting with an unsupported stage
+selected, and the complete demo at 1440, 390 and 320 pixels in light and dark themes. Overflow checks passed. These local
+results do not establish Preview or Production availability. No reporting provider, BFF, wire contract, notification
+controller, polling or receipt implementation changed.
+
+Additional reviewers have not run for this revision. They require fresh user confirmation. No new PR or deployment was
+created. The snapshot branch remains at the saved baseline.
+
+## Prior implementation evidence
+
+The following records describe the earlier restoration. They do not validate this revision.
 
 ## Implementation record
 

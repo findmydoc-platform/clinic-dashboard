@@ -118,14 +118,18 @@ test("retains the selected period and metric through review and notification nav
     if (url.pathname === "/api/dashboard/reporting") reportingRequests.push(url.search)
   })
   await signIn(page)
-  await page.getByRole("button", { name: "Show CTA interactions details" }).click()
+  await page.getByRole("button", { name: /Contacts Not supported yet/ }).click()
+  expect(reportingRequests).toEqual([])
+  await page.getByRole("button", { name: /Current clinic location/ }).click()
+  await expect(page.getByRole("menuitem")).toHaveCount(1)
+  await page.keyboard.press("Escape")
   await page.getByRole("button", { name: "90 days" }).click()
   await expect(page.getByRole("heading", { name: "Conversion funnel (90 days)" })).toBeVisible()
   await page.getByRole("button", { name: "View reviews" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
   await page.getByRole("button", { name: "Dashboard", exact: true }).click()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("button", { name: "Show CTA interactions details" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: /Contacts Not supported yet/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   )
@@ -221,7 +225,40 @@ test("captures the restored dashboard without overflow in both themes and viewpo
   await expect(page.locator("html")).toHaveClass(/dark/)
   await page.screenshot({ fullPage: true, path: "output/playwright/dashboard-restoration-dark-1440.png" })
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440)
+  await page.setViewportSize({ height: 844, width: 390 })
+  for (const theme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: theme })
+    await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /light/)
+    await page.screenshot({ fullPage: true, path: `output/playwright/dashboard-journey-${theme}-390.png` })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
+  }
   expect(consoleMessages).toEqual([])
+  await page.route("**/api/dashboard/reporting?*", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: '{"code":"REPORTING_SERVICE_UNAVAILABLE"}',
+    }),
+  )
+  await page.getByRole("button", { name: "90 days" }).click()
+  await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
+  await page.getByRole("button", { name: /Unique visitors Not supported yet/ }).click()
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ height: 900, width })
+    for (const theme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: theme })
+      await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /light/)
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await page.screenshot({
+        fullPage: true,
+        path: `output/playwright/dashboard-journey-unavailable-${theme}-${width}.png`,
+      })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+    }
+  }
+  expect(consoleMessages).toEqual([
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+  ])
 })
 
 test("works an inquiry end to end and guards an unsent draft before sign out", async ({ page }) => {

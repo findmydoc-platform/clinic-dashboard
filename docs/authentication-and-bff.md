@@ -42,8 +42,10 @@ capability is absent. A selected adapter or a successful build does not prove a 
 workflow. Record a dated Preview or Production validation before changing either availability cell.
 
 The restored dashboard presentation consumes the existing V1 reporting contract through the same providers. Published
-profile progress and tasks remain independent of reporting failures. The session funnel uses the returned session counts;
-time-series charts and CSV downloads remain unavailable. Notification polling does not refresh reporting. See the
+profile progress and tasks remain independent of reporting failures. Five journey cards retain separate metric populations;
+only Profile Views and Inquiries have matching V1 values. The other three explain unsupported measurement capabilities.
+A supplementary session summary uses the returned session counts and rate. Live time-series charts and CSV downloads
+remain unavailable. Notification polling does not refresh reporting. See the
 [restoration plan](./plans/dashboard-visual-reference-restoration.md) for the source mapping and contract gaps. This UI
 validation does not change the environment availability recorded above.
 

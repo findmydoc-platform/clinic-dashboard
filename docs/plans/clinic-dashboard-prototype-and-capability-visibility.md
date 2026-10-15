@@ -1,9 +1,10 @@
 # Clinic Dashboard Prototype and Capability Visibility Plan
 
-> **Runtime presentation update, 2026-10-14.** The [dashboard restoration plan](./dashboard-visual-reference-restoration.md)
+> **Runtime presentation update, 2026-10-15.** The [dashboard restoration plan](./dashboard-visual-reference-restoration.md)
 > governs the V1 runtime presentation. It restores the established hierarchy using authorized reporting, profile tasks,
-> reviews and published preview facts. Its two-stage session funnel replaces the historical five-stage fixture semantics.
-> Time series and CSV downloads remain unavailable under V1. The fixture catalog below remains historical visual evidence;
+> reviews and published preview facts. Its five journey cards display matching V1 values or an explicit unsupported state.
+> Session conversion appears separately below the cards. Live time series and CSV downloads remain unavailable under V1.
+> The separate, labelled Storybook reporting demo retains sample charts and exports. The fixture catalog below remains historical visual evidence;
 > it does not authorize excluded metrics, demo fallbacks or removal of independent profile workflows.
 
 > **Planning record — 2026-07-13.** This document owns the Clinic Dashboard visual reference, fixture states, and temporary UI visibility gates. It is paired with the [Website Capability Matrix](https://github.com/findmydoc-platform/website/blob/main/docs/roadmap/clinic-dashboard/capability-matrix.md) from [website#1523](https://github.com/findmydoc-platform/website/issues/1523).
