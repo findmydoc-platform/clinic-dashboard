@@ -174,3 +174,16 @@ Fresh synthetic captures cover 320, 390 and 1440 pixels in both themes, includin
 overflow occurred. Desktop, mobile and source-failure captures were visually inspected. These results are local evidence,
 not deployment validation. No provider, BFF, reporting wire contract or notification implementation changed.
 Additional reviewers remain pending user confirmation. No new PR, push or deployment is part of this revision.
+
+## Notification Storybook CI follow-up
+
+The earlier notification feed-readiness fix from `ee6efc5b` remains present in the merged notification baseline and
+in this branch. The restored dashboard did not overwrite NotificationCenter stories or runtime notification code.
+The first PR Quality run and an unchanged rerun timed out in MarkDisplayedUnreadEntries on GitHub. All 51 notification
+stories passed locally on macOS and in a fresh, CPU-limited Linux container; all 492 current Storybook tests passed locally.
+
+The bulk-marking story now uses four awaited Storybook steps for feed readiness, All-view readiness, marking and result
+verification/closure. It explicitly verifies the selected All tab before acting on its loaded feed. The diagnostic run
+passed the complete GitHub Storybook suite and both builds. Temporary watchdogs and DOM diagnostics were then removed.
+The original 15-second test budget, assertions and runtime notification behavior remain unchanged. The exact runner-level
+cause is not established by these results. Final acceptance requires the cleaned-up PR head to pass Quality.
