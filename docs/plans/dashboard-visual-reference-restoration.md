@@ -75,3 +75,13 @@ to the notification baseline and was not repeated for this presentation-only cha
 
 Screenshots are generated under `output/playwright/` and remain local test artifacts. AI reviewer approval and deployment
 are not included in these validation results.
+
+The notification center was merged into `origin/main` as `90f234c0e0172053feb9713c4f67ba078927a3af`.
+The restoration branch was rebased onto that exact commit without conflicts. The rebased diff changes no notification
+provider, route, wire contract, polling, or receipt files.
+
+Final local validation on 2026-10-15 used Node 24: formatting, checks, 956 unit tests, 157 integration tests,
+492 Storybook tests, 28 controlled E2E tests, and both Storybook and application builds passed. The E2E suite
+regenerated desktop and mobile captures in both themes. Six previously authorized reviewers covered planning,
+logic, architecture, security, tests, and UI; their five findings were fixed before this final validation.
+No deployment was performed.
