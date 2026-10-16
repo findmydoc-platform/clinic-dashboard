@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Klinikwechsel · Entscheidungsprototyp</title>
+  <title>Clinic transition · decision prototype</title>
   <style>
     :root { color-scheme: light; --ink:#18312f; --muted:#5b706d; --line:#d8e2df; --paper:#f4f7f6; --white:#fff; --green:#126b5d; --green-soft:#e4f3ef; --amber:#8a5a08; --amber-soft:#fff3d8; --red:#9d3434; --red-soft:#fff0ee; }
     * { box-sizing:border-box }
@@ -66,68 +66,68 @@
 <body>
   <main class="wrap">
     <header>
-      <div class="eyebrow">Wayfinder · Ticket #225 · Wegwerf-Prototyp</div>
-      <h1>Was passiert beim Klinikwechsel?</h1>
-      <p class="intro">Dieser klickbare Entwurf macht Übergänge sichtbar. Wir prüfen, wie ein Wechsel mit Entwurf, Direktlink, Benachrichtigung, mehreren Tabs oder verlorenem Zugriff weitergeht. Die Klinik „Sonnenhof“ und alle Inhalte sind erfunden.</p>
+      <div class="eyebrow">Wayfinder · Issue #225 · Throwaway prototype</div>
+      <h1>What happens when the active clinic changes?</h1>
+      <p class="intro">Use this clickable prototype to explore clinic changes with an unsaved draft, a deep link, a notification, multiple tabs, or lost access. “Sonnenhof Clinic” and all sample records are fictional.</p>
     </header>
     <div class="layout">
       <div class="stack">
         <section class="card" aria-labelledby="workspace-title">
           <div class="topline">
-            <div class="clinic"><div class="mark" aria-hidden="true">S</div><div><span class="subtle">Aktive Klinik</span><strong id="active-clinic">Klinik Sonnenhof</strong><span class="subtle" id="clinic-role">Gruppenmanager · 3 berechtigte Kliniken</span></div></div>
-            <span class="badge" id="tab-badge">Tab A · eigener Kontext</span>
+            <div class="clinic"><div class="mark" aria-hidden="true">S</div><div><span class="subtle">Active clinic</span><strong id="active-clinic">Sonnenhof Clinic</strong><span class="subtle" id="clinic-role">Group manager · 3 clinics available</span></div></div>
+            <span class="badge" id="tab-badge">Tab A · separate context</span>
           </div>
-          <div class="row"><label for="clinic-select" class="subtle">Klinik wechseln</label><select id="clinic-select" aria-label="Aktive Klinik auswählen"></select></div>
+          <div class="row"><label for="clinic-select" class="subtle">Change clinic</label><select id="clinic-select" aria-label="Choose active clinic"></select></div>
           <div class="bar"></div>
-          <div class="section-name" id="workspace-title">Anfragen</div>
-          <p class="subtle">Der Bereich bleibt beim Klinikwechsel gleich. Nur die klinikbezogenen Inhalte wechseln.</p>
-          <div class="sample"><strong id="record-title">Neue Anfrage · Lea M.</strong><span id="record-copy">Rückruf am Donnerstag erbeten. Dieser Beispieldatensatz gehört ausschließlich zur Klinik Sonnenhof.</span></div>
+          <div class="section-name" id="workspace-title">Inquiries</div>
+          <p class="subtle">Changing clinics keeps the current section open. Only clinic-specific content changes.</p>
+          <div class="sample"><strong id="record-title">New inquiry · Lea M.</strong><span id="record-copy">Callback requested on Thursday. This sample belongs only to Sonnenhof Clinic.</span></div>
           <div id="work-status" class="status hidden" role="status"></div>
           <div class="row">
-            <button class="btn" id="edit-button">Änderung beginnen</button>
-            <button class="btn" id="link-button">Direktlink für andere Klinik</button>
-            <button class="btn" id="revoke-button">Zugriff auf aktive Klinik entziehen</button>
+            <button class="btn" id="edit-button">Start an edit</button>
+            <button class="btn" id="link-button">Open a deep link for another clinic</button>
+            <button class="btn" id="revoke-button">Revoke access to this clinic</button>
           </div>
         </section>
 
         <section class="card" aria-labelledby="notifications-title">
-          <h2 id="notifications-title">Persönliche Benachrichtigungen</h2>
-          <p class="subtle">Alle Einträge zeigen ihre Herkunftsklinik. Öffnen prüft die aktuelle Berechtigung.</p>
-          <div class="notice"><div><b>Neue Bewertung</b><small>Praxis am Park · vor 8 Min.</small></div><button class="btn" id="open-notice">Öffnen</button></div>
-          <div class="notice"><div><b>Neue Anfrage</b><small>Klinik Sonnenhof · vor 22 Min.</small></div><span class="badge">Gelesen</span></div>
+          <h2 id="notifications-title">Personal notifications</h2>
+          <p class="subtle">Each item names its clinic. Opening an item checks current access.</p>
+          <div class="notice"><div><b>New review</b><small>Park Clinic · 8 min ago</small></div><button class="btn" id="open-notice">Open</button></div>
+          <div class="notice"><div><b>New inquiry</b><small>Sonnenhof Clinic · 22 min ago</small></div><span class="badge">Read</span></div>
         </section>
 
         <section class="card" aria-labelledby="tabs-title">
-          <h2 id="tabs-title">Zwei geöffnete Tabs</h2>
-          <p class="subtle">Teste, ob Klinik A und Klinik B unabhängig bleiben oder sich gegenseitig umstellen sollen.</p>
-          <div class="tabs" role="tablist" aria-label="Browser-Tabs"><button class="tab" id="tab-a" role="tab" aria-selected="true">Tab A</button><button class="tab" id="tab-b" role="tab" aria-selected="false">Tab B</button></div>
-          <div class="row"><button class="btn" id="change-other-tab">Im anderen Tab Klinik wechseln</button><button class="btn" id="stale-response">Alte Antwort trifft verspätet ein</button></div>
+          <h2 id="tabs-title">Two open tabs</h2>
+          <p class="subtle">Check that each tab keeps its own clinic context and never shows one clinic’s data under another clinic’s name.</p>
+          <div class="tabs" role="tablist" aria-label="Browser tabs"><button class="tab" id="tab-a" role="tab" aria-selected="true">Tab A</button><button class="tab" id="tab-b" role="tab" aria-selected="false">Tab B</button></div>
+          <div class="row"><button class="btn" id="change-other-tab">Change clinic in the other tab</button><button class="btn" id="stale-response">Deliver a stale response</button></div>
           <div id="tab-status" class="status hidden" role="status"></div>
         </section>
       </div>
 
       <aside class="stack">
         <section class="card" aria-labelledby="scenarios-title">
-          <h2 id="scenarios-title">Geführte Fälle</h2>
+          <h2 id="scenarios-title">Guided scenarios</h2>
           <div class="scenario-list" id="scenarios"></div>
-          <div class="steps" id="steps" aria-live="polite">Wähle einen Fall. Jeder Schritt ist klickbar und setzt den Zustand nachvollziehbar zurück.</div>
+          <div class="steps" id="steps" aria-live="polite">Choose a scenario. Each step is clickable and shows how the state changes.</div>
         </section>
         <section class="card" aria-labelledby="state-title">
-          <h2 id="state-title">Aktueller Zustand</h2>
+          <h2 id="state-title">Current state</h2>
           <div class="state" id="state" aria-live="polite"></div>
         </section>
         <section class="card">
-          <h2>Schon festgelegt</h2>
-          <p class="decision">Nach Login gilt die zuletzt genutzte berechtigte Klinik. Manuelle Wechsel bleiben im gleichen Bereich. Bei Zugriffsverlust erscheint ein gesperrter Zustand und eine Auswahl der übrigen Kliniken.</p>
-          <p class="decision">Ungespeicherte Arbeit geht nicht still verloren. Benachrichtigungen behalten Herkunftsklinik. Reporting bleibt je Klinik.</p>
+          <h2>Already decided</h2>
+          <p class="decision">After login, open the last clinic the person can still access. Manual switches keep the same section. If access is lost, show a restricted state and let the person choose another available clinic.</p>
+          <p class="decision">Never lose unsaved work silently. Notifications keep their source clinic. Reporting stays clinic-specific.</p>
         </section>
       </aside>
     </div>
   </main>
   <div class="modal-backdrop hidden" id="transition-modal" role="presentation">
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-copy">
-      <h2 id="modal-title">Ungespeicherte Änderung</h2>
-      <p id="modal-copy">Du wechselst gerade zu einer anderen Klinik. Die aktuelle Änderung ist noch nicht gespeichert.</p>
+      <h2 id="modal-title">Unsaved change</h2>
+      <p id="modal-copy">You are switching to another clinic. Your change is not saved yet.</p>
       <div class="row" id="modal-actions"></div>
     </section>
   </div>
@@ -135,57 +135,68 @@
     // Liftable transition rules. The UI owns no authorization; this model only simulates approved clinics.
     const initial = () => ({
       clinics: [
-        { id: "sonnenhof", name: "Klinik Sonnenhof", allowed: true },
-        { id: "park", name: "Praxis am Park", allowed: true },
-        { id: "fluss", name: "Klinik Flussblick", allowed: true },
+        { id: "sonnenhof", name: "Sonnenhof Clinic", allowed: true },
+        { id: "park", name: "Park Clinic", allowed: true },
+        { id: "fluss", name: "Riverside Clinic", allowed: true },
       ],
-      tabs: { A: { clinicId: "sonnenhof", section: "Anfragen", draftClinicId: null, accessLost: false }, B: { clinicId: "park", section: "Anfragen", draftClinicId: null, accessLost: false } },
-      activeTab: "A", pending: null, noticeClinicId: "park", announcement: "Bereit.",
+      tabs: { A: { clinicId: "sonnenhof", section: "Inquiries", draftClinicId: null, accessLost: false }, B: { clinicId: "park", section: "Inquiries", draftClinicId: null, accessLost: false } },
+      activeTab: "A", pending: null, noticeClinicId: "park", announcement: "Ready.",
     });
     const transition = (state, event) => {
       const next = structuredClone(state);
       const tab = next.tabs[next.activeTab];
       if (event.type === "switch") {
         const target = next.clinics.find((clinic) => clinic.id === event.clinicId);
-        if (!target || !target.allowed || tab.accessLost) return { ...state, announcement: "Diese Klinik ist aktuell nicht auswählbar." };
-        if (target.id === tab.clinicId) return { ...state, announcement: "Diese Klinik ist bereits aktiv." };
-        if (tab.draftClinicId === tab.clinicId) { next.pending = { type: "switch", clinicId: target.id, source: tab.clinicId }; next.announcement = "Wechsel wartet auf deine Entscheidung über den Entwurf."; }
-        else { tab.clinicId = target.id; tab.section = tab.section; next.announcement = `Klinik gewechselt. Bereich „${tab.section}“ bleibt geöffnet.`; }
+        if (!target || !target.allowed || tab.accessLost) return { ...state, announcement: "This clinic is not available." };
+        if (target.id === tab.clinicId) return { ...state, announcement: "This clinic is already active." };
+        if (tab.draftClinicId === tab.clinicId) { next.pending = { type: "switch", clinicId: target.id, source: tab.clinicId }; next.announcement = "Choose what to do with the unsaved change before switching."; }
+        else { tab.clinicId = target.id; next.announcement = `Clinic changed. “${tab.section}” stays open.`; }
       }
-      if (event.type === "edit") { tab.draftClinicId = tab.clinicId; next.announcement = "Eine Änderung liegt ungespeichert vor."; }
+      if (event.type === "edit") { tab.draftClinicId = tab.clinicId; next.announcement = "An unsaved change is in progress."; }
       if (event.type === "resolve-draft") {
         if (!next.pending) return state;
         const pending = next.pending;
-        if (event.choice === "stay") next.announcement = "Du bist geblieben. Der Entwurf bleibt erhalten.";
-        if (event.choice === "save") { tab.draftClinicId = null; tab.clinicId = pending.clinicId; if (pending.destination) tab.section = pending.destination; next.announcement = "Änderung gespeichert. Ziel geöffnet."; }
-        if (event.choice === "discard") { tab.draftClinicId = null; tab.clinicId = pending.clinicId; if (pending.destination) tab.section = pending.destination; next.announcement = "Entwurf verworfen. Ziel geöffnet."; }
+        if (event.choice === "stay") next.announcement = pending.type === "access-loss" ? "The draft remains in the restricted clinic context." : "You stayed. The draft is still here.";
+        if (event.choice === "save") { tab.draftClinicId = null; tab.clinicId = pending.clinicId; if (pending.destination) tab.section = pending.destination; next.announcement = "Change saved. Destination opened."; }
+        if (event.choice === "discard") {
+          tab.draftClinicId = null;
+          tab.clinicId = pending.clinicId;
+          tab.accessLost = false;
+          if (pending.destination) tab.section = pending.destination;
+          next.announcement = pending.type === "access-loss" ? "Draft discarded after confirmation. The selected clinic is open." : "Draft discarded after confirmation. Destination opened.";
+        }
         next.pending = null;
       }
       if (event.type === "deep-link" || event.type === "open-notification") {
         const clinicId = event.clinicId;
         const target = next.clinics.find((clinic) => clinic.id === clinicId);
-        if (!target || !target.allowed || tab.accessLost) { next.announcement = "Zielklinik nicht verfügbar. Der geschützte Eintrag wird nicht geöffnet."; return next; }
-        if (tab.draftClinicId === tab.clinicId) { next.pending = { type: event.type, clinicId, source: tab.clinicId, destination: event.destination ?? "Bewertung" }; next.announcement = "Ziel wartet auf deine Entscheidung über den Entwurf."; }
-        else { tab.clinicId = clinicId; if (event.destination) tab.section = event.destination; next.announcement = `Ziel in ${target.name} geöffnet.`; }
+        if (!target || !target.allowed || tab.accessLost) { next.announcement = "Destination clinic is unavailable. The protected item stays closed."; return next; }
+        if (tab.draftClinicId === tab.clinicId) { next.pending = { type: event.type, clinicId, source: tab.clinicId, destination: event.destination ?? "Review" }; next.announcement = "Choose what to do with the unsaved change before opening the destination."; }
+        else { tab.clinicId = clinicId; if (event.destination) tab.section = event.destination; next.announcement = `Destination opened in ${target.name}.`; }
       }
       if (event.type === "revoke") {
         const current = next.clinics.find((clinic) => clinic.id === tab.clinicId);
         if (current) current.allowed = false;
-        tab.accessLost = true; next.pending = null; next.announcement = "Zugriff verloren. Klinikdaten sind gesperrt; wähle eine verfügbare Klinik.";
+        tab.accessLost = true; next.pending = null; next.announcement = `Access to ${current?.name ?? "this clinic"} was revoked. Its content is locked. Choose another available clinic.`;
       }
       if (event.type === "recover") {
         const target = next.clinics.find((clinic) => clinic.id === event.clinicId);
-        if (!target || !target.allowed) return { ...state, announcement: "Wähle eine weiterhin berechtigte Klinik." };
-        tab.clinicId = target.id; tab.accessLost = false; next.announcement = `Zugriff auf ${target.name} geöffnet. Bereich „${tab.section}“ bleibt erhalten.`;
+        if (!target || !target.allowed) return { ...state, announcement: "Choose a clinic you can still access." };
+        if (tab.accessLost && tab.draftClinicId === tab.clinicId) {
+          next.pending = { type: "access-loss", clinicId: target.id, source: tab.clinicId };
+          next.announcement = "Confirm discarding the clinic-bound draft before opening another clinic.";
+        } else {
+          tab.clinicId = target.id; tab.accessLost = false; next.announcement = `Access to ${target.name} opened. “${tab.section}” stays open.`;
+        }
       }
-      if (event.type === "tab") { next.activeTab = event.tab; next.announcement = `Du siehst Tab ${event.tab}.`; }
+      if (event.type === "tab") { next.activeTab = event.tab; next.announcement = `You are viewing Tab ${event.tab}.`; }
       if (event.type === "other-tab-switch") {
         const other = next.activeTab === "A" ? "B" : "A";
         const available = next.clinics.find((clinic) => clinic.id !== next.tabs[other].clinicId && clinic.allowed);
         if (available) next.tabs[other].clinicId = available.id;
-        next.announcement = `Tab ${other} wechselte unabhängig. Aktiver Tab ${next.activeTab} behält seinen Klinikkontext.`;
+        next.announcement = `Tab ${other} changed independently. Active Tab ${next.activeTab} kept its clinic context.`;
       }
-      if (event.type === "stale-response") next.announcement = "Verspätete Antwort aus Praxis am Park verworfen. Der Klinikbezug passte nicht zum aktuellen Kontext.";
+      if (event.type === "stale-response") next.announcement = "A stale response from Park Clinic was discarded because its clinic did not match the current context.";
       return next;
     };
 
@@ -193,11 +204,11 @@
     let scenario = null;
     let stepIndex = 0;
     const cases = [
-      { id:"switch", title:"Wechsel mit Entwurf", description:"Prüfe die Optionen, bevor eine offene Änderung die Klinik wechselt.", steps:[{type:"edit"},{type:"switch",clinicId:"park"}] },
-      { id:"notice", title:"Benachrichtigung aus anderer Klinik", description:"Öffne einen Eintrag mit sichtbarer Herkunftsklinik.", steps:[{type:"open-notification",clinicId:"park",destination:"Bewertungen"}] },
-      { id:"loss", title:"Zugriff während der Nutzung verloren", description:"Die aktive Klinik wird gesperrt. Danach wählst du eine weiterhin verfügbare Klinik.", steps:[{type:"edit"},{type:"revoke"},{type:"recover",clinicId:"park"}] },
-      { id:"tabs", title:"Zwei Tabs, getrennte Kliniken", description:"Wechsle im Tab B und achte darauf, dass Tab A seine Klinik behält.", steps:[{type:"tab",tab:"B"},{type:"other-tab-switch"},{type:"tab",tab:"A"},{type:"stale-response"}] },
-      { id:"link", title:"Direktlink in anderem Bereich", description:"Der Link darf nur öffnen, wenn die Zielklinik weiter berechtigt ist.", steps:[{type:"deep-link",clinicId:"fluss",destination:"Klinikprofil"}] },
+      { id:"switch", title:"Switch with an unsaved draft", description:"Choose what happens before the clinic changes.", steps:[{type:"edit"},{type:"switch",clinicId:"park"}] },
+      { id:"notice", title:"Notification from another clinic", description:"Open an item with a clear source-clinic label.", steps:[{type:"open-notification",clinicId:"park",destination:"Reviews"}] },
+      { id:"loss", title:"Access lost during work", description:"The clinic is locked. Choose another clinic, then confirm before the old clinic’s draft is discarded.", steps:[{type:"edit"},{type:"revoke"},{type:"recover",clinicId:"park"}] },
+      { id:"tabs", title:"Two tabs, separate clinics", description:"Change clinics in Tab B and check that Tab A keeps its context.", steps:[{type:"tab",tab:"B"},{type:"other-tab-switch"},{type:"tab",tab:"A"},{type:"stale-response"}] },
+      { id:"link", title:"Deep link to another section", description:"Open the destination only when its clinic is still authorized.", steps:[{type:"deep-link",clinicId:"fluss",destination:"Clinic profile"}] },
     ];
     const announce = (message) => { model.announcement = message; render(); };
     function dispatch(event) {
@@ -211,45 +222,53 @@
     function render() {
       const tab = model.tabs[model.activeTab];
       const clinic = model.clinics.find((entry) => entry.id === tab.clinicId);
-      document.querySelector("#active-clinic").textContent = clinic?.name ?? "Klinik nicht verfügbar";
-      document.querySelector("#tab-badge").textContent = `Tab ${model.activeTab} · eigener Kontext`;
+      document.querySelector("#active-clinic").textContent = clinic?.name ?? "Clinic unavailable";
+      document.querySelector("#tab-badge").textContent = `Tab ${model.activeTab} · separate context`;
       document.querySelector("#workspace-title").textContent = tab.section;
-      document.querySelector("#clinic-role").textContent = `${clinic?.allowed ? "Gruppenmanager" : "Zugriff gesperrt"} · ${model.clinics.filter((entry)=>entry.allowed).length} berechtigte Kliniken`;
-      const sample = clinic?.name ?? "Klinik nicht verfügbar";
-      document.querySelector("#record-title").textContent = tab.accessLost ? "Inhalt gesperrt" : tab.section === "Klinikprofil" ? "Profil · Öffnungszeiten" : tab.section === "Bewertungen" ? "Neue Bewertung · 4 Sterne" : "Neue Anfrage · Lea M.";
+      document.querySelector("#clinic-role").textContent = `${clinic?.allowed ? "Group manager" : "Access restricted"} · ${model.clinics.filter((entry)=>entry.allowed).length} clinics available`;
+      const sample = clinic?.name ?? "Clinic unavailable";
+      document.querySelector("#record-title").textContent = tab.accessLost ? "Content locked" : tab.section === "Clinic profile" ? "Profile · Opening hours" : tab.section === "Reviews" ? "New review · 4 stars" : "New inquiry · Lea M.";
       const draftClinic = model.clinics.find((entry)=>entry.id===tab.draftClinicId);
-      document.querySelector("#record-copy").textContent = tab.accessLost ? `Diese Klinik ist nicht mehr berechtigt. Keine alten Klinikdaten werden angezeigt.${draftClinic?` Der ungespeicherte Entwurf bleibt dieser Klinik zugeordnet.`:""}` : `Dieser Beispieldatensatz gehört ausschließlich zu ${sample}.${draftClinic?` Ungespeicherter Entwurf für ${draftClinic.name}.`:""}`;
+      document.querySelector("#record-copy").textContent = tab.accessLost ? `Access to this clinic has ended. Its clinic data is hidden.${draftClinic?` The unsaved draft remains attached to ${draftClinic.name} and cannot be saved.`:""}` : `This sample belongs only to ${sample}.${draftClinic?` Unsaved draft for ${draftClinic.name}.`:""}`;
       const select = document.querySelector("#clinic-select");
-      select.replaceChildren(...model.clinics.filter((entry)=>entry.allowed).map((entry)=>{const option=document.createElement("option");option.value=entry.id;option.textContent=entry.name;option.selected=entry.id===tab.clinicId;return option;}));
-      select.disabled = tab.accessLost;
+      const options=model.clinics.filter((entry)=>entry.allowed).map((entry)=>{const option=document.createElement("option");option.value=entry.id;option.textContent=entry.name;option.selected=!tab.accessLost&&entry.id===tab.clinicId;return option;});
+      if(tab.accessLost){const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Choose an available clinic";placeholder.disabled=true;placeholder.selected=true;select.replaceChildren(placeholder,...options);}else{select.replaceChildren(...options);}
+      select.disabled = options.length===0;
       const status=document.querySelector("#work-status"); status.textContent=model.announcement; status.className=`status ${tab.accessLost?"error":model.pending?"warn":""}`;
-      const tabText=(id)=>{const entry=model.tabs[id];const clinicName=model.clinics.find(c=>c.id===entry.clinicId)?.name??"gesperrt";const draftName=entry.draftClinicId?model.clinics.find(c=>c.id===entry.draftClinicId)?.name??"Klinik nicht verfügbar":null;return `Tab ${id}: ${clinicName}${draftName?` · Entwurf in ${draftName}`:""}`;};
+      const tabText=(id)=>{const entry=model.tabs[id];const clinicName=model.clinics.find(c=>c.id===entry.clinicId)?.name??"restricted";const draftName=entry.draftClinicId?model.clinics.find(c=>c.id===entry.draftClinicId)?.name??"Clinic unavailable":null;return `Tab ${id}: ${clinicName}${draftName?` · draft in ${draftName}`:""}`;};
       document.querySelector("#tab-status").textContent=`${tabText("A")}  |  ${tabText("B")}`;
       document.querySelector("#tab-status").classList.remove("hidden");
       document.querySelector("#tab-a").setAttribute("aria-selected",String(model.activeTab==="A")); document.querySelector("#tab-b").setAttribute("aria-selected",String(model.activeTab==="B"));
-      document.querySelector("#state").innerHTML=[`<div><span>Aktiver Tab</span> ${model.activeTab}</div>`,`<div><span>Aktive Klinik</span> ${clinic?.name ?? "keine"}</div>`,`<div><span>Bereich</span> ${tab.section}</div>`,`<div><span>Ungespeicherter Entwurf</span> ${tab.draftClinicId?model.clinics.find(c=>c.id===tab.draftClinicId)?.name??"Klinik nicht verfügbar":"nein"}</div>`,`<div><span>Zugriff aktiv</span> ${tab.accessLost?"nein":"ja"}</div>`,`<div><span>Wartender Wechsel</span> ${model.pending?model.pending.type:"nein"}</div>`,`<div><span>Letzte Rückmeldung</span> ${model.announcement}</div>`].join("");
+      document.querySelector("#state").innerHTML=[`<div><span>Active tab</span> ${model.activeTab}</div>`,`<div><span>Active clinic</span> ${clinic?.name ?? "none"}</div>`,`<div><span>Section</span> ${tab.section}</div>`,`<div><span>Unsaved draft</span> ${tab.draftClinicId?model.clinics.find(c=>c.id===tab.draftClinicId)?.name??"Clinic unavailable":"none"}</div>`,`<div><span>Access</span> ${tab.accessLost?"restricted":"available"}</div>`,`<div><span>Pending transition</span> ${model.pending?model.pending.type:"none"}</div>`,`<div><span>Latest message</span> ${model.announcement}</div>`].join("");
       document.querySelector("#scenarios").innerHTML=cases.map((item)=>`<button class="scenario" data-case="${item.id}" aria-pressed="${scenario?.id===item.id}"><b>${item.title}</b><span>${item.description}</span></button>`).join("");
       document.querySelectorAll("[data-case]").forEach((button)=>button.addEventListener("click",()=>startCase(button.dataset.case)));
-      document.querySelector("#steps").textContent=scenario?`Fall ${cases.findIndex((item)=>item.id===scenario.id)+1} von ${cases.length}. Schritt ${Math.min(stepIndex+1,scenario.steps.length)} von ${scenario.steps.length}. ${scenario.steps[stepIndex]?"Klicke erneut auf den Fall, um den nächsten Schritt auszuführen.":"Fall abgeschlossen. Wähle einen anderen Fall oder spiele frei weiter."}`:"Wähle einen Fall. Jeder Schritt ist klickbar und setzt den Zustand nachvollziehbar zurück.";
+      document.querySelector("#steps").textContent=scenario?`Scenario ${cases.findIndex((item)=>item.id===scenario.id)+1} of ${cases.length}. Step ${Math.min(stepIndex+1,scenario.steps.length)} of ${scenario.steps.length}. ${scenario.steps[stepIndex]?"Click the scenario again for the next step.":"Scenario complete. Choose another or continue free play."}`:"Choose a scenario. Each step is clickable and resets to a known state.";
     }
     function startCase(id) {
       if (!scenario || scenario.id!==id) { Object.assign(model,initial()); scenario=cases.find((item)=>item.id===id); stepIndex=0; }
       if (stepIndex<scenario.steps.length) { dispatch(scenario.steps[stepIndex]); stepIndex++; }
-      else announce("Fall abgeschlossen. Du kannst frei weiterspielen.");
+      else announce("Scenario complete. Continue with free play.");
     }
     function showModal() {
       const pending=model.pending;
-      document.querySelector("#modal-copy").textContent=`${pending.type==="open-notification"?"Die Benachrichtigung führt zu":"Du wechselst zu"} ${model.clinics.find((c)=>c.id===pending.clinicId)?.name}. Deine Änderung ist noch nicht gespeichert.`;
+      const targetName=model.clinics.find((c)=>c.id===pending.clinicId)?.name ?? "the selected clinic";
+      document.querySelector("#modal-title").textContent=pending.type==="access-loss"?"Discard the old clinic’s draft?":"Unsaved change";
+      document.querySelector("#modal-copy").textContent=pending.type==="access-loss"
+        ? `Access to ${model.clinics.find((c)=>c.id===pending.source)?.name ?? "the previous clinic"} has ended, so this draft cannot be saved. Confirm discarding it to open ${targetName}. The new clinic opens with an empty form.`
+        : `${pending.type==="open-notification"?"This notification leads to":"You are switching to"} ${targetName}. Your change is not saved yet.`;
       document.querySelector("#modal-actions").innerHTML="";
-      [["stay","Hier bleiben"],["save","Speichern und fortfahren"],["discard","Änderung verwerfen"]].forEach(([choice,label])=>{const button=document.createElement("button");button.className=`btn ${choice==="save"?"primary":""} ${choice==="discard"?"warn":""}`;button.textContent=label;button.addEventListener("click",()=>dispatch({type:"resolve-draft",choice}));document.querySelector("#modal-actions").append(button);});
+      const actions=pending.type==="access-loss"
+        ? [["stay","Stay in restricted view"],["discard","Discard draft and open clinic"]]
+        : [["stay","Stay here"],["save","Save and continue"],["discard","Discard change"]];
+      actions.forEach(([choice,label])=>{const button=document.createElement("button");button.className=`btn ${choice==="save"?"primary":""} ${choice==="discard"?"warn":""}`;button.textContent=label;button.addEventListener("click",()=>dispatch({type:"resolve-draft",choice}));document.querySelector("#modal-actions").append(button);});
       document.querySelector("#transition-modal").classList.remove("hidden"); document.querySelector("#modal-actions button").focus();
     }
     function hideModal(){document.querySelector("#transition-modal").classList.add("hidden")}
-    document.querySelector("#clinic-select").addEventListener("change",(event)=>dispatch({type:"switch",clinicId:event.target.value}));
+    document.querySelector("#clinic-select").addEventListener("change",(event)=>dispatch({type:model.tabs[model.activeTab].accessLost?"recover":"switch",clinicId:event.target.value}));
     document.querySelector("#edit-button").addEventListener("click",()=>dispatch({type:"edit"}));
-    document.querySelector("#link-button").addEventListener("click",()=>dispatch({type:"deep-link",clinicId:"fluss",destination:"Klinikprofil"}));
+    document.querySelector("#link-button").addEventListener("click",()=>dispatch({type:"deep-link",clinicId:"fluss",destination:"Clinic profile"}));
     document.querySelector("#revoke-button").addEventListener("click",()=>dispatch({type:"revoke"}));
-    document.querySelector("#open-notice").addEventListener("click",()=>dispatch({type:"open-notification",clinicId:model.noticeClinicId,destination:"Bewertungen"}));
+    document.querySelector("#open-notice").addEventListener("click",()=>dispatch({type:"open-notification",clinicId:model.noticeClinicId,destination:"Reviews"}));
     document.querySelector("#tab-a").addEventListener("click",()=>dispatch({type:"tab",tab:"A"}));
     document.querySelector("#tab-b").addEventListener("click",()=>dispatch({type:"tab",tab:"B"}));
     document.querySelector("#change-other-tab").addEventListener("click",()=>dispatch({type:"other-tab-switch"}));
