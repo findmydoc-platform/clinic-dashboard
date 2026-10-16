@@ -29,4 +29,4 @@ The [shared platform context](https://github.com/findmydoc-platform/platform-arc
 
 ## Open questions handed to Wayfinder
 
-The inventory locates the one-clinic assumptions. It does not choose a group schema, role representation, selected-clinic contract, migration, cross-tab state rule, or notification contract change. Those decisions must account for the approved product rules and the existing notification map's authorization behavior before implementation tickets are written.
+The inventory locates the one-clinic assumptions. It does not choose a group schema, role representation, selected-clinic contract, migration, or notification contract change. Those decisions must account for the approved product rules and the existing notification map's authorization behavior before implementation tickets are written.
