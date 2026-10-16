@@ -139,7 +139,7 @@
         { id: "park", name: "Praxis am Park", allowed: true },
         { id: "fluss", name: "Klinik Flussblick", allowed: true },
       ],
-      tabs: { A: { clinicId: "sonnenhof", section: "Anfragen", draft: false, accessLost: false }, B: { clinicId: "park", section: "Anfragen", draft: false, accessLost: false } },
+      tabs: { A: { clinicId: "sonnenhof", section: "Anfragen", draftClinicId: null, accessLost: false }, B: { clinicId: "park", section: "Anfragen", draftClinicId: null, accessLost: false } },
       activeTab: "A", pending: null, noticeClinicId: "park", announcement: "Bereit.",
     });
     const transition = (state, event) => {
@@ -149,23 +149,23 @@
         const target = next.clinics.find((clinic) => clinic.id === event.clinicId);
         if (!target || !target.allowed || tab.accessLost) return { ...state, announcement: "Diese Klinik ist aktuell nicht auswählbar." };
         if (target.id === tab.clinicId) return { ...state, announcement: "Diese Klinik ist bereits aktiv." };
-        if (tab.draft) { next.pending = { type: "switch", clinicId: target.id, source: tab.clinicId }; next.announcement = "Wechsel wartet auf deine Entscheidung über den Entwurf."; }
+        if (tab.draftClinicId === tab.clinicId) { next.pending = { type: "switch", clinicId: target.id, source: tab.clinicId }; next.announcement = "Wechsel wartet auf deine Entscheidung über den Entwurf."; }
         else { tab.clinicId = target.id; tab.section = tab.section; next.announcement = `Klinik gewechselt. Bereich „${tab.section}“ bleibt geöffnet.`; }
       }
-      if (event.type === "edit") { tab.draft = true; next.announcement = "Eine Änderung liegt ungespeichert vor."; }
+      if (event.type === "edit") { tab.draftClinicId = tab.clinicId; next.announcement = "Eine Änderung liegt ungespeichert vor."; }
       if (event.type === "resolve-draft") {
         if (!next.pending) return state;
         const pending = next.pending;
         if (event.choice === "stay") next.announcement = "Du bist geblieben. Der Entwurf bleibt erhalten.";
-        if (event.choice === "save") { tab.draft = false; tab.clinicId = pending.clinicId; next.announcement = "Änderung gespeichert. Klinikwechsel abgeschlossen."; }
-        if (event.choice === "discard") { tab.draft = false; tab.clinicId = pending.clinicId; next.announcement = "Entwurf verworfen. Klinikwechsel abgeschlossen."; }
+        if (event.choice === "save") { tab.draftClinicId = null; tab.clinicId = pending.clinicId; if (pending.destination) tab.section = pending.destination; next.announcement = "Änderung gespeichert. Ziel geöffnet."; }
+        if (event.choice === "discard") { tab.draftClinicId = null; tab.clinicId = pending.clinicId; if (pending.destination) tab.section = pending.destination; next.announcement = "Entwurf verworfen. Ziel geöffnet."; }
         next.pending = null;
       }
       if (event.type === "deep-link" || event.type === "open-notification") {
         const clinicId = event.clinicId;
         const target = next.clinics.find((clinic) => clinic.id === clinicId);
         if (!target || !target.allowed || tab.accessLost) { next.announcement = "Zielklinik nicht verfügbar. Der geschützte Eintrag wird nicht geöffnet."; return next; }
-        if (tab.draft) { next.pending = { type: event.type, clinicId, source: tab.clinicId, destination: event.destination ?? "Bewertung" }; next.announcement = "Ziel wartet auf deine Entscheidung über den Entwurf."; }
+        if (tab.draftClinicId === tab.clinicId) { next.pending = { type: event.type, clinicId, source: tab.clinicId, destination: event.destination ?? "Bewertung" }; next.announcement = "Ziel wartet auf deine Entscheidung über den Entwurf."; }
         else { tab.clinicId = clinicId; if (event.destination) tab.section = event.destination; next.announcement = `Ziel in ${target.name} geöffnet.`; }
       }
       if (event.type === "revoke") {
@@ -217,15 +217,17 @@
       document.querySelector("#clinic-role").textContent = `${clinic?.allowed ? "Gruppenmanager" : "Zugriff gesperrt"} · ${model.clinics.filter((entry)=>entry.allowed).length} berechtigte Kliniken`;
       const sample = clinic?.name ?? "Klinik nicht verfügbar";
       document.querySelector("#record-title").textContent = tab.accessLost ? "Inhalt gesperrt" : tab.section === "Klinikprofil" ? "Profil · Öffnungszeiten" : tab.section === "Bewertungen" ? "Neue Bewertung · 4 Sterne" : "Neue Anfrage · Lea M.";
-      document.querySelector("#record-copy").textContent = tab.accessLost ? "Diese Klinik ist nicht mehr berechtigt. Keine alten Klinikdaten werden angezeigt." : `Dieser Beispieldatensatz gehört ausschließlich zu ${sample}.`;
+      const draftClinic = model.clinics.find((entry)=>entry.id===tab.draftClinicId);
+      document.querySelector("#record-copy").textContent = tab.accessLost ? `Diese Klinik ist nicht mehr berechtigt. Keine alten Klinikdaten werden angezeigt.${draftClinic?` Der ungespeicherte Entwurf bleibt dieser Klinik zugeordnet.`:""}` : `Dieser Beispieldatensatz gehört ausschließlich zu ${sample}.${draftClinic?` Ungespeicherter Entwurf für ${draftClinic.name}.`:""}`;
       const select = document.querySelector("#clinic-select");
       select.replaceChildren(...model.clinics.filter((entry)=>entry.allowed).map((entry)=>{const option=document.createElement("option");option.value=entry.id;option.textContent=entry.name;option.selected=entry.id===tab.clinicId;return option;}));
       select.disabled = tab.accessLost;
       const status=document.querySelector("#work-status"); status.textContent=model.announcement; status.className=`status ${tab.accessLost?"error":model.pending?"warn":""}`;
-      document.querySelector("#tab-status").textContent=`Tab A: ${model.clinics.find(c=>c.id===model.tabs.A.clinicId)?.name ?? "gesperrt"}${model.tabs.A.draft?" · Entwurf":""}  |  Tab B: ${model.clinics.find(c=>c.id===model.tabs.B.clinicId)?.name ?? "gesperrt"}${model.tabs.B.draft?" · Entwurf":""}`;
+      const tabText=(id)=>{const entry=model.tabs[id];const clinicName=model.clinics.find(c=>c.id===entry.clinicId)?.name??"gesperrt";const draftName=entry.draftClinicId?model.clinics.find(c=>c.id===entry.draftClinicId)?.name??"Klinik nicht verfügbar":null;return `Tab ${id}: ${clinicName}${draftName?` · Entwurf in ${draftName}`:""}`;};
+      document.querySelector("#tab-status").textContent=`${tabText("A")}  |  ${tabText("B")}`;
       document.querySelector("#tab-status").classList.remove("hidden");
       document.querySelector("#tab-a").setAttribute("aria-selected",String(model.activeTab==="A")); document.querySelector("#tab-b").setAttribute("aria-selected",String(model.activeTab==="B"));
-      document.querySelector("#state").innerHTML=[`<div><span>Aktiver Tab</span> ${model.activeTab}</div>`,`<div><span>Aktive Klinik</span> ${clinic?.name ?? "keine"}</div>`,`<div><span>Bereich</span> ${tab.section}</div>`,`<div><span>Ungespeicherte Arbeit</span> ${tab.draft?"ja":"nein"}</div>`,`<div><span>Zugriff aktiv</span> ${tab.accessLost?"nein":"ja"}</div>`,`<div><span>Wartender Wechsel</span> ${model.pending?model.pending.type:"nein"}</div>`,`<div><span>Letzte Rückmeldung</span> ${model.announcement}</div>`].join("");
+      document.querySelector("#state").innerHTML=[`<div><span>Aktiver Tab</span> ${model.activeTab}</div>`,`<div><span>Aktive Klinik</span> ${clinic?.name ?? "keine"}</div>`,`<div><span>Bereich</span> ${tab.section}</div>`,`<div><span>Ungespeicherter Entwurf</span> ${tab.draftClinicId?model.clinics.find(c=>c.id===tab.draftClinicId)?.name??"Klinik nicht verfügbar":"nein"}</div>`,`<div><span>Zugriff aktiv</span> ${tab.accessLost?"nein":"ja"}</div>`,`<div><span>Wartender Wechsel</span> ${model.pending?model.pending.type:"nein"}</div>`,`<div><span>Letzte Rückmeldung</span> ${model.announcement}</div>`].join("");
       document.querySelector("#scenarios").innerHTML=cases.map((item)=>`<button class="scenario" data-case="${item.id}" aria-pressed="${scenario?.id===item.id}"><b>${item.title}</b><span>${item.description}</span></button>`).join("");
       document.querySelectorAll("[data-case]").forEach((button)=>button.addEventListener("click",()=>startCase(button.dataset.case)));
       document.querySelector("#steps").textContent=scenario?`Fall ${cases.findIndex((item)=>item.id===scenario.id)+1} von ${cases.length}. Schritt ${Math.min(stepIndex+1,scenario.steps.length)} von ${scenario.steps.length}. ${scenario.steps[stepIndex]?"Klicke erneut auf den Fall, um den nächsten Schritt auszuführen.":"Fall abgeschlossen. Wähle einen anderen Fall oder spiele frei weiter."}`:"Wähle einen Fall. Jeder Schritt ist klickbar und setzt den Zustand nachvollziehbar zurück.";
