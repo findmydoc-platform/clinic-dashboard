@@ -48,9 +48,6 @@
     .scenario b { display:block }
     .scenario span { display:block; font-size:.84rem; color:var(--muted); margin-top:3px }
     .steps { min-height:47px; color:var(--muted); font-size:.9rem; margin-top:10px }
-    .tabs { display:flex; gap:8px; margin:10px 0 14px }
-    .tab { border:1px solid var(--line); background:white; color:var(--muted); border-radius:999px; padding:6px 12px }
-    .tab[aria-selected="true"] { color:var(--green); background:var(--green-soft); border-color:#b9d9d1; font-weight:700 }
     .notice { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:11px 12px; border:1px solid var(--line); border-radius:10px; margin-top:9px }
     .notice small { display:block; color:var(--muted) }
     .modal-backdrop { position:fixed; inset:0; background:#10201dcc; display:grid; place-items:center; padding:20px; z-index:5 }
@@ -68,14 +65,13 @@
     <header>
       <div class="eyebrow">Wayfinder · Issue #225 · Throwaway prototype</div>
       <h1>What happens when the active clinic changes?</h1>
-      <p class="intro">Use this clickable prototype to explore clinic changes with an unsaved draft, a deep link, a notification, multiple tabs, or lost access. “Sonnenhof Clinic” and all sample records are fictional.</p>
+      <p class="intro">Use this clickable prototype to explore clinic changes with an unsaved draft, a deep link, a notification, or lost access. “Sonnenhof Clinic” and all sample records are fictional.</p>
     </header>
     <div class="layout">
       <div class="stack">
         <section class="card" aria-labelledby="workspace-title">
           <div class="topline">
             <div class="clinic"><div class="mark" aria-hidden="true">S</div><div><span class="subtle">Active clinic</span><strong id="active-clinic">Sonnenhof Clinic</strong><span class="subtle" id="clinic-role">Group manager · 3 clinics available</span></div></div>
-            <span class="badge" id="tab-badge">Tab A · separate context</span>
           </div>
           <div class="row"><label for="clinic-select" class="subtle">Change clinic</label><select id="clinic-select" aria-label="Choose active clinic"></select></div>
           <div class="bar"></div>
@@ -95,14 +91,6 @@
           <p class="subtle">Each item names its clinic. Opening an item checks current access.</p>
           <div class="notice"><div><b>New review</b><small>Park Clinic · 8 min ago</small></div><button class="btn" id="open-notice">Open</button></div>
           <div class="notice"><div><b>New inquiry</b><small>Sonnenhof Clinic · 22 min ago</small></div><span class="badge">Read</span></div>
-        </section>
-
-        <section class="card" aria-labelledby="tabs-title">
-          <h2 id="tabs-title">Two open tabs</h2>
-          <p class="subtle">Check that each tab keeps its own clinic context and never shows one clinic’s data under another clinic’s name.</p>
-          <div class="tabs" role="tablist" aria-label="Browser tabs"><button class="tab" id="tab-a" role="tab" aria-selected="true">Tab A</button><button class="tab" id="tab-b" role="tab" aria-selected="false">Tab B</button></div>
-          <div class="row"><button class="btn" id="change-other-tab">Change clinic in the other tab</button><button class="btn" id="stale-response">Deliver a stale response</button></div>
-          <div id="tab-status" class="status hidden" role="status"></div>
         </section>
       </div>
 
@@ -139,30 +127,30 @@
         { id: "park", name: "Park Clinic", allowed: true },
         { id: "fluss", name: "Riverside Clinic", allowed: true },
       ],
-      tabs: { A: { clinicId: "sonnenhof", section: "Inquiries", draftClinicId: null, accessLost: false }, B: { clinicId: "park", section: "Inquiries", draftClinicId: null, accessLost: false } },
-      activeTab: "A", pending: null, noticeClinicId: "park", announcement: "Ready.",
+      workspace: { clinicId: "sonnenhof", section: "Inquiries", draftClinicId: null, accessLost: false },
+      pending: null, noticeClinicId: "park", announcement: "Ready.",
     });
     const transition = (state, event) => {
       const next = structuredClone(state);
-      const tab = next.tabs[next.activeTab];
+      const workspace = next.workspace;
       if (event.type === "switch") {
         const target = next.clinics.find((clinic) => clinic.id === event.clinicId);
-        if (!target || !target.allowed || tab.accessLost) return { ...state, announcement: "This clinic is not available." };
-        if (target.id === tab.clinicId) return { ...state, announcement: "This clinic is already active." };
-        if (tab.draftClinicId === tab.clinicId) { next.pending = { type: "switch", clinicId: target.id, source: tab.clinicId }; next.announcement = "Choose what to do with the unsaved change before switching."; }
-        else { tab.clinicId = target.id; next.announcement = `Clinic changed. “${tab.section}” stays open.`; }
+        if (!target || !target.allowed || workspace.accessLost) return { ...state, announcement: "This clinic is not available." };
+        if (target.id === workspace.clinicId) return { ...state, announcement: "This clinic is already active." };
+        if (workspace.draftClinicId === workspace.clinicId) { next.pending = { type: "switch", clinicId: target.id, source: workspace.clinicId }; next.announcement = "Choose what to do with the unsaved change before switching."; }
+        else { workspace.clinicId = target.id; next.announcement = `Clinic changed. “${workspace.section}” stays open.`; }
       }
-      if (event.type === "edit") { tab.draftClinicId = tab.clinicId; next.announcement = "An unsaved change is in progress."; }
+      if (event.type === "edit") { workspace.draftClinicId = workspace.clinicId; next.announcement = "An unsaved change is in progress."; }
       if (event.type === "resolve-draft") {
         if (!next.pending) return state;
         const pending = next.pending;
         if (event.choice === "stay") next.announcement = pending.type === "access-loss" ? "The draft remains in the restricted clinic context." : "You stayed. The draft is still here.";
-        if (event.choice === "save") { tab.draftClinicId = null; tab.clinicId = pending.clinicId; if (pending.destination) tab.section = pending.destination; next.announcement = "Change saved. Destination opened."; }
+        if (event.choice === "save") { workspace.draftClinicId = null; workspace.clinicId = pending.clinicId; if (pending.destination) workspace.section = pending.destination; next.announcement = "Change saved. Destination opened."; }
         if (event.choice === "discard") {
-          tab.draftClinicId = null;
-          tab.clinicId = pending.clinicId;
-          tab.accessLost = false;
-          if (pending.destination) tab.section = pending.destination;
+          workspace.draftClinicId = null;
+          workspace.clinicId = pending.clinicId;
+          workspace.accessLost = false;
+          if (pending.destination) workspace.section = pending.destination;
           next.announcement = pending.type === "access-loss" ? "Draft discarded after confirmation. The selected clinic is open." : "Draft discarded after confirmation. Destination opened.";
         }
         next.pending = null;
@@ -170,33 +158,25 @@
       if (event.type === "deep-link" || event.type === "open-notification") {
         const clinicId = event.clinicId;
         const target = next.clinics.find((clinic) => clinic.id === clinicId);
-        if (!target || !target.allowed || tab.accessLost) { next.announcement = "Destination clinic is unavailable. The protected item stays closed."; return next; }
-        if (tab.draftClinicId === tab.clinicId) { next.pending = { type: event.type, clinicId, source: tab.clinicId, destination: event.destination ?? "Review" }; next.announcement = "Choose what to do with the unsaved change before opening the destination."; }
-        else { tab.clinicId = clinicId; if (event.destination) tab.section = event.destination; next.announcement = `Destination opened in ${target.name}.`; }
+        if (!target || !target.allowed || workspace.accessLost) { next.announcement = "Destination clinic is unavailable. The protected item stays closed."; return next; }
+        if (workspace.draftClinicId === workspace.clinicId) { next.pending = { type: event.type, clinicId, source: workspace.clinicId, destination: event.destination ?? "Review" }; next.announcement = "Choose what to do with the unsaved change before opening the destination."; }
+        else { workspace.clinicId = clinicId; if (event.destination) workspace.section = event.destination; next.announcement = `Destination opened in ${target.name}.`; }
       }
       if (event.type === "revoke") {
-        const current = next.clinics.find((clinic) => clinic.id === tab.clinicId);
+        const current = next.clinics.find((clinic) => clinic.id === workspace.clinicId);
         if (current) current.allowed = false;
-        tab.accessLost = true; next.pending = null; next.announcement = `Access to ${current?.name ?? "this clinic"} was revoked. Its content is locked. Choose another available clinic.`;
+        workspace.accessLost = true; next.pending = null; next.announcement = `Access to ${current?.name ?? "this clinic"} was revoked. Its content is locked. Choose another available clinic.`;
       }
       if (event.type === "recover") {
         const target = next.clinics.find((clinic) => clinic.id === event.clinicId);
         if (!target || !target.allowed) return { ...state, announcement: "Choose a clinic you can still access." };
-        if (tab.accessLost && tab.draftClinicId === tab.clinicId) {
-          next.pending = { type: "access-loss", clinicId: target.id, source: tab.clinicId };
+        if (workspace.accessLost && workspace.draftClinicId === workspace.clinicId) {
+          next.pending = { type: "access-loss", clinicId: target.id, source: workspace.clinicId };
           next.announcement = "Confirm discarding the clinic-bound draft before opening another clinic.";
         } else {
-          tab.clinicId = target.id; tab.accessLost = false; next.announcement = `Access to ${target.name} opened. “${tab.section}” stays open.`;
+          workspace.clinicId = target.id; workspace.accessLost = false; next.announcement = `Access to ${target.name} opened. “${workspace.section}” stays open.`;
         }
       }
-      if (event.type === "tab") { next.activeTab = event.tab; next.announcement = `You are viewing Tab ${event.tab}.`; }
-      if (event.type === "other-tab-switch") {
-        const other = next.activeTab === "A" ? "B" : "A";
-        const available = next.clinics.find((clinic) => clinic.id !== next.tabs[other].clinicId && clinic.allowed);
-        if (available) next.tabs[other].clinicId = available.id;
-        next.announcement = `Tab ${other} changed independently. Active Tab ${next.activeTab} kept its clinic context.`;
-      }
-      if (event.type === "stale-response") next.announcement = "A stale response from Park Clinic was discarded because its clinic did not match the current context.";
       return next;
     };
 
@@ -207,7 +187,6 @@
       { id:"switch", title:"Switch with an unsaved draft", description:"Choose what happens before the clinic changes.", steps:[{type:"edit"},{type:"switch",clinicId:"park"}] },
       { id:"notice", title:"Notification from another clinic", description:"Open an item with a clear source-clinic label.", steps:[{type:"open-notification",clinicId:"park",destination:"Reviews"}] },
       { id:"loss", title:"Access lost during work", description:"The clinic is locked. Choose another clinic, then confirm before the old clinic’s draft is discarded.", steps:[{type:"edit"},{type:"revoke"},{type:"recover",clinicId:"park"}] },
-      { id:"tabs", title:"Two tabs, separate clinics", description:"Change clinics in Tab B and check that Tab A keeps its context.", steps:[{type:"tab",tab:"B"},{type:"other-tab-switch"},{type:"tab",tab:"A"},{type:"stale-response"}] },
       { id:"link", title:"Deep link to another section", description:"Open the destination only when its clinic is still authorized.", steps:[{type:"deep-link",clinicId:"fluss",destination:"Clinic profile"}] },
     ];
     const announce = (message) => { model.announcement = message; render(); };
@@ -220,26 +199,21 @@
       render();
     }
     function render() {
-      const tab = model.tabs[model.activeTab];
-      const clinic = model.clinics.find((entry) => entry.id === tab.clinicId);
+      const workspace = model.workspace;
+      const clinic = model.clinics.find((entry) => entry.id === workspace.clinicId);
       document.querySelector("#active-clinic").textContent = clinic?.name ?? "Clinic unavailable";
-      document.querySelector("#tab-badge").textContent = `Tab ${model.activeTab} · separate context`;
-      document.querySelector("#workspace-title").textContent = tab.section;
+      document.querySelector("#workspace-title").textContent = workspace.section;
       document.querySelector("#clinic-role").textContent = `${clinic?.allowed ? "Group manager" : "Access restricted"} · ${model.clinics.filter((entry)=>entry.allowed).length} clinics available`;
       const sample = clinic?.name ?? "Clinic unavailable";
-      document.querySelector("#record-title").textContent = tab.accessLost ? "Content locked" : tab.section === "Clinic profile" ? "Profile · Opening hours" : tab.section === "Reviews" ? "New review · 4 stars" : "New inquiry · Lea M.";
-      const draftClinic = model.clinics.find((entry)=>entry.id===tab.draftClinicId);
-      document.querySelector("#record-copy").textContent = tab.accessLost ? `Access to this clinic has ended. Its clinic data is hidden.${draftClinic?` The unsaved draft remains attached to ${draftClinic.name} and cannot be saved.`:""}` : `This sample belongs only to ${sample}.${draftClinic?` Unsaved draft for ${draftClinic.name}.`:""}`;
+      document.querySelector("#record-title").textContent = workspace.accessLost ? "Content locked" : workspace.section === "Clinic profile" ? "Profile · Opening hours" : workspace.section === "Reviews" ? "New review · 4 stars" : "New inquiry · Lea M.";
+      const draftClinic = model.clinics.find((entry)=>entry.id===workspace.draftClinicId);
+      document.querySelector("#record-copy").textContent = workspace.accessLost ? `Access to this clinic has ended. Its clinic data is hidden.${draftClinic?` The unsaved draft remains attached to ${draftClinic.name} and cannot be saved.`:""}` : `This sample belongs only to ${sample}.${draftClinic?` Unsaved draft for ${draftClinic.name}.`:""}`;
       const select = document.querySelector("#clinic-select");
-      const options=model.clinics.filter((entry)=>entry.allowed).map((entry)=>{const option=document.createElement("option");option.value=entry.id;option.textContent=entry.name;option.selected=!tab.accessLost&&entry.id===tab.clinicId;return option;});
-      if(tab.accessLost){const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Choose an available clinic";placeholder.disabled=true;placeholder.selected=true;select.replaceChildren(placeholder,...options);}else{select.replaceChildren(...options);}
+      const options=model.clinics.filter((entry)=>entry.allowed).map((entry)=>{const option=document.createElement("option");option.value=entry.id;option.textContent=entry.name;option.selected=!workspace.accessLost&&entry.id===workspace.clinicId;return option;});
+      if(workspace.accessLost){const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Choose an available clinic";placeholder.disabled=true;placeholder.selected=true;select.replaceChildren(placeholder,...options);}else{select.replaceChildren(...options);}
       select.disabled = options.length===0;
-      const status=document.querySelector("#work-status"); status.textContent=model.announcement; status.className=`status ${tab.accessLost?"error":model.pending?"warn":""}`;
-      const tabText=(id)=>{const entry=model.tabs[id];const clinicName=model.clinics.find(c=>c.id===entry.clinicId)?.name??"restricted";const draftName=entry.draftClinicId?model.clinics.find(c=>c.id===entry.draftClinicId)?.name??"Clinic unavailable":null;return `Tab ${id}: ${clinicName}${draftName?` · draft in ${draftName}`:""}`;};
-      document.querySelector("#tab-status").textContent=`${tabText("A")}  |  ${tabText("B")}`;
-      document.querySelector("#tab-status").classList.remove("hidden");
-      document.querySelector("#tab-a").setAttribute("aria-selected",String(model.activeTab==="A")); document.querySelector("#tab-b").setAttribute("aria-selected",String(model.activeTab==="B"));
-      document.querySelector("#state").innerHTML=[`<div><span>Active tab</span> ${model.activeTab}</div>`,`<div><span>Active clinic</span> ${clinic?.name ?? "none"}</div>`,`<div><span>Section</span> ${tab.section}</div>`,`<div><span>Unsaved draft</span> ${tab.draftClinicId?model.clinics.find(c=>c.id===tab.draftClinicId)?.name??"Clinic unavailable":"none"}</div>`,`<div><span>Access</span> ${tab.accessLost?"restricted":"available"}</div>`,`<div><span>Pending transition</span> ${model.pending?model.pending.type:"none"}</div>`,`<div><span>Latest message</span> ${model.announcement}</div>`].join("");
+      const status=document.querySelector("#work-status"); status.textContent=model.announcement; status.className=`status ${workspace.accessLost?"error":model.pending?"warn":""}`;
+      document.querySelector("#state").innerHTML=[`<div><span>Active clinic</span> ${clinic?.name ?? "none"}</div>`,`<div><span>Section</span> ${workspace.section}</div>`,`<div><span>Unsaved draft</span> ${workspace.draftClinicId?model.clinics.find(c=>c.id===workspace.draftClinicId)?.name??"Clinic unavailable":"none"}</div>`,`<div><span>Access</span> ${workspace.accessLost?"restricted":"available"}</div>`,`<div><span>Pending transition</span> ${model.pending?model.pending.type:"none"}</div>`,`<div><span>Latest message</span> ${model.announcement}</div>`].join("");
       document.querySelector("#scenarios").innerHTML=cases.map((item)=>`<button class="scenario" data-case="${item.id}" aria-pressed="${scenario?.id===item.id}"><b>${item.title}</b><span>${item.description}</span></button>`).join("");
       document.querySelectorAll("[data-case]").forEach((button)=>button.addEventListener("click",()=>startCase(button.dataset.case)));
       document.querySelector("#steps").textContent=scenario?`Scenario ${cases.findIndex((item)=>item.id===scenario.id)+1} of ${cases.length}. Step ${Math.min(stepIndex+1,scenario.steps.length)} of ${scenario.steps.length}. ${scenario.steps[stepIndex]?"Click the scenario again for the next step.":"Scenario complete. Choose another or continue free play."}`:"Choose a scenario. Each step is clickable and resets to a known state.";
@@ -264,15 +238,11 @@
       document.querySelector("#transition-modal").classList.remove("hidden"); document.querySelector("#modal-actions button").focus();
     }
     function hideModal(){document.querySelector("#transition-modal").classList.add("hidden")}
-    document.querySelector("#clinic-select").addEventListener("change",(event)=>dispatch({type:model.tabs[model.activeTab].accessLost?"recover":"switch",clinicId:event.target.value}));
+    document.querySelector("#clinic-select").addEventListener("change",(event)=>dispatch({type:model.workspace.accessLost?"recover":"switch",clinicId:event.target.value}));
     document.querySelector("#edit-button").addEventListener("click",()=>dispatch({type:"edit"}));
     document.querySelector("#link-button").addEventListener("click",()=>dispatch({type:"deep-link",clinicId:"fluss",destination:"Clinic profile"}));
     document.querySelector("#revoke-button").addEventListener("click",()=>dispatch({type:"revoke"}));
     document.querySelector("#open-notice").addEventListener("click",()=>dispatch({type:"open-notification",clinicId:model.noticeClinicId,destination:"Reviews"}));
-    document.querySelector("#tab-a").addEventListener("click",()=>dispatch({type:"tab",tab:"A"}));
-    document.querySelector("#tab-b").addEventListener("click",()=>dispatch({type:"tab",tab:"B"}));
-    document.querySelector("#change-other-tab").addEventListener("click",()=>dispatch({type:"other-tab-switch"}));
-    document.querySelector("#stale-response").addEventListener("click",()=>dispatch({type:"stale-response"}));
     render();
   </script>
 </body>
