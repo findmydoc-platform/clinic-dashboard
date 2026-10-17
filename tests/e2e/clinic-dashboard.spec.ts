@@ -659,7 +659,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   await page.reload()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  await expect(page.getByRole("heading", { name: "Clinic gallery", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Clinic profile", exact: true })).toBeVisible()
 
   const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })
   await cleanupGallery.getByRole("button", { name: "Manage gallery" }).click()

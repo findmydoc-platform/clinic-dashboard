@@ -379,9 +379,9 @@ conditions. A failed or unknown acknowledgment does not reverse a successful dis
 loaded projection without fetching extra history.
 
 `workspace/model/clinic-scope-conversions.ts` records independent domain target-route conversions.
-Gallery is enabled only in this experimental composition pending qualified source acceptance. The server does not load their source records, and
-the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
-records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
+Gallery is enabled only in this experimental composition pending qualified source acceptance. Closed domains do not load source records, and
+the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. Conversion gates
+record implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
 available for local behavior verification.
 
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,

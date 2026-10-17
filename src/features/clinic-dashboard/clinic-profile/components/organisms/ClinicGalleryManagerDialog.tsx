@@ -364,7 +364,7 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
       {model.open ? (
         <section aria-labelledby="clinic-gallery-title" className="grid gap-5 pb-20 sm:pb-0">
           <header className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_94%,transparent)] px-4 py-3 backdrop-blur sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4 lg:-mx-8 lg:-mt-7 lg:px-8">
-            <div className="mx-auto grid max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-4">
+            <div className="mx-auto grid max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-[auto_minmax(0,1fr)_auto]">
               <Button
                 aria-label="Back to profile"
                 className="-ml-1 justify-start px-1 sm:-ml-3 sm:px-3"
@@ -376,7 +376,7 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                 <span className="sm:hidden">Back</span>
                 <span className="hidden sm:inline">Back to profile</span>
               </Button>
-              <div className="flex min-w-0 flex-col items-center sm:flex-row sm:items-baseline sm:gap-3">
+              <div className="flex min-w-0 flex-col items-center sm:col-span-2 sm:row-start-1 sm:flex-row sm:items-baseline sm:justify-center sm:gap-3 xl:col-span-1 xl:row-auto">
                 <h1
                   className="truncate text-xl font-bold tracking-tight text-[var(--secondary)] focus:outline-none sm:text-3xl"
                   id="clinic-gallery-title"
@@ -397,7 +397,7 @@ export function ClinicGalleryManagerDialog({ controller }: ClinicGalleryManagerD
                 ) : null}
               </div>
               {model.isInteractive ? (
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2 justify-self-end">
                   <Button
                     aria-label="Add images"
                     className="px-3 min-[420px]:px-4"
