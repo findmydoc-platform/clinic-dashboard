@@ -40,6 +40,33 @@ describe("reviews source controller", () => {
     expect(hook.result.current.model.summary?.rating).toBe(4.7)
   })
 
+  it.each(["unauthorized", "forbidden"] as const)(
+    "clears retained list and editor state when a fresh read is %s",
+    async (kind) => {
+      const commands = {
+        ...createReviewSourceCommandsFixture(),
+        loadReviews: vi.fn(async () => {
+          throw new ReviewSourceCommandError(kind, "Current access lost")
+        }),
+      }
+      const lost = vi.fn()
+      const hook = renderHook(() =>
+        useReviewsController({
+          commands,
+          onSessionLost: lost,
+          showManagement: true,
+          snapshot: reviewSourceSnapshotFixture,
+        }),
+      )
+      act(() => hook.result.current.actions.openReviewResponse(reviewSourceRecordsFixture[0].id))
+      act(() => hook.result.current.actions.refreshReviews())
+      await waitFor(() => expect(hook.result.current.model.list).toBeUndefined())
+      expect(hook.result.current.model.summary).toBeUndefined()
+      expect(hook.result.current.model.dialog.kind).toBe("closed")
+      expect(lost).toHaveBeenCalledTimes(1)
+    },
+  )
+
   it("applies server-backed filters", async () => {
     const hook = renderHook(() =>
       useReviewsController({

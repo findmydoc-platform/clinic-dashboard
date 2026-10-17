@@ -86,7 +86,7 @@ export function composeClinicDashboardDataProviders(
       : createPayloadClinicDashboardReportingProvider(accessToken, clinicId),
     reviews:
       controlled && !localInquiryAcceptance
-        ? createControlledReviewProvider()
+        ? createControlledReviewProvider(clinicId)
         : createPayloadReviewProvider(accessToken, clinicId),
     treatments: controlled
       ? createControlledClinicTreatmentProvider(clinicId)
