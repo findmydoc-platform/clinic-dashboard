@@ -395,7 +395,7 @@ test("reauthenticates once before revealing protected inquiry contact details", 
   await signIn(page)
 
   let revealAttempts = 0
-  await page.route("**/api/dashboard/inquiries/contact/reveal", async (route) => {
+  await page.route("**/api/dashboard/clinics/controlled-clinic/inquiries/contact/reveal", async (route) => {
     revealAttempts += 1
     if (revealAttempts === 1) {
       await route.fulfill({
