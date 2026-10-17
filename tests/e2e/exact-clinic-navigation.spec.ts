@@ -271,6 +271,54 @@ test("a real internal exact link uses the same dirty gate and keeps new-tab and 
   expect(receipts).toBe(0)
 })
 
+for (const target of targets) {
+  test(`an open profile draft uses the shared gate before an exact cross-clinic ${target.kind}`, async ({
+    page,
+  }) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    let receipts = 0
+    page.on("request", (request) => {
+      if (request.method() === "POST" && new URL(request.url()).pathname === "/api/notifications/read")
+        receipts += 1
+    })
+    await signIn(page)
+    await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
+    await page.getByRole("button", { name: /^(?:Edit profile|Continue editing)$/ }).click()
+    const description = page.getByRole("textbox", { name: "Description", exact: true })
+    const draft = `Private profile draft before exact ${target.kind}.`
+    await description.fill(draft)
+    await page.locator("[data-clinic-workspace]").evaluate((root, destination) => {
+      const link = document.createElement("a")
+      link.href = destination
+      link.textContent = "Open exact synthetic clinic record"
+      link.style.display = "block"
+      link.style.minHeight = "44px"
+      root.querySelector("main")!.prepend(link)
+    }, `/clinics/${second}?section=${target.section}&${target.kind}=${target.id}`)
+    const link = page.getByRole("link", { name: "Open exact synthetic clinic record" })
+    await link.click()
+    const leave = page.getByRole("alertdialog", { name: "Leave profile editing?" })
+    await leave.getByRole("button", { name: "Keep editing" }).click()
+    await expect(description).toHaveValue(draft)
+    await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
+    expect(receipts).toBe(0)
+    await link.click()
+    await leave.getByRole("button", { name: "Leave without saving" }).click()
+    const heading = page.getByRole("heading", {
+      name: target.kind === "inquiry" ? "Second clinic Lukas Weber" : "Review details",
+      exact: true,
+    })
+    await expect(heading).toBeFocused()
+    await expect(page).toHaveURL(new RegExp(`/clinics/${second}\\?section=${target.section}`))
+    await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
+    await page.getByRole("button", { name: /^(?:Edit profile|Continue editing)$/ }).click()
+    await expect(page.getByRole("textbox", { name: "Description", exact: true })).not.toHaveValue(draft)
+    expect(receipts).toBe(0)
+    expect(errors).toEqual([])
+  })
+}
+
 for (const outcome of ["not_committed", "unknown"] as const) {
   test(`keeps the displayed exact review when its separate acknowledgement is ${outcome}`, async ({
     page,
