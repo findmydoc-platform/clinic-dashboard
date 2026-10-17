@@ -65,7 +65,10 @@ export function composeClinicDashboardDataProviders(
       ? createControlledDoctorProfileProvider(clinicId)
       : createPayloadDoctorProfileProvider(accessToken, clinicId),
     gallery: controlled
-      ? createControlledClinicGalleryProvider(clinicId)
+      ? createControlledClinicGalleryProvider(
+          clinicId,
+          localInquiryAcceptance ? undefined : readControlledProfileScenario(accessToken).scenario,
+        )
       : createPayloadClinicGalleryProvider(accessToken, clinicId),
     inquiries:
       controlled && !localInquiryAcceptance

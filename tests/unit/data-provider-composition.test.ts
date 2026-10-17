@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { composeClinicDashboardDataProviders } from "@/features/clinic-dashboard/data-provider-composition"
 import { createClinicProfileDraftInput } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source"
+import { resetControlledClinicGallery } from "@/features/clinic-dashboard/clinic-profile/server/controlled-clinic-gallery"
 import { resetControlledClinicProfileProvider } from "@/features/clinic-dashboard/clinic-profile/server/controlled-clinic-profile"
 import { resetControlledPatientInquiryProvider } from "@/features/clinic-dashboard/messages/server/controlled-inquiries"
 
@@ -51,6 +52,7 @@ describe("Clinic Dashboard data provider composition", () => {
     vi.unstubAllGlobals()
     resetControlledPatientInquiryProvider()
     resetControlledClinicProfileProvider()
+    resetControlledClinicGallery()
   })
 
   it("selects the deterministic inquiry adapter for a verified controlled session", async () => {
@@ -120,6 +122,42 @@ describe("Clinic Dashboard data provider composition", () => {
       ok: true,
       value: { published: { name: "Controlled Ankara Clinic", revision: 1 } },
     })
+  })
+
+  it("isolates controlled gallery scenarios while retaining original clinic ownership and publication", async () => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password") // pragma: allowlist secret
+    const firstToken = "controlled-many:profile:first-gallery-scenario"
+    const secondToken = "controlled-many:profile:second-gallery-scenario"
+    const first = composeClinicDashboardDataProviders(firstToken, "controlled-clinic").gallery
+    const other = composeClinicDashboardDataProviders(secondToken, "controlled-clinic").gallery
+    const before = await other.loadGallery()
+    const uploaded = await first.uploadMedia({
+      file: new File(["image"], "private.jpg", { type: "image/jpeg" }),
+    })
+    if (!uploaded.ok) throw new Error("Expected controlled upload")
+    expect(
+      await first.saveGallery({
+        expectedRevision: 0,
+        items: [{ mediaId: uploaded.value.id, alt: "First gallery scene" }],
+      }),
+    ).toMatchObject({ ok: true, value: { revision: 1 } })
+    expect(
+      await composeClinicDashboardDataProviders(firstToken, "controlled-clinic").gallery.loadGallery(),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        revision: 1,
+        items: [{ id: uploaded.value.id, alt: "First gallery scene", status: "published" }],
+      },
+    })
+    expect(await other.loadGallery()).toEqual(before)
+    expect(await other.loadImage(uploaded.value.url)).toEqual({ ok: false, error: "forbidden" })
+    expect(
+      await composeClinicDashboardDataProviders(firstToken, "controlled-second-clinic").gallery.loadImage(
+        uploaded.value.url,
+      ),
+    ).toEqual({ ok: false, error: "forbidden" })
   })
 
   it("selects the Payload inquiry adapter outside controlled mode", async () => {
