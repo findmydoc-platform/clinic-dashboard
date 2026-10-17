@@ -296,7 +296,11 @@ describe("review provider contract", () => {
   })
 
   it("removes every historical original text when the current review is removed", async () => {
-    const fetcher = vi.fn<typeof fetch>(async (input) => {
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const headers = new Headers(init?.headers)
+      expect(headers.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
+      expect(headers.get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe("inquiry-communication-v2")
+      expect(headers.get("Authorization")).toBe("Bearer access-token")
       const endpoint = new URL(String(input))
       if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/record") {
         return json({ ...rawReview, publicMeasure: "removed" })
@@ -429,6 +433,12 @@ describe("review provider contract", () => {
     expect(writeEndpoint.searchParams.get("depth")).toBe("0")
     expect(write?.[1]).toMatchObject({ method: "POST" })
     expect(write?.[1]?.headers).toMatchObject({ Authorization: "Bearer access-token" })
+    const writeHeaders = new Headers(write?.[1]?.headers)
+    expect(writeHeaders.get("Authorization")).toBe("Bearer access-token")
+    expect(writeHeaders.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
+    expect(writeHeaders.get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe("inquiry-communication-v2")
+    expect(writeHeaders.get("Content-Type")).toBe("application/json")
+    expect(writeHeaders.get("Origin")).toBe("http://localhost:3000")
     expect(JSON.parse(String(write?.[1]?.body))).toEqual({
       details: submittedAppeal.details,
       reason: "incorrect_clinic",

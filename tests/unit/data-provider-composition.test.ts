@@ -223,6 +223,12 @@ describe("Clinic Dashboard data provider composition", () => {
       "http://localhost:3200/api/clinic-dashboard/clinics/clinic-acceptance/reviews/acceptance-review",
     )
     for (const [input, init] of fetcher.mock.calls) {
+      // The source uses exact literal equality, so duplicate case-insensitive header values deny access.
+      expect(new Headers(init?.headers).get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-clinic-token")
+      expect(new Headers(init?.headers).get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe(
+        "inquiry-communication-v2",
+      )
       expect(new URL(String(input)).pathname).toMatch(
         /^\/api\/clinic-dashboard\/clinics\/clinic-acceptance\//u,
       )
