@@ -633,12 +633,10 @@ export const TreatmentEditorRefusesNotificationNavigation: Story = {
     expect(cancelled).toHaveBeenCalledTimes(1)
     expect(continuation).not.toHaveBeenCalled()
     expect(input).toHaveValue(375)
-    expect(
-      await body.findByText("Save or close the current editor before opening a notification."),
-    ).toBeVisible()
+    expect(await body.findByText("Save or close the current editor before continuing.")).toBeVisible()
   },
 }
-export const DoctorEditorRefusesNotificationNavigation: Story = {
+export const DoctorEditorProtectsNotificationNavigation: Story = {
   args: { onNavigationRequestChange: fn() },
   play: async ({ args, canvasElement }) => {
     const page = within(canvasElement)
@@ -651,12 +649,11 @@ export const DoctorEditorRefusesNotificationNavigation: Story = {
     const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
     expect(request).toEqual(expect.any(Function))
     await act(() => request?.(continuation, cancelled))
+    expect(await body.findByText("Discard the unsaved changes?")).toBeVisible()
+    await userEvent.click(body.getByRole("button", { name: "Keep editing" }))
     expect(cancelled).toHaveBeenCalledTimes(1)
     expect(continuation).not.toHaveBeenCalled()
     expect(input).toHaveValue("Preserved doctor")
-    expect(
-      await body.findByText("Save or close the current editor before opening a notification."),
-    ).toBeVisible()
   },
 }
 export const AddressEditorRefusesNotificationNavigation: Story = {
@@ -673,8 +670,6 @@ export const AddressEditorRefusesNotificationNavigation: Story = {
     expect(cancelled).toHaveBeenCalledTimes(1)
     expect(continuation).not.toHaveBeenCalled()
     expect(input).toHaveValue("Preserved street")
-    expect(
-      await body.findByText("Save or close the current editor before opening a notification."),
-    ).toBeVisible()
+    expect(await body.findByText("Save or close the current editor before continuing.")).toBeVisible()
   },
 }

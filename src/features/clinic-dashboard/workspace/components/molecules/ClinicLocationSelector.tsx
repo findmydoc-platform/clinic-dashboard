@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Check, ChevronDown } from "lucide-react"
 import { DropdownMenu } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
@@ -48,6 +48,7 @@ export function ClinicLocationSelector({
   value,
 }: ClinicLocationSelectorProps) {
   const [open, setOpen] = useState(false)
+  const pendingSelection = useRef<ClinicDashboardLocationId | undefined>(undefined)
   const selectedLocation = getClinicDashboardLocation(locations, value)
   const selectedClinicName = isDemoData ? `Demo data · ${selectedLocation.name}` : selectedLocation.name
 
@@ -79,6 +80,11 @@ export function ClinicLocationSelector({
         className="w-[min(22rem,calc(100vw-2rem))] p-0"
         collisionPadding={12}
         sideOffset={6}
+        onCloseAutoFocus={() => {
+          const selection = pendingSelection.current
+          pendingSelection.current = undefined
+          if (selection) requestAnimationFrame(() => onValueChange(selection))
+        }}
       >
         <div className="px-4 py-3 text-sm font-bold text-[var(--secondary)]">
           {switchable ? "Switch location" : "Current clinic"}
@@ -99,7 +105,7 @@ export function ClinicLocationSelector({
                 )}
                 key={location.id}
                 onSelect={() => {
-                  if (switchable && !isSelected) onValueChange(location.id)
+                  if (switchable && !isSelected) pendingSelection.current = location.id
                 }}
                 style={{ borderLeftColor: isSelected ? "var(--accent)" : "transparent" }}
               >

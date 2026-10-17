@@ -6,6 +6,7 @@ import {
   evaluateClinicProfileCompleteness,
   evaluateClinicProfileDraftCompleteness,
   type ClinicProfileSnapshot,
+  type ClinicProfileSourceCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
   clinicProfileFixture,
@@ -55,6 +56,7 @@ import {
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
   Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
+    profileSourceCommands?: ClinicProfileSourceCommands
     reviewCommands?: ReviewSourceCommands
     inquiryCommands?: InquiryWorkspaceCommands
     notificationCommands?: NotificationCommands
@@ -205,6 +207,7 @@ export function ClinicDashboardWorkspaceHarness({
   profileProgress,
   reportingDemo,
   profileSourceSnapshot,
+  profileSourceCommands,
   loadReporting,
   prototypeMode,
   showPrototypeModeToggle = false,
@@ -222,7 +225,7 @@ export function ClinicDashboardWorkspaceHarness({
       <ClinicDashboardWorkspaceComposition
         authenticatedContext={authenticatedClinicContextFixture}
         clinicGalleryCommands={clinicGalleryCommands}
-        clinicProfileSourceCommands={clinicProfileSourceCommands}
+        clinicProfileSourceCommands={profileSourceCommands ?? clinicProfileSourceCommands}
         clinicTreatmentCommands={clinicTreatmentCommands}
         doctorProfileCommands={doctorProfileCommands}
         focusInquiryId={focusInquiryId}

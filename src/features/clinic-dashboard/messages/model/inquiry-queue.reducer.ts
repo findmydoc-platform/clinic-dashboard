@@ -41,6 +41,7 @@ export type InquiryQueueState = Readonly<{
 }>
 
 export type InquiryQueueAction =
+  | Readonly<{ type: "draftsDiscarded" }>
   | Readonly<{ filter: InquiryPrimaryFilter; type: "primaryFilterChanged" }>
   | Readonly<{
       statuses: readonly Exclude<InquiryHandlingStatus, "spam">[]
@@ -358,6 +359,8 @@ export function inquiryQueueReducer(state: InquiryQueueState, action: InquiryQue
         details: { ...state.details, [action.inquiry.id]: action.inquiry },
         inquiries: projectDetailIntoQueue(state.inquiries, action.inquiry),
       }
+    case "draftsDiscarded":
+      return { ...state, attachments: {}, drafts: {}, mutationError: undefined }
     case "draftChanged":
       return {
         ...state,

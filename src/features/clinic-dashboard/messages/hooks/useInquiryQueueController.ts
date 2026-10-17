@@ -103,6 +103,7 @@ export function useInquiryQueueController({
   snapshot,
 }: UseInquiryQueueControllerInput): Readonly<{
   actions: InquiryWorkspaceActions
+  discardUnfinishedWork: () => boolean
   model: InquiryWorkspaceViewModel
   openInquiry: (inquiryId: string) => Promise<boolean>
 }> {
@@ -243,6 +244,14 @@ export function useInquiryQueueController({
     },
     [discardAttachmentBestEffort, invalidateInquiryRuntime],
   )
+
+  const discardUnfinishedWork = useCallback(() => {
+    if (state.isMutating) return false
+    const inquiryIds = new Set([...Object.keys(state.drafts), ...Object.keys(state.attachments)])
+    for (const inquiryId of inquiryIds) discardUnboundReplyAttachment(inquiryId)
+    dispatch({ type: "draftsDiscarded" })
+    return true
+  }, [discardUnboundReplyAttachment, state.attachments, state.drafts, state.isMutating])
 
   const loadQueuePage = useCallback(
     async (
@@ -694,7 +703,11 @@ export function useInquiryQueueController({
         type: "attachmentChanged",
       })
       const result = await commands.createAttachmentDraft({ file, inquiryId: selected.id })
-      if (!isMountedRef.current || applySessionLoss(result)) return
+      if (!isMountedRef.current) {
+        if (result.ok) discardAttachmentBestEffort(selected.id, result.value.draftId)
+        return
+      }
+      if (applySessionLoss(result)) return
       if (applyInquiryAccessLoss(result, selected.id)) return
       if (terminalAccessLossRef.current) {
         if (result.ok) discardAttachmentBestEffort(selected.id, result.value.draftId)
@@ -1029,5 +1042,5 @@ export function useInquiryQueueController({
     [loadSelectedInquiry],
   )
 
-  return { actions, model: { ...model, attachmentAccessPaths }, openInquiry }
+  return { actions, discardUnfinishedWork, model: { ...model, attachmentAccessPaths }, openInquiry }
 }

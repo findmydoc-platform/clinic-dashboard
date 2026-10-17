@@ -8,5 +8,6 @@ export {
 export {
   clinicProfileSourceFixture,
   createClinicProfileSourceCommandsFixture,
+  createClinicProfileSourceSaveFailureCommandsFixture,
 } from "./clinic-profile-source.fixtures"
 export { createDoctorProfileCommandsFixture, doctorDirectoryFixture } from "./doctor-profile.fixtures"

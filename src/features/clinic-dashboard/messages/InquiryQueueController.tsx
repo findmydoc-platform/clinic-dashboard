@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AlertDialog } from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
 import { reauthenticateClinicDashboardSession } from "@/features/clinic-dashboard/auth/public"
 import { createInquiryStatusApiCommands } from "./browser/inquiry-status-api"
 import { InquiryQueueScreen } from "./components/organisms/InquiryQueueScreen"
@@ -18,6 +20,15 @@ export type InquiryQueueProps = Readonly<{
   focusInquiryId?: string
   isActive: boolean
   onFocusHandled?: () => void
+  onNavigationRequestChange?: (
+    request:
+      | ((
+          continuation: () => void,
+          onCancel?: () => void,
+          intent?: "context-change" | "destination" | "section",
+        ) => void)
+      | null,
+  ) => void
   onDraftPresenceChange?: (hasUnsavedDrafts: boolean) => void
   onSessionLost?: (inquiryId?: string) => void
   onUnreadCountChange?: (unreadCount: number) => void
@@ -33,6 +44,7 @@ export function InquiryQueue({
   isActive,
   onFocusHandled,
   onDraftPresenceChange,
+  onNavigationRequestChange,
   onSessionLost,
   onUnreadCountChange,
   snapshot,
@@ -45,6 +57,64 @@ export function InquiryQueue({
     reauthenticateSession: reauthenticateClinicDashboardSession,
     snapshot,
   })
+  const [departureOpen, setDepartureOpen] = useState(false)
+  const stayButtonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!departureOpen) return
+    const frame = requestAnimationFrame(() => stayButtonRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [departureOpen])
+  const pendingDeparture = useRef<{ continuation: () => void; onCancel?: () => void } | undefined>(undefined)
+  const cancelDeparture = useCallback(() => {
+    const pending = pendingDeparture.current
+    pendingDeparture.current = undefined
+    setDepartureOpen(false)
+    pending?.onCancel?.()
+  }, [])
+  const requestNavigation = useCallback(
+    (
+      continuation: () => void,
+      onCancel?: () => void,
+      intent?: "context-change" | "destination" | "section",
+    ) => {
+      cancelDeparture()
+      if (!controller.model.hasUnsavedDrafts) {
+        continuation()
+        return
+      }
+      if (intent !== "context-change") {
+        if (
+          window.confirm(
+            "Open this destination? Your unsent replies, internal notes and attachments will be kept.",
+          )
+        )
+          continuation()
+        else onCancel?.()
+        return
+      }
+      pendingDeparture.current = { continuation, onCancel }
+      setDepartureOpen(true)
+    },
+    [cancelDeparture, controller.model.hasUnsavedDrafts],
+  )
+  useEffect(() => {
+    onNavigationRequestChange?.(requestNavigation)
+    return () => onNavigationRequestChange?.(null)
+  }, [onNavigationRequestChange, requestNavigation])
+  useEffect(
+    () => () => {
+      pendingDeparture.current?.onCancel?.()
+      pendingDeparture.current = undefined
+    },
+    [],
+  )
+  const discardAndContinue = () => {
+    if (!controller.discardUnfinishedWork()) return
+    const pending = pendingDeparture.current
+    pendingDeparture.current = undefined
+    setDepartureOpen(false)
+    pending?.continuation()
+  }
   const [loadedOpening, setLoadedOpening] = useState<InquiryOpeningRequest>()
   const openingGenerationRef = useRef(0)
   const openInquiryRef = useRef(controller.openInquiry)
@@ -102,16 +172,36 @@ export function InquiryQueue({
   }, [controller.actions, focusInquiryId])
 
   return (
-    <InquiryQueueScreen
-      actions={controller.actions}
-      focusHeading={focusHeading}
-      focusInquiryId={focusInquiryId}
-      model={controller.model}
-      onFocusHandled={onFocusHandled}
-      openingRequest={
-        isActive && loadedOpening?.requestId === openingRequest?.requestId ? loadedOpening : undefined
-      }
-      onOpeningResult={onOpeningResult}
-    />
+    <>
+      <InquiryQueueScreen
+        actions={controller.actions}
+        focusHeading={focusHeading}
+        focusInquiryId={focusInquiryId}
+        model={controller.model}
+        onFocusHandled={onFocusHandled}
+        openingRequest={
+          isActive && loadedOpening?.requestId === openingRequest?.requestId ? loadedOpening : undefined
+        }
+        onOpeningResult={onOpeningResult}
+      />
+      <AlertDialog
+        open={departureOpen}
+        onOpenChange={(open) => {
+          if (!open) cancelDeparture()
+        }}
+        title="Leave unfinished inquiries?"
+        description="Unsent replies, internal notes and pending attachments belong to the current clinic. Stay to finish them, or discard them before continuing."
+        actions={
+          <>
+            <Button ref={stayButtonRef} onClick={cancelDeparture} variant="outline">
+              Keep editing
+            </Button>
+            <Button onClick={discardAndContinue} variant="destructive">
+              Discard and continue
+            </Button>
+          </>
+        }
+      />
+    </>
   )
 }

@@ -698,6 +698,67 @@ describe("Inquiry queue controller", () => {
     })
   })
 
+  it.each([false, true])(
+    "discards clinic drafts and cleans late uploads, departure unmount=%s",
+    async (unmountAfterDeparture) => {
+      type AttachmentDraftResult = Awaited<ReturnType<InquiryWorkspaceCommands["createAttachmentDraft"]>>
+      let resolveAttachmentDraft!: (result: AttachmentDraftResult) => void
+      const createAttachmentDraft: InquiryWorkspaceCommands["createAttachmentDraft"] = vi.fn(
+        () =>
+          new Promise<AttachmentDraftResult>((resolve) => {
+            resolveAttachmentDraft = resolve
+          }),
+      )
+      const discardAttachmentDraft = vi.fn(createCommands().discardAttachmentDraft)
+      const { result, unmount } = renderHook(() =>
+        useInquiryQueueController({
+          commands: createCommands({ createAttachmentDraft, discardAttachmentDraft }),
+          snapshot: inquiryQueueFixture,
+        }),
+      )
+
+      await act(async () => {
+        await result.current.actions.onInquirySelect(inquiryDetailFixtures.open.id)
+      })
+
+      let pendingUpload!: Promise<void>
+      act(() => {
+        pendingUpload = result.current.actions.onAttachmentSelect(
+          new File(["synthetic"], "scan.pdf", { type: "application/pdf" }),
+        )
+      })
+      expect(result.current.model.attachment?.status).toBe("uploading")
+
+      act(() => {
+        expect(result.current.discardUnfinishedWork()).toBe(true)
+      })
+      expect(result.current.model.hasUnsavedDrafts).toBe(false)
+      if (unmountAfterDeparture) unmount()
+      expect(result.current.model.attachment).toBeUndefined()
+
+      await act(async () => {
+        resolveAttachmentDraft({
+          ok: true,
+          value: {
+            draftId: "late-synthetic-draft",
+            expiresAt: "2026-08-25T10:00:00.000Z",
+            fileName: "scan.pdf",
+            mimeType: "application/pdf",
+            sizeBytes: 9,
+            status: "ready",
+          },
+        })
+        await pendingUpload
+      })
+
+      expect(result.current.model.attachment).toBeUndefined()
+      expect(discardAttachmentDraft).toHaveBeenCalledWith({
+        draftId: "late-synthetic-draft",
+        inquiryId: inquiryDetailFixtures.open.id,
+      })
+    },
+  )
+
   it("projects a parallel close immediately and converts the retained reply only on request", async () => {
     const current = {
       ...inquiryDetailFixtures.open,

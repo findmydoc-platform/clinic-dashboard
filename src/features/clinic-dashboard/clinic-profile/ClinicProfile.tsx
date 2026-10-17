@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useRef, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -85,6 +85,13 @@ export function ClinicProfile({
   treatmentManagement,
   treatmentSnapshot,
 }: ClinicProfileProps) {
+  const doctorNavigation = useRef<((continuation: () => void, onCancel?: () => void) => void) | null>(null)
+  const setDoctorNavigation = useCallback(
+    (request: ((continuation: () => void, onCancel?: () => void) => void) | null) => {
+      doctorNavigation.current = request
+    },
+    [],
+  )
   const [isDoctorEditorOpen, setIsDoctorEditorOpen] = useState(false)
   const [navigationNotice, setNavigationNotice] = useState("")
   const handleDoctorEditorPresenceChange = useCallback((isOpen: boolean) => {
@@ -131,21 +138,23 @@ export function ClinicProfile({
   const requestGalleryNavigation = galleryController.actions.requestNavigation
   const isGalleryOpen = galleryController.model.open
   const hasBlockingDialog =
-    isDoctorEditorOpen ||
-    treatmentController.model.dialogOpen ||
-    treatmentController.model.isBusy ||
-    Boolean(sourceModel.dialog)
+    treatmentController.model.dialogOpen || treatmentController.model.isBusy || Boolean(sourceModel.dialog)
   const requestNavigation = useCallback(
     (continuation: () => void, onCancel?: () => void) => {
       if (hasBlockingDialog) {
-        setNavigationNotice("Save or close the current editor before opening a notification.")
+        setNavigationNotice("Save or close the current editor before continuing.")
         onCancel?.()
         return
       }
       setNavigationNotice("")
-      const continueAfterSource = () => {
+      const continueAfterDoctor = () => {
         if (isGalleryOpen) requestGalleryNavigation(continuation, onCancel)
         else continuation()
+      }
+      const continueAfterSource = () => {
+        const doctor = doctorNavigation.current
+        if (doctor) doctor(continueAfterDoctor, onCancel)
+        else continueAfterDoctor()
       }
       requestSourceNavigation(continueAfterSource, onCancel)
     },
@@ -154,6 +163,7 @@ export function ClinicProfile({
   useEffect(() => {
     const hasEditor =
       hasBlockingDialog ||
+      isDoctorEditorOpen ||
       sourceModel.mode !== "view" ||
       sourceModel.operation !== "idle" ||
       galleryController.model.open
@@ -161,6 +171,7 @@ export function ClinicProfile({
     return () => onNavigationRequestChange?.(null)
   }, [
     hasBlockingDialog,
+    isDoctorEditorOpen,
     galleryController.model.open,
     onNavigationRequestChange,
     requestNavigation,
@@ -292,6 +303,7 @@ export function ClinicProfile({
           actions={screenActions}
           navigationNotice={navigationNotice}
           onDoctorEditorPresenceChange={handleDoctorEditorPresenceChange}
+          onDoctorNavigationRequestChange={setDoctorNavigation}
           model={{
             doctorCommands,
             doctorDirectory,
