@@ -27,6 +27,10 @@ export {
   validateEmailCallbackRequest,
 } from "./callback"
 export { hasControlledSession, isControlledContactReauthenticationRequired } from "./session"
-export { resolveClinicDashboardMutationAccess, resolveClinicDashboardRouteAccess } from "./route-access"
+export {
+  resolveClinicDashboardPersonalRouteAccess,
+  resolveClinicDashboardMutationAccess,
+  resolveClinicDashboardRouteAccess,
+} from "./route-access"
 export { createProxySupabaseClient } from "./supabase-client"
 export { createClinicDashboardLoginPathForRequest } from "../model/auth"

@@ -720,6 +720,7 @@ export const PatientMessagePersonalHistory: Story = {
               ? group.members.map((member) => ({
                   ...group,
                   kind: "occurrence",
+                  clinic: { id: "clinic-1", name: "Clinic One" },
                   presentationId: member.notificationId,
                   display: { eventLabel: "New patient message" },
                   members: [{ ...member, readAt: fixture.serverTime }],
@@ -827,27 +828,48 @@ export const MarkDisplayedUnreadEntries: Story = {
   },
   play: async ({ canvasElement, step }) => {
     const canvas = within(canvasElement)
+    const started = performance.now()
+    const phase = (name: string) =>
+      console.warn(
+        JSON.stringify({
+          event: "notification_story.phase",
+          story: "MarkDisplayedUnreadEntries",
+          phase: name,
+          elapsedMs: Math.round(performance.now() - started),
+        }),
+      )
+    // Retain phase completion in CI logs when an outer play timeout has no interaction trace.
     await step("loaded unread feed", async () => {
+      phase("loaded unread feed:start")
       await expect(
         await canvas.findByRole("button", { name: "Notifications, 2 unread notifications" }),
       ).toBeVisible()
       await expect(await canvas.findByText("2 new messages")).toBeVisible()
+      phase("loaded unread feed:complete")
     })
     await step("select All view", async () => {
+      phase("select All view:start")
       await userEvent.click(await canvas.findByRole("tab", { name: "All" }))
+      phase("select All view:click-complete")
       await expect(canvas.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true")
       await expect(await canvas.findByRole("button", { name: "Mark 2 shown as read" })).toBeVisible()
+      phase("select All view:complete")
     })
     await step("mark displayed entries", async () => {
+      phase("mark displayed entries:start")
       await userEvent.click(canvas.getByRole("button", { name: "Mark 2 shown as read" }))
+      phase("mark displayed entries:click-complete")
       await expect(await canvas.findByText("Marked as read.")).toBeVisible()
+      phase("mark displayed entries:complete")
     })
     await step("verify result and close", async () => {
+      phase("verify result and close:start")
       await expect(
         canvas.getByRole("button", { name: "Notifications, 0 unread notifications" }),
       ).toBeVisible()
       await expect(canvas.queryByRole("button", { name: /Mark \d+ shown as read/ })).not.toBeInTheDocument()
       await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
+      phase("verify result and close:complete")
     })
   },
 }
@@ -875,6 +897,7 @@ export const MarkLoadedPagesKeepsOriginalSelection: Story = {
       } satisfies NotificationItem
       const later = {
         ...separate,
+        clinic: { id: "clinic-1", name: "Clinic One" },
         presentationId: "later-arrival",
         display: { eventLabel: "Later inquiry" },
         members: [{ ...separate.members[0]!, notificationId: "later-arrival" }],
@@ -1403,7 +1426,9 @@ export const AccessLossClearsPreviousHistory: Story = {
     const canvas = within(canvasElement)
     await expect(await canvas.findByText("2 new messages")).toBeVisible()
     window.dispatchEvent(new Event("online"))
-    await expect(await canvas.findByText("Notifications are unavailable for this clinic.")).toBeVisible()
+    await expect(
+      await canvas.findByText("Notifications are unavailable for your current clinic access."),
+    ).toBeVisible()
     await expect(canvas.queryByText("2 new messages")).not.toBeInTheDocument()
     await expect(canvas.getByRole("button", { name: "Notifications, count unavailable" })).toBeVisible()
   },
@@ -1878,4 +1903,76 @@ export const ObsoletePaginationIgnored: Story = {
     await expect(canvas.queryByText("New patient message")).not.toBeInTheDocument()
     await expect(canvas.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument()
   },
+}
+
+export const PersonalClinicAttribution: Story = {
+  args: { open: true },
+  render: function PersonalClinics(args) {
+    const [open, setOpen] = useState(true)
+    const [source] = useState<NotificationCommands>(() => ({
+      ...commands,
+      async load(query) {
+        if (page.mode !== "page") throw new Error("Expected page")
+        return {
+          ok: true,
+          value:
+            query.mode === "summary"
+              ? {
+                  contractVersion: "clinic-notifications-v1",
+                  mode: "summary",
+                  serverTime: page.serverTime,
+                  unreadCount: 2,
+                  nextUnreadCountChangeAt:
+                    "nextUnreadCountChangeAt" in page ? page.nextUnreadCountChangeAt : null,
+                }
+              : {
+                  ...page,
+                  view: query.view,
+                  unreadCount: 2,
+                  items: [
+                    {
+                      ...page.items[0]!,
+                      clinic: { id: "clinic-one", name: "Current Clinic One" },
+                      presentationId: "personal-one",
+                    },
+                    {
+                      ...page.items[0]!,
+                      clinic: { id: "clinic-two", name: "Current Clinic Two" },
+                      presentationId: "personal-two",
+                      members: page.items[0]!.members.map((member) => ({
+                        ...member,
+                        notificationId: `second-${member.notificationId}`,
+                      })),
+                    },
+                  ],
+                },
+        }
+      },
+    }))
+    return (
+      <div className="flex min-h-screen justify-end p-4">
+        <NotificationCenter
+          {...args}
+          commands={source}
+          initialState={{ status: "loading" }}
+          open={open}
+          onOpenChange={setOpen}
+        />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    const dialog = within(await within(canvasElement).findByRole("dialog", { name: "Notifications" }))
+    await expect(await dialog.findByText("Current Clinic One")).toBeVisible()
+    await expect(await dialog.findByText("Current Clinic Two")).toBeVisible()
+    await expect(dialog.getByRole("button", { name: "Mark 2 shown as read" })).toBeEnabled()
+  },
+}
+export const PersonalClinicAttributionMobile: Story = {
+  ...PersonalClinicAttribution,
+  globals: { viewport: { value: "mobile390Tall" } },
+}
+export const PersonalClinicAttributionDark: Story = {
+  ...PersonalClinicAttributionMobile,
+  globals: { ...PersonalClinicAttributionMobile.globals, theme: "dark" },
 }

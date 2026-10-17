@@ -77,3 +77,26 @@ export async function resolveClinicDashboardRouteAccess(
 export function resolveClinicDashboardMutationAccess(request: NextRequest) {
   return resolveClinicDashboardRouteAccess(request)
 }
+
+// Personal notification routes have no active-clinic target. Source visibility remains Website-owned.
+export async function resolveClinicDashboardPersonalRouteAccess(request: NextRequest) {
+  const controlled = isControlledAuthTestMode()
+  const routeClient = controlled ? undefined : createRouteSupabaseClient(request)
+  const applyToResponse = routeClient?.applyToResponse ?? ((response: NextResponse) => response)
+  const access = controlled
+    ? await resolveAccessForSession(await getClinicDashboardSession(request.cookies))
+    : await resolveMutableClinicDashboardAccess(routeClient!.client)
+  if (access.status !== "approved") return { applyToResponse, status: access.status } as const
+  const session = controlled
+    ? await getClinicDashboardSession(request.cookies)
+    : await readVerifiedSupabaseSession(routeClient!.client)
+  return session
+    ? ({
+        applyToResponse,
+        status: "approved",
+        accessToken: session.accessToken,
+        principalId: access.context.principal.id,
+        clinicIds: access.context.clinics.map(({ id }) => id),
+      } as const)
+    : ({ applyToResponse, status: "unauthenticated" } as const)
+}

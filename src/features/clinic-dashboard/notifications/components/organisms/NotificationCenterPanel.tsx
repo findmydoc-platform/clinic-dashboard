@@ -455,6 +455,7 @@ export function NotificationCenterPanel({
                               {item.display.eventLabel}
                             </p>
                           )}
+                          <p className="mt-1 text-xs break-words">{item.clinic.name}</p>
                           {item.display.displayName ? (
                             <p className="mt-1 text-sm break-words">{item.display.displayName}</p>
                           ) : null}
