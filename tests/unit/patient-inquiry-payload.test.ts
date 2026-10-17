@@ -173,6 +173,7 @@ describe("Payload patient inquiry provider", () => {
       const headers = new Headers(init?.headers)
       expect(headers.get("authorization")).toBe("Bearer verified-token")
       expect(headers.get("x-findmydoc-clinic-dashboard-contract")).toBe("inquiry-communication-v2")
+      expect(headers.get("x-findmydoc-clinic-scope-contract")).toBe("clinic-scope-v1")
     }
   })
 

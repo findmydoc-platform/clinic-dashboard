@@ -644,14 +644,19 @@ export function createPayloadReviewProvider(
     } else if (/^\/api\/reviewAppeals(?:\/versions)?$/u.test(path)) {
       endpoint.pathname = `${target}/review-appeals${path.slice("/api/reviewAppeals".length)}`
     } else throw new Error("Unsupported review source operation")
-    const headers = {
-      ...Object.fromEntries(new Headers(init?.headers)),
+    const replacementHeaders = {
       ...requestHeaders(accessToken),
       ...clinicDashboardContractHeaders(),
+      // The server-to-server command keeps the source origin contract independently of browser CSRF.
+      ...(init?.method === "POST" || init?.method === "PATCH"
+        ? { Origin: new URL(validateEnvironment().DASHBOARD_ORIGIN).origin }
+        : {}),
     }
-    // The server-to-server command keeps the source origin contract independently of browser CSRF.
-    if (init?.method === "POST" || init?.method === "PATCH")
-      Object.assign(headers, { Origin: new URL(validateEnvironment().DASHBOARD_ORIGIN).origin })
+    const replacedNames = new Set(Object.keys(replacementHeaders).map((name) => name.toLowerCase()))
+    const headers = {
+      ...Object.fromEntries([...new Headers(init?.headers)].filter(([name]) => !replacedNames.has(name))),
+      ...replacementHeaders,
+    }
     return sourceFetch(endpoint, { ...init, headers })
   }
   return {
