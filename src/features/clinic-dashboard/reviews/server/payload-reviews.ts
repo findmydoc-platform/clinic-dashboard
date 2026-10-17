@@ -623,9 +623,37 @@ function publicationEntry(
 
 export function createPayloadReviewProvider(
   accessToken: string,
-  _clinicId: string,
-  fetcher: typeof fetch = fetch,
+  clinicId: string,
+  sourceFetch: typeof fetch = fetch,
 ): ReviewProvider {
+  if (!clinicReviewDetailIdSchema.safeParse(clinicId).success) throw new Error("Invalid review clinic target")
+  const target = `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}`
+  const fetcher: typeof fetch = async (input, init) => {
+    const endpoint = new URL(String(input))
+    const path = endpoint.pathname
+    if (path.startsWith("/api/clinic-dashboard/reviews/")) {
+      endpoint.pathname = `${target}/reviews/${path.slice("/api/clinic-dashboard/reviews/".length)}`
+    } else if (path === "/api/reviews") {
+      endpoint.pathname = `${target}/reviews`
+    } else if (/^\/api\/reviews\/[^/]+\/publication-history$/u.test(path)) {
+      endpoint.pathname = `${target}${path.slice("/api".length)}`
+    } else if (/^\/api\/reviews\/[^/]+$/u.test(path)) {
+      endpoint.pathname = `${target}${path.slice("/api".length)}/record`
+    } else if (/^\/api\/reviewResponses(?:\/versions|\/[^/]+)?$/u.test(path)) {
+      endpoint.pathname = `${target}/review-responses${path.slice("/api/reviewResponses".length)}`
+    } else if (/^\/api\/reviewAppeals(?:\/versions)?$/u.test(path)) {
+      endpoint.pathname = `${target}/review-appeals${path.slice("/api/reviewAppeals".length)}`
+    } else throw new Error("Unsupported review source operation")
+    const headers = {
+      ...Object.fromEntries(new Headers(init?.headers)),
+      ...requestHeaders(accessToken),
+      ...clinicDashboardContractHeaders(),
+    }
+    // The server-to-server command keeps the source origin contract independently of browser CSRF.
+    if (init?.method === "POST" || init?.method === "PATCH")
+      Object.assign(headers, { Origin: new URL(validateEnvironment().DASHBOARD_ORIGIN).origin })
+    return sourceFetch(endpoint, { ...init, headers })
+  }
   return {
     async loadReview(reviewId, signal) {
       const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS)

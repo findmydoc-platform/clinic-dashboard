@@ -177,18 +177,31 @@ const controlledReviews = [
 
 type ControlledReviewState = { reviews: ClinicReviewRecord[] }
 
-function controlledState() {
+function controlledState(clinicId: string) {
   const controlledGlobal = globalThis as typeof globalThis & {
-    __findmydocControlledReviews?: ControlledReviewState
+    __findmydocControlledReviews?: Map<string, ControlledReviewState>
   }
-  controlledGlobal.__findmydocControlledReviews ??= {
-    reviews: controlledReviews.map((review) => structuredClone(review)),
+  controlledGlobal.__findmydocControlledReviews ??= new Map()
+  let state = controlledGlobal.__findmydocControlledReviews.get(clinicId)
+  if (!state) {
+    state = {
+      reviews: controlledReviews.map((review) => ({
+        ...structuredClone(review),
+        ...(["clinic-1", "controlled-clinic"].includes(clinicId)
+          ? {}
+          : { id: `${clinicId}-${review.id}`, author: `Synthetic ${clinicId}` }),
+      })),
+    }
+    controlledGlobal.__findmydocControlledReviews.set(clinicId, state)
   }
-  return controlledGlobal.__findmydocControlledReviews
+  return state
 }
 
 export function resetControlledReviewProvider() {
-  controlledState().reviews = controlledReviews.map((review) => structuredClone(review))
+  const controlledGlobal = globalThis as typeof globalThis & {
+    __findmydocControlledReviews?: Map<string, ControlledReviewState>
+  }
+  controlledGlobal.__findmydocControlledReviews?.clear()
 }
 
 function matchesFilters(review: ClinicReviewRecord, filters: ReviewListFilters) {
@@ -207,8 +220,8 @@ function matchesFilters(review: ClinicReviewRecord, filters: ReviewListFilters) 
   return true
 }
 
-function snapshot(filters: ReviewListFilters, page: number): ReviewsSourceSnapshot {
-  const state = controlledState()
+function snapshot(clinicId: string, filters: ReviewListFilters, page: number): ReviewsSourceSnapshot {
+  const state = controlledState(clinicId)
   const filtered = state.reviews.filter((review) => matchesFilters(review, filters))
   const limit = 3
   const pageCount = Math.max(1, Math.ceil(filtered.length / limit))
@@ -241,8 +254,8 @@ function snapshot(filters: ReviewListFilters, page: number): ReviewsSourceSnapsh
   }
 }
 
-function history(reviewId: string, cursor?: string): ReviewHistorySnapshot {
-  const review = controlledState().reviews.find(({ id }) => id === reviewId)
+function history(clinicId: string, reviewId: string, cursor?: string): ReviewHistorySnapshot {
+  const review = controlledState(clinicId).reviews.find(({ id }) => id === reviewId)
   if (!review) throw new Error("Controlled review is missing")
   const publicationEntries = [
     {
@@ -314,21 +327,23 @@ function history(reviewId: string, cursor?: string): ReviewHistorySnapshot {
   }
 }
 
-export function createControlledReviewProvider(): ReviewProvider {
+export function createControlledReviewProvider(clinicId = "clinic-1"): ReviewProvider {
   return {
     async loadReview(reviewId) {
-      const review = controlledState().reviews.find(({ id }) => id === reviewId)
+      const review = controlledState(clinicId).reviews.find(({ id }) => id === reviewId)
       return review ? { ok: true, value: structuredClone(review) } : { ok: false, error: "not-found" }
     },
     async loadHistory(reviewId, cursor) {
-      const review = controlledState().reviews.find(({ id }) => id === reviewId)
-      return review ? { ok: true, value: history(reviewId, cursor) } : { error: "not-found", ok: false }
+      const review = controlledState(clinicId).reviews.find(({ id }) => id === reviewId)
+      return review
+        ? { ok: true, value: history(clinicId, reviewId, cursor) }
+        : { error: "not-found", ok: false }
     },
     async loadReviews(filters, page) {
-      return { ok: true, value: snapshot(filters, page) }
+      return { ok: true, value: snapshot(clinicId, filters, page) }
     },
     async submitAppeal(reviewId, submission) {
-      const state = controlledState()
+      const state = controlledState(clinicId)
       const index = state.reviews.findIndex(({ id }) => id === reviewId)
       const review = state.reviews[index]
       if (!review) return { error: "not-found", ok: false }
@@ -347,7 +362,7 @@ export function createControlledReviewProvider(): ReviewProvider {
       return { ok: true, value: structuredClone(updated) }
     },
     async submitResponse(reviewId, body) {
-      const state = controlledState()
+      const state = controlledState(clinicId)
       const index = state.reviews.findIndex(({ id }) => id === reviewId)
       const review = state.reviews[index]
       if (!review) return { error: "not-found", ok: false }

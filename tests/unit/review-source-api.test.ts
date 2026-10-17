@@ -19,10 +19,10 @@ describe("review source API", () => {
     vi.stubGlobal("fetch", fetcher)
 
     await expect(
-      createReviewSourceApiCommands().loadHistory("review 1", "cursor/+ value"),
+      createReviewSourceApiCommands("clinic-42").loadHistory("review 1", "cursor/+ value"),
     ).rejects.toMatchObject({ kind: "history-changed" })
     expect(fetcher).toHaveBeenCalledWith(
-      "/api/dashboard/reviews/review%201/history?cursor=cursor%2F%2B%20value",
+      "/api/dashboard/clinics/clinic-42/reviews/review%201/history?cursor=cursor%2F%2B%20value",
       expect.objectContaining({ cache: "no-store", credentials: "same-origin", redirect: "error" }),
     )
   })
