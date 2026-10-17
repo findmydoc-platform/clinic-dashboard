@@ -84,8 +84,8 @@ export function Modal({
         event.preventDefault()
         onOpenChange(false)
       }}
-      onClose={() => {
-        if (open) onOpenChange(false)
+      onClose={(event) => {
+        if (open && !event.currentTarget.open) onOpenChange(false)
       }}
       onKeyDown={(event) => {
         if (event.key !== "Escape") return
