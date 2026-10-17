@@ -60,6 +60,41 @@ describe("Payload clinic bootstrap", () => {
     })
   })
 
+  it("retains controlled clinic choices and denial independently of the profile scenario", async () => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password") // pragma: allowlist secret
+    const fetcher = vi.fn<typeof fetch>()
+    await expect(
+      fetchClinicDashboardBootstrap("controlled-many:profile:scenario-one", fetcher),
+    ).resolves.toMatchObject({
+      status: "approved",
+      context: { clinics: [{ id: "controlled-clinic" }, { id: "controlled-second-clinic" }] },
+    })
+    await expect(
+      fetchClinicDashboardBootstrap("controlled-empty:profile:scenario-one", fetcher),
+    ).resolves.toMatchObject({
+      status: "approved",
+      context: { clinics: [] },
+    })
+    await expect(
+      fetchClinicDashboardBootstrap("controlled-denied:profile:scenario-one", fetcher),
+    ).resolves.toEqual({ status: "denied" })
+    await expect(
+      fetchClinicDashboardBootstrap("controlled-outage:profile:scenario-one", fetcher),
+    ).resolves.toEqual({ status: "temporarily-unavailable" })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it("does not interpret a controlled profile scenario in normal Payload authorization", async () => {
+    const token = "controlled-many:profile:scenario-one"
+    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(bootstrap))
+    await expect(fetchClinicDashboardBootstrap(token, fetcher)).resolves.toEqual({
+      context: bootstrap,
+      status: "approved",
+    })
+    expect(new Headers(fetcher.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(`Bearer ${token}`)
+  })
+
   it("opts into the inquiry contract at the configured HTTPS bootstrap endpoint", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(bootstrap))
     await expect(fetchClinicDashboardBootstrap("access-token", fetcher)).resolves.toEqual({

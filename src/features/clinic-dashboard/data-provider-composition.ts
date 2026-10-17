@@ -1,5 +1,6 @@
 import "server-only"
 
+import { readControlledProfileScenario } from "./controlled-profile-scenario"
 import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
 import { createControlledClinicDashboardReportingProvider } from "./dashboard/server/controlled-reporting"
 import { createPayloadClinicDashboardReportingProvider } from "./dashboard/server/payload-reporting"
@@ -74,7 +75,10 @@ export function composeClinicDashboardDataProviders(
       ? { inquiryAttachmentDraftUpload: createControlledPatientInquiryAttachmentDraftUpload(clinicId) }
       : {}),
     profile: controlled
-      ? createControlledClinicProfileProvider(clinicId)
+      ? createControlledClinicProfileProvider(
+          clinicId,
+          localInquiryAcceptance ? undefined : readControlledProfileScenario(accessToken).scenario,
+        )
       : createPayloadClinicProfileProvider(accessToken, clinicId),
     reporting: controlled
       ? createControlledClinicDashboardReportingProvider(clinicId)
