@@ -83,6 +83,11 @@ test("gallery preserves per-clinic curation and guards a cancelled or discarded 
     .getByRole("region", { name: "Clinic image gallery" })
     .getByRole("img", { name: "Clinic A reception" })
   await expect(imageA).toBeVisible()
+  await page.screenshot({
+    animations: "disabled",
+    fullPage: false,
+    path: "output/playwright/233/233-gallery-stable-dark-viewport.png",
+  })
   const imageUrl = await imageA.getAttribute("src")
   expect(imageUrl).toContain(`/clinics/${first}/gallery/image?token=`)
   await openEditor(page)
@@ -101,6 +106,11 @@ test("gallery preserves per-clinic curation and guards a cancelled or discarded 
   await expect(leave).toBeVisible()
   await expect(leave).toHaveCSS("opacity", "1")
   await capture(page, info, "departure-dark")
+  await page.screenshot({
+    animations: "disabled",
+    fullPage: false,
+    path: "output/playwright/233/233-gallery-departure-dark-viewport.png",
+  })
   await leave.getByRole("button", { name: "Keep editing" }).click()
   await expect(page).toHaveURL(previousUrl)
   await expect(editor.getByRole("textbox", { name: "Alt text" })).toHaveValue("Unsaved A details")
