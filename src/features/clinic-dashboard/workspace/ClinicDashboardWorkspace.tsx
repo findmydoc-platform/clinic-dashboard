@@ -77,7 +77,10 @@ export function ClinicDashboardWorkspace({
       rememberAuthorizedClinic(authenticatedContext.principal.id, authenticatedContext.clinic.id)
   }, [authorizedClinics, authenticatedContext.principal.id, authenticatedContext.clinic.id])
   const [isSourceRefreshPending, startSourceRefresh] = useTransition()
-  const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
+  const doctorProfileCommands = useMemo(
+    () => createDoctorProfileApiCommands(authenticatedContext.clinic.id),
+    [authenticatedContext.clinic.id],
+  )
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
   const notificationCommands = useMemo(() => createNotificationApiCommands(), [])

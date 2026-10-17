@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Pencil, UserPlus } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -8,15 +8,14 @@ import { Card } from "@/components/ui/card"
 import type { DoctorDirectorySnapshot, DoctorProfile } from "../../model/doctor-profile"
 import type { DoctorProfileCommands } from "../../model/doctor-profile-commands"
 import { saveDoctorProfileDraft, type DoctorProfileDraft } from "../../model/doctor-profile-editor"
-import { DoctorProfileDialog } from "./DoctorProfileDialog"
+import { DoctorProfileDialog, type DoctorEditorDepartureRequest } from "./DoctorProfileDialog"
 
 type DoctorDirectoryProps = Readonly<{
+  contextNavigation?: ReactNode
   canManage: boolean
   commands: DoctorProfileCommands
   navigationNotice?: string
-  onNavigationRequestChange?: (
-    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
-  ) => void
+  onNavigationRequestChange?: (request: DoctorEditorDepartureRequest | null) => void
   onEditorPresenceChange?: (isOpen: boolean) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   snapshot: DoctorDirectorySnapshot
@@ -36,6 +35,7 @@ function initials(doctor: DoctorProfile) {
 
 export function DoctorDirectory({
   canManage,
+  contextNavigation,
   commands,
   onDoctorsChange,
   snapshot,
@@ -43,6 +43,14 @@ export function DoctorDirectory({
   onEditorPresenceChange,
   onNavigationRequestChange,
 }: DoctorDirectoryProps) {
+  const generation = useRef(0)
+  useEffect(() => {
+    const token = generation.current + 1
+    generation.current = token
+    return () => {
+      generation.current = token + 1
+    }
+  }, [commands])
   const [doctors, setDoctors] = useState(() => sortDoctors(snapshot.doctors))
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile>()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -63,7 +71,9 @@ export function DoctorDirectory({
   }
 
   const saveDoctor = async (draft: DoctorProfileDraft, persistedDoctor?: DoctorProfile) => {
+    const current = generation.current
     const result = await saveDoctorProfileDraft(commands, draft, persistedDoctor)
+    if (current !== generation.current) throw new Error("The doctor editor context changed.")
     if (result.doctor) {
       const nextDoctors = sortDoctors([
         ...doctors.filter(({ id }) => id !== result.doctor?.id),
@@ -176,6 +186,7 @@ export function DoctorDirectory({
 
       {dialogOpen && isReady ? (
         <DoctorProfileDialog
+          contextNavigation={contextNavigation}
           initialDoctor={selectedDoctor}
           navigationNotice={navigationNotice}
           key={dialogSession}

@@ -61,7 +61,7 @@ export function composeClinicDashboardDataProviders(
   const localInquiryAcceptance = isLocalInquiryAcceptanceMode(validatedEnvironment)
   return {
     doctors: controlled
-      ? createControlledDoctorProfileProvider()
+      ? createControlledDoctorProfileProvider(clinicId)
       : createPayloadDoctorProfileProvider(accessToken, clinicId),
     gallery: controlled
       ? createControlledClinicGalleryProvider(clinicId)

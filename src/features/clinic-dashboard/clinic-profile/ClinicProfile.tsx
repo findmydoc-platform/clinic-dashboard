@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useEffect, useState } from "react"
+import { useCallback, useRef, useEffect, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -37,6 +37,7 @@ export type ClinicProfileProps = Readonly<{
   galleryManagement: ClinicProfileManagementAccess
   galleryStatus: ClinicGalleryLoadStatus
   gallerySnapshot?: ClinicGallerySnapshot
+  doctorContextNavigation?: ReactNode
   doctorCommands: DoctorProfileCommands
   doctorDirectory: DoctorDirectorySnapshot
   doctorManagement: ClinicProfileManagementAccess
@@ -65,6 +66,7 @@ export function ClinicProfile({
   galleryManagement,
   galleryStatus,
   gallerySnapshot,
+  doctorContextNavigation,
   doctorCommands,
   doctorDirectory,
   doctorManagement,
@@ -300,6 +302,7 @@ export function ClinicProfile({
     <>
       {!galleryController.model.open ? (
         <ClinicProfileScreen
+          doctorContextNavigation={doctorContextNavigation}
           actions={screenActions}
           navigationNotice={navigationNotice}
           onDoctorEditorPresenceChange={handleDoctorEditorPresenceChange}

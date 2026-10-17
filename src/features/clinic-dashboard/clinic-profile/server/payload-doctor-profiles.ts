@@ -181,22 +181,16 @@ function readInit(accessToken: string): RequestInit {
   }
 }
 
-function absoluteMediaUrl(value: string | null | undefined) {
-  if (!value) return undefined
-  try {
-    return new URL(value, validateEnvironment().PAYLOAD_API_URL).toString()
-  } catch {
-    return undefined
-  }
-}
-
-function mapImage(value: z.infer<typeof imageRelationshipSchema> | null | undefined) {
+function mapImage(
+  value: z.infer<typeof imageRelationshipSchema> | null | undefined,
+  clinicId: string,
+  doctorId: string,
+) {
   if (!value || typeof value === "string") return undefined
-
   return {
     alt: value.alt,
     id: value.id,
-    url: absoluteMediaUrl(value.url),
+    url: `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/doctors/${encodeURIComponent(doctorId)}/image`,
   }
 }
 
@@ -221,7 +215,7 @@ function mapDoctor(
     firstName: rawDoctor.firstName,
     gender: rawDoctor.gender,
     id: rawDoctor.id,
-    image: mapImage(rawDoctor.profileImage),
+    image: mapImage(rawDoctor.profileImage, clinicId, rawDoctor.id),
     languages: [...rawDoctor.languages],
     lastName: rawDoctor.lastName,
     qualifications: [...rawDoctor.qualifications],
@@ -271,7 +265,7 @@ function rawDocument<TValue extends object>(value: TValue | Readonly<{ doc: TVal
 }
 
 function scopedDoctorsEndpoint(clinicId: string) {
-  const endpoint = endpointFor("/api/doctors")
+  const endpoint = endpointFor(`/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctors`)
   endpoint.searchParams.set("depth", "1")
   endpoint.searchParams.set("limit", "100")
   endpoint.searchParams.set("pagination", "false")
@@ -293,7 +287,7 @@ function conditionalDoctorImageEndpoint(
   doctorId: string,
   previousImageId: string | undefined,
 ) {
-  const endpoint = endpointFor("/api/doctors")
+  const endpoint = endpointFor(`/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctors`)
   endpoint.searchParams.set("depth", "1")
   endpoint.searchParams.set("limit", "1")
   endpoint.searchParams.set("where[and][0][clinic][equals]", clinicId)
@@ -315,8 +309,10 @@ function medicalSpecialtiesEndpoint() {
   return endpoint
 }
 
-function doctorSpecialtiesEndpoint(doctorIds: readonly string[]) {
-  const endpoint = endpointFor("/api/doctorspecialties")
+function doctorSpecialtiesEndpoint(clinicId: string, doctorIds: readonly string[]) {
+  const endpoint = endpointFor(
+    `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctor-specialties`,
+  )
   endpoint.searchParams.set("depth", "1")
   endpoint.searchParams.set("limit", "1000")
   endpoint.searchParams.set("pagination", "false")
@@ -324,8 +320,10 @@ function doctorSpecialtiesEndpoint(doctorIds: readonly string[]) {
   return endpoint
 }
 
-function doctorSpecialtyEndpoint(doctorId: string, assignmentId: string) {
-  const endpoint = endpointFor("/api/doctorspecialties")
+function doctorSpecialtyEndpoint(clinicId: string, doctorId: string, assignmentId: string) {
+  const endpoint = endpointFor(
+    `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctor-specialties`,
+  )
   endpoint.searchParams.set("depth", "1")
   endpoint.searchParams.set("limit", "1")
   endpoint.searchParams.set("where[and][0][doctor][equals]", doctorId)
@@ -377,7 +375,7 @@ export function createPayloadDoctorProfileProvider(
     if (doctorIds.length === 0) return { ok: true, value: [] } as const
 
     const response = await requestPayloadJson(
-      doctorSpecialtiesEndpoint(doctorIds),
+      doctorSpecialtiesEndpoint(clinicId, doctorIds),
       readInit(accessToken),
       fetcher,
     )
@@ -420,7 +418,9 @@ export function createPayloadDoctorProfileProvider(
 
   async function deleteDoctorMedia(mediaId: string) {
     const result = await requestPayload(
-      endpointFor(`/api/doctorMedia/${encodeURIComponent(mediaId)}`),
+      endpointFor(
+        `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctor-media/${encodeURIComponent(mediaId)}`,
+      ),
       {
         cache: "no-store",
         headers: requestHeaders(accessToken),
@@ -465,9 +465,51 @@ export function createPayloadDoctorProfileProvider(
   }
 
   return {
+    async loadImage(doctorId) {
+      try {
+        const response = await fetcher(
+          endpointFor(
+            `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctors/${encodeURIComponent(doctorId)}/image`,
+          ),
+          readInit(accessToken),
+        )
+        if (!response.ok) return { ok: false, error: changeErrorForStatus(response.status) }
+        const mimeType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase()
+        if (
+          !mimeType ||
+          !["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"].includes(mimeType) ||
+          Number(response.headers.get("content-length")) > 5 * 1024 * 1024 ||
+          !response.body
+        )
+          return { ok: false, error: "invalid-data" }
+        const reader = response.body.getReader()
+        const chunks: Uint8Array[] = []
+        let size = 0
+        try {
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            size += value.byteLength
+            if (size > 5 * 1024 * 1024) return { ok: false, error: "invalid-data" }
+            chunks.push(value)
+          }
+        } finally {
+          await reader.cancel().catch(() => undefined)
+        }
+        const bytes = new Uint8Array(size)
+        let offset = 0
+        for (const chunk of chunks) {
+          bytes.set(chunk, offset)
+          offset += chunk.byteLength
+        }
+        return { ok: true, value: { bytes, mimeType } }
+      } catch {
+        return { ok: false, error: "temporarily-unavailable" }
+      }
+    },
     async createDoctor(input) {
       try {
-        const endpoint = endpointFor("/api/doctors")
+        const endpoint = endpointFor(`/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctors`)
         endpoint.searchParams.set("depth", "1")
         const response = await requestPayloadJson(
           endpoint,
@@ -500,7 +542,9 @@ export function createPayloadDoctorProfileProvider(
         )
         if (existingAssignment.ok) return existingAssignment
 
-        const endpoint = endpointFor("/api/doctorspecialties")
+        const endpoint = endpointFor(
+          `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctor-specialties`,
+        )
         endpoint.searchParams.set("depth", "1")
         const response = await requestPayloadJson(
           endpoint,
@@ -616,7 +660,9 @@ export function createPayloadDoctorProfileProvider(
           }),
         )
 
-        const mediaEndpoint = endpointFor("/api/doctorMedia")
+        const mediaEndpoint = endpointFor(
+          `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctor-media`,
+        )
         mediaEndpoint.searchParams.set("depth", "1")
         const mediaResponse = await requestPayloadJson(
           mediaEndpoint,
@@ -702,7 +748,9 @@ export function createPayloadDoctorProfileProvider(
         const specialties = await loadDoctorSpecialties(doctorId)
         if (!specialties.ok) return { error: changeErrorForStatus(specialties.status), ok: false }
 
-        const endpoint = endpointFor(`/api/doctors/${encodeURIComponent(doctorId)}`)
+        const endpoint = endpointFor(
+          `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctors/${encodeURIComponent(doctorId)}`,
+        )
         endpoint.searchParams.set("depth", "1")
         const response = await requestPayloadJson(
           endpoint,
@@ -725,7 +773,11 @@ export function createPayloadDoctorProfileProvider(
       try {
         const [doctor, assignmentResponse, catalog] = await Promise.all([
           loadRawDoctor(doctorId),
-          requestPayloadJson(doctorSpecialtyEndpoint(doctorId, assignmentId), readInit(accessToken), fetcher),
+          requestPayloadJson(
+            doctorSpecialtyEndpoint(clinicId, doctorId, assignmentId),
+            readInit(accessToken),
+            fetcher,
+          ),
           loadCatalog(),
         ])
         if (!doctor.ok) return { error: changeErrorForStatus(doctor.status), ok: false }
@@ -743,7 +795,9 @@ export function createPayloadDoctorProfileProvider(
           return { error: "not-found", ok: false }
         }
 
-        const endpoint = endpointFor(`/api/doctorspecialties/${encodeURIComponent(assignmentId)}`)
+        const endpoint = endpointFor(
+          `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/doctor-specialties/${encodeURIComponent(assignmentId)}`,
+        )
         endpoint.searchParams.set("depth", "1")
         const response = await requestPayloadJson(
           endpoint,

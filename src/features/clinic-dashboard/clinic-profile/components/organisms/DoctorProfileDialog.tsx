@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Camera, CirclePlus, X } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -63,13 +63,18 @@ const levelLabels: Record<(typeof doctorSpecializationLevelValues)[number], stri
   specialist: "Specialist",
 }
 
+export type DoctorEditorDepartureRequest = (
+  continuation: () => void,
+  onCancel?: () => void,
+  intent?: "context-change" | "destination" | "section" | "access-loss",
+) => Readonly<{ draft: unknown; discard: () => void | Promise<void> }> | void
+
 type DoctorProfileDialogProps = Readonly<{
+  contextNavigation?: ReactNode
   initialDoctor?: DoctorProfile
   medicalSpecialties: readonly MedicalSpecialtyOption[]
   navigationNotice?: string
-  onNavigationRequestChange?: (
-    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
-  ) => void
+  onNavigationRequestChange?: (request: DoctorEditorDepartureRequest | null) => void
   onOpenChange: (open: boolean) => void
   onSave: (draft: DoctorProfileDraft, persistedDoctor?: DoctorProfile) => Promise<DoctorProfileSaveResult>
   open: boolean
@@ -182,6 +187,7 @@ function saveFailureMessage(
 }
 
 export function DoctorProfileDialog({
+  contextNavigation,
   initialDoctor,
   medicalSpecialties,
   navigationNotice,
@@ -190,6 +196,13 @@ export function DoctorProfileDialog({
   onSave,
   open,
 }: DoctorProfileDialogProps) {
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const initialDraft = useMemo(() => createDoctorProfileDraft(initialDoctor), [initialDoctor])
   const [draft, setDraft] = useState(initialDraft)
   const [persistedDoctor, setPersistedDoctor] = useState(initialDoctor)
@@ -239,7 +252,26 @@ export function DoctorProfileDialog({
     pending?.continuation()
   }
   const requestNavigation = useCallback(
-    (continuation: () => void, onCancel?: () => void) => {
+    (
+      continuation: () => void,
+      onCancel?: () => void,
+      intent?: "context-change" | "destination" | "section" | "access-loss",
+    ) => {
+      if (intent === "access-loss") {
+        if (!isDirty && !isSaving && !creationNeedsReload) return
+        return {
+          draft: { draft, persistedDoctor, baseline, saveState },
+          discard: () => {
+            if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current)
+            imagePreviewUrlRef.current = undefined
+            if (mounted.current) {
+              cancelDeparture()
+              setDraft(initialDraft)
+              onOpenChange(false)
+            }
+          },
+        }
+      }
       cancelDeparture()
       if (isSaving) {
         onCancel?.()
@@ -254,7 +286,18 @@ export function DoctorProfileDialog({
       setHasPendingDeparture(true)
       setDiscardConfirmation(true)
     },
-    [cancelDeparture, isDirty, isSaving, onOpenChange],
+    [
+      baseline,
+      cancelDeparture,
+      creationNeedsReload,
+      draft,
+      initialDraft,
+      isDirty,
+      isSaving,
+      onOpenChange,
+      persistedDoctor,
+      saveState,
+    ],
   )
   useEffect(() => {
     onNavigationRequestChange?.(requestNavigation)
@@ -316,7 +359,9 @@ export function DoctorProfileDialog({
     let result: DoctorProfileSaveResult
     try {
       result = await onSave(draft, persistedDoctor)
+      if (!mounted.current) return
     } catch {
+      if (!mounted.current) return
       setStatusMessage("The doctor could not be saved. Check your connection and try again.")
       setSaveState("idle")
       return
@@ -344,6 +389,7 @@ export function DoctorProfileDialog({
   return (
     <Modal
       contentClassName="p-0 sm:p-0"
+      headerMeta={contextNavigation}
       footer={
         discardConfirmation ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -348,7 +348,7 @@ requests and editor work. Reporting uses `/api/dashboard/clinics/{clinicId}/repo
 reporting route denies access. Source 403 responses hide the workspace and enter the restricted state. Temporary failures
 retain the valid session. Live CSV exports remain unavailable.
 
-`workspace/model/clinic-scope-conversions.ts` keeps profile, treatments, gallery, doctors
+`workspace/model/clinic-scope-conversions.ts` keeps profile, treatments and gallery
 closed until their independent target-route conversions are integrated. The server does not load their source records, and
 the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
 records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
@@ -533,3 +533,15 @@ The additive `X-Findmydoc-Clinic-Notifications-Contract: clinic-notifications-v1
 The review browser commands bind list filters, pagination, exact detail, history, response and appeal submission to `/api/dashboard/clinics/:clinicId/reviews`. The BFF resolves the explicit target against fresh personal access and keeps session, origin and CSRF checks. Targetless legacy routes remain denied. The Payload provider uses only the dedicated Website review operations under the matching clinic prefix and negotiates `clinic-scope-v1`; mutation bodies cannot choose a clinic. No additional bootstrap capability names are introduced.
 
 The workspace enables the reviews conversion gate. A clinic switch preserves the reviews section, remounts clinic-owned state and creates new commands for the new target. Existing departure continuations preserve unfinished response and appeal drafts. Review confirmation and editor dialogs both use the native top layer so Keep editing, Escape and save/discard controls remain reachable and restore nested focus. Controlled acceptance uses distinguishable synthetic clinic records and cannot qualify real Preview or Production source behavior.
+
+## Doctor profiles in the selected clinic
+
+The existing Profile navigation can show the doctor directory independently from the profile, treatment and gallery conversion gates. Doctor management retains its existing operation availability and does not add a bootstrap capability. Controlled doctor state is isolated by clinic; Payload remains the authority in normal mode.
+
+Doctor commands use `/api/dashboard/clinics/:clinicId/doctors`, `/:doctorId`, `/:doctorId/image`, `/:doctorId/specialties` and `/:doctorId/specialties/:assignmentId`. Image reads use the same explicit doctor image path. The server resolves the current person and requested clinic before constructing the request-local provider. Directory and update-detail source reads also carry that clinic in their Website path. The global medical-specialty catalogue remains a reference catalogue.
+
+The Payload provider uses `/api/clinic-dashboard/clinics/:clinicId/doctors`, `/doctor-specialties` and `/doctor-media`. Existing conditional image replacement, conflicts, partial saves and cleanup behavior remain distinct. A save with no successful submitted changes reports failure and retains the draft. Uploads keep the existing 4 MiB limit and accepted image formats. Protected image reads accept at most 5 MiB and never redirect or expose provider credentials to the browser.
+
+The doctor dialog receives an optional Workspace-owned clinic control. It uses the same current selection and departure guard as the workspace selector. Stay and failed saves retain the source clinic and actual draft; save or explicit discard continues the pending transition. Late save results from an unmounted doctor context cannot update the next clinic directory. The access-loss departure port returns the actual draft, pending file, persisted doctor and save state privately in memory, with the original discard cleanup. It creates no storage, URL or authorization grant.
+
+Website source checks apply to ordinary collection requests as well as these BFF requests. Doctor, specialty and media ownership is checked against the current principal, local or group assignment, participation and exact target. No hosted provider activation or Preview/Production qualification follows from controlled browser evidence.

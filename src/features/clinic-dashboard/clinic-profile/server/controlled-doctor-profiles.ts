@@ -41,10 +41,13 @@ const initialControlledDoctors = [
   },
 ] as const satisfies readonly DoctorProfile[]
 
-let doctors: DoctorProfile[] = initialControlledDoctors.map(cloneDoctor)
-let doctorSequence = 1
-let specialtySequence = 1
-let imageSequence = 0
+type ClinicDoctorState = {
+  doctors: DoctorProfile[]
+  doctorSequence: number
+  specialtySequence: number
+  imageSequence: number
+}
+const clinicStates = new Map<string, ClinicDoctorState>()
 
 function cloneSpecialty(specialty: DoctorSpecialtyAssignment): DoctorSpecialtyAssignment {
   return { ...specialty }
@@ -70,29 +73,44 @@ function sortDoctors(left: DoctorProfile, right: DoctorProfile) {
 }
 
 export function resetControlledDoctorProfileProvider() {
-  doctors = initialControlledDoctors.map(cloneDoctor)
-  doctorSequence = 1
-  specialtySequence = 1
-  imageSequence = 0
+  clinicStates.clear()
 }
 
-export function createControlledDoctorProfileProvider(): DoctorProfileProvider {
+export function createControlledDoctorProfileProvider(clinicId = "controlled-clinic"): DoctorProfileProvider {
+  let state = clinicStates.get(clinicId)
+  if (!state) {
+    state = {
+      doctors: initialControlledDoctors.map((doctor) => ({
+        ...cloneDoctor(doctor),
+        ...(clinicId === "controlled-clinic" ? {} : { firstName: "Noah", lastName: "Bennett" }),
+        id: clinicId === "controlled-clinic" ? doctor.id : `${clinicId}-${doctor.id}`,
+      })),
+      doctorSequence: 1,
+      specialtySequence: 1,
+      imageSequence: 0,
+    }
+    clinicStates.set(clinicId, state)
+  }
+  const current = state
   return {
+    async loadImage() {
+      return { ok: false, error: "not-found" }
+    },
     async createDoctor(input) {
-      doctorSequence += 1
+      current.doctorSequence += 1
       const doctor = {
         ...input,
         active: false,
-        id: `controlled-doctor-${doctorSequence}`,
+        id: `${clinicId === "controlled-clinic" ? "" : `${clinicId}-`}controlled-doctor-${current.doctorSequence}`,
         languages: [...input.languages],
         qualifications: [...input.qualifications],
         specialties: [],
       } satisfies DoctorProfile
-      doctors = [...doctors, doctor]
+      current.doctors = [...current.doctors, doctor]
       return { ok: true, value: cloneDoctor(doctor) }
     },
     async createSpecialty(doctorId, input) {
-      const doctor = doctors.find((candidate) => candidate.id === doctorId)
+      const doctor = current.doctors.find((candidate) => candidate.id === doctorId)
       const specialty = findSpecialty(input.medicalSpecialtyId)
       if (!doctor || !specialty) return { error: "not-found", ok: false }
       if (
@@ -101,14 +119,14 @@ export function createControlledDoctorProfileProvider(): DoctorProfileProvider {
         return { error: "conflict", ok: false }
       }
 
-      specialtySequence += 1
+      current.specialtySequence += 1
       const assignment = {
-        id: `controlled-doctor-specialty-${specialtySequence}`,
+        id: `controlled-doctor-specialty-${current.specialtySequence}`,
         medicalSpecialtyId: specialty.id,
         medicalSpecialtyName: specialty.name,
         specializationLevel: input.specializationLevel,
       } satisfies DoctorSpecialtyAssignment
-      doctors = doctors.map((candidate) =>
+      current.doctors = current.doctors.map((candidate) =>
         candidate.id === doctorId
           ? { ...candidate, specialties: [...candidate.specialties, assignment] }
           : candidate,
@@ -119,25 +137,25 @@ export function createControlledDoctorProfileProvider(): DoctorProfileProvider {
       return {
         ok: true,
         value: {
-          doctors: doctors.map(cloneDoctor).sort(sortDoctors),
+          doctors: current.doctors.map(cloneDoctor).sort(sortDoctors),
           medicalSpecialties: controlledMedicalSpecialties.map((specialty) => ({ ...specialty })),
           status: "ready",
         },
       }
     },
     async replaceImage(doctorId, input) {
-      const doctor = doctors.find((candidate) => candidate.id === doctorId)
+      const doctor = current.doctors.find((candidate) => candidate.id === doctorId)
       if (!doctor) return { error: "not-found", ok: false }
 
-      imageSequence += 1
+      current.imageSequence += 1
       const updated = {
         ...doctor,
         image: {
           alt: input.alt,
-          id: `controlled-doctor-image-${imageSequence}`,
+          id: `controlled-doctor-image-${current.imageSequence}`,
         },
       } satisfies DoctorProfile
-      doctors = doctors.map((candidate) => (candidate.id === doctorId ? updated : candidate))
+      current.doctors = current.doctors.map((candidate) => (candidate.id === doctorId ? updated : candidate))
       return {
         ok: true,
         value: {
@@ -147,7 +165,7 @@ export function createControlledDoctorProfileProvider(): DoctorProfileProvider {
       }
     },
     async updateDoctor(doctorId, input) {
-      const doctor = doctors.find((candidate) => candidate.id === doctorId)
+      const doctor = current.doctors.find((candidate) => candidate.id === doctorId)
       if (!doctor) return { error: "not-found", ok: false }
 
       const { biography, experienceYears, title, ...fields } = input
@@ -160,11 +178,11 @@ export function createControlledDoctorProfileProvider(): DoctorProfileProvider {
         qualifications: input.qualifications ? [...input.qualifications] : doctor.qualifications,
         title: title === null ? undefined : (title ?? doctor.title),
       } satisfies DoctorProfile
-      doctors = doctors.map((candidate) => (candidate.id === doctorId ? updated : candidate))
+      current.doctors = current.doctors.map((candidate) => (candidate.id === doctorId ? updated : candidate))
       return { ok: true, value: cloneDoctor(updated) }
     },
     async updateSpecialty(doctorId, assignmentId, input) {
-      const doctor = doctors.find((candidate) => candidate.id === doctorId)
+      const doctor = current.doctors.find((candidate) => candidate.id === doctorId)
       const specialty = findSpecialty(input.medicalSpecialtyId)
       const assignment = doctor?.specialties.find((candidate) => candidate.id === assignmentId)
       if (!doctor || !specialty || !assignment) return { error: "not-found", ok: false }
@@ -183,7 +201,7 @@ export function createControlledDoctorProfileProvider(): DoctorProfileProvider {
         medicalSpecialtyName: specialty.name,
         specializationLevel: input.specializationLevel,
       } satisfies DoctorSpecialtyAssignment
-      doctors = doctors.map((candidate) =>
+      current.doctors = current.doctors.map((candidate) =>
         candidate.id === doctorId
           ? {
               ...candidate,
