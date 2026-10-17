@@ -119,6 +119,8 @@ test("replaces old reporting state and rejects a delayed old-clinic response", a
     release = resolve
   })
   let oldRequested = false
+  expect((await page.request.get("/api/dashboard/reviews")).status()).toBe(403)
+  expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/reviews")).status()).toBe(200)
   expect((await page.request.get("/api/dashboard/inquiries")).status()).toBe(404)
   expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/inquiries")).status()).toBe(200)
   await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7", async (route) => {
@@ -164,6 +166,8 @@ test("denied active reads hide clinic content and foreign page targets never fal
   await setClinicSet(context, baseURL!, "many")
   await signIn(page)
   await expect(page.getByRole("region", { name: "Dashboard metrics" })).toBeVisible()
+  expect((await page.request.get("/api/dashboard/reviews")).status()).toBe(403)
+  expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/reviews")).status()).toBe(200)
   expect((await page.request.get("/api/dashboard/inquiries")).status()).toBe(404)
   expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/inquiries")).status()).toBe(200)
   await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7", (route) =>
@@ -221,12 +225,14 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
 }) => {
   await signIn(page)
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible()
-  for (const domain of ["profile", "clinic-treatments", "reviews"]) {
+  for (const domain of ["profile", "clinic-treatments"]) {
     const legacy = await page.request.get(`/api/dashboard/${domain}`)
     expect(legacy.status()).toBe(403)
     const scoped = await page.request.get(`/api/dashboard/clinics/controlled-clinic/${domain}`)
     expect(scoped.status()).toBe(404)
   }
+  expect((await page.request.get("/api/dashboard/reviews")).status()).toBe(403)
+  expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/reviews")).status()).toBe(200)
   expect((await page.request.get("/api/dashboard/inquiries")).status()).toBe(404)
   expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/inquiries")).status()).toBe(200)
   await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7", (route) =>

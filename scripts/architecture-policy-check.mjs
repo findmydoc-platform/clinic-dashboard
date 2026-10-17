@@ -171,7 +171,7 @@ function isAllowedClinicDashboardServerImport(file) {
     /^src\/app\/api\/dashboard\/clinics\/\[clinicId\]\/gallery(?:\/(?:discard|image|media))?\/route\.ts$/u.test(
       file,
     ) ||
-    /^src\/app\/api\/dashboard\/reviews(?:\/\[reviewId\](?:\/(?:appeal|history|response))?)?\/route\.ts$/u.test(
+    /^src\/app\/api\/dashboard\/(?:clinics\/\[clinicId\]\/)?reviews(?:\/\[reviewId\](?:\/(?:appeal|history|response))?)?\/route\.ts$/u.test(
       file,
     ) ||
     file === "src/app/api/dashboard/reporting/route.ts" ||

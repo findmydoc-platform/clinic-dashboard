@@ -84,7 +84,10 @@ export function ClinicDashboardWorkspace({
     [authenticatedContext.clinic.id],
   )
   const notificationCommands = useMemo(() => createNotificationApiCommands(), [])
-  const reviewSourceCommands = useMemo(() => createReviewSourceApiCommands(), [])
+  const reviewSourceCommands = useMemo(
+    () => createReviewSourceApiCommands(authenticatedContext.clinic.id),
+    [authenticatedContext.clinic.id],
+  )
   const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
   const refreshSources = () => startSourceRefresh(() => router.refresh())
 

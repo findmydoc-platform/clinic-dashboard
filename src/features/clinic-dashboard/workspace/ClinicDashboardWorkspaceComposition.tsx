@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   createClinicDashboardLoginPath,
   createClinicDashboardReturnTarget,
@@ -319,6 +320,15 @@ export function ClinicDashboardWorkspaceComposition({
     window.location.assign(createClinicDashboardLoginPath(returnTarget))
   }, [])
 
+  const router = useRouter()
+  const handleReviewAccessLoss = useCallback(
+    (failure?: "unauthorized" | "forbidden") => {
+      if (failure === "forbidden") router.replace("/access?state=restricted")
+      else handleInquirySessionLoss()
+    },
+    [handleInquirySessionLoss, router],
+  )
+
   const openNotificationDestination = useCallback<NotificationDestinationOpen>(
     (request, signal) => {
       if (authorizedClinics && request.clinicId !== authenticatedContext.clinic.id)
@@ -564,7 +574,7 @@ export function ClinicDashboardWorkspaceComposition({
             isActive={activeSection === "reviews"}
             openingRequest={reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : undefined}
             onOpeningResult={onReviewOpeningResult}
-            onSessionLost={handleInquirySessionLoss}
+            onSessionLost={handleReviewAccessLoss}
             onNavigationRequestChange={setReviewRequest}
             commands={reviewCommands}
             focusTarget={model.reviewFocusTarget}
