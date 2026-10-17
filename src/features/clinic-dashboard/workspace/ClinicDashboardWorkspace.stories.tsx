@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, userEvent, waitFor, within } from "storybook/test"
+import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { authenticatedClinicContextFixture } from "./testing/workspace.fixtures"
 import { ClinicDashboardWorkspaceHarness, clinicDashboardWorkspaceFixture } from "./testing/public"
 import { inquiryCommandsFixture } from "@/features/clinic-dashboard/messages/testing/public"
@@ -240,5 +240,58 @@ export const LocationDepartureProtectsHiddenProfile: Story = {
     await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toHaveValue(
       "Medicana International Istanbul pending",
     )
+  },
+}
+
+const authorizedClinicChange = fn()
+export const AuthorizedClinicSelection: Story = {
+  args: {
+    authorizedClinics: [
+      {
+        ...authenticatedClinicContextFixture.clinic,
+        capabilities: authenticatedClinicContextFixture.capabilities,
+      },
+      { id: "authorized-second", name: "Second Authorized Clinic", capabilities: [] },
+    ],
+  },
+  render: (args) => <ClinicDashboardWorkspaceHarness {...args} onClinicChange={authorizedClinicChange} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(canvasElement.ownerDocument.body)
+    await userEvent.click(canvas.getByRole("button", { name: /Switch clinic location/ }))
+    await userEvent.click(body.getByRole("menuitem", { name: /Second Authorized Clinic/ }))
+    await waitFor(() => expect(authorizedClinicChange).toHaveBeenCalledWith("authorized-second", "dashboard"))
+  },
+}
+
+const guardedClinicChange = fn()
+export const ClinicChangeCallbackWaitsForSharedDeparture: Story = {
+  ...VisualReference,
+  render: (args) => (
+    <ClinicDashboardWorkspaceHarness
+      {...args}
+      reportingDemo={dashboardFixture}
+      onClinicChange={guardedClinicChange}
+      start={{ section: "profile" }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(canvasElement.ownerDocument.body)
+    await userEvent.click(canvas.getByRole("button", { name: "Edit profile" }))
+    await userEvent.type(canvas.getByRole("textbox", { name: "Clinic name" }), " pending")
+    await userEvent.click(canvas.getByRole("button", { name: /Switch clinic location/ }))
+    await userEvent.click(body.getByRole("menuitem", { name: /Charlottenburg/ }))
+    let dialog = await body.findByRole("alertdialog", { name: "Leave profile editing?" })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }))
+    expect(guardedClinicChange).not.toHaveBeenCalled()
+    await expect(canvas.getByRole("textbox", { name: "Clinic name" })).toHaveValue(
+      "Medicana International Istanbul pending",
+    )
+    await userEvent.click(canvas.getByRole("button", { name: /Switch clinic location/ }))
+    await userEvent.click(body.getByRole("menuitem", { name: /Charlottenburg/ }))
+    dialog = await body.findByRole("alertdialog", { name: "Leave profile editing?" })
+    await userEvent.click(within(dialog).getByRole("button", { name: "Leave without saving" }))
+    await waitFor(() => expect(guardedClinicChange).toHaveBeenCalledWith("berlin-charlottenburg", "profile"))
   },
 }

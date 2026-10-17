@@ -11,8 +11,10 @@ const mocks = vi.hoisted(() => ({
   redirect: vi.fn(),
 }))
 
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }))
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }))
-vi.mock("@/features/clinic-dashboard/public", () => ({
+vi.mock("@/features/clinic-dashboard/public", async () => ({
+  ...(await import("@/features/clinic-dashboard/workspace/model/clinic-selection")),
   ClinicDashboardAuthScreen: ({ returnTarget }: { returnTarget?: string }) => (
     <div data-return-target={returnTarget} data-testid="auth-screen" />
   ),
@@ -44,8 +46,8 @@ describe("clinic dashboard page", () => {
     vi.clearAllMocks()
     mocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: ["clinic-inquiries:view"],
-        clinic: { id: "clinic-1", name: "Synthetic Clinic" },
+        schemaVersion: "clinic-scope-v1",
+        clinics: [{ id: "clinic-1", name: "Synthetic Clinic", capabilities: ["clinic-inquiries:view"] }],
         principal: { displayName: "Synthetic Staff", email: "staff@example.test", id: "staff-1" },
       },
       status: "approved",
@@ -61,6 +63,7 @@ describe("clinic dashboard page", () => {
   it("awaits search params and passes one safe inquiry focus into the workspace", async () => {
     render(
       await HomePage({
+        params: Promise.resolve({ clinicId: "clinic-1" }),
         searchParams: Promise.resolve({ inquiry: "inquiry-lukas-weber" }),
       }),
     )
@@ -71,7 +74,12 @@ describe("clinic dashboard page", () => {
   it.each([["inquiry/foreign"], [["inquiry-1", "inquiry-2"]]])(
     "drops an unsafe or ambiguous inquiry focus",
     async (inquiry) => {
-      render(await HomePage({ searchParams: Promise.resolve({ inquiry }) }))
+      render(
+        await HomePage({
+          params: Promise.resolve({ clinicId: "clinic-1" }),
+          searchParams: Promise.resolve({ inquiry }),
+        }),
+      )
       expect(screen.getByTestId("workspace")).not.toHaveAttribute("data-focus-inquiry-id")
     },
   )

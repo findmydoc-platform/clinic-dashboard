@@ -173,6 +173,7 @@ function isAllowedClinicDashboardServerImport(file) {
       file,
     ) ||
     file === "src/app/api/dashboard/reporting/route.ts" ||
+    file === "src/app/api/dashboard/clinics/[clinicId]/reporting/route.ts" ||
     /^src\/app\/api\/dashboard\/doctors(?:\/\[doctorId\](?:\/image|\/specialties(?:\/\[assignmentId\])?)?)?\/route\.ts$/u.test(
       file,
     ) ||

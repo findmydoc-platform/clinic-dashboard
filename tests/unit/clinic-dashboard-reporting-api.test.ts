@@ -13,12 +13,12 @@ describe("clinic dashboard reporting browser adapter", () => {
         }),
     )
 
-    await expect(loadClinicDashboardReportingFromBrowser(90, fetcher)).resolves.toEqual(
+    await expect(loadClinicDashboardReportingFromBrowser("clinic-1", 90, fetcher)).resolves.toEqual(
       clinicDashboardReportingFixture,
     )
 
     expect(String(fetcher.mock.calls[0]?.[0])).toBe(
-      "http://localhost:3000/api/dashboard/reporting?periodDays=90",
+      "http://localhost:3000/api/dashboard/clinics/clinic-1/reporting?periodDays=90",
     )
     expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
       cache: "no-store",
@@ -34,6 +34,6 @@ describe("clinic dashboard reporting browser adapter", () => {
         new Response(JSON.stringify({ period: { days: 30 }, schemaVersion: "unexpected", timezone: "UTC" })),
     )
 
-    await expect(loadClinicDashboardReportingFromBrowser(30, fetcher)).resolves.toBeUndefined()
+    await expect(loadClinicDashboardReportingFromBrowser("clinic-1", 30, fetcher)).resolves.toBeUndefined()
   })
 })

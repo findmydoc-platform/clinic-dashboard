@@ -97,7 +97,9 @@ describe("patient inquiry BFF integration", () => {
   it("persists an idempotent reply across request-scoped provider composition", async () => {
     const detailResponse = requireResponse(
       await handleInquiryDetailLoad(
-        readRequest("http://localhost:3000/api/dashboard/inquiries/detail?inquiryId=inquiry-lukas-weber"),
+        readRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/detail?inquiryId=inquiry-lukas-weber",
+        ),
       ),
     )
     const detailBody = (await detailResponse.json()) as { inquiry: { revision: number } }
@@ -109,21 +111,31 @@ describe("patient inquiry BFF integration", () => {
     }
     const first = requireResponse(
       await handleInquiryMessageSend(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/messages", "POST", message),
+        signedRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/messages",
+          "POST",
+          message,
+        ),
       ),
     )
     expect(first.status).toBe(200)
 
     const replay = requireResponse(
       await handleInquiryMessageSend(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/messages", "POST", message),
+        signedRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/messages",
+          "POST",
+          message,
+        ),
       ),
     )
     await expect(replay.json()).resolves.toMatchObject({ replayed: true })
 
     const reread = requireResponse(
       await handleInquiryDetailLoad(
-        readRequest("http://localhost:3000/api/dashboard/inquiries/detail?inquiryId=inquiry-lukas-weber"),
+        readRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/detail?inquiryId=inquiry-lukas-weber",
+        ),
       ),
     )
     await expect(reread.json()).resolves.toMatchObject({
@@ -138,12 +150,16 @@ describe("patient inquiry BFF integration", () => {
     const bytes = new TextEncoder().encode("%PDF-1.4\nSynthetic attachment\n%%EOF")
     const draftResponse = requireResponse(
       await handleInquiryAttachmentDraftCreate(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/attachments/drafts", "POST", {
-          fileName: "synthetic-treatment-plan.pdf",
-          inquiryId: "inquiry-lukas-weber",
-          mimeType: "application/pdf",
-          sizeBytes: bytes.byteLength,
-        }),
+        signedRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/attachments/drafts",
+          "POST",
+          {
+            fileName: "synthetic-treatment-plan.pdf",
+            inquiryId: "inquiry-lukas-weber",
+            mimeType: "application/pdf",
+            sizeBytes: bytes.byteLength,
+          },
+        ),
       ),
     )
     expect(draftResponse.status).toBe(200)
@@ -158,7 +174,13 @@ describe("patient inquiry BFF integration", () => {
     const uploadResponse = requireResponse(
       await handleInquiryAttachmentDraftUpload(
         signedBinaryRequest(
-          new URL(draft.upload.url, "http://localhost:3000").toString(),
+          new URL(
+            draft.upload.url.replace(
+              "/api/dashboard/inquiries",
+              "/api/dashboard/clinics/controlled-clinic/inquiries",
+            ),
+            "http://localhost:3000",
+          ).toString(),
           bytes,
           "application/pdf",
         ),
@@ -169,23 +191,31 @@ describe("patient inquiry BFF integration", () => {
 
     const finalizeResponse = requireResponse(
       await handleInquiryAttachmentDraftFinalize(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/attachments/drafts/finalize", "POST", {
-          draftId: draft.draftId,
-          inquiryId: "inquiry-lukas-weber",
-        }),
+        signedRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/attachments/drafts/finalize",
+          "POST",
+          {
+            draftId: draft.draftId,
+            inquiryId: "inquiry-lukas-weber",
+          },
+        ),
       ),
     )
     expect(finalizeResponse.status).toBe(200)
 
     const messageResponse = requireResponse(
       await handleInquiryMessageSend(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/messages", "POST", {
-          attachmentDraftId: draft.draftId,
-          expectedRevision: 4,
-          idempotencyKey: "integration-attachment-message-0001",
-          inquiryId: "inquiry-lukas-weber",
-          text: "Synthetic attachment persisted.",
-        }),
+        signedRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/messages",
+          "POST",
+          {
+            attachmentDraftId: draft.draftId,
+            expectedRevision: 4,
+            idempotencyKey: "integration-attachment-message-0001",
+            inquiryId: "inquiry-lukas-weber",
+            text: "Synthetic attachment persisted.",
+          },
+        ),
       ),
     )
     expect(messageResponse.status).toBe(200)
@@ -198,7 +228,7 @@ describe("patient inquiry BFF integration", () => {
     const previewResponse = requireResponse(
       await handleInquiryAttachmentPreview(
         readRequest(
-          `http://localhost:3000/api/dashboard/inquiries/attachments/preview?attachmentId=${attachment?.id}`,
+          `http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/attachments/preview?attachmentId=${attachment?.id}`,
         ),
       ),
     )
@@ -210,7 +240,7 @@ describe("patient inquiry BFF integration", () => {
     const response = requireResponse(
       await handleInquiryAttachmentDraftUpload(
         new NextRequest(
-          "http://localhost:3000/api/dashboard/inquiries/attachments/drafts/upload?draftId=draft-1",
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/attachments/drafts/upload?draftId=draft-1",
           {
             body: "safe",
             headers: {
@@ -232,14 +262,16 @@ describe("patient inquiry BFF integration", () => {
   it("paginates the authoritative queue without duplicates", async () => {
     const first = requireResponse(
       await handleInquiryQueueLoad(
-        readRequest("http://localhost:3000/api/dashboard/inquiries?lifecycle=all&unreadOnly=false"),
+        readRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries?lifecycle=all&unreadOnly=false",
+        ),
       ),
     )
     const firstBody = (await first.json()) as { inquiries: { id: string }[]; nextCursor?: string }
     const second = requireResponse(
       await handleInquiryQueueLoad(
         readRequest(
-          `http://localhost:3000/api/dashboard/inquiries?lifecycle=all&unreadOnly=false&cursor=${firstBody.nextCursor}`,
+          `http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries?lifecycle=all&unreadOnly=false&cursor=${firstBody.nextCursor}`,
         ),
       ),
     )
@@ -252,7 +284,9 @@ describe("patient inquiry BFF integration", () => {
   it("keeps the actor-personal unread count on an unchanged first-page poll", async () => {
     const first = requireResponse(
       await handleInquiryQueueLoad(
-        readRequest("http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false"),
+        readRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries?lifecycle=open&unreadOnly=false",
+        ),
       ),
     )
     const firstBody = (await first.json()) as {
@@ -262,7 +296,7 @@ describe("patient inquiry BFF integration", () => {
     const unchanged = requireResponse(
       await handleInquiryQueueLoad(
         readRequest(
-          `http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false&knownChangeCursor=${firstBody.changeCursor}`,
+          `http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries?lifecycle=open&unreadOnly=false&knownChangeCursor=${firstBody.changeCursor}`,
         ),
       ),
     )
@@ -279,11 +313,15 @@ describe("patient inquiry BFF integration", () => {
   it("removes spam while keeping the conversation closed", async () => {
     const response = requireResponse(
       await handleInquiryStateChange(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/state", "PATCH", {
-          action: "remove-spam",
-          expectedRevision: 3,
-          inquiryId: "inquiry-spam-sender",
-        }),
+        signedRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/state",
+          "PATCH",
+          {
+            action: "remove-spam",
+            expectedRevision: 3,
+            inquiryId: "inquiry-spam-sender",
+          },
+        ),
       ),
     )
     expect(response.status).toBe(200)
@@ -296,7 +334,7 @@ describe("patient inquiry BFF integration", () => {
     const response = requireResponse(
       await handleInquiryAttachmentPreview(
         readRequest(
-          "http://localhost:3000/api/dashboard/inquiries/attachments/preview?attachmentId=attachment-lukas-1",
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/attachments/preview?attachmentId=attachment-lukas-1",
         ),
       ),
     )
@@ -307,7 +345,7 @@ describe("patient inquiry BFF integration", () => {
   })
 
   it("requires an explicit fresh password step-up before revealing masked contact data", async () => {
-    const revealUrl = "http://localhost:3000/api/dashboard/inquiries/contact/reveal"
+    const revealUrl = "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/contact/reveal"
     const revealBody = { inquiryId: "inquiry-spam-sender" }
     const initial = requireResponse(
       await handleInquiryContactReveal(signedRequest(revealUrl, "POST", revealBody)),
@@ -338,7 +376,10 @@ describe("patient inquiry BFF integration", () => {
   it("returns an unauthorized safe union without a verified session", async () => {
     const response = requireResponse(
       await handleInquiryQueueLoad(
-        readRequest("http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false", false),
+        readRequest(
+          "http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries?lifecycle=open&unreadOnly=false",
+          false,
+        ),
       ),
     )
     expect(response.status).toBe(401)

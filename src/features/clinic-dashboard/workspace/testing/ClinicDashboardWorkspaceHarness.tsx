@@ -40,6 +40,7 @@ import {
   reviewSourceSnapshotFixture,
   reviewsFixture,
 } from "@/features/clinic-dashboard/reviews/testing/public"
+import type { ClinicDashboardSection } from "../model/workspace"
 import type { ClinicDashboardWorkspaceProps } from "../ClinicDashboardWorkspace"
 import {
   ClinicDashboardWorkspaceComposition,
@@ -56,6 +57,7 @@ import {
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
   Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
+    onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
     profileSourceCommands?: ClinicProfileSourceCommands
     reviewCommands?: ReviewSourceCommands
     inquiryCommands?: InquiryWorkspaceCommands
@@ -199,6 +201,10 @@ export const clinicDashboardWorkspaceFixture = {
 } satisfies ClinicDashboardWorkspaceInput
 
 export function ClinicDashboardWorkspaceHarness({
+  authorizedClinics,
+  selectionNotice,
+  initialSection,
+  onClinicChange,
   focusInquiryId,
   inquiryCommands,
   reviewCommands: suppliedReviewCommands,
@@ -224,6 +230,9 @@ export function ClinicDashboardWorkspaceHarness({
     <>
       <ClinicDashboardWorkspaceComposition
         authenticatedContext={authenticatedClinicContextFixture}
+        authorizedClinics={authorizedClinics}
+        selectionNotice={selectionNotice}
+        onClinicChange={onClinicChange}
         clinicGalleryCommands={clinicGalleryCommands}
         clinicProfileSourceCommands={profileSourceCommands ?? clinicProfileSourceCommands}
         clinicTreatmentCommands={clinicTreatmentCommands}
@@ -247,7 +256,7 @@ export function ClinicDashboardWorkspaceHarness({
         reportingDemo={reportingDemo}
         reviewCommands={suppliedReviewCommands ?? reviewCommands}
         showPrototypeModeToggle={showPrototypeModeToggle}
-        start={start}
+        start={start ?? { section: initialSection }}
         workspaceInput={{
           ...clinicDashboardWorkspaceFixture,
           profileProgress:

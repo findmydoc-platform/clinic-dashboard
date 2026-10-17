@@ -6,6 +6,7 @@ import {
   createClinicDashboardReturnTarget,
   submitClinicDashboardAuthAction,
   type AuthenticatedClinicContext,
+  type AuthorizedClinic,
 } from "@/features/clinic-dashboard/auth/public"
 import {
   ClinicProfile,
@@ -68,6 +69,7 @@ import {
   type ClinicDashboardWorkspaceInput,
 } from "./model/workspace-input"
 import { selectClinicDashboardNavigationItems, selectSafeClinicDashboardSection } from "./navigation"
+import { clinicScopeConversions } from "./model/clinic-scope-conversions"
 import { useEditorDepartureGuard } from "./useEditorDepartureGuard"
 import { useClinicDashboardController } from "./useClinicDashboardController"
 
@@ -87,6 +89,9 @@ export type ClinicDashboardWorkspaceStartState =
 
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
+  authorizedClinics?: readonly AuthorizedClinic[]
+  selectionNotice?: string
+  onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
   clinicGalleryCommands: ClinicGalleryCommands
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
@@ -111,6 +116,9 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
 
 export function ClinicDashboardWorkspaceComposition({
   authenticatedContext,
+  authorizedClinics,
+  selectionNotice,
+  onClinicChange,
   clinicGalleryCommands,
   clinicProfileSourceCommands,
   clinicTreatmentCommands,
@@ -245,6 +253,7 @@ export function ClinicDashboardWorkspaceComposition({
     .join("")
 
   const dashboard = useDashboardOverviewController({
+    clinicId: authenticatedContext.clinic.id,
     initialReporting: initialReporting ?? { status: "temporarily-unavailable" },
     loadReporting,
     profileProgress,
@@ -267,19 +276,26 @@ export function ClinicDashboardWorkspaceComposition({
     profileProgress,
     snapshot: reportingDemo,
   })
-  const clinicLocations = reportingDemo
-    ? workspaceInput.locations
-    : [
-        {
-          id: authenticatedContext.clinic.id,
-          name: authenticatedContext.clinic.name,
-          location:
-            dashboard.model.clinicPreview.status === "available"
-              ? dashboard.model.clinicPreview.location
-              : "",
-          selectorLabel: authenticatedContext.clinic.name,
-        },
-      ]
+  const clinicLocations = authorizedClinics
+    ? authorizedClinics.map((clinic) => ({
+        id: clinic.id,
+        name: clinic.name,
+        location: "",
+        selectorLabel: clinic.name,
+      }))
+    : reportingDemo
+      ? workspaceInput.locations
+      : [
+          {
+            id: authenticatedContext.clinic.id,
+            name: authenticatedContext.clinic.name,
+            location:
+              dashboard.model.clinicPreview.status === "available"
+                ? dashboard.model.clinicPreview.location
+                : "",
+            selectorLabel: authenticatedContext.clinic.name,
+          },
+        ]
 
   const signOut = async () => {
     if (
@@ -350,12 +366,13 @@ export function ClinicDashboardWorkspaceComposition({
 
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
     if (locationId === selectedLocation.id) return
-    const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
+    const nextLocation = getClinicDashboardLocation(clinicLocations, locationId)
 
     requestDeparture("context-change", () => {
       cancelOpening()
       setGalleryProjection(undefined)
-      actions.selectLocation(locationId, nextLocation.name)
+      if (onClinicChange) onClinicChange(locationId, activeSection)
+      else actions.selectLocation(locationId, nextLocation.name)
     })
   }
 
@@ -379,7 +396,11 @@ export function ClinicDashboardWorkspaceComposition({
       environmentBadge={reportingDemo ? "Reporting demo" : undefined}
       clinicIdentity={
         <ClinicLocationSelector
-          canSwitchLocations={reportingDemo !== undefined && capabilities.canSwitchLocations}
+          canSwitchLocations={
+            authorizedClinics
+              ? authorizedClinics.length > 1
+              : reportingDemo !== undefined && capabilities.canSwitchLocations
+          }
           isDemoData={reportingDemo !== undefined}
           locations={clinicLocations}
           onValueChange={selectLocation}
@@ -449,6 +470,11 @@ export function ClinicDashboardWorkspaceComposition({
           : undefined
       }
     >
+      {selectionNotice ? (
+        <p role="status" className="mb-4 rounded-lg border border-[var(--border)] p-4">
+          {selectionNotice}
+        </p>
+      ) : null}
       <p aria-live="polite" className="sr-only" role="status">
         {model.locationAnnouncement}
       </p>
@@ -488,73 +514,96 @@ export function ClinicDashboardWorkspaceComposition({
         )
       ) : null}
       <div hidden={activeSection !== "messages"}>
-        <InquiryQueue
-          commands={inquiryCommands}
-          key={scope}
-          openingRequest={inquiryOpeningRequest?.scope === scope ? inquiryOpeningRequest.request : undefined}
-          onOpeningResult={onInquiryOpeningResult}
-          focusHeading={model.messageFocusTarget === "heading"}
-          focusInquiryId={focusInquiryId}
-          isActive={activeSection === "messages"}
-          onDraftPresenceChange={setHasUnsavedInquiryDrafts}
-          onNavigationRequestChange={setInquiryRequest}
-          onFocusHandled={actions.clearMessageFocusRequest}
-          onSessionLost={handleInquirySessionLoss}
-          onUnreadCountChange={setInquiryUnreadCount}
-          snapshot={workspaceInput.inquiryQueue}
-        />
+        {authorizedClinics && !clinicScopeConversions.inquiries ? (
+          <FutureAreaPlaceholderScreen
+            heading="Inquiries"
+            description="Inquiries for this clinic are currently unavailable."
+          />
+        ) : (
+          <InquiryQueue
+            commands={inquiryCommands}
+            key={scope}
+            openingRequest={
+              inquiryOpeningRequest?.scope === scope ? inquiryOpeningRequest.request : undefined
+            }
+            onOpeningResult={onInquiryOpeningResult}
+            focusHeading={model.messageFocusTarget === "heading"}
+            focusInquiryId={focusInquiryId}
+            isActive={activeSection === "messages"}
+            onDraftPresenceChange={setHasUnsavedInquiryDrafts}
+            onNavigationRequestChange={setInquiryRequest}
+            onFocusHandled={actions.clearMessageFocusRequest}
+            onSessionLost={handleInquirySessionLoss}
+            onUnreadCountChange={setInquiryUnreadCount}
+            snapshot={workspaceInput.inquiryQueue}
+          />
+        )}
       </div>
       <div hidden={activeSection !== "reviews"}>
-        <Reviews
-          key={scope}
-          isActive={activeSection === "reviews"}
-          openingRequest={reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : undefined}
-          onOpeningResult={onReviewOpeningResult}
-          onSessionLost={handleInquirySessionLoss}
-          onNavigationRequestChange={setReviewRequest}
-          commands={reviewCommands}
-          focusTarget={model.reviewFocusTarget}
-          onFocusHandled={actions.clearReviewFocusRequest}
-          showManagement={capabilities.canManageReviews}
-          snapshot={workspaceInput.reviewSourceSnapshot}
-        />
+        {authorizedClinics && !clinicScopeConversions.reviews ? (
+          <FutureAreaPlaceholderScreen
+            heading="Reviews"
+            description="Reviews for this clinic are currently unavailable."
+          />
+        ) : (
+          <Reviews
+            key={scope}
+            isActive={activeSection === "reviews"}
+            openingRequest={reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : undefined}
+            onOpeningResult={onReviewOpeningResult}
+            onSessionLost={handleInquirySessionLoss}
+            onNavigationRequestChange={setReviewRequest}
+            commands={reviewCommands}
+            focusTarget={model.reviewFocusTarget}
+            onFocusHandled={actions.clearReviewFocusRequest}
+            showManagement={capabilities.canManageReviews}
+            snapshot={workspaceInput.reviewSourceSnapshot}
+          />
+        )}
       </div>
       <div hidden={activeSection !== "profile"}>
-        <ClinicProfile
-          onNavigationRequestChange={setProfileRequest}
-          galleryCommands={clinicGalleryCommands}
-          galleryManagement={galleryManagement}
-          galleryStatus={effectiveGalleryStatus}
-          gallerySnapshot={effectiveGallerySnapshot}
-          doctorCommands={doctorProfileCommands}
-          doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
-          doctorManagement={capabilities.teamManagement}
-          focusTarget={model.profileFocusTarget}
-          initialDialog={
-            model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined
-          }
-          key={selectedLocation.id}
-          onFocusHandled={actions.clearProfileFocusRequest}
-          onGallerySaved={(snapshot) => {
-            setGalleryProjection(snapshot)
-            onSourceRefresh()
-          }}
-          onGalleryNavigationRequestChange={setGalleryRequest}
-          onDoctorsChange={(doctors) => {
-            const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
-            if (source.status !== "ready") return
-            setDoctorDirectoryProjection({ ...source, doctors })
-          }}
-          onSourceProfileChanged={onSourceRefresh}
-          onTreatmentSaved={onSourceRefresh}
-          onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
-          sourceProfileManagement={sourceProfileManagement}
-          sourceCommands={clinicProfileSourceCommands}
-          sourceSnapshot={workspaceInput.profileSourceSnapshot}
-          treatmentCommands={clinicTreatmentCommands}
-          treatmentManagement={treatmentManagement}
-          treatmentSnapshot={workspaceInput.treatmentSnapshot}
-        />
+        {authorizedClinics && !clinicScopeConversions.profile ? (
+          <FutureAreaPlaceholderScreen
+            heading="Clinic profile"
+            description="The profile for this clinic is currently unavailable."
+          />
+        ) : (
+          <ClinicProfile
+            onNavigationRequestChange={setProfileRequest}
+            galleryCommands={clinicGalleryCommands}
+            galleryManagement={galleryManagement}
+            galleryStatus={effectiveGalleryStatus}
+            gallerySnapshot={effectiveGallerySnapshot}
+            doctorCommands={doctorProfileCommands}
+            doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
+            doctorManagement={capabilities.teamManagement}
+            focusTarget={model.profileFocusTarget}
+            initialDialog={
+              model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined
+            }
+            key={selectedLocation.id}
+            onFocusHandled={actions.clearProfileFocusRequest}
+            onGallerySaved={(snapshot) => {
+              setGalleryProjection(snapshot)
+              onSourceRefresh()
+            }}
+            onGalleryNavigationRequestChange={setGalleryRequest}
+            onDoctorsChange={(doctors) => {
+              const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
+              if (source.status !== "ready") return
+              setDoctorDirectoryProjection({ ...source, doctors })
+            }}
+            onSourceProfileChanged={onSourceRefresh}
+            onTreatmentSaved={onSourceRefresh}
+            onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
+            sourceProfileManagement={sourceProfileManagement}
+            sourceCommands={clinicProfileSourceCommands}
+            sourceSnapshot={workspaceInput.profileSourceSnapshot}
+            treatmentCommands={clinicTreatmentCommands}
+            treatmentManagement={treatmentManagement}
+            treatmentSnapshot={workspaceInput.treatmentSnapshot}
+          />
+        )}
       </div>
       {activeSection === "subscriptions" && capabilities.showSubscriptionsPlaceholder ? (
         <FutureAreaPlaceholderScreen

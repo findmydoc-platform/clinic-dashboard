@@ -36,7 +36,7 @@ const provider = {
 const createProvider = vi.fn(() => provider) satisfies ClinicGalleryProviderFactory
 
 function controlledRequest(method: "GET" | "POST" | "PUT", body?: BodyInit, contentType?: string) {
-  const endpoint = new URL("http://localhost:3000/api/dashboard/gallery")
+  const endpoint = new URL("http://localhost:3000/api/dashboard/clinics/controlled-clinic/gallery")
   const init = {
     body,
     headers: { ...(contentType ? { "content-type": contentType } : {}), origin: "http://localhost:3000" },

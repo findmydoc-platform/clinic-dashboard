@@ -3,8 +3,8 @@ import "server-only"
 import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
 import { CLINIC_DASHBOARD_CONTRACT_HEADER_NAME, clinicDashboardContractHeaders } from "../../payload-contract"
 import {
-  authenticatedClinicContextSchema,
-  type AuthenticatedClinicContext,
+  clinicScopeBootstrapSchema,
+  type ClinicScopeBootstrap,
   type ClinicDashboardAccessResult,
 } from "../model/auth"
 
@@ -14,8 +14,8 @@ const BOOTSTRAP_ERROR_CODES = {
   503: "CLINIC_DASHBOARD_TEMPORARILY_UNAVAILABLE",
 } as const
 
-const controlledAuthenticatedClinicContext = (): AuthenticatedClinicContext => ({
-  capabilities: [
+const controlledAuthenticatedClinicContext = (accessToken: string): ClinicScopeBootstrap => {
+  const capabilities = [
     "clinic-profile:view",
     "clinic-profile:edit",
     "clinic-gallery:view",
@@ -24,22 +24,32 @@ const controlledAuthenticatedClinicContext = (): AuthenticatedClinicContext => (
     "clinic-treatments:edit",
     "clinic-inquiries:view",
     "clinic-inquiries:edit",
-  ],
-  clinic: {
+  ] as const
+  const clinic = {
     id: isLocalInquiryAcceptanceMode()
       ? (process.env.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_ID ?? "")
       : "controlled-clinic",
     name: isLocalInquiryAcceptanceMode()
       ? (process.env.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_CLINIC_NAME ?? "")
       : "Controlled Clinic",
-  },
-  principal: {
-    displayName: "Alex Morgan",
-    email: "clinic-staff@example.com",
-    id: "controlled-clinic-staff",
-  },
-  status: "approved",
-})
+    capabilities,
+  }
+  return {
+    schemaVersion: "clinic-scope-v1",
+    principal: {
+      displayName: "Alex Morgan",
+      email: "clinic-staff@example.com",
+      id: "controlled-clinic-staff",
+    },
+    status: "approved",
+    clinics:
+      accessToken === "controlled-empty"
+        ? []
+        : accessToken === "controlled-many"
+          ? [clinic, { id: "controlled-second-clinic", name: "Second Controlled Clinic", capabilities }]
+          : [clinic],
+  }
+}
 
 function hasPrivateBootstrapHeaders(response: Response) {
   const cacheControl = response.headers.get("cache-control")?.toLowerCase() ?? ""
@@ -54,7 +64,8 @@ function hasPrivateBootstrapHeaders(response: Response) {
     cacheControl.includes("private") &&
     cacheControl.includes("no-store") &&
     varyFields.has("authorization") &&
-    varyFields.has(CLINIC_DASHBOARD_CONTRACT_HEADER_NAME.toLowerCase())
+    varyFields.has(CLINIC_DASHBOARD_CONTRACT_HEADER_NAME.toLowerCase()) &&
+    varyFields.has("x-findmydoc-clinic-scope-contract")
   )
 }
 
@@ -75,7 +86,7 @@ export async function fetchClinicDashboardBootstrap(
   if (isControlledAuthTestMode()) {
     if (accessToken === "controlled-denied") return { status: "denied" }
     if (accessToken === "controlled-outage") return { status: "temporarily-unavailable" }
-    return { context: controlledAuthenticatedClinicContext(), status: "approved" }
+    return { context: controlledAuthenticatedClinicContext(accessToken), status: "approved" }
   }
 
   const environment = validateEnvironment()
@@ -101,7 +112,7 @@ export async function fetchClinicDashboardBootstrap(
 
   if (response.ok) {
     const body: unknown = await response.json().catch(() => null)
-    const parsed = authenticatedClinicContextSchema.safeParse(body)
+    const parsed = clinicScopeBootstrapSchema.safeParse(body)
     return parsed.success
       ? { context: parsed.data, status: "approved" }
       : { status: "temporarily-unavailable" }

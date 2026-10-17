@@ -62,7 +62,11 @@ export async function getClinicDashboardSession(
                 ? "controlled-outage"
                 : isLocalInquiryAcceptanceMode()
                   ? (process.env.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN ?? "")
-                  : "controlled-access-token",
+                  : cookieSource.get("clinic_dashboard_controlled_clinics")?.value === "many"
+                    ? "controlled-many"
+                    : cookieSource.get("clinic_dashboard_controlled_clinics")?.value === "empty"
+                      ? "controlled-empty"
+                      : "controlled-access-token",
           email: "clinic-staff@example.com",
           isClinicAccount: true,
           subject: "controlled-clinic-staff",

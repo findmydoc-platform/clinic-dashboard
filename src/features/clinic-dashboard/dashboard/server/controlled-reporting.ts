@@ -104,10 +104,28 @@ function createControlledReporting(periodDays: ClinicDashboardReportingPeriodDay
   }
 }
 
-export function createControlledClinicDashboardReportingProvider(): ClinicDashboardReportingProvider {
+export function createControlledClinicDashboardReportingProvider(
+  clinicId = "controlled-clinic",
+): ClinicDashboardReportingProvider {
   return {
     async loadReporting(periodDays) {
-      return { ok: true, value: createControlledReporting(periodDays) }
+      const reporting = createControlledReporting(periodDays)
+      if (clinicId === "controlled-second-clinic") {
+        return {
+          ok: true,
+          value: {
+            ...reporting,
+            metrics: {
+              ...reporting.metrics,
+              profileViews: {
+                ...reporting.metrics.profileViews,
+                current: { ...reporting.metrics.profileViews.current, value: periodDays === 7 ? 17 : 109 },
+              },
+            },
+          },
+        }
+      }
+      return { ok: true, value: reporting }
     },
   }
 }

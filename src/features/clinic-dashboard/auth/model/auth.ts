@@ -18,7 +18,7 @@ const clinicDashboardCapabilitiesSchema = z
   })
   .readonly()
 
-export const authenticatedClinicContextSchema = z.object({
+const authenticatedClinicContextSchema = z.object({
   capabilities: clinicDashboardCapabilitiesSchema.readonly(),
   clinic: z.object({
     id: z.string().min(1),
@@ -31,6 +31,33 @@ export const authenticatedClinicContextSchema = z.object({
   }),
   status: z.literal("approved"),
 })
+
+export const clinicScopeBootstrapSchema = z
+  .object({
+    schemaVersion: z.literal("clinic-scope-v1"),
+    principal: authenticatedClinicContextSchema.shape.principal,
+    status: z.literal("approved"),
+    clinics: z
+      .array(
+        z
+          .object({
+            id: z
+              .string()
+              .min(1)
+              .max(100)
+              .regex(/^[A-Za-z0-9._~-]+$/u),
+            name: z.string().trim().min(1),
+            capabilities: clinicDashboardCapabilitiesSchema,
+          })
+          .strict(),
+      )
+      .refine((clinics) => new Set(clinics.map(({ id }) => id)).size === clinics.length, {
+        message: "Clinic IDs must be unique.",
+      }),
+  })
+  .strict()
+export type ClinicScopeBootstrap = z.infer<typeof clinicScopeBootstrapSchema>
+export type AuthorizedClinic = ClinicScopeBootstrap["clinics"][number]
 
 export type ClinicDashboardCapability = z.infer<typeof clinicDashboardCapabilitySchema>
 export type AuthenticatedClinicContext = z.infer<typeof authenticatedClinicContextSchema>
@@ -50,7 +77,7 @@ const clinicDashboardAuthErrorCodes = [
 export type ClinicDashboardAuthErrorCode = (typeof clinicDashboardAuthErrorCodes)[number]
 
 export type ClinicDashboardAccessResult =
-  | Readonly<{ context: AuthenticatedClinicContext; status: "approved" }>
+  | Readonly<{ context: ClinicScopeBootstrap; status: "approved" }>
   | Readonly<{ status: "denied" | "temporarily-unavailable" | "unauthenticated" | "unauthorized" }>
 
 export type ClinicDashboardEmailFlow = "invite" | "recovery"
@@ -58,7 +85,7 @@ export type ClinicDashboardEmailFlow = "invite" | "recovery"
 const inquiryDeepLinkPattern = /^[A-Za-z0-9._~-]{1,100}$/u
 const inquiryReturnTargetPattern = /^\/\?inquiry=([A-Za-z0-9._~-]{1,100})$/u
 
-export type ClinicDashboardReturnTarget = "/" | `/?inquiry=${string}`
+export type ClinicDashboardReturnTarget = "/" | `/?inquiry=${string}` | `/clinics/${string}`
 
 export function parseInquiryDeepLink(value: string | readonly string[] | undefined) {
   return typeof value === "string" && inquiryDeepLinkPattern.test(value) ? value : undefined
@@ -70,7 +97,11 @@ export function createClinicDashboardReturnTarget(inquiryId?: string): ClinicDas
 
 export function parseClinicDashboardReturnTarget(value: unknown): ClinicDashboardReturnTarget | undefined {
   if (value === "/") return value
-  return typeof value === "string" && inquiryReturnTargetPattern.test(value)
+  return typeof value === "string" &&
+    (inquiryReturnTargetPattern.test(value) ||
+      /^\/clinics\/[A-Za-z0-9._~-]{1,100}(?:\?section=(?:dashboard|messages|reviews|profile|subscriptions|certificates-accreditations))?$/u.test(
+        value,
+      ))
     ? (value as ClinicDashboardReturnTarget)
     : undefined
 }
@@ -79,7 +110,21 @@ export function createClinicDashboardLoginPath(returnTarget: ClinicDashboardRetu
   return returnTarget === "/" ? "/login" : `/login?next=${encodeURIComponent(returnTarget)}`
 }
 
-export function createClinicDashboardLoginPathForRequest(pathname: string, inquiryValues: readonly string[]) {
+export function createClinicDashboardLoginPathForRequest(
+  pathname: string,
+  inquiryValues: readonly string[],
+  sectionValues: readonly string[] = [],
+) {
+  if (/^\/clinics\/[A-Za-z0-9._~-]{1,100}$/u.test(pathname)) {
+    const section =
+      sectionValues.length === 1 &&
+      /^(?:dashboard|messages|reviews|profile|subscriptions|certificates-accreditations)$/u.test(
+        sectionValues[0] ?? "",
+      )
+        ? `?section=${sectionValues[0]}`
+        : ""
+    return createClinicDashboardLoginPath(`${pathname}${section}` as ClinicDashboardReturnTarget)
+  }
   const inquiryId =
     pathname === "/" && inquiryValues.length === 1 ? parseInquiryDeepLink(inquiryValues[0]) : undefined
   return createClinicDashboardLoginPath(createClinicDashboardReturnTarget(inquiryId))

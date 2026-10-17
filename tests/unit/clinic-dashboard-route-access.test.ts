@@ -31,8 +31,8 @@ const request = new NextRequest("http://localhost:3000/api/dashboard/profile")
 function approvedAccess(capabilities: readonly ("clinic-profile:edit" | "clinic-profile:view")[]) {
   return {
     context: {
-      capabilities,
-      clinic: { id: "clinic-1", name: "Clinic One" },
+      schemaVersion: "clinic-scope-v1",
+      clinics: [{ id: "clinic-1", name: "Clinic One", capabilities }],
       principal: {
         displayName: "Alex Morgan",
         email: "alex@example.com",
@@ -58,11 +58,15 @@ describe("clinic dashboard route access", () => {
   it("allows view-only staff to read but not edit the profile", async () => {
     mocks.resolveAccessForSession.mockResolvedValue(approvedAccess(["clinic-profile:view"]))
 
-    await expect(resolveClinicDashboardRouteAccess(request, "clinic-profile:view")).resolves.toMatchObject({
+    await expect(
+      resolveClinicDashboardRouteAccess(request, "clinic-profile:view", "clinic-1"),
+    ).resolves.toMatchObject({
       clinicId: "clinic-1",
       status: "approved",
     })
-    await expect(resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")).resolves.toMatchObject({
+    await expect(
+      resolveClinicDashboardRouteAccess(request, "clinic-profile:edit", "clinic-1"),
+    ).resolves.toMatchObject({
       status: "denied",
     })
   })
@@ -70,12 +74,25 @@ describe("clinic dashboard route access", () => {
   it("does not imply view permission from edit permission", async () => {
     mocks.resolveAccessForSession.mockResolvedValue(approvedAccess(["clinic-profile:edit"]))
 
-    await expect(resolveClinicDashboardRouteAccess(request, "clinic-profile:view")).resolves.toMatchObject({
+    await expect(
+      resolveClinicDashboardRouteAccess(request, "clinic-profile:view", "clinic-1"),
+    ).resolves.toMatchObject({
       status: "denied",
     })
-    await expect(resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")).resolves.toMatchObject({
+    await expect(
+      resolveClinicDashboardRouteAccess(request, "clinic-profile:edit", "clinic-1"),
+    ).resolves.toMatchObject({
       clinicId: "clinic-1",
       status: "approved",
     })
+  })
+  it("keeps unconverted targetless routes and foreign clinic paths closed", async () => {
+    mocks.resolveAccessForSession.mockResolvedValue(
+      approvedAccess(["clinic-profile:view", "clinic-profile:edit"]),
+    )
+    await expect(resolveClinicDashboardRouteAccess(request)).resolves.toMatchObject({ status: "denied" })
+    await expect(
+      resolveClinicDashboardRouteAccess(request, undefined, "foreign-clinic"),
+    ).resolves.toMatchObject({ status: "denied" })
   })
 })

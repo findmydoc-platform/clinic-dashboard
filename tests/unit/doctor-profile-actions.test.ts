@@ -63,7 +63,7 @@ function pngBytes(size = 8) {
 }
 
 function imageRequest(mimeType = "image/png", bytes = pngBytes()) {
-  const url = "http://localhost:3000/api/dashboard/doctors/doctor-1/image"
+  const url = "http://localhost:3000/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/image"
   const base = new NextRequest(url, {
     body: new FormData(),
     headers: { origin: "http://localhost:3000" },
@@ -135,7 +135,7 @@ describe("Doctor profile mutations", () => {
 
   it("creates a doctor through the request-scoped clinic provider", async () => {
     const response = await handleDoctorCreate(
-      jsonRequest("/api/dashboard/doctors", {
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors", {
         biography: "Doctor biography.",
         experienceYears: 8,
         firstName: "Amelia",
@@ -165,7 +165,7 @@ describe("Doctor profile mutations", () => {
 
   it("updates active state and an existing specialty without exposing clinic identity", async () => {
     const updateResponse = await handleDoctorUpdate(
-      jsonRequest("/api/dashboard/doctors/doctor-1", { active: true }, "PATCH"),
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors/doctor-1", { active: true }, "PATCH"),
       "doctor-1",
       createProvider,
     )
@@ -173,7 +173,7 @@ describe("Doctor profile mutations", () => {
     expect(providerMocks.updateDoctor).toHaveBeenCalledWith("doctor-1", { active: true })
 
     const specialtyResponse = await handleDoctorSpecialtyCreate(
-      jsonRequest("/api/dashboard/doctors/doctor-1/specialties", {
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/specialties", {
         medicalSpecialtyId: "specialty-1",
         specializationLevel: "specialist",
       }),
@@ -235,7 +235,7 @@ describe("Doctor profile mutations", () => {
 
   it("rejects invalid data before provider composition and maps conflicts", async () => {
     const invalid = await handleDoctorCreate(
-      jsonRequest("/api/dashboard/doctors", {
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors", {
         experienceYears: -1,
         firstName: "Amelia",
         gender: "female",
@@ -250,7 +250,7 @@ describe("Doctor profile mutations", () => {
 
     providerMocks.updateDoctor.mockResolvedValueOnce({ error: "conflict", ok: false })
     const conflict = await handleDoctorUpdate(
-      jsonRequest("/api/dashboard/doctors/doctor-1", { active: true }, "PATCH"),
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors/doctor-1", { active: true }, "PATCH"),
       "doctor-1",
       createProvider,
     )
@@ -259,7 +259,7 @@ describe("Doctor profile mutations", () => {
 
     providerMocks.updateDoctor.mockResolvedValueOnce({ error: "invalid-input", ok: false })
     const invalidUpstreamInput = await handleDoctorUpdate(
-      jsonRequest("/api/dashboard/doctors/doctor-1", { active: true }, "PATCH"),
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors/doctor-1", { active: true }, "PATCH"),
       "doctor-1",
       createProvider,
     )

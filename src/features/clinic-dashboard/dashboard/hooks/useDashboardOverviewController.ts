@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { createDashboardOverview } from "../dashboard-overview.mapper"
 import type {
   ClinicDashboardReporting,
@@ -13,6 +13,7 @@ import { useClinicDashboardReportingController } from "./useClinicDashboardRepor
 import { loadClinicDashboardReportingFromBrowser } from "../browser/reporting-api"
 
 type DashboardOverviewControllerInput = Readonly<{
+  clinicId?: string
   initialReporting: ClinicDashboardReportingLoadState
   profileProgress: DashboardProfileProgressState
   clinicPreview: DashboardClinicPreview
@@ -20,12 +21,21 @@ type DashboardOverviewControllerInput = Readonly<{
 }>
 
 export function useDashboardOverviewController({
+  clinicId,
   initialReporting,
   profileProgress,
   clinicPreview,
-  loadReporting = loadClinicDashboardReportingFromBrowser,
+  loadReporting,
 }: DashboardOverviewControllerInput) {
-  const reporting = useClinicDashboardReportingController({ initialReporting, loadReporting })
+  const defaultLoadReporting = useCallback(
+    (days: ClinicDashboardReportingPeriodDays) =>
+      clinicId ? loadClinicDashboardReportingFromBrowser(clinicId, days) : Promise.resolve(undefined),
+    [clinicId],
+  )
+  const reporting = useClinicDashboardReportingController({
+    initialReporting,
+    loadReporting: loadReporting ?? defaultLoadReporting,
+  })
   const [selectedMetricId, selectMetric] = useState<DashboardJourneyStageId>("profileViews")
   return {
     actions: { ...reporting.actions, selectMetric },

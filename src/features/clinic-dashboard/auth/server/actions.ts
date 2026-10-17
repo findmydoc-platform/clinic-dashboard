@@ -222,7 +222,10 @@ export async function handleClinicDashboardReauthenticate(request: NextRequest) 
     if (access.status === "temporarily-unavailable") {
       return errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503)
     }
-    if (access.status !== "approved" || !access.context.capabilities.includes("clinic-inquiries:view")) {
+    if (
+      access.status !== "approved" ||
+      !access.context.clinics.some((clinic) => clinic.capabilities.includes("clinic-inquiries:view"))
+    ) {
       return errorResponse("REQUEST_REJECTED", 403)
     }
     if (parsed.data.password !== environment.CLINIC_DASHBOARD_TEST_PASSWORD) {
@@ -245,7 +248,7 @@ export async function handleClinicDashboardReauthenticate(request: NextRequest) 
   }
   if (
     currentAccess.status !== "approved" ||
-    !currentAccess.context.capabilities.includes("clinic-inquiries:view")
+    !currentAccess.context.clinics.some((clinic) => clinic.capabilities.includes("clinic-inquiries:view"))
   ) {
     return applyClient(errorResponse("REQUEST_REJECTED", 403), routeClient)
   }
