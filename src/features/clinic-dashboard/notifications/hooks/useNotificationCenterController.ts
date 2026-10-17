@@ -299,7 +299,7 @@ export function useNotificationCenterController(
           automaticRefresh()
         }
       },
-      Math.max(0, wakeAt - Date.now()),
+      Math.min(2_147_483_647, Math.max(0, wakeAt - Date.now())),
     )
     return () => window.clearTimeout(timer)
   }, [countDeadline, nextExpiry, now])
@@ -373,7 +373,10 @@ export function useNotificationCenterController(
     setMarking({ status: "idle" })
     let outcome
     try {
-      outcome = await onDestinationOpen({ requestId, destination: item.destination }, abort.signal)
+      outcome = await onDestinationOpen(
+        { requestId, clinicId: item.clinic.id, destination: item.destination },
+        abort.signal,
+      )
     } catch {
       outcome = "unavailable" as const
     }

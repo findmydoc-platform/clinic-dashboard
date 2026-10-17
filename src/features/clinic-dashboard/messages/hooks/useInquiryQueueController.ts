@@ -33,6 +33,7 @@ const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 const acceptedAttachmentTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"])
 
 type UseInquiryQueueControllerInput = Readonly<{
+  clinicId: string
   commands: InquiryWorkspaceCommands
   isActive?: boolean
   onSessionLost?: (inquiryId?: string) => void
@@ -97,6 +98,7 @@ function latestVisibleActivityId(inquiry: PatientInquiryDetail) {
 
 export function useInquiryQueueController({
   commands,
+  clinicId,
   isActive = true,
   onSessionLost,
   reauthenticateSession = reauthenticationUnavailable,
@@ -128,11 +130,16 @@ export function useInquiryQueueController({
       Object.fromEntries(
         (model.selectedInquiry?.timeline ?? []).flatMap((item) =>
           item.kind === "external-message" && item.attachment
-            ? [[item.attachment.id, createInquiryAttachmentAccessPaths(item.attachment.id)] as const]
+            ? [
+                [
+                  item.attachment.id,
+                  createInquiryAttachmentAccessPaths(item.attachment.id, clinicId),
+                ] as const,
+              ]
             : [],
         ),
       ),
-    [model.selectedInquiry],
+    [model.selectedInquiry, clinicId],
   )
 
   useEffect(() => {

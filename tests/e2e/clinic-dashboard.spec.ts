@@ -10,8 +10,10 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/login$/)
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill(testDashboardPassword)
-  await page.getByRole("button", { name: "Sign in" }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await Promise.all([
+    page.waitForURL(/\/clinics\/controlled-clinic\?section=dashboard$/),
+    page.getByRole("button", { name: "Sign in" }).click(),
+  ])
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   await page.waitForLoadState("networkidle")
 }
@@ -89,7 +91,7 @@ test("loads controlled reporting through the request-bound BFF when the selected
   const reportingRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
-    if (url.pathname === "/api/dashboard/reporting") {
+    if (url.pathname === "/api/dashboard/clinics/controlled-clinic/reporting") {
       reportingRequests.push(`${url.pathname}${url.search}`)
     }
   })
@@ -105,7 +107,9 @@ test("loads controlled reporting through the request-bound BFF when the selected
   await page.getByRole("button", { name: "90 days" }).click()
   await expect(reportingMetrics.getByText("902", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect.poll(() => reportingRequests).toEqual(["/api/dashboard/reporting?periodDays=90"])
+  await expect
+    .poll(() => reportingRequests)
+    .toEqual(["/api/dashboard/clinics/controlled-clinic/reporting?periodDays=90"])
 })
 
 test("retains the selected period and metric through review and notification navigation", async ({

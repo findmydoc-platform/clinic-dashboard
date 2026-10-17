@@ -48,7 +48,7 @@ test("renders authorized restriction, restoration and final appeal from real sou
   await page.screenshot({ fullPage: true, path: "output/playwright/206-restriction-desktop.png" })
   const opened = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/inquiries/detail" &&
+      /^\/api\/dashboard\/clinics\/[^/]+\/inquiries\/detail$/u.test(new URL(response.url()).pathname) &&
       response.request().method() === "GET",
   )
   await center.getByRole("button", { name: "Open Inquiry restricted from Ada Patient" }).click()

@@ -36,7 +36,6 @@ import type { NotificationProvider } from "./notifications/server/notification-p
 export type ClinicDashboardDataProviders = Readonly<{
   doctors: DoctorProfileProvider
   gallery: ClinicGalleryProvider
-  notifications: NotificationProvider
   inquiries: PatientInquiryProvider
   inquiryAttachmentDraftUpload?: PatientInquiryAttachmentDraftUpload
   profile: ClinicProfileProvider
@@ -67,10 +66,6 @@ export function composeClinicDashboardDataProviders(
     gallery: controlled
       ? createControlledClinicGalleryProvider(clinicId)
       : createPayloadClinicGalleryProvider(accessToken, clinicId),
-    notifications:
-      controlled && !localInquiryAcceptance
-        ? createControlledNotificationProvider(accessToken, clinicId)
-        : createPayloadNotificationProvider(accessToken, clinicId, fetch, validatedEnvironment),
     inquiries:
       controlled && !localInquiryAcceptance
         ? createControlledPatientInquiryProvider(clinicId)
@@ -92,4 +87,18 @@ export function composeClinicDashboardDataProviders(
       ? createControlledClinicTreatmentProvider(clinicId)
       : createPayloadClinicTreatmentProvider(accessToken, clinicId),
   }
+}
+
+export function composeClinicDashboardPersonalNotifications(
+  accessToken: string,
+  principalId: string,
+  clinicIds: readonly string[],
+  environment: Record<string, string | undefined> = process.env,
+): NotificationProvider {
+  if (!accessToken.trim() || !principalId.trim())
+    throw new Error("A verified personal clinic session is required")
+  const validated = validateEnvironment(environment)
+  return isControlledAuthTestMode(validated) && !isLocalInquiryAcceptanceMode(validated)
+    ? createControlledNotificationProvider(accessToken, principalId, clinicIds)
+    : createPayloadNotificationProvider(accessToken, principalId, fetch, validated)
 }

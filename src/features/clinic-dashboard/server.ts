@@ -1,7 +1,10 @@
 import "server-only"
 
 import type { NextRequest } from "next/server"
-import { composeClinicDashboardDataProviders } from "./data-provider-composition"
+import {
+  composeClinicDashboardDataProviders,
+  composeClinicDashboardPersonalNotifications,
+} from "./data-provider-composition"
 import { clinicDashboardDemoWorkspaceProvider } from "./demo/loader"
 import { toDashboardClinicGallerySnapshot } from "./clinic-profile/server/clinic-gallery-dto"
 import { getClinicDashboardAccess, getClinicDashboardAccessToken } from "./auth/server/public"
@@ -74,8 +77,7 @@ import {
   type NotificationProviderFactory,
 } from "./notifications/server/public"
 
-const createNotificationProvider: NotificationProviderFactory = (accessToken, clinicId) =>
-  composeClinicDashboardDataProviders(accessToken, clinicId).notifications
+const createNotificationProvider: NotificationProviderFactory = composeClinicDashboardPersonalNotifications
 
 export function handleNotificationsLoad(request: NextRequest) {
   return handleNotificationsLoadWithProvider(request, createNotificationProvider)
@@ -84,13 +86,21 @@ export function handleNotificationsMarkRead(request: NextRequest) {
   return handleNotificationsMarkReadWithProvider(request, createNotificationProvider)
 }
 
-export async function loadClinicDashboardInitialNotifications(clinicId: string) {
+export async function loadClinicDashboardInitialNotifications() {
   if (!clinicScopeConversions.notifications)
     return { status: "unavailable", error: "SERVICE_UNAVAILABLE" } as const
-  const token = await getClinicDashboardAccessToken()
-  return token
-    ? loadInitialNotifications(token, clinicId, createNotificationProvider)
-    : ({ status: "unavailable", error: "UNAUTHENTICATED" } as const)
+  const [token, access] = await Promise.all([getClinicDashboardAccessToken(), getClinicDashboardAccess()])
+  return token && access.status === "approved"
+    ? loadInitialNotifications(
+        token,
+        access.context.principal.id,
+        access.context.clinics.map(({ id }) => id),
+        createNotificationProvider,
+      )
+    : ({
+        status: "unavailable",
+        error: access.status === "temporarily-unavailable" ? "SERVICE_UNAVAILABLE" : "UNAUTHENTICATED",
+      } as const)
 }
 
 export { getClinicDashboardAccess } from "./auth/server/public"
