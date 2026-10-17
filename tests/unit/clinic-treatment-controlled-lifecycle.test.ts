@@ -10,7 +10,7 @@ import { createCsrfToken } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
 
 function request(method: "GET" | "PATCH" | "POST", body?: unknown, offeringId?: string) {
-  const endpoint = new URL("http://localhost:3000/api/dashboard/clinic-treatments")
+  const endpoint = new URL("http://localhost:3000/api/dashboard/clinics/controlled-clinic/clinic-treatments")
   if (offeringId) endpoint.searchParams.set("offeringId", offeringId)
   const init = {
     body: body === undefined ? undefined : JSON.stringify(body),

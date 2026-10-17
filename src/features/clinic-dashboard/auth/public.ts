@@ -9,6 +9,8 @@ export type {
 } from "./browser/auth-api"
 export type {
   AuthenticatedClinicContext,
+  AuthorizedClinic,
+  ClinicScopeBootstrap,
   ClinicDashboardAuthErrorCode,
   ClinicDashboardCapability,
   ClinicDashboardEmailFlow,

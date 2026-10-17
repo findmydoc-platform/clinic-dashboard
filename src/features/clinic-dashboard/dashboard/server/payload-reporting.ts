@@ -96,8 +96,11 @@ const clinicDashboardReportingSchema = z.object({
 
 type PayloadResponse = Readonly<{ ok: true; value: unknown }> | Readonly<{ ok: false; status?: number }>
 
-function endpointFor(periodDays: ClinicDashboardReportingPeriodDays) {
-  const endpoint = new URL("/api/clinic-dashboard/reporting", validateEnvironment().PAYLOAD_API_URL)
+function endpointFor(clinicId: string, periodDays: ClinicDashboardReportingPeriodDays) {
+  const endpoint = new URL(
+    `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/reporting`,
+    validateEnvironment().PAYLOAD_API_URL,
+  )
   endpoint.searchParams.set("periodDays", String(periodDays))
   return endpoint
 }
@@ -117,7 +120,8 @@ function hasPrivateReportingHeaders(response: Response) {
     cacheControl.includes("no-store") &&
     pragma === "no-cache" &&
     response.headers.get("expires") === "0" &&
-    varyFields.has("authorization")
+    varyFields.has("authorization") &&
+    varyFields.has("x-findmydoc-clinic-scope-contract")
   )
 }
 
@@ -129,13 +133,18 @@ function errorForStatus(status: number | undefined): ClinicDashboardReportingPro
 
 async function requestPayloadJson(
   accessToken: string,
+  clinicId: string,
   periodDays: ClinicDashboardReportingPeriodDays,
   fetcher: typeof fetch,
 ): Promise<PayloadResponse> {
   try {
-    const response = await fetcher(endpointFor(periodDays), {
+    const response = await fetcher(endpointFor(clinicId, periodDays), {
       cache: "no-store",
-      headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
+      },
       redirect: "error",
       signal: AbortSignal.timeout(8_000),
     })
@@ -149,11 +158,12 @@ async function requestPayloadJson(
 
 export function createPayloadClinicDashboardReportingProvider(
   accessToken: string,
+  clinicId: string,
   fetcher: typeof fetch = fetch,
 ): ClinicDashboardReportingProvider {
   return {
     async loadReporting(periodDays): Promise<ClinicDashboardReportingProviderResult> {
-      const response = await requestPayloadJson(accessToken, periodDays, fetcher)
+      const response = await requestPayloadJson(accessToken, clinicId, periodDays, fetcher)
       if (!response.ok) return { error: errorForStatus(response.status), ok: false }
 
       const parsed = clinicDashboardReportingSchema.safeParse(response.value)

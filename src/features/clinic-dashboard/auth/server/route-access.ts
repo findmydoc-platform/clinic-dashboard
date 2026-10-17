@@ -23,22 +23,27 @@ type ClinicDashboardRouteAccess =
 export async function resolveClinicDashboardRouteAccess(
   request: NextRequest,
   requiredCapability?: ClinicDashboardCapability,
+  targetClinicId?: string,
 ): Promise<ClinicDashboardRouteAccess> {
+  const requestedClinicId =
+    targetClinicId ??
+    /^\/api\/dashboard\/clinics\/([A-Za-z0-9._~-]{1,100})\//u.exec(request.nextUrl.pathname)?.[1]
   if (isControlledAuthTestMode()) {
     const session = await getClinicDashboardSession(request.cookies)
     const access = await resolveAccessForSession(session)
     const applyToResponse = (response: NextResponse) => response
 
     if (access.status === "approved") {
-      if (requiredCapability && !access.context.capabilities.includes(requiredCapability)) {
+      const clinic = access.context.clinics.find(({ id }) => id === requestedClinicId)
+      if (!clinic || (requiredCapability && !clinic.capabilities.includes(requiredCapability))) {
         return { applyToResponse, status: "denied" }
       }
       return session
         ? {
             accessToken: session.accessToken,
             applyToResponse,
-            capabilities: access.context.capabilities,
-            clinicId: access.context.clinic.id,
+            capabilities: clinic.capabilities,
+            clinicId: clinic.id,
             status: "approved",
           }
         : { applyToResponse, status: "unauthenticated" }
@@ -52,7 +57,8 @@ export async function resolveClinicDashboardRouteAccess(
   if (access.status !== "approved") {
     return { applyToResponse: routeClient.applyToResponse, status: access.status }
   }
-  if (requiredCapability && !access.context.capabilities.includes(requiredCapability)) {
+  const clinic = access.context.clinics.find(({ id }) => id === requestedClinicId)
+  if (!clinic || (requiredCapability && !clinic.capabilities.includes(requiredCapability))) {
     return { applyToResponse: routeClient.applyToResponse, status: "denied" }
   }
 
@@ -61,8 +67,8 @@ export async function resolveClinicDashboardRouteAccess(
     ? {
         accessToken: session.accessToken,
         applyToResponse: routeClient.applyToResponse,
-        capabilities: access.context.capabilities,
-        clinicId: access.context.clinic.id,
+        capabilities: clinic.capabilities,
+        clinicId: clinic.id,
         status: "approved",
       }
     : { applyToResponse: routeClient.applyToResponse, status: "unauthenticated" }

@@ -23,7 +23,14 @@ export async function loadClinicDashboardReporting(
 ): Promise<ClinicDashboardReportingLoadState> {
   try {
     const result = await createReportingProvider(accessToken, clinicId).loadReporting(periodDays)
-    return result.ok ? { reporting: result.value, status: "ready" } : { status: "temporarily-unavailable" }
+    return result.ok
+      ? { reporting: result.value, status: "ready" }
+      : {
+          status:
+            result.error === "access-denied" || result.error === "unauthorized"
+              ? result.error
+              : "temporarily-unavailable",
+        }
   } catch {
     return { status: "temporarily-unavailable" }
   }

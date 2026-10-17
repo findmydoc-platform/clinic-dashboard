@@ -6,6 +6,8 @@ export { ClinicDashboardAuthScreen } from "./auth/public"
 export { ClinicDashboardSessionRecoveryPage } from "./auth/public"
 export type {
   AuthenticatedClinicContext,
+  AuthorizedClinic,
+  ClinicScopeBootstrap,
   ClinicDashboardAuthErrorCode,
   ClinicDashboardCapability,
   ClinicDashboardEmailFlow,
@@ -19,3 +21,9 @@ export {
 } from "./auth/public"
 export type { ClinicDashboardPrototypeMode } from "./prototype/public"
 export type { ClinicDashboardDialog, ClinicDashboardSection } from "./workspace/public"
+
+export {
+  resolveClinicSelection,
+  clinicPreferenceCookieName,
+  parseClinicDashboardSection,
+} from "./workspace/model/clinic-selection"

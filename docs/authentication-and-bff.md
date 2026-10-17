@@ -151,7 +151,7 @@ The Dashboard owns these same-origin contracts:
 | `/api/auth/logout`                 | `POST`                   | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                                                   |
 | `/auth/session/recover`            | `GET`                    | Render the protected recovery form with one automatic submission or a Continue action without JavaScript.                                                                                                                                     |
 | `/api/auth/session/recover`        | `POST`                   | Validate the bounded form, origin and session-bound CSRF; refresh and retry once or verify and clear without refresh; propagate cookies through a private `303`.                                                                              |
-| `/api/dashboard/bootstrap`         | `GET`                    | Return the typed self-and-capability DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                                              |
+| `/api/dashboard/bootstrap`         | `GET`                    | Return the person-scoped `clinic-scope-v1` DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                                        |
 | `/api/dashboard/clinic-treatments` | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                                         |
 | `/api/dashboard/gallery`           | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                                            |
 | `/api/dashboard/gallery/media`     | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
@@ -277,11 +277,10 @@ For each environment, the client accepts one exact HTTPS Payload origin and conf
 redirects. An origin mismatch, non-HTTPS target, or cross-environment URL fails before the first token-bearing request.
 A redirect response fails without sending the Bearer token to the redirect target.
 
-The Website returns the historical six-capability bootstrap when no contract header is sent. The Dashboard's
-[server-only bootstrap client](../src/features/clinic-dashboard/auth/server/payload-bootstrap.ts) always sends the fixed
-`X-Findmydoc-Clinic-Dashboard-Contract: inquiry-communication-v2` opt-in from its
-[contract module](../src/features/clinic-dashboard/payload-contract.ts). The Website then appends inquiry view and edit
-capabilities. The Dashboard consumes this synchronized bootstrap shape:
+The person-scoped bootstrap uses `X-Findmydoc-Clinic-Scope-Contract: clinic-scope-v1` and mirrors that
+version in `schemaVersion`. The server-only contract module also retains the independent inquiry and notification
+negotiation headers. The bootstrap parser accepts only the new shape. Sessions identify a person; each source request
+rechecks current authorization.
 
 ```ts
 type ClinicDashboardCapability =
@@ -295,25 +294,36 @@ type ClinicDashboardCapability =
   | "clinic-inquiries:edit"
 
 type ClinicDashboardBootstrapDTO = {
-  principal: {
-    id: string
-    displayName: string
-    email: string
-  }
-  clinic: {
-    id: string
-    name: string
-  }
+  schemaVersion: "clinic-scope-v1"
+  principal: { id: string; displayName: string; email: string }
   status: "approved"
-  capabilities: ClinicDashboardCapability[]
+  clinics: { id: string; name: string; capabilities: ClinicDashboardCapability[] }[]
 }
 ```
 
-The Dashboard parser accepts independent subsets of this closed union and requires each included value to be unique.
-For an approved clinic principal, the Website's unnegotiated response contains the six original values in their
-documented order; the negotiated inquiry response appends the two inquiry values. This is a UI projection for feature
-controls, not a replacement for Payload authorization. Each later read or mutation must still authorize the current
-principal, clinic, document, and fields.
+Website derives eligible clinics from current assignments, sorts by display name and then stable ID, and returns an
+empty array when an otherwise eligible person has no authorized clinics. Each clinic's capabilities use the independent,
+unique subsets of the closed union above. Reporting, doctors and reviews gain no invented bootstrap capabilities.
+Their source operation authorization remains separate.
+
+The initial page reads the fresh bootstrap and validates the host-only `fmd-clinic-preference` cookie against the current
+principal and authorized list. The cookie stores only a principal ID and clinic ID; it contains no session or draft data,
+and never grants access. Hosts separate Preview and Production preferences. A missing preference selects the first
+clinic. An unavailable previous clinic selects the first entry with an explanation; an explicit unauthorized path stays
+restricted. Zero clinics restrict the workspace. One clinic has no active switching control.
+
+Authorized pages use `/clinics/{clinicId}?section={section}`. A manual change passes through the existing shared editor
+departure guard and retains the current section. Committing the new context remounts clinic-scoped state and clears old
+requests and editor work. Reporting uses `/api/dashboard/clinics/{clinicId}/reporting?periodDays=...` and
+`/api/clinic-dashboard/clinics/{clinicId}/reporting?periodDays=...` upstream. Both reads recheck the target; the old targetless
+reporting route denies access. Source 403 responses hide the workspace and enter the restricted state. Temporary failures
+retain the valid session. Live CSV exports remain unavailable.
+
+`workspace/model/clinic-scope-conversions.ts` keeps profile, treatments, gallery, doctors, inquiries, reviews and notifications
+closed until their independent target-route conversions are integrated. The server does not load their source records, and
+the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
+records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
+available for local behavior verification.
 
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
 Supabase identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.

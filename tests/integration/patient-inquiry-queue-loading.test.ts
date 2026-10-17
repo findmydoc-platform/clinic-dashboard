@@ -30,6 +30,20 @@ vi.mock("@/features/clinic-dashboard/clinic-profile/server/clinic-gallery-dto", 
   toDashboardClinicGallerySnapshot: vi.fn((snapshot) => snapshot),
 }))
 
+// Preserve converted-domain composition cases for the follow-up domain tickets.
+vi.mock("@/features/clinic-dashboard/workspace/model/clinic-scope-conversions", () => ({
+  clinicScopeConversions: {
+    reporting: true,
+    profile: true,
+    gallery: true,
+    treatments: true,
+    doctors: true,
+    inquiries: true,
+    reviews: true,
+    notifications: true,
+  },
+}))
+
 import { loadClinicDashboardWorkspaceInput } from "@/features/clinic-dashboard/server"
 
 const workspace = {
@@ -103,15 +117,21 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("verified-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: [
-          "clinic-gallery:view",
-          "clinic-inquiries:view",
-          "clinic-profile:view",
-          "clinic-profile:edit",
-          "clinic-treatments:view",
-          "clinic-treatments:edit",
+        schemaVersion: "clinic-scope-v1",
+        clinics: [
+          {
+            id: "clinic-1",
+            name: "Clinic One",
+            capabilities: [
+              "clinic-gallery:view",
+              "clinic-inquiries:view",
+              "clinic-profile:view",
+              "clinic-profile:edit",
+              "clinic-treatments:view",
+              "clinic-treatments:edit",
+            ],
+          },
         ],
-        clinic: { id: "clinic-1", name: "Clinic One" },
       },
       status: "approved",
     })
@@ -136,7 +156,7 @@ describe("patient inquiry queue server loading", () => {
 
   it("fails closed without a verified access token", async () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue(undefined)
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
       profileProgress: {
         reason: "profile-unavailable",
@@ -147,7 +167,7 @@ describe("patient inquiry queue server loading", () => {
   })
 
   it("loads only the first open page for an authorized workspace", async () => {
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({
       inquiryQueue: { changeCursor: "queue-change-1", status: "ready", unreadCount: 1 },
     })
     expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("verified-token", "clinic-1")
@@ -156,10 +176,13 @@ describe("patient inquiry queue server loading", () => {
 
   it("does not load inquiries without the view capability", async () => {
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
-      context: { capabilities: [], clinic: { id: "clinic-1", name: "Clinic One" } },
+      context: {
+        schemaVersion: "clinic-scope-v1",
+        clinics: [{ id: "clinic-1", name: "Clinic One", capabilities: [] }],
+      },
       status: "approved",
     })
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({
       inquiryQueue: { inquiries: [], status: "temporarily-unavailable" },
     })
     expect(serverMocks.loadQueue).not.toHaveBeenCalled()
@@ -170,7 +193,7 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.loadQueue.mockResolvedValue({ ok: true, value: createInquirySnapshot([]) })
     arrangeReadyProfileProgressSources()
 
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({
       profileProgress: {
         completedAreaCount: 6,
         percent: 100,
@@ -189,8 +212,14 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: ["clinic-gallery:view", "clinic-profile:view", "clinic-treatments:view"],
-        clinic: { id: "clinic-1", name: "Clinic One" },
+        schemaVersion: "clinic-scope-v1",
+        clinics: [
+          {
+            id: "clinic-1",
+            name: "Clinic One",
+            capabilities: ["clinic-gallery:view", "clinic-profile:view", "clinic-treatments:view"],
+          },
+        ],
         principal: {
           displayName: "View Only",
           email: "view-only@example.com",
@@ -216,7 +245,7 @@ describe("patient inquiry queue server loading", () => {
       value: { catalogue: [], offerings: [], status: "ready" },
     })
 
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({
       profileProgress: {
         completedAreaCount: 3,
         percent: 50,
@@ -234,13 +263,19 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: [
-          "clinic-gallery:view",
-          "clinic-profile:view",
-          "clinic-treatments:view",
-          editCapability,
+        schemaVersion: "clinic-scope-v1",
+        clinics: [
+          {
+            id: "clinic-1",
+            name: "Clinic One",
+            capabilities: [
+              "clinic-gallery:view",
+              "clinic-profile:view",
+              "clinic-treatments:view",
+              editCapability,
+            ],
+          },
         ],
-        clinic: { id: "clinic-1", name: "Clinic One" },
         principal: {
           displayName: "Scoped Editor",
           email: "scoped-editor@example.com",
@@ -266,7 +301,7 @@ describe("patient inquiry queue server loading", () => {
       value: { catalogue: [], offerings: [], status: "ready" },
     })
 
-    const input = await loadClinicDashboardWorkspaceInput()
+    const input = await loadClinicDashboardWorkspaceInput("clinic-1")
 
     expect(input.profileProgress).toMatchObject({
       completedAreaCount: 3,
@@ -294,7 +329,7 @@ describe("patient inquiry queue server loading", () => {
       }[source]
       failingRead.mockRejectedValue(new Error(`${source} unavailable`))
 
-      const input = await loadClinicDashboardWorkspaceInput()
+      const input = await loadClinicDashboardWorkspaceInput("clinic-1")
 
       expect(input.profileProgress).toEqual({
         message: "Public profile progress is temporarily unavailable.",
@@ -331,7 +366,7 @@ describe("patient inquiry queue server loading", () => {
       ok: false,
     })
 
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({ doctorDirectory })
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({ doctorDirectory })
     expect(serverMocks.composeDataProviders).toHaveBeenCalledWith("access-token", "clinic-1")
     expect(serverMocks.loadDirectory).toHaveBeenCalledOnce()
   })
@@ -340,8 +375,8 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: ["clinic-profile:edit"],
-        clinic: { id: "clinic-1", name: "Clinic One" },
+        schemaVersion: "clinic-scope-v1",
+        clinics: [{ id: "clinic-1", name: "Clinic One", capabilities: ["clinic-profile:edit"] }],
       },
       status: "approved",
     })
@@ -350,7 +385,7 @@ describe("patient inquiry queue server loading", () => {
       ok: false,
     })
 
-    const input = await loadClinicDashboardWorkspaceInput()
+    const input = await loadClinicDashboardWorkspaceInput("clinic-1")
 
     expect(input.profileSourceSnapshot).toBeUndefined()
     expect(input.profileProgress).toMatchObject({ reason: "profile-unavailable", status: "error" })
@@ -361,14 +396,14 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: ["clinic-gallery:view"],
-        clinic: { id: "clinic-1", name: "Clinic One" },
+        schemaVersion: "clinic-scope-v1",
+        clinics: [{ id: "clinic-1", name: "Clinic One", capabilities: ["clinic-gallery:view"] }],
       },
       status: "approved",
     })
     serverMocks.loadQueue.mockResolvedValue({ error: "temporarily-unavailable", ok: false })
 
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({
       gallerySnapshot: undefined,
       galleryStatus: "temporarily-unavailable",
     })
@@ -379,8 +414,14 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: ["clinic-profile:view", "clinic-treatments:view"],
-        clinic: { id: "clinic-1", name: "Clinic One" },
+        schemaVersion: "clinic-scope-v1",
+        clinics: [
+          {
+            id: "clinic-1",
+            name: "Clinic One",
+            capabilities: ["clinic-profile:view", "clinic-treatments:view"],
+          },
+        ],
       },
       status: "approved",
     })
@@ -388,7 +429,7 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.loadTreatments.mockResolvedValue({ ok: true, value: treatmentSnapshot })
     serverMocks.loadQueue.mockResolvedValue({ error: "temporarily-unavailable", ok: false })
 
-    const input = await loadClinicDashboardWorkspaceInput()
+    const input = await loadClinicDashboardWorkspaceInput("clinic-1")
 
     expect(input.profileProgress).toEqual({
       message: "Public profile progress is temporarily unavailable.",
@@ -413,15 +454,15 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: ["clinic-gallery:view"],
-        clinic: { id: "clinic-1", name: "Clinic One" },
+        schemaVersion: "clinic-scope-v1",
+        clinics: [{ id: "clinic-1", name: "Clinic One", capabilities: ["clinic-gallery:view"] }],
       },
       status: "approved",
     })
     serverMocks.loadGallery.mockResolvedValue({ ok: true, value: gallerySnapshot })
     serverMocks.loadQueue.mockResolvedValue({ error: "temporarily-unavailable", ok: false })
 
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({
       gallerySnapshot,
       galleryStatus: "ready",
     })
@@ -431,8 +472,14 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.getClinicDashboardAccessToken.mockResolvedValue("access-token")
     serverMocks.getClinicDashboardAccess.mockResolvedValue({
       context: {
-        capabilities: ["clinic-gallery:view", "clinic-profile:view"],
-        clinic: { id: "clinic-1", name: "Clinic One" },
+        schemaVersion: "clinic-scope-v1",
+        clinics: [
+          {
+            id: "clinic-1",
+            name: "Clinic One",
+            capabilities: ["clinic-gallery:view", "clinic-profile:view"],
+          },
+        ],
       },
       status: "approved",
     })
@@ -443,7 +490,7 @@ describe("patient inquiry queue server loading", () => {
     serverMocks.loadProfile.mockResolvedValue({ ok: true, value: clinicProfileSourceFixture })
     serverMocks.loadGallery.mockResolvedValue({ ok: true, value: gallerySnapshot })
 
-    await expect(loadClinicDashboardWorkspaceInput()).resolves.toMatchObject({
+    await expect(loadClinicDashboardWorkspaceInput("clinic-1")).resolves.toMatchObject({
       profileProgress: { reason: "treatments-unavailable", status: "error" },
       treatmentSnapshot: { catalogue: [], offerings: [], status: "forbidden" },
     })

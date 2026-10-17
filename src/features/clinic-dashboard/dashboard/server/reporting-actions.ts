@@ -46,7 +46,10 @@ export async function handleClinicDashboardReportingLoad(
   const periodDays = requestedPeriodDays(request)
   if (!periodDays) return privateJson({ code: "REPORTING_INVALID_INPUT" }, 400)
 
-  const authorization = await resolveClinicDashboardRouteAccess(request)
+  const target = /^\/api\/dashboard\/clinics\/([A-Za-z0-9._~-]{1,100})\/reporting$/u.exec(
+    request.nextUrl.pathname,
+  )?.[1]
+  const authorization = await resolveClinicDashboardRouteAccess(request, undefined, target)
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
   }
