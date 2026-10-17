@@ -33,7 +33,13 @@ test("retains draft decisions and isolates inquiry commands, attachments and del
   await switchTo(page, "Second Controlled Clinic")
   const departure = page.getByRole("alertdialog")
   await expect(departure).toBeVisible()
-  await page.screenshot({ path: "output/playwright/235-inquiry-departure-light.png", fullPage: true })
+  await expect(departure).toHaveCSS("opacity", "1")
+  await expect(departure).toHaveCSS("background-color", "rgb(255, 255, 255)")
+  await page.screenshot({
+    path: "output/playwright/235-inquiry-departure-light.png",
+    fullPage: true,
+    animations: "disabled",
+  })
   await departure.getByRole("button", { name: "Keep editing" }).click()
   await expect(reply).toHaveValue("Original clinic unsent reply.")
   await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
