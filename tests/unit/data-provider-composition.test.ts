@@ -97,8 +97,12 @@ describe("Clinic Dashboard data provider composition", () => {
       },
     })
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(
-      "https://preview.findmydoc.eu/api/clinic-dashboard/inquiries",
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/inquiries",
     )
+    expect(new Headers(fetcher.mock.calls[0]?.[1]?.headers).get("X-Findmydoc-Clinic-Scope-Contract")).toBe(
+      "clinic-scope-v1",
+    )
+    expect(fetcher.mock.calls[0]?.[1]?.cache).toBe("no-store")
   })
 
   it("uses only the local Payload inquiry adapter in the controlled cross-app lane", async () => {
@@ -114,7 +118,7 @@ describe("Clinic Dashboard data provider composition", () => {
       CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_MODE: "inquiry-communication",
       CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN: "synthetic-clinic-token",
       CLINIC_DASHBOARD_TEST_PASSWORD: "test-password",
-      PAYLOAD_API_URL: "http://127.0.0.1:3200",
+      PAYLOAD_API_URL: "http://localhost:3200",
     } as const
 
     const providers = composeClinicDashboardDataProviders(
@@ -132,7 +136,7 @@ describe("Clinic Dashboard data provider composition", () => {
       value: { published: { name: "Controlled Bosphorus Clinic" } },
     })
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(
-      "http://127.0.0.1:3200/api/clinic-dashboard/inquiries",
+      "http://localhost:3200/api/clinic-dashboard/clinics/clinic-acceptance/inquiries",
     )
     expect(providers.inquiryAttachmentDraftUpload).toBeUndefined()
   })
@@ -190,7 +194,7 @@ describe("Clinic Dashboard data provider composition", () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const endpoint = new URL(String(input))
       return jsonResponse(
-        endpoint.pathname.startsWith("/api/clinic-dashboard/reviews/")
+        endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-acceptance/reviews/acceptance-review"
           ? {
               data: {
                 id: "acceptance-review",
@@ -216,8 +220,20 @@ describe("Clinic Dashboard data provider composition", () => {
       value: { id: "acceptance-review", publicText: "Synthetic current review details." },
     })
     expect(String(fetcher.mock.calls[0]?.[0])).toBe(
-      "http://localhost:3200/api/clinic-dashboard/reviews/acceptance-review",
+      "http://localhost:3200/api/clinic-dashboard/clinics/clinic-acceptance/reviews/acceptance-review",
     )
+    for (const [input, init] of fetcher.mock.calls) {
+      // The source uses exact literal equality, so duplicate case-insensitive header values deny access.
+      expect(new Headers(init?.headers).get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-clinic-token")
+      expect(new Headers(init?.headers).get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe(
+        "inquiry-communication-v2",
+      )
+      expect(new URL(String(input)).pathname).toMatch(
+        /^\/api\/clinic-dashboard\/clinics\/clinic-acceptance\//u,
+      )
+      expect(init?.cache).toBe("no-store")
+    }
   })
 
   it("requires a verified request-scoped access token", () => {
