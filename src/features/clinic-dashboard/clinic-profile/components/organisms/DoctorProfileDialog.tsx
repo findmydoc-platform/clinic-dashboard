@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Camera, CirclePlus, X } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -67,6 +67,9 @@ type DoctorProfileDialogProps = Readonly<{
   initialDoctor?: DoctorProfile
   medicalSpecialties: readonly MedicalSpecialtyOption[]
   navigationNotice?: string
+  onNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onOpenChange: (open: boolean) => void
   onSave: (draft: DoctorProfileDraft, persistedDoctor?: DoctorProfile) => Promise<DoctorProfileSaveResult>
   open: boolean
@@ -183,6 +186,7 @@ export function DoctorProfileDialog({
   medicalSpecialties,
   navigationNotice,
   onOpenChange,
+  onNavigationRequestChange,
   onSave,
   open,
 }: DoctorProfileDialogProps) {
@@ -218,9 +222,55 @@ export function DoctorProfileDialog({
     [],
   )
 
+  const [hasPendingDeparture, setHasPendingDeparture] = useState(false)
+  const pendingDeparture = useRef<{ continuation: () => void; onCancel?: () => void } | undefined>(undefined)
+  const cancelDeparture = useCallback(() => {
+    const pending = pendingDeparture.current
+    pendingDeparture.current = undefined
+    setHasPendingDeparture(false)
+    setDiscardConfirmation(false)
+    pending?.onCancel?.()
+  }, [])
+  const finishDeparture = () => {
+    const pending = pendingDeparture.current
+    pendingDeparture.current = undefined
+    setHasPendingDeparture(false)
+    onOpenChange(false)
+    pending?.continuation()
+  }
+  const requestNavigation = useCallback(
+    (continuation: () => void, onCancel?: () => void) => {
+      cancelDeparture()
+      if (isSaving) {
+        onCancel?.()
+        return
+      }
+      if (!isDirty) {
+        onOpenChange(false)
+        continuation()
+        return
+      }
+      pendingDeparture.current = { continuation, onCancel }
+      setHasPendingDeparture(true)
+      setDiscardConfirmation(true)
+    },
+    [cancelDeparture, isDirty, isSaving, onOpenChange],
+  )
+  useEffect(() => {
+    onNavigationRequestChange?.(requestNavigation)
+    return () => onNavigationRequestChange?.(null)
+  }, [onNavigationRequestChange, requestNavigation])
+  useEffect(
+    () => () => {
+      pendingDeparture.current?.onCancel?.()
+      pendingDeparture.current = undefined
+    },
+    [],
+  )
+
   const updateDraft = (update: Partial<DoctorProfileDraft>) => {
     setDraft((current) => ({ ...current, ...update }))
-    setDiscardConfirmation(false)
+    cancelDeparture()
   }
 
   const requestClose = () => {
@@ -263,7 +313,14 @@ export function DoctorProfileDialog({
 
     setSaveState("saving")
     setStatusMessage("")
-    const result = await onSave(draft, persistedDoctor)
+    let result: DoctorProfileSaveResult
+    try {
+      result = await onSave(draft, persistedDoctor)
+    } catch {
+      setStatusMessage("The doctor could not be saved. Check your connection and try again.")
+      setSaveState("idle")
+      return
+    }
     setSaveState("idle")
 
     if (result.doctor) {
@@ -278,7 +335,7 @@ export function DoctorProfileDialog({
       setImagePreviewUrl(undefined)
     }
     if (result.status === "saved") {
-      onOpenChange(false)
+      finishDeparture()
       return
     }
     setStatusMessage(saveFailureMessage(result, medicalSpecialties))
@@ -291,15 +348,20 @@ export function DoctorProfileDialog({
         discardConfirmation ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-bold text-[var(--destructive)]" role="alert">
-              Discard the unsaved changes?
+              {statusMessage || "Discard the unsaved changes?"}
             </p>
-            <div className="flex justify-end gap-2">
-              <Button onClick={() => setDiscardConfirmation(false)} variant="outline">
+            <div className="flex flex-col justify-end gap-2 sm:flex-row">
+              <Button disabled={isSaving} onClick={cancelDeparture} variant="outline">
                 Keep editing
               </Button>
-              <Button onClick={() => onOpenChange(false)} variant="destructive">
+              <Button disabled={isSaving} onClick={finishDeparture} variant="destructive">
                 Discard changes
               </Button>
+              {hasPendingDeparture ? (
+                <Button disabled={isSaving || creationNeedsReload} onClick={save}>
+                  {isSaving ? "Saving…" : "Save and continue"}
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : (

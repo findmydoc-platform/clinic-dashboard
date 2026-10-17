@@ -14,6 +14,9 @@ type DoctorDirectoryProps = Readonly<{
   canManage: boolean
   commands: DoctorProfileCommands
   navigationNotice?: string
+  onNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onEditorPresenceChange?: (isOpen: boolean) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   snapshot: DoctorDirectorySnapshot
@@ -38,6 +41,7 @@ export function DoctorDirectory({
   snapshot,
   navigationNotice,
   onEditorPresenceChange,
+  onNavigationRequestChange,
 }: DoctorDirectoryProps) {
   const [doctors, setDoctors] = useState(() => sortDoctors(snapshot.doctors))
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile>()
@@ -177,6 +181,7 @@ export function DoctorDirectory({
           key={dialogSession}
           medicalSpecialties={snapshot.medicalSpecialties}
           onOpenChange={setDialogOpen}
+          onNavigationRequestChange={onNavigationRequestChange}
           onSave={saveDoctor}
           open
         />

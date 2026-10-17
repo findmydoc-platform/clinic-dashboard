@@ -68,6 +68,7 @@ import {
   type ClinicDashboardWorkspaceInput,
 } from "./model/workspace-input"
 import { selectClinicDashboardNavigationItems, selectSafeClinicDashboardSection } from "./navigation"
+import { useEditorDepartureGuard } from "./useEditorDepartureGuard"
 import { useClinicDashboardController } from "./useClinicDashboardController"
 
 export type ClinicDashboardWorkspaceStartState =
@@ -146,22 +147,8 @@ export function ClinicDashboardWorkspaceComposition({
   >(undefined)
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
   const scopeRef = useRef(scope)
-  const reviewNavigationRef = useRef<((continuation: () => void, onCancel?: () => void) => void) | null>(null)
-  const profileNavigationRef = useRef<((continuation: () => void, onCancel?: () => void) => void) | null>(
-    null,
-  )
-  const setReviewNavigation = useCallback(
-    (request: ((continuation: () => void, onCancel?: () => void) => void) | null) => {
-      reviewNavigationRef.current = request
-    },
-    [],
-  )
-  const setProfileNavigation = useCallback(
-    (request: ((continuation: () => void, onCancel?: () => void) => void) | null) => {
-      profileNavigationRef.current = request
-    },
-    [],
-  )
+  const { requestDeparture, setProfileRequest, setReviewRequest, setInquiryRequest, setGalleryRequest } =
+    useEditorDepartureGuard()
   const cancelOpening = useCallback(() => {
     pendingOpeningRef.current?.resolve("cancelled")
     pendingOpeningRef.current = undefined
@@ -190,15 +177,6 @@ export function ClinicDashboardWorkspaceComposition({
     pendingOpeningRef.current = undefined
     pending.resolve(result.status)
     setReviewOpeningRequest(undefined)
-  }, [])
-  const galleryNavigationRequestRef = useRef<((continuation: () => void) => void) | undefined>(undefined)
-  const setGalleryNavigationRequest = useCallback((request?: (continuation: () => void) => void) => {
-    galleryNavigationRequestRef.current = request
-  }, [])
-  const continueAfterGalleryGuard = useCallback((continuation: () => void) => {
-    const request = galleryNavigationRequestRef.current
-    if (request) request(continuation)
-    else continuation()
   }, [])
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
@@ -338,15 +316,6 @@ export function ClinicDashboardWorkspaceComposition({
         signal.addEventListener("abort", cancel, { once: true })
         const current = () =>
           pendingOpeningRef.current === pending && !signal.aborted && scopeRef.current === scope
-        if (
-          hasUnsavedInquiryDrafts &&
-          !window.confirm(
-            `Open this ${request.destination.kind === "review" ? "review" : "inquiry"}? Your unsent replies, internal notes and attachments will be kept.`,
-          )
-        ) {
-          cancel()
-          return
-        }
         const begin = () => {
           if (!current()) return
           if (request.destination.kind === "review") {
@@ -373,24 +342,17 @@ export function ClinicDashboardWorkspaceComposition({
             },
           })
         }
-        const guardProfile = () => {
-          if (!current()) return
-          const guard = profileNavigationRef.current
-          if (guard) guard(begin, cancel)
-          else begin()
-        }
-        const guard = reviewNavigationRef.current
-        if (guard) guard(guardProfile, cancel)
-        else guardProfile()
+        requestDeparture("destination", begin, cancel)
       })
     },
-    [actions, cancelOpening, hasUnsavedInquiryDrafts, scope, model.supportOpen, model.profileTaskOpen],
+    [actions, cancelOpening, requestDeparture, scope, model.supportOpen, model.profileTaskOpen],
   )
 
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
+    if (locationId === selectedLocation.id) return
     const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
 
-    continueAfterGalleryGuard(() => {
+    requestDeparture("context-change", () => {
       cancelOpening()
       setGalleryProjection(undefined)
       actions.selectLocation(locationId, nextLocation.name)
@@ -473,7 +435,7 @@ export function ClinicDashboardWorkspaceComposition({
         />
       }
       onSectionSelect={(section) =>
-        continueAfterGalleryGuard(() => {
+        requestDeparture("section", () => {
           cancelOpening()
           actions.navigate(section)
         })
@@ -517,7 +479,7 @@ export function ClinicDashboardWorkspaceComposition({
             onProfileProgressRetry={onSourceRefresh}
             onReportingRetry={() => void dashboard.actions.changePeriodDays(dashboard.model.periodDays)}
             onReviewsOpen={() =>
-              continueAfterGalleryGuard(() => {
+              requestDeparture("section", () => {
                 cancelOpening()
                 actions.navigateToReviews()
               })
@@ -535,6 +497,7 @@ export function ClinicDashboardWorkspaceComposition({
           focusInquiryId={focusInquiryId}
           isActive={activeSection === "messages"}
           onDraftPresenceChange={setHasUnsavedInquiryDrafts}
+          onNavigationRequestChange={setInquiryRequest}
           onFocusHandled={actions.clearMessageFocusRequest}
           onSessionLost={handleInquirySessionLoss}
           onUnreadCountChange={setInquiryUnreadCount}
@@ -548,7 +511,7 @@ export function ClinicDashboardWorkspaceComposition({
           openingRequest={reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : undefined}
           onOpeningResult={onReviewOpeningResult}
           onSessionLost={handleInquirySessionLoss}
-          onNavigationRequestChange={setReviewNavigation}
+          onNavigationRequestChange={setReviewRequest}
           commands={reviewCommands}
           focusTarget={model.reviewFocusTarget}
           onFocusHandled={actions.clearReviewFocusRequest}
@@ -558,7 +521,7 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "profile"}>
         <ClinicProfile
-          onNavigationRequestChange={setProfileNavigation}
+          onNavigationRequestChange={setProfileRequest}
           galleryCommands={clinicGalleryCommands}
           galleryManagement={galleryManagement}
           galleryStatus={effectiveGalleryStatus}
@@ -576,7 +539,7 @@ export function ClinicDashboardWorkspaceComposition({
             setGalleryProjection(snapshot)
             onSourceRefresh()
           }}
-          onGalleryNavigationRequestChange={setGalleryNavigationRequest}
+          onGalleryNavigationRequestChange={setGalleryRequest}
           onDoctorsChange={(doctors) => {
             const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
             if (source.status !== "ready") return
