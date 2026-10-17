@@ -131,7 +131,11 @@ function ClinicDashboardWorkspaceContent({
   }, [authorizedClinics, authenticatedContext.principal.id, authenticatedContext.clinic.id])
   const [isSourceRefreshPending, startSourceRefresh] = useTransition()
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
-  const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
+  const clinicProfileSourceCommands = useMemo(() => {
+    // The factory stores the scope-bound callback; asynchronous source failures invoke it.
+    // eslint-disable-next-line react-hooks/refs
+    return createClinicProfileSourceApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
   const cancelNotificationOpening = notifications.actions.cancelOpening
   const openExactDestination = exactOpening.open

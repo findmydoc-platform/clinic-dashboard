@@ -318,12 +318,16 @@ export function ClinicDashboardWorkspaceComposition({
       ? "interactive"
       : "read-only"
     : "hidden"
-  const galleryManagement = authenticatedContext.capabilities.includes("clinic-gallery:view")
-    ? authenticatedContext.capabilities.includes("clinic-gallery:edit")
-      ? "interactive"
-      : "read-only"
-    : "hidden"
-  const canViewTreatments = authenticatedContext.capabilities.includes("clinic-treatments:view")
+  const galleryManagement =
+    (!authorizedClinics || clinicScopeConversions.gallery) &&
+    authenticatedContext.capabilities.includes("clinic-gallery:view")
+      ? authenticatedContext.capabilities.includes("clinic-gallery:edit")
+        ? "interactive"
+        : "read-only"
+      : "hidden"
+  const canViewTreatments =
+    (!authorizedClinics || clinicScopeConversions.treatments) &&
+    authenticatedContext.capabilities.includes("clinic-treatments:view")
   const canEditTreatments = authenticatedContext.capabilities.includes("clinic-treatments:edit")
   const treatmentManagement = canViewTreatments ? (canEditTreatments ? "interactive" : "read-only") : "hidden"
   const navigationItems = selectClinicDashboardNavigationItems({
@@ -726,7 +730,9 @@ export function ClinicDashboardWorkspaceComposition({
             gallerySnapshot={effectiveGallerySnapshot}
             doctorCommands={doctorProfileCommands}
             doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
-            doctorManagement={capabilities.teamManagement}
+            doctorManagement={
+              authorizedClinics && !clinicScopeConversions.doctors ? "hidden" : capabilities.teamManagement
+            }
             focusTarget={model.profileFocusTarget}
             initialDialog={
               model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined

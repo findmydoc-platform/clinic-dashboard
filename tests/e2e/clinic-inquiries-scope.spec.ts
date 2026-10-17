@@ -4,8 +4,10 @@ async function signIn(page: Page) {
   await page.goto("/login")
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill("clinic-dashboard-test")
-  await page.getByRole("button", { name: "Sign in" }).click()
-  await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
+  await Promise.all([
+    page.waitForURL(/\/clinics\/controlled-clinic\?section=dashboard$/),
+    page.getByRole("button", { name: "Sign in" }).click(),
+  ])
   await page.waitForLoadState("networkidle")
   await page.getByRole("button", { name: "Inquiries", exact: true }).click()
   await expect(page.getByRole("heading", { name: "Inquiries", exact: true })).toBeVisible()

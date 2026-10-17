@@ -68,6 +68,13 @@ export function useClinicProfileSourceController({
   initialSnapshot,
   onSnapshotChanged,
 }: UseClinicProfileSourceControllerOptions) {
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const initialConflictDraft = getPersistedConflictDraft(initialSnapshot)
   const initialSnapshotIdentity = clinicProfileSnapshotIdentity(initialSnapshot)
   const [snapshot, setSnapshot] = useState(initialSnapshot)
@@ -165,11 +172,11 @@ export function useClinicProfileSourceController({
   }
 
   useEffect(() => {
-    if (!isDirty) return
+    if (!isDirty && operation === "idle" && !unresolvedPublish) return
     const handleBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [isDirty])
+  }, [isDirty, operation, unresolvedPublish])
 
   const enterConflict = useCallback(
     (message?: string) => {
@@ -229,6 +236,7 @@ export function useClinicProfileSourceController({
       attemptedDraft: ClinicProfileDraftInput,
       leaveAfterSave: boolean,
     ) => {
+      if (!mounted.current) return false
       if (
         !nextSnapshot.draft ||
         !areClinicProfileDraftInputsEqual(createClinicProfileDraftInput(nextSnapshot.draft), attemptedDraft)
@@ -264,6 +272,7 @@ export function useClinicProfileSourceController({
     ) => {
       try {
         const latest = await commands.loadSnapshot()
+        if (!mounted.current) return false
         const result = classifyClinicProfileDraftSaveReconciliation(
           latest,
           localDraft,
@@ -294,6 +303,7 @@ export function useClinicProfileSourceController({
     async (publishedBaseline: ClinicProfileDraftInput, expectedPublishedRevision: number) => {
       try {
         const latest = await commands.loadSnapshot()
+        if (!mounted.current) return
         const result = classifyClinicProfileDraftCreateReconciliation(
           latest,
           publishedBaseline,
@@ -326,6 +336,7 @@ export function useClinicProfileSourceController({
     async (expectedPublishedRevision: number) => {
       try {
         const latest = await commands.loadSnapshot()
+        if (!mounted.current) return
         acceptSnapshot(latest)
         if (!latest.draft && latest.published.revision === expectedPublishedRevision) {
           setSavedBaseline(createClinicProfileDraftInput(latest.published))
@@ -361,6 +372,7 @@ export function useClinicProfileSourceController({
             const createdSnapshot = await commands.createDraft({
               expectedPublishedRevision: saveSnapshot.published.revision,
             })
+            if (!mounted.current) return false
             const creationResult = classifyClinicProfileDraftCreateReconciliation(
               createdSnapshot,
               publishedBaseline,
@@ -379,6 +391,7 @@ export function useClinicProfileSourceController({
             setSavedBaseline(baselineDraft)
             createdDuringSave = true
           } catch (error) {
+            if (!mounted.current) return false
             const outcome = errorOutcome(error)
             if (outcome === "conflict") {
               enterConflict()
@@ -414,6 +427,7 @@ export function useClinicProfileSourceController({
           })
           return finishDraftSaved(nextSnapshot, workingDraft, leaveAfterSave)
         } catch (error) {
+          if (!mounted.current) return false
           const outcome = errorOutcome(error)
           if (outcome === "conflict") {
             enterConflict()
@@ -437,7 +451,7 @@ export function useClinicProfileSourceController({
           return false
         }
       } finally {
-        setOperation("idle")
+        if (mounted.current) setOperation("idle")
       }
     },
     [
@@ -539,6 +553,7 @@ export function useClinicProfileSourceController({
 
   const finishPublished = useCallback(
     (nextSnapshot: ClinicProfileSnapshot) => {
+      if (!mounted.current) return
       acceptSnapshot(nextSnapshot)
       setWorkingDraft(undefined)
       setSavedBaseline(undefined)
@@ -594,12 +609,14 @@ export function useClinicProfileSourceController({
       })
       finishPublished(nextSnapshot)
     } catch (error) {
+      if (!mounted.current) return
       const outcome = errorOutcome(error)
       if (outcome === "conflict") {
         enterConflict()
       } else if (outcome === "unknown" || outcome === "not-found") {
         try {
           const latest = await commands.loadSnapshot()
+          if (!mounted.current) return
           applyPublishReconciliation(latest, attempt)
         } catch {
           setUnresolvedPublish(attempt)
@@ -609,7 +626,7 @@ export function useClinicProfileSourceController({
         setStatusMessage("The profile could not be published. The draft is preserved.")
       }
     } finally {
-      setOperation("idle")
+      if (mounted.current) setOperation("idle")
     }
   }, [
     applyPublishReconciliation,
@@ -627,16 +644,18 @@ export function useClinicProfileSourceController({
     setStatusMessage("")
     try {
       const latest = await commands.loadSnapshot()
+      if (!mounted.current) return
       applyPublishReconciliation(latest, unresolvedPublish)
     } catch {
       setStatusMessage("Publishing still cannot be confirmed. Reload the current status to try again.")
     } finally {
-      setOperation("idle")
+      if (mounted.current) setOperation("idle")
     }
   }, [applyPublishReconciliation, commands, operation, unresolvedPublish])
 
   const finishDraftDiscarded = useCallback(
     (nextSnapshot: ClinicProfileSnapshot) => {
+      if (!mounted.current) return
       acceptSnapshot(nextSnapshot)
       setWorkingDraft(undefined)
       setSavedBaseline(undefined)
@@ -660,12 +679,14 @@ export function useClinicProfileSourceController({
       })
       finishDraftDiscarded(nextSnapshot)
     } catch (error) {
+      if (!mounted.current) return
       const outcome = errorOutcome(error)
       if (outcome === "conflict") {
         enterConflict()
       } else if (outcome === "unknown" || outcome === "not-found") {
         try {
           const latest = await commands.loadSnapshot()
+          if (!mounted.current) return
           acceptSnapshot(latest)
           if (!latest.draft && latest.published.revision === expectedPublishedRevision) {
             finishDraftDiscarded(latest)
@@ -689,7 +710,7 @@ export function useClinicProfileSourceController({
         setStatusMessage("The draft was not discarded. It is still available.")
       }
     } finally {
-      setOperation("idle")
+      if (mounted.current) setOperation("idle")
     }
   }, [acceptSnapshot, commands, enterConflict, finishDraftDiscarded, operation, setConfirmation, snapshot])
 
@@ -698,6 +719,7 @@ export function useClinicProfileSourceController({
     setOperation("loading")
     try {
       const latest = await commands.loadSnapshot()
+      if (!mounted.current) return
       acceptSnapshot(latest)
       setConfirmation(null)
       setValidationErrors({})
@@ -718,7 +740,7 @@ export function useClinicProfileSourceController({
       setConfirmation(null)
       setStatusMessage("The latest profile could not be loaded. Your local values are still here.")
     } finally {
-      setOperation("idle")
+      if (mounted.current) setOperation("idle")
     }
   }, [acceptSnapshot, commands, operation, setConfirmation])
 
