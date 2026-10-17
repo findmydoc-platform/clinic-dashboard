@@ -121,7 +121,11 @@ function createCommands(overrides: Partial<InquiryWorkspaceCommands> = {}): Inqu
 describe("Inquiry queue controller", () => {
   it("does not select the first inquiry automatically", () => {
     const { result } = renderHook(() =>
-      useInquiryQueueController({ commands: createCommands(), snapshot: inquiryQueueFixture }),
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands(),
+        snapshot: inquiryQueueFixture,
+      }),
     )
 
     expect(result.current.model.visibleInquiries.length).toBeGreaterThan(0)
@@ -133,6 +137,7 @@ describe("Inquiry queue controller", () => {
     const changeState = vi.fn(createCommands().changeState)
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ changeState }),
         snapshot: inquiryQueueFixture,
       }),
@@ -158,7 +163,11 @@ describe("Inquiry queue controller", () => {
 
   it("projects render-ready same-origin attachment links for the selected timeline", async () => {
     const { result } = renderHook(() =>
-      useInquiryQueueController({ commands: createCommands(), snapshot: inquiryQueueFixture }),
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands(),
+        snapshot: inquiryQueueFixture,
+      }),
     )
 
     await act(async () => {
@@ -168,8 +177,9 @@ describe("Inquiry queue controller", () => {
     expect(result.current.model).toMatchObject({
       attachmentAccessPaths: {
         "attachment-1": {
-          download: "/api/dashboard/inquiries/attachments/download?attachmentId=attachment-1",
-          preview: "/api/dashboard/inquiries/attachments/preview?attachmentId=attachment-1",
+          download:
+            "/api/dashboard/clinics/clinic-1/inquiries/attachments/download?attachmentId=attachment-1",
+          preview: "/api/dashboard/clinics/clinic-1/inquiries/attachments/preview?attachmentId=attachment-1",
         },
       },
     })
@@ -177,7 +187,11 @@ describe("Inquiry queue controller", () => {
 
   it("purges a foreign deep-link selection without breaking the queue", async () => {
     const { result } = renderHook(() =>
-      useInquiryQueueController({ commands: createCommands(), snapshot: inquiryQueueFixture }),
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands(),
+        snapshot: inquiryQueueFixture,
+      }),
     )
 
     await act(async () => {
@@ -262,6 +276,7 @@ describe("Inquiry queue controller", () => {
     }
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ loadQueue }),
         snapshot: initialSnapshot,
       }),
@@ -341,6 +356,7 @@ describe("Inquiry queue controller", () => {
     }
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ loadQueue }),
         snapshot: initialSnapshot,
       }),
@@ -402,6 +418,7 @@ describe("Inquiry queue controller", () => {
     })
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ loadQueue }),
         snapshot: initialSnapshot,
       }),
@@ -437,6 +454,7 @@ describe("Inquiry queue controller", () => {
       })
       const { result } = renderHook(() =>
         useInquiryQueueController({
+          clinicId: "clinic-1",
           commands: createCommands({ changeReadPosition, loadDetail }),
           snapshot: inquiryQueueFixture,
         }),
@@ -484,6 +502,7 @@ describe("Inquiry queue controller", () => {
       const discardAttachmentDraft = vi.fn(createCommands().discardAttachmentDraft)
       const { result } = renderHook(() =>
         useInquiryQueueController({
+          clinicId: "clinic-1",
           commands: createCommands({ createAttachmentDraft, discardAttachmentDraft }),
           snapshot: inquiryQueueFixture,
         }),
@@ -515,6 +534,7 @@ describe("Inquiry queue controller", () => {
       const discardAttachmentDraft = vi.fn(createCommands().discardAttachmentDraft)
       const { result } = renderHook(() =>
         useInquiryQueueController({
+          clinicId: "clinic-1",
           commands: createCommands({ discardAttachmentDraft }),
           snapshot: inquiryQueueFixture,
         }),
@@ -559,6 +579,7 @@ describe("Inquiry queue controller", () => {
       const discardAttachmentDraft = vi.fn(createCommands().discardAttachmentDraft)
       const { result } = renderHook(() =>
         useInquiryQueueController({
+          clinicId: "clinic-1",
           commands: createCommands({ createAttachmentDraft, discardAttachmentDraft }),
           snapshot: inquiryQueueFixture,
         }),
@@ -613,6 +634,7 @@ describe("Inquiry queue controller", () => {
     })
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ loadQueue }),
         snapshot: inquiryQueueFixture,
       }),
@@ -654,6 +676,7 @@ describe("Inquiry queue controller", () => {
     const discardAttachmentDraft = vi.fn(createCommands().discardAttachmentDraft)
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ createAttachmentDraft, discardAttachmentDraft }),
         snapshot: inquiryQueueFixture,
       }),
@@ -712,6 +735,7 @@ describe("Inquiry queue controller", () => {
       const discardAttachmentDraft = vi.fn(createCommands().discardAttachmentDraft)
       const { result, unmount } = renderHook(() =>
         useInquiryQueueController({
+          clinicId: "clinic-1",
           commands: createCommands({ createAttachmentDraft, discardAttachmentDraft }),
           snapshot: inquiryQueueFixture,
         }),
@@ -772,6 +796,7 @@ describe("Inquiry queue controller", () => {
     })
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ sendExternalMessage }),
         snapshot: inquiryQueueFixture,
       }),
@@ -800,7 +825,9 @@ describe("Inquiry queue controller", () => {
 
   it("uses the authoritative global unread count and updates it after a personal read", async () => {
     const snapshot = { ...inquiryQueueFixture, unreadCount: 20 }
-    const { result } = renderHook(() => useInquiryQueueController({ commands: createCommands(), snapshot }))
+    const { result } = renderHook(() =>
+      useInquiryQueueController({ clinicId: "clinic-1", commands: createCommands(), snapshot }),
+    )
 
     expect(result.current.model.totalUnreadCount).toBe(20)
     await act(async () => {
@@ -815,7 +842,11 @@ describe("Inquiry queue controller", () => {
       value: { ...inquiryQueueFixture, unreadCount: 41 },
     })
     const { result } = renderHook(() =>
-      useInquiryQueueController({ commands: createCommands({ loadQueue }), snapshot: inquiryQueueFixture }),
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: inquiryQueueFixture,
+      }),
     )
 
     await act(async () => {
@@ -832,6 +863,7 @@ describe("Inquiry queue controller", () => {
     const changeReadPosition = vi.fn(createCommands().changeReadPosition)
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ changeReadPosition, loadDetail }),
         snapshot: inquiryQueueFixture,
       }),
@@ -878,6 +910,7 @@ describe("Inquiry queue controller", () => {
     const { rerender, result } = renderHook(
       ({ isActive }) =>
         useInquiryQueueController({
+          clinicId: "clinic-1",
           commands: createCommands({ changeReadPosition }),
           isActive,
           snapshot: inquiryQueueFixture,
@@ -906,6 +939,7 @@ describe("Inquiry queue controller", () => {
     const changeReadPosition = vi.fn(createCommands().changeReadPosition)
     const { result, unmount } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ changeReadPosition }),
         isActive: true,
         snapshot: inquiryQueueFixture,
@@ -965,6 +999,7 @@ describe("Inquiry queue controller", () => {
     const changeReadPosition = vi.fn(createCommands().changeReadPosition)
     const { result, unmount } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ changeReadPosition, loadDetail }),
         isActive: true,
         snapshot: inquiryQueueFixture,
@@ -999,6 +1034,7 @@ describe("Inquiry queue controller", () => {
     })
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ changeReadPosition }),
         snapshot: inquiryQueueFixture,
       }),
@@ -1021,6 +1057,7 @@ describe("Inquiry queue controller", () => {
     })
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ loadQueue }),
         onSessionLost,
         snapshot: inquiryQueueFixture,
@@ -1048,6 +1085,7 @@ describe("Inquiry queue controller", () => {
     }))
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ revealContact }),
         reauthenticateSession,
         snapshot: inquiryQueueFixture,
@@ -1075,6 +1113,7 @@ describe("Inquiry queue controller", () => {
       .mockResolvedValueOnce({ ok: true, value: { inquiry: inquiryDetailFixtures.open } })
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ sendExternalMessage }),
         snapshot: inquiryQueueFixture,
       }),
@@ -1112,6 +1151,7 @@ describe("Inquiry queue controller", () => {
       })
     const { result } = renderHook(() =>
       useInquiryQueueController({
+        clinicId: "clinic-1",
         commands: createCommands({ createAttachmentDraft }),
         snapshot: inquiryQueueFixture,
       }),
@@ -1161,6 +1201,7 @@ describe("Inquiry queue controller", () => {
           : { ok: true, value: { discarded: true } }
       const { result } = renderHook(() =>
         useInquiryQueueController({
+          clinicId: "clinic-1",
           commands: createCommands({ createAttachmentDraft, discardAttachmentDraft }),
           snapshot: inquiryQueueFixture,
         }),

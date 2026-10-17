@@ -521,6 +521,7 @@ export function ClinicDashboardWorkspaceComposition({
           />
         ) : (
           <InquiryQueue
+            clinicId={authenticatedContext.clinic.id}
             commands={inquiryCommands}
             key={scope}
             openingRequest={

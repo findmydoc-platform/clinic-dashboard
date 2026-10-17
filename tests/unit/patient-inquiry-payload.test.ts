@@ -124,7 +124,7 @@ describe("Payload patient inquiry provider", () => {
     expect(result.ok && result.value.status === "ready" && result.value.unreadCount).toBe(41)
     const [url, init] = fetcher.mock.calls[0] ?? []
     expect(String(url)).toContain(
-      "/api/clinic-dashboard/inquiries?lifecycle=all&limit=25&unreadOnly=true&cursor=opaque-1&knownChangeCursor=queue-change-marker-1&handlingStatus=submitted%2Cin_review&query=assessment",
+      "/api/clinic-dashboard/clinics/verified-clinic/inquiries?lifecycle=all&limit=25&unreadOnly=true&cursor=opaque-1&knownChangeCursor=queue-change-marker-1&handlingStatus=submitted%2Cin_review&query=assessment",
     )
     expect(new URL(String(url)).searchParams.has("clinicId")).toBe(false)
     expect(init?.headers).toMatchObject({ Authorization: "Bearer verified-token" })
@@ -167,7 +167,9 @@ describe("Payload patient inquiry provider", () => {
 
     expect(fetcher).toHaveBeenCalledTimes(12)
     for (const [url, init] of fetcher.mock.calls) {
-      expect(new URL(String(url)).pathname).toMatch(/^\/api\/clinic-dashboard\/inquiries(?:\/|$)/u)
+      expect(new URL(String(url)).pathname).toMatch(
+        /^\/api\/clinic-dashboard\/clinics\/verified-clinic\/inquiries(?:\/|$)/u,
+      )
       const headers = new Headers(init?.headers)
       expect(headers.get("authorization")).toBe("Bearer verified-token")
       expect(headers.get("x-findmydoc-clinic-dashboard-contract")).toBe("inquiry-communication-v2")
