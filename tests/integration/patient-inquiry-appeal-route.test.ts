@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { POST } from "@/app/api/dashboard/inquiries/appeal/route"
+import { POST } from "@/app/api/dashboard/clinics/[clinicId]/inquiries/appeal/route"
 import { createCsrfToken } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
 
@@ -81,7 +81,10 @@ describe("ordinary clinic Inquiry appeal BFF", () => {
           },
         )
       }
-      if (String(url) === "https://preview.findmydoc.eu/api/clinic-dashboard/inquiries/appeal") {
+      if (
+        String(url) ===
+        "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-123/inquiries/appeal"
+      ) {
         return Response.json({ submitted: true }, { status: 201 })
       }
       throw new Error("Unexpected external request")
