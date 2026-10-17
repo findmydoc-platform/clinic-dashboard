@@ -10,7 +10,7 @@ import type { ReviewsSourceSnapshot } from "./model/review-source"
 export type ReviewsProps = Readonly<{
   openingRequest?: ReviewOpeningRequest
   onOpeningResult?: (result: ReviewOpeningResult) => void
-  onSessionLost?: () => void
+  onSessionLost?: (failure?: "unauthorized" | "forbidden") => void
   isActive?: boolean
   commands: ReviewSourceCommands
   focusTarget?: ReviewFocusTarget

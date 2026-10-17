@@ -68,7 +68,7 @@ describe("review workflow BFF", () => {
 
   it("loads a private clinic review page with strict filters", async () => {
     const response = await handleReviewListLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reviews?visibility=removed"),
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/reviews?visibility=removed"),
     )
     expect(response.status).toBe(200)
     expectPrivate(response)
@@ -76,16 +76,19 @@ describe("review workflow BFF", () => {
   })
 
   it("requires CSRF before response and appeal mutations", async () => {
-    const invalid = new NextRequest("http://localhost:3000/api/dashboard/reviews/seed-review-01/response", {
-      body: JSON.stringify({ body: "A sufficiently long response." }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    })
+    const invalid = new NextRequest(
+      "http://localhost:3000/api/dashboard/clinics/clinic-1/reviews/seed-review-01/response",
+      {
+        body: JSON.stringify({ body: "A sufficiently long response." }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      },
+    )
     const response = await handleReviewResponseSubmit(invalid, "seed-review-01")
     expect(response.status).toBe(403)
     expect(accessMocks.resolveClinicDashboardRouteAccess).not.toHaveBeenCalled()
     const appeal = await handleReviewAppealSubmit(
-      mutationRequest("/api/dashboard/reviews/seed-review-01/appeal", {
+      mutationRequest("/api/dashboard/clinics/clinic-1/reviews/seed-review-01/appeal", {
         details: "This review belongs to another clinic location.",
         reason: "incorrect_clinic",
       }),
@@ -97,13 +100,13 @@ describe("review workflow BFF", () => {
 
   it("loads private safe history and returns tenant-safe not found", async () => {
     const history = await handleReviewHistoryLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reviews/seed-review-01/history"),
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/reviews/seed-review-01/history"),
       "seed-review-01",
     )
     expect(history.status).toBe(200)
     expectPrivate(history)
     const missing = await handleReviewHistoryLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reviews/unknown/history"),
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/reviews/unknown/history"),
       "unknown",
     )
     expect(missing.status).toBe(404)
@@ -112,7 +115,7 @@ describe("review workflow BFF", () => {
 
   it("rejects revisions after a response has been decided", async () => {
     const response = await handleReviewResponseSubmit(
-      mutationRequest("/api/dashboard/reviews/seed-review-01/response", {
+      mutationRequest("/api/dashboard/clinics/clinic-1/reviews/seed-review-01/response", {
         body: "Thank you for the detailed feedback. We are reviewing it with our team.",
       }),
       "seed-review-01",
@@ -151,7 +154,7 @@ describe("ordinary exact review BFF", () => {
   })
   it("loads exact authorized detail without list filters and preserves private cookies", async () => {
     const response = await handleReviewDetailLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reviews/seed-review-01"),
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/reviews/seed-review-01"),
       "seed-review-01",
     )
     expect(response.status).toBe(200)
@@ -161,7 +164,7 @@ describe("ordinary exact review BFF", () => {
   })
   it.each(["?clinicId=other", "?visibility=all"])("rejects an extra query %s", async (query) => {
     const response = await handleReviewDetailLoad(
-      new NextRequest(`http://localhost:3000/api/dashboard/reviews/seed-review-01${query}`),
+      new NextRequest(`http://localhost:3000/api/dashboard/clinics/clinic-1/reviews/seed-review-01${query}`),
       "seed-review-01",
     )
     expect(response.status).toBe(400)
@@ -169,7 +172,7 @@ describe("ordinary exact review BFF", () => {
   })
   it("returns neutral not-found for an unavailable detail", async () => {
     const response = await handleReviewDetailLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reviews/missing"),
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/reviews/missing"),
       "missing",
     )
     expect(response.status).toBe(404)

@@ -15,7 +15,7 @@ import type { ReviewDialogModel, ReviewsActions } from "../model/reviews-view-mo
 
 type Input = Readonly<{
   commands: ReviewSourceCommands
-  onSessionLost?: () => void
+  onSessionLost?: (failure?: "unauthorized" | "forbidden") => void
   showManagement: boolean
   snapshot?: ReviewsSourceSnapshot
 }>
@@ -54,6 +54,27 @@ export function useReviewsController({
   const dialogOperationId = useRef(0)
   const requestId = useRef(0)
 
+  const clearDeniedAccess = useCallback(
+    (error: unknown) => {
+      if (
+        !(error instanceof ReviewSourceCommandError) ||
+        (error.kind !== "unauthorized" && error.kind !== "forbidden")
+      )
+        return false
+      requestId.current += 1
+      exactGeneration.current += 1
+      dialogOperationId.current += 1
+      setSnapshot(undefined)
+      setExactReview(undefined)
+      setDialog({ kind: "closed" })
+      setIsListStale(false)
+      setIsLoading(false)
+      onSessionLost?.(error.kind)
+      return true
+    },
+    [onSessionLost],
+  )
+
   const load = useCallback(
     async (filters: ReviewListFilters, page: number, successMessage = "") => {
       const currentRequest = ++requestId.current
@@ -72,12 +93,13 @@ export function useReviewsController({
         setStatusMessage(successMessage)
       } catch (error) {
         if (currentRequest !== requestId.current) return
+        if (clearDeniedAccess(error)) return
         setStatusMessage(errorMessage(error, "load"))
       } finally {
         if (currentRequest === requestId.current) setIsLoading(false)
       }
     },
-    [commands],
+    [commands, clearDeniedAccess],
   )
 
   const loadExactReview = useCallback(
@@ -156,7 +178,7 @@ export function useReviewsController({
             setSnapshot(undefined)
             setDialog({ kind: "closed" })
             setIsListStale(false)
-            onSessionLost?.()
+            onSessionLost?.(error.kind)
           }
         }
         return false
@@ -203,7 +225,7 @@ export function useReviewsController({
       if (operationId !== dialogOperationId.current) return
       setDialog({ history, isLoading: false, isLoadingOlder: false, kind: "history", review })
     } catch (error) {
-      if (operationId !== dialogOperationId.current) return
+      if (operationId !== dialogOperationId.current || clearDeniedAccess(error)) return
       setDialog({
         error: errorMessage(error, "history"),
         isLoading: false,
@@ -237,7 +259,7 @@ export function useReviewsController({
         isLoadingOlder: false,
       })
     } catch (error) {
-      if (operationId !== dialogOperationId.current) return
+      if (operationId !== dialogOperationId.current || clearDeniedAccess(error)) return
       if (error instanceof ReviewSourceCommandError && error.kind === "history-changed") {
         setDialog({ ...current, history: undefined, isLoading: true, isLoadingOlder: false })
         try {
@@ -245,7 +267,7 @@ export function useReviewsController({
           if (operationId !== dialogOperationId.current) return
           setDialog({ ...current, history: restarted, isLoading: false, isLoadingOlder: false })
         } catch (restartError) {
-          if (operationId !== dialogOperationId.current) return
+          if (operationId !== dialogOperationId.current || clearDeniedAccess(restartError)) return
           setDialog({
             ...current,
             error: errorMessage(restartError, "history"),
@@ -269,7 +291,7 @@ export function useReviewsController({
       setStatusMessage("Response submitted for moderation.")
       return operationId === dialogOperationId.current ? "applied" : "discarded"
     } catch (error) {
-      if (operationId !== dialogOperationId.current) return "discarded"
+      if (operationId !== dialogOperationId.current || clearDeniedAccess(error)) return "discarded"
       setStatusMessage(errorMessage(error, "mutation"))
       throw error
     }
@@ -285,7 +307,7 @@ export function useReviewsController({
       setStatusMessage("Appeal submitted for platform review.")
       return operationId === dialogOperationId.current ? "applied" : "discarded"
     } catch (error) {
-      if (operationId !== dialogOperationId.current) return "discarded"
+      if (operationId !== dialogOperationId.current || clearDeniedAccess(error)) return "discarded"
       setStatusMessage(errorMessage(error, "mutation"))
       throw error
     }

@@ -64,12 +64,13 @@ async function postJson<T>(url: string, body: unknown, schema: z.ZodType<T>) {
   return parsed.data
 }
 
-export function createReviewSourceApiCommands(): ReviewSourceCommands {
+export function createReviewSourceApiCommands(clinicId: string): ReviewSourceCommands {
+  const endpoint = `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/reviews`
   return {
     async loadReview(reviewId, signal) {
       const timeout = AbortSignal.timeout(8_000)
       const review = await getJson(
-        `/api/dashboard/reviews/${encodeURIComponent(reviewId)}`,
+        `${endpoint}/${encodeURIComponent(reviewId)}`,
         clinicReviewRecordSchema,
         signal ? AbortSignal.any([signal, timeout]) : timeout,
       )
@@ -80,24 +81,24 @@ export function createReviewSourceApiCommands(): ReviewSourceCommands {
     loadHistory(reviewId, cursor) {
       const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
       return getJson(
-        `/api/dashboard/reviews/${encodeURIComponent(reviewId)}/history${query}`,
+        `${endpoint}/${encodeURIComponent(reviewId)}/history${query}`,
         reviewHistorySnapshotSchema,
       )
     },
     loadReviews(filters, page) {
       const query = new URLSearchParams({ ...filters, page: String(page) })
-      return getJson(`/api/dashboard/reviews?${query}`, reviewsSourceSnapshotSchema)
+      return getJson(`${endpoint}?${query}`, reviewsSourceSnapshotSchema)
     },
     submitAppeal(reviewId, submission) {
       return postJson(
-        `/api/dashboard/reviews/${encodeURIComponent(reviewId)}/appeal`,
+        `${endpoint}/${encodeURIComponent(reviewId)}/appeal`,
         submission,
         clinicReviewRecordSchema,
       )
     },
     submitResponse(reviewId, body) {
       return postJson(
-        `/api/dashboard/reviews/${encodeURIComponent(reviewId)}/response`,
+        `${endpoint}/${encodeURIComponent(reviewId)}/response`,
         { body },
         clinicReviewRecordSchema,
       )

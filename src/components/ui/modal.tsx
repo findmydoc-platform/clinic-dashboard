@@ -15,6 +15,7 @@ type ModalProps = Readonly<{
   initialFocusRef?: RefObject<HTMLElement | null>
   onOpenChange: (open: boolean) => void
   open: boolean
+  role?: "dialog" | "alertdialog"
   panelClassName?: string
   side?: "center" | "left"
   title: string
@@ -32,6 +33,7 @@ export function Modal({
   onOpenChange,
   open,
   panelClassName,
+  role = "dialog",
   side = "center",
   title,
   triggerRef,
@@ -91,6 +93,7 @@ export function Modal({
         onOpenChange(false)
       }}
       ref={dialogRef}
+      role={role}
     >
       <header className="relative shrink-0 border-b border-[var(--border)] p-5 pr-16">
         <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
