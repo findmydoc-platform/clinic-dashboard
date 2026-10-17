@@ -8,6 +8,11 @@ import type {
   NotificationLoadState,
 } from "@/features/clinic-dashboard/notifications/model/notifications"
 
+import {
+  notificationPageFixture,
+  notificationCommandsFixture,
+} from "@/features/clinic-dashboard/notifications/testing/public"
+
 const commands: NotificationCommands = { load: vi.fn(), markRead: vi.fn() }
 
 function summary(nextUnreadCountChangeAt: string): NotificationLoadState {
@@ -64,4 +69,116 @@ describe("notification count expiry scheduling", () => {
     })
     expect(result.current.model.unreadCount).toBeUndefined()
   })
+})
+
+describe("personal notification navigation ownership", () => {
+  it("invalidates an old receipt response on an ordinary clinic switch", async () => {
+    let finish!: (value: Awaited<ReturnType<NotificationCommands["markRead"]>>) => void
+    const api: NotificationCommands = {
+      ...notificationCommandsFixture,
+      markRead: vi.fn(
+        () =>
+          new Promise<Awaited<ReturnType<NotificationCommands["markRead"]>>>((resolve) => {
+            finish = resolve
+          }),
+      ),
+    }
+    const { result, rerender } = renderHook(
+      ({ clinicId }) =>
+        useNotificationCenterController(
+          api,
+          { status: "ready", response: notificationPageFixture },
+          false,
+          undefined,
+          { principalId: "person-1", clinicId },
+        ),
+      { initialProps: { clinicId: "clinic-1" } },
+    )
+    let pending!: Promise<void>
+    act(() => {
+      pending = result.current.actions.markRead(["old-selection"])
+    })
+    rerender({ clinicId: "clinic-2" })
+    await act(async () => {
+      finish({ ok: false, error: "SERVICE_UNAVAILABLE", writeOutcome: "unknown" })
+      await pending
+    })
+    expect(result.current.model.marking.status).toBe("idle")
+    expect(result.current.model.unreadCount).toBeUndefined()
+  })
+
+  it("retains only the intentional target selection across its clinic transition", async () => {
+    let displayed!: (value: "displayed" | "cancelled") => void
+    const open = vi.fn(
+      () =>
+        new Promise<"displayed" | "cancelled">((resolve) => {
+          displayed = resolve
+        }),
+    )
+    const markRead = vi.fn(notificationCommandsFixture.markRead)
+    const api = { ...notificationCommandsFixture, markRead }
+    const { result, rerender } = renderHook(
+      ({ clinicId }) =>
+        useNotificationCenterController(
+          api,
+          { status: "ready", response: notificationPageFixture },
+          false,
+          open,
+          { principalId: "person-1", clinicId },
+        ),
+      { initialProps: { clinicId: "clinic-1" } },
+    )
+    let pending!: Promise<void>
+    act(() => {
+      pending = result.current.actions.openItem!(notificationPageFixture.items[1]!)
+    })
+    rerender({ clinicId: "clinic-2" })
+    expect(markRead).not.toHaveBeenCalled()
+    await act(async () => {
+      displayed("displayed")
+      await pending
+    })
+    expect(markRead).toHaveBeenCalledExactlyOnceWith({ notificationIds: ["fixture-notification-2"] })
+  })
+
+  it.each(["another-clinic", "another-person"])(
+    "rejects a late display after %s supersedes its owner",
+    async (change) => {
+      let displayed!: (value: "displayed") => void
+      const open = vi.fn(
+        () =>
+          new Promise<"displayed">((resolve) => {
+            displayed = resolve
+          }),
+      )
+      const markRead = vi.fn(notificationCommandsFixture.markRead)
+      const api = { ...notificationCommandsFixture, markRead }
+      const { result, rerender } = renderHook(
+        (context) =>
+          useNotificationCenterController(
+            api,
+            { status: "ready", response: notificationPageFixture },
+            false,
+            open,
+            context,
+          ),
+        { initialProps: { principalId: "person-1", clinicId: "clinic-1" } },
+      )
+      let pending!: Promise<void>
+      act(() => {
+        pending = result.current.actions.openItem!(notificationPageFixture.items[1]!)
+      })
+      rerender(
+        change === "another-clinic"
+          ? { principalId: "person-1", clinicId: "clinic-3" }
+          : { principalId: "person-2", clinicId: "clinic-2" },
+      )
+      await act(async () => {
+        displayed("displayed")
+        await pending
+      })
+      expect(markRead).not.toHaveBeenCalled()
+      expect(result.current.model.opening).toBe("cancelled")
+    },
+  )
 })

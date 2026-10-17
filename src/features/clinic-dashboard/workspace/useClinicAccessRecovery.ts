@@ -27,6 +27,7 @@ export function useClinicAccessRecovery({
   loadChoices = loadClinicDashboardChoices,
   onChoose,
   onSessionLost,
+  protectionOwnedBySession = false,
 }: Readonly<{
   principalId: string
   clinicId: string
@@ -35,6 +36,7 @@ export function useClinicAccessRecovery({
   loadChoices?: (fetcher?: typeof fetch, signal?: AbortSignal) => Promise<ClinicAccessChoices>
   onChoose: (clinicId: string, section: ClinicDashboardSection) => void
   onSessionLost: () => void
+  protectionOwnedBySession?: boolean
 }>) {
   const scope = `${principalId}:${clinicId}`
   const currentScope = useRef<string | undefined>(scope)
@@ -50,13 +52,13 @@ export function useClinicAccessRecovery({
     generation.current++
     choiceAbort.current?.abort()
     lossScope.current = undefined
-    clearProtection()
+    if (!protectionOwnedBySession) clearProtection()
     return () => {
       currentScope.current = undefined
       choiceAbort.current?.abort()
-      clearProtection()
+      if (!protectionOwnedBySession) clearProtection()
     }
-  }, [scope, clearProtection])
+  }, [scope, clearProtection, protectionOwnedBySession])
 
   useEffect(() => {
     if (!protectedWork.length) return
@@ -133,7 +135,9 @@ export function useClinicAccessRecovery({
       setState({ ...state, error: "Unfinished work could not be discarded. Try again." })
     }
   }
+  const isRestricted = useCallback(() => lossScope.current === scope, [scope])
   return {
+    isRestricted,
     restrict,
     refreshChoices,
     chooseClinic,

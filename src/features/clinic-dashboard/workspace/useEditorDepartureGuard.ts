@@ -71,23 +71,37 @@ export function useEditorDepartureGuard() {
     protectedRef.current = work
     setProtectedWork(work)
   }, [cancel])
-  const clearProtection = useCallback((cleanup = true) => {
-    const work = protectedRef.current
-    protectedRef.current = []
-    setProtectedWork([])
-    if (cleanup)
-      for (const editor of work) {
-        // Session/principal cleanup stays with the original clinic command owner.
-        void Promise.resolve()
-          .then(() => editor.discard())
-          .catch(() => {})
-      }
+  const cleanups = useRef(new WeakMap<ProtectedEditorWork, Promise<void>>())
+  const discardOriginal = useCallback((editor: ProtectedEditorWork) => {
+    const existing = cleanups.current.get(editor)
+    if (existing) return existing
+    const pending = Promise.resolve()
+      .then(() => editor.discard())
+      .catch((error: unknown) => {
+        cleanups.current.delete(editor)
+        throw error
+      })
+    cleanups.current.set(editor, pending)
+    return pending
   }, [])
+  const clearProtection = useCallback(
+    (cleanup = true) => {
+      const work = protectedRef.current
+      protectedRef.current = []
+      setProtectedWork([])
+      if (cleanup)
+        for (const editor of work) {
+          // Session/principal cleanup stays with the original clinic command owner.
+          void discardOriginal(editor).catch(() => {})
+        }
+    },
+    [discardOriginal],
+  )
   const discardProtectedWork = useCallback(async () => {
     const work = protectedRef.current
-    for (const editor of work) await editor.discard()
+    for (const editor of work) await discardOriginal(editor)
     if (protectedRef.current === work) clearProtection(false)
-  }, [clearProtection])
+  }, [clearProtection, discardOriginal])
   const setProfileRequest = useCallback(
     (request: EditorDepartureRequest | null) => register("profile", request),
     [register],
@@ -104,7 +118,9 @@ export function useEditorDepartureGuard() {
     (request?: EditorDepartureRequest) => register("gallery", request),
     [register],
   )
+  const hasProtectedWork = useCallback(() => protectedRef.current.length > 0, [])
   return {
+    hasProtectedWork,
     requestDeparture,
     setProfileRequest,
     setReviewRequest,

@@ -4,6 +4,8 @@ import {
   ClinicDashboardWorkspace,
   createClinicDashboardLoginPath,
   createClinicDashboardReturnTarget,
+  createClinicDashboardReturnTargetForRequest,
+  parseClinicDashboardExactTarget,
   parseInquiryDeepLink,
   resolveClinicSelection,
   clinicPreferenceCookieName,
@@ -23,11 +25,24 @@ type HomePageProps = Readonly<{
 
 export default async function HomePage({ searchParams, params: routeParams }: HomePageProps) {
   const params = await searchParams
-  const focusInquiryId = parseInquiryDeepLink(params.inquiry)
+  const legacyInquiryId = parseInquiryDeepLink(params.inquiry)
   const requestedClinicId = (await routeParams)?.clinicId
   const returnTarget = requestedClinicId
-    ? (`/clinics/${encodeURIComponent(requestedClinicId)}?section=${parseClinicDashboardSection(params.section)}` as const)
-    : createClinicDashboardReturnTarget(focusInquiryId)
+    ? createClinicDashboardReturnTargetForRequest(
+        `/clinics/${requestedClinicId}`,
+        typeof params.inquiry === "string" ? [params.inquiry] : (params.inquiry ?? []),
+        typeof params.section === "string" ? [params.section] : (params.section ?? []),
+        typeof params.review === "string" ? [params.review] : (params.review ?? []),
+        Object.keys(params),
+      )
+    : createClinicDashboardReturnTarget(legacyInquiryId)
+  const exactTarget = parseClinicDashboardExactTarget(returnTarget)
+  const focusInquiryId = requestedClinicId
+    ? exactTarget?.kind === "inquiry"
+      ? exactTarget.recordId
+      : undefined
+    : legacyInquiryId
+  const focusReviewId = exactTarget?.kind === "review" ? exactTarget.recordId : undefined
   const access = await getClinicDashboardAccess()
   if (access.status === "recovery-required") {
     const attempt = typeof params.sessionRecovery === "string" ? params.sessionRecovery : ""
@@ -55,7 +70,7 @@ export default async function HomePage({ searchParams, params: routeParams }: Ho
     const explanation = selection.reason === "fallback" ? "&selection=fallback" : ""
     const inquiry = focusInquiryId ? `&inquiry=${encodeURIComponent(focusInquiryId)}` : ""
     redirect(
-      `/clinics/${encodeURIComponent(clinic.id)}?section=${parseClinicDashboardSection(params.section)}${explanation}${inquiry}`,
+      `/clinics/${encodeURIComponent(clinic.id)}?section=${focusInquiryId ? "messages" : parseClinicDashboardSection(params.section)}${explanation}${inquiry}`,
     )
   }
   const [initialReporting, workspaceInput] = await Promise.all([
@@ -79,11 +94,14 @@ export default async function HomePage({ searchParams, params: routeParams }: Ho
       authorizedClinics={access.context.clinics}
       initialSection={parseClinicDashboardSection(params.section)}
       selectionNotice={
-        params.selection === "fallback"
-          ? "Your previous clinic is no longer available. The first currently authorized clinic is open."
-          : undefined
+        (params.inquiry !== undefined || params.review !== undefined) && !exactTarget
+          ? "This record link is unavailable."
+          : params.selection === "fallback"
+            ? "Your previous clinic is no longer available. The first currently authorized clinic is open."
+            : undefined
       }
       focusInquiryId={focusInquiryId}
+      focusReviewId={focusReviewId}
       initialReporting={initialReporting}
       initialNotifications={initialNotifications}
       prototypeMode="presentation"
