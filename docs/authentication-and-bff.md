@@ -234,6 +234,31 @@ Storybook/browser evidence covers invitation, recovery, password completion and 
 effects. This establishes source behavior only. No hosted credentials, callback binding, live database execution,
 mail delivery, Preview acceptance or Production activation is established by this change.
 
+### Personal group invitation and activation
+
+An authorized Website back-office operator opens an existing Clinic Group and uses **Invite a personal group
+manager**. The control sends `POST /api/clinicGroups/:id/personal-invitation` with only `email`, `firstName`, and
+`lastName`. The persisted admin/support role authorizes the operation. This native Admin command is not a Dashboard
+browser API and does not confer Payload Admin access.
+
+Website reserves one pending personal principal and immutable operator/group origin before any provider effect.
+Repeated preparation reconciles that same onboarding identity; an unknown provider result remains unconfirmed and
+retryable. Existing local staff, reassignment, reactivation, revocation, and offboarding use their separate workflows.
+An approved synchronized group assignment grants no Dashboard access before trusted personal activation.
+
+Delivery uses the existing Website-owned `clinic-invitation` Auth action, signed cross-app protocol, replay handling,
+password-completion claim, and environment activation registry. Preparation does not activate delivery. An inactive
+environment returns an explicit inactive-delivery result to the operator; no direct provider invitation bypass exists.
+The existing Dashboard confirmation/password journey clears its completion grant and returns to login. A subsequent
+login obtains a fresh `clinic-scope-v1` bootstrap. Current eligible group clinics open through that response; an empty
+set stays on the restricted workspace. Neither the invitation nor a bootstrap snapshot supplies a later grant.
+
+Website records `group-initial-password` evidence only after the completed identity-bound action and a fresh
+server-verified password event. The immutable proof binds principal, subject, original group, and Auth action; it
+contains no clinic-origin claim. The same protected update establishes `identity-v1` readiness. Current approval,
+identity synchronization, original invitation binding, and assignment are checked again before persistence. Existing
+clinic-origin completion evidence and its guards retain their established semantics.
+
 ## CSRF and Origin Contract
 
 Every authenticated state-changing Route Handler composes one central mutation guard. Route implementations cannot
