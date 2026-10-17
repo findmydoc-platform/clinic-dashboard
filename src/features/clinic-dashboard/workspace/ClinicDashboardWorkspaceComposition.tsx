@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   createClinicDashboardLoginPath,
@@ -62,6 +62,8 @@ import {
   type NotificationOpeningOutcome,
   type NotificationCommands,
   type NotificationLoadState,
+  type NotificationCenterController,
+  type NotificationOpeningRequest,
 } from "@/features/clinic-dashboard/notifications/public"
 import { getClinicDashboardLocation, type ClinicDashboardLocationId } from "./model/locations"
 import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/workspace"
@@ -104,6 +106,22 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   loadReporting?: (days: ClinicDashboardReportingPeriodDays) => Promise<ClinicDashboardReporting | undefined>
   inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
+  focusReviewId?: string
+  departureGuard?: ReturnType<typeof useEditorDepartureGuard>
+  notificationController?: NotificationCenterController
+  notificationsOpen?: boolean
+  onNotificationsOpenChange?: (open: boolean) => void
+  onNotificationDestinationOpen?: NotificationDestinationOpen
+  notificationOpeningRequest?: NotificationOpeningRequest
+  onNotificationOpeningResult?: (
+    result: Readonly<{
+      requestId: string
+      kind: "inquiry" | "review"
+      recordId: string
+      status: NotificationOpeningOutcome
+    }>,
+  ) => void
+  onNavigationAway?: () => void
   isSourceRefreshPending: boolean
   onSourceRefresh: () => void
   prototypeMode: ClinicDashboardPrototypeMode
@@ -125,6 +143,15 @@ export function ClinicDashboardWorkspaceComposition({
   clinicTreatmentCommands,
   doctorProfileCommands,
   focusInquiryId,
+  focusReviewId,
+  departureGuard,
+  notificationController,
+  notificationsOpen,
+  onNotificationsOpenChange,
+  onNotificationDestinationOpen,
+  notificationOpeningRequest,
+  onNotificationOpeningResult,
+  onNavigationAway,
   inquiryCommands,
   initialNotifications = { status: "loading" },
   notificationCommands,
@@ -151,19 +178,27 @@ export function ClinicDashboardWorkspaceComposition({
   const [reviewOpeningRequest, setReviewOpeningRequest] =
     useState<Readonly<{ scope: string; request: ReviewOpeningRequest }>>()
   const pendingOpeningRef = useRef<
-    | Readonly<{ requestId: string; resolve: (outcome: NotificationOpeningOutcome) => void; scope: string }>
+    | Readonly<{
+        requestId: string
+        kind: "inquiry" | "review"
+        recordId: string
+        resolve: (outcome: NotificationOpeningOutcome) => void
+        scope: string
+      }>
     | undefined
   >(undefined)
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
   const scopeRef = useRef(scope)
+  const localDepartureGuard = useEditorDepartureGuard()
   const { requestDeparture, setProfileRequest, setReviewRequest, setInquiryRequest, setGalleryRequest } =
-    useEditorDepartureGuard()
+    departureGuard ?? localDepartureGuard
   const cancelOpening = useCallback(() => {
+    onNavigationAway?.()
     pendingOpeningRef.current?.resolve("cancelled")
     pendingOpeningRef.current = undefined
     setInquiryOpeningRequest(undefined)
     setReviewOpeningRequest(undefined)
-  }, [])
+  }, [onNavigationAway])
   useEffect(() => {
     scopeRef.current = scope
     pendingOpeningRef.current?.resolve("cancelled")
@@ -173,20 +208,52 @@ export function ClinicDashboardWorkspaceComposition({
       pendingOpeningRef.current = undefined
     }
   }, [scope, cancelOpening])
-  const onInquiryOpeningResult = useCallback((result: InquiryOpeningResult) => {
-    const pending = pendingOpeningRef.current
-    if (!pending || pending.requestId !== result.requestId || pending.scope !== scopeRef.current) return
-    pendingOpeningRef.current = undefined
-    pending.resolve(result.status)
-    setInquiryOpeningRequest(undefined)
-  }, [])
-  const onReviewOpeningResult = useCallback((result: ReviewOpeningResult) => {
-    const pending = pendingOpeningRef.current
-    if (!pending || pending.requestId !== result.requestId || pending.scope !== scopeRef.current) return
-    pendingOpeningRef.current = undefined
-    pending.resolve(result.status)
-    setReviewOpeningRequest(undefined)
-  }, [])
+  const onInquiryOpeningResult = useCallback(
+    (result: InquiryOpeningResult) => {
+      onNotificationOpeningResult?.({
+        requestId: result.requestId,
+        kind: "inquiry",
+        recordId: result.inquiryId,
+        status: result.status,
+      })
+      const pending = pendingOpeningRef.current
+      if (
+        !pending ||
+        pending.requestId !== result.requestId ||
+        pending.scope !== scopeRef.current ||
+        pending.kind !== "inquiry" ||
+        pending.recordId !== result.inquiryId
+      )
+        return
+      pendingOpeningRef.current = undefined
+      pending.resolve(result.status)
+      setInquiryOpeningRequest(undefined)
+    },
+    [onNotificationOpeningResult],
+  )
+  const onReviewOpeningResult = useCallback(
+    (result: ReviewOpeningResult) => {
+      onNotificationOpeningResult?.({
+        requestId: result.requestId,
+        kind: "review",
+        recordId: result.reviewId,
+        status: result.status,
+      })
+      const pending = pendingOpeningRef.current
+      if (
+        !pending ||
+        pending.requestId !== result.requestId ||
+        pending.scope !== scopeRef.current ||
+        pending.kind !== "review" ||
+        pending.recordId !== result.reviewId
+      )
+        return
+      pendingOpeningRef.current = undefined
+      pending.resolve(result.status)
+      setReviewOpeningRequest(undefined)
+    },
+    [onNotificationOpeningResult],
+  )
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
@@ -201,10 +268,46 @@ export function ClinicDashboardWorkspaceComposition({
     initialLocationId: workspaceInput.defaultLocationId,
     initialNotificationsOpen,
     initialProfileTask,
-    initialSection: focusInquiryId ? "messages" : (start.section ?? "dashboard"),
+    initialSection: focusInquiryId ? "messages" : focusReviewId ? "reviews" : (start.section ?? "dashboard"),
     prototypeMode,
   })
   const { actions, model } = controller
+  const setNotificationsOpen = onNotificationsOpenChange ?? actions.setNotificationsOpen
+  const navigate = actions.navigate
+  useEffect(() => {
+    if (!notificationOpeningRequest) return
+    navigate(notificationOpeningRequest.destination.kind === "inquiry" ? "messages" : "reviews")
+    setNotificationsOpen(false)
+  }, [notificationOpeningRequest, navigate, setNotificationsOpen])
+  const externalInquiryRequest = useMemo(
+    () =>
+      notificationOpeningRequest?.destination.kind === "inquiry"
+        ? {
+            requestId: notificationOpeningRequest.requestId,
+            clinicId: notificationOpeningRequest.clinicId,
+            inquiryId: notificationOpeningRequest.destination.inquiryId,
+            anchor: notificationOpeningRequest.destination.anchor,
+          }
+        : undefined,
+    [notificationOpeningRequest],
+  )
+  const externalReviewRequest = useMemo(
+    () =>
+      notificationOpeningRequest?.destination.kind === "review"
+        ? {
+            requestId: notificationOpeningRequest.requestId,
+            reviewId: notificationOpeningRequest.destination.reviewId,
+            anchor: notificationOpeningRequest.destination.anchor,
+          }
+        : undefined,
+    [notificationOpeningRequest],
+  )
+  const directReviewRequest = useMemo(
+    () =>
+      focusReviewId ? { requestId: `direct-review:${focusReviewId}`, reviewId: focusReviewId } : undefined,
+    [focusReviewId],
+  )
+
   const capabilities = getClinicDashboardDemoInteractionPolicy(model.activePrototypeMode)
   const sourceProfileManagement = authenticatedContext.capabilities.includes("clinic-profile:view")
     ? authenticatedContext.capabilities.includes("clinic-profile:edit")
@@ -336,7 +439,16 @@ export function ClinicDashboardWorkspaceComposition({
       if (signal.aborted) return Promise.resolve("cancelled")
       cancelOpening()
       return new Promise((resolve) => {
-        const pending = { requestId: request.requestId, resolve, scope }
+        const pending = {
+          requestId: request.requestId,
+          kind: request.destination.kind,
+          recordId:
+            request.destination.kind === "inquiry"
+              ? request.destination.inquiryId
+              : request.destination.reviewId,
+          resolve,
+          scope,
+        }
         pendingOpeningRef.current = pending
         const cancel = () => {
           if (pendingOpeningRef.current === pending) cancelOpening()
@@ -348,7 +460,7 @@ export function ClinicDashboardWorkspaceComposition({
           if (!current()) return
           if (request.destination.kind === "review") {
             actions.navigate("reviews")
-            actions.setNotificationsOpen(false)
+            setNotificationsOpen(false)
             setReviewOpeningRequest({
               scope,
               request: {
@@ -360,7 +472,7 @@ export function ClinicDashboardWorkspaceComposition({
             return
           }
           actions.navigate("messages")
-          actions.setNotificationsOpen(false)
+          setNotificationsOpen(false)
           setInquiryOpeningRequest({
             scope,
             request: {
@@ -375,6 +487,7 @@ export function ClinicDashboardWorkspaceComposition({
     },
     [
       actions,
+      setNotificationsOpen,
       authorizedClinics,
       authenticatedContext.clinic.id,
       cancelOpening,
@@ -469,11 +582,12 @@ export function ClinicDashboardWorkspaceComposition({
       notificationCenter={
         <NotificationCenter
           key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
+          controller={notificationController}
           commands={notificationCommands}
           initialState={initialNotifications}
-          onOpenChange={actions.setNotificationsOpen}
-          onDestinationOpen={openNotificationDestination}
-          open={model.notificationsOpen}
+          onOpenChange={setNotificationsOpen}
+          onDestinationOpen={onNotificationDestinationOpen ?? openNotificationDestination}
+          open={notificationsOpen ?? model.notificationsOpen}
         />
       }
       onSectionSelect={(section) =>
@@ -546,11 +660,12 @@ export function ClinicDashboardWorkspaceComposition({
             commands={inquiryCommands}
             key={scope}
             openingRequest={
-              inquiryOpeningRequest?.scope === scope ? inquiryOpeningRequest.request : undefined
+              externalInquiryRequest ??
+              (inquiryOpeningRequest?.scope === scope ? inquiryOpeningRequest.request : undefined)
             }
             onOpeningResult={onInquiryOpeningResult}
             focusHeading={model.messageFocusTarget === "heading"}
-            focusInquiryId={focusInquiryId}
+            focusInquiryId={externalInquiryRequest ? undefined : focusInquiryId}
             isActive={activeSection === "messages"}
             onDraftPresenceChange={setHasUnsavedInquiryDrafts}
             onNavigationRequestChange={setInquiryRequest}
@@ -571,7 +686,10 @@ export function ClinicDashboardWorkspaceComposition({
           <Reviews
             key={scope}
             isActive={activeSection === "reviews"}
-            openingRequest={reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : undefined}
+            openingRequest={
+              externalReviewRequest ??
+              (reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : directReviewRequest)
+            }
             onOpeningResult={onReviewOpeningResult}
             onSessionLost={handleReviewAccessLoss}
             onNavigationRequestChange={setReviewRequest}

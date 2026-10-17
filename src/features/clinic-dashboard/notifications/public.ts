@@ -5,4 +5,8 @@ export type {
   NotificationLoadState,
   NotificationDestinationOpen,
   NotificationOpeningOutcome,
+  NotificationOpeningRequest,
 } from "./model/notifications"
+
+export { useNotificationCenterController } from "./hooks/useNotificationCenterController"
+export type { NotificationCenterController } from "./NotificationCenter"

@@ -19,6 +19,9 @@ export type {
 export {
   createClinicDashboardLoginPath,
   createClinicDashboardReturnTarget,
+  createClinicDashboardReturnTargetForRequest,
+  createClinicDashboardExactTargetPath,
+  parseClinicDashboardExactTarget,
   parseClinicDashboardReturnTarget,
   parseInquiryDeepLink,
 } from "./model/auth"

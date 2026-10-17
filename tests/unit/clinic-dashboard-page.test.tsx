@@ -15,21 +15,23 @@ vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined })
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }))
 vi.mock("@/features/clinic-dashboard/public", async () => ({
   ...(await import("@/features/clinic-dashboard/workspace/model/clinic-selection")),
+  ...(await import("@/features/clinic-dashboard/auth/model/auth")),
   ClinicDashboardAuthScreen: ({ returnTarget }: { returnTarget?: string }) => (
     <div data-return-target={returnTarget} data-testid="auth-screen" />
   ),
-  ClinicDashboardWorkspace: ({ focusInquiryId }: { focusInquiryId?: string }) => (
-    <div data-focus-inquiry-id={focusInquiryId} data-testid="workspace" />
+  ClinicDashboardWorkspace: ({
+    focusInquiryId,
+    focusReviewId,
+  }: {
+    focusInquiryId?: string
+    focusReviewId?: string
+  }) => (
+    <div
+      data-focus-review-id={focusReviewId}
+      data-focus-inquiry-id={focusInquiryId}
+      data-testid="workspace"
+    />
   ),
-  createClinicDashboardLoginPath: (returnTarget: string) =>
-    returnTarget === "/" ? "/login" : `/login?next=${encodeURIComponent(returnTarget)}`,
-  createClinicDashboardReturnTarget: (inquiryId?: string) => (inquiryId ? `/?inquiry=${inquiryId}` : "/"),
-  parseClinicDashboardReturnTarget: (value: unknown) =>
-    typeof value === "string" && (/^\/\?inquiry=[A-Za-z0-9._~-]{1,100}$/u.test(value) || value === "/")
-      ? value
-      : undefined,
-  parseInquiryDeepLink: (value: unknown) =>
-    typeof value === "string" && /^[A-Za-z0-9._~-]{1,100}$/u.test(value) ? value : undefined,
 }))
 vi.mock("@/features/clinic-dashboard/server", () => ({
   getClinicDashboardAccess: mocks.getClinicDashboardAccess,
@@ -71,6 +73,41 @@ describe("clinic dashboard page", () => {
     expect(screen.getByTestId("workspace")).toHaveAttribute("data-focus-inquiry-id", "inquiry-lukas-weber")
   })
 
+  it("passes a validated exact review target independently from its current list page", async () => {
+    render(
+      await HomePage({
+        params: Promise.resolve({ clinicId: "clinic-1" }),
+        searchParams: Promise.resolve({ section: "reviews", review: "off-page-review" }),
+      }),
+    )
+    expect(screen.getByTestId("workspace")).toHaveAttribute("data-focus-review-id", "off-page-review")
+    expect(screen.getByTestId("workspace")).not.toHaveAttribute("data-focus-inquiry-id")
+  })
+
+  it.each([
+    ["messages", "inquiry", "off-page-inquiry"],
+    ["reviews", "review", "off-page-review"],
+  ])("retains the exact clinic %s target through login and session recovery", async (section, key, id) => {
+    for (const status of ["unauthenticated", "recovery-required"]) {
+      mocks.getClinicDashboardAccess.mockResolvedValueOnce({ status })
+      mocks.redirect.mockImplementationOnce((path: string) => {
+        throw new Error(`redirect:${path}`)
+      })
+      const target = encodeURIComponent(`/clinics/clinic-1?section=${section}&${key}=${id}`)
+      await expect(
+        HomePage({
+          params: Promise.resolve({ clinicId: "clinic-1" }),
+          searchParams: Promise.resolve({ section, [key]: id, sessionRecovery: "1" }),
+        }),
+      ).rejects.toThrow(
+        status === "unauthenticated"
+          ? `redirect:/login?next=${target}`
+          : `redirect:/auth/session/recover?next=${target}&mode=clear&attempt=1`,
+      )
+    }
+    expect(mocks.loadClinicDashboardWorkspaceInput).not.toHaveBeenCalled()
+  })
+
   it.each([["inquiry/foreign"], [["inquiry-1", "inquiry-2"]]])(
     "drops an unsafe or ambiguous inquiry focus",
     async (inquiry) => {
@@ -83,6 +120,15 @@ describe("clinic dashboard page", () => {
       expect(screen.getByTestId("workspace")).not.toHaveAttribute("data-focus-inquiry-id")
     },
   )
+
+  it("canonicalizes a retained legacy inquiry target into the clinic messages section", async () => {
+    mocks.redirect.mockImplementationOnce((path: string) => {
+      throw new Error(`redirect:${path}`)
+    })
+    await expect(
+      HomePage({ searchParams: Promise.resolve({ inquiry: "retained-inquiry" }) }),
+    ).rejects.toThrow("redirect:/clinics/clinic-1?section=messages&inquiry=retained-inquiry")
+  })
 
   it("keeps one safe inquiry target through the unauthenticated login redirect", async () => {
     mocks.getClinicDashboardAccess.mockResolvedValueOnce({ status: "unauthenticated" })

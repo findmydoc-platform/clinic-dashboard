@@ -95,9 +95,32 @@ export function createClinicDashboardReturnTarget(inquiryId?: string): ClinicDas
   return inquiryId && inquiryDeepLinkPattern.test(inquiryId) ? `/?inquiry=${inquiryId}` : "/"
 }
 
+export type ClinicDashboardExactTarget = Readonly<{
+  clinicId: string
+  kind: "inquiry" | "review"
+  recordId: string
+}>
+
+export function parseClinicDashboardExactTarget(value: unknown): ClinicDashboardExactTarget | undefined {
+  if (typeof value !== "string") return undefined
+  const match =
+    /^\/clinics\/([A-Za-z0-9._~-]{1,100})\?section=(messages|reviews)&(inquiry|review)=([A-Za-z0-9._~-]{1,128})$/u.exec(
+      value,
+    )
+  if (!match) return undefined
+  const [, clinicId, section, domain, recordId] = match
+  if ((section === "messages") !== (domain === "inquiry")) return undefined
+  if ([".", ".."].includes(clinicId!) || [".", ".."].includes(recordId!)) return undefined
+  if (domain === "inquiry" && !inquiryDeepLinkPattern.test(recordId!)) return undefined
+  if (domain === "review" && !/^[A-Za-z0-9_-]{1,128}$/u.test(recordId!)) return undefined
+  return { clinicId: clinicId!, kind: domain === "inquiry" ? "inquiry" : "review", recordId: recordId! }
+}
+
 export function parseClinicDashboardReturnTarget(value: unknown): ClinicDashboardReturnTarget | undefined {
   if (value === "/") return value
+  if (parseClinicDashboardExactTarget(value)) return value as ClinicDashboardReturnTarget
   return typeof value === "string" &&
+    !/^\/clinics\/\.{1,2}(?:\?|$)/u.test(value) &&
     (inquiryReturnTargetPattern.test(value) ||
       /^\/clinics\/[A-Za-z0-9._~-]{1,100}(?:\?section=(?:dashboard|messages|reviews|profile|subscriptions|certificates-accreditations))?$/u.test(
         value,
@@ -110,12 +133,36 @@ export function createClinicDashboardLoginPath(returnTarget: ClinicDashboardRetu
   return returnTarget === "/" ? "/login" : `/login?next=${encodeURIComponent(returnTarget)}`
 }
 
-export function createClinicDashboardLoginPathForRequest(
+export function createClinicDashboardExactTargetPath(
+  target: ClinicDashboardExactTarget,
+): ClinicDashboardReturnTarget | undefined {
+  const section = target.kind === "inquiry" ? "messages" : "reviews"
+  const path = `/clinics/${target.clinicId}?section=${section}&${target.kind}=${target.recordId}`
+  return parseClinicDashboardExactTarget(path) ? (path as ClinicDashboardReturnTarget) : undefined
+}
+
+export function createClinicDashboardReturnTargetForRequest(
   pathname: string,
   inquiryValues: readonly string[],
   sectionValues: readonly string[] = [],
+  reviewValues: readonly string[] = [],
+  queryKeys: readonly string[] = [],
 ) {
-  if (/^\/clinics\/[A-Za-z0-9._~-]{1,100}$/u.test(pathname)) {
+  if (/^\/clinics\/[A-Za-z0-9._~-]{1,100}$/u.test(pathname) && !/^\/clinics\/\.{1,2}$/u.test(pathname)) {
+    const record =
+      inquiryValues.length === 1 && reviewValues.length === 0
+        ? `?section=messages&inquiry=${inquiryValues[0]}`
+        : reviewValues.length === 1 && inquiryValues.length === 0
+          ? `?section=reviews&review=${reviewValues[0]}`
+          : undefined
+    const expectedSection = inquiryValues.length === 1 ? "messages" : "reviews"
+    const matchingSection =
+      sectionValues.length === 0 || (sectionValues.length === 1 && sectionValues[0] === expectedSection)
+    const knownKeys = queryKeys.every((key) =>
+      ["section", "inquiry", "review", "sessionRecovery", "selection"].includes(key),
+    )
+    if (record && matchingSection && knownKeys && parseClinicDashboardExactTarget(`${pathname}${record}`))
+      return `${pathname}${record}` as ClinicDashboardReturnTarget
     const section =
       sectionValues.length === 1 &&
       /^(?:dashboard|messages|reviews|profile|subscriptions|certificates-accreditations)$/u.test(
@@ -123,11 +170,29 @@ export function createClinicDashboardLoginPathForRequest(
       )
         ? `?section=${sectionValues[0]}`
         : ""
-    return createClinicDashboardLoginPath(`${pathname}${section}` as ClinicDashboardReturnTarget)
+    return `${pathname}${section}` as ClinicDashboardReturnTarget
   }
   const inquiryId =
     pathname === "/" && inquiryValues.length === 1 ? parseInquiryDeepLink(inquiryValues[0]) : undefined
-  return createClinicDashboardLoginPath(createClinicDashboardReturnTarget(inquiryId))
+  return createClinicDashboardReturnTarget(inquiryId)
+}
+
+export function createClinicDashboardLoginPathForRequest(
+  pathname: string,
+  inquiryValues: readonly string[],
+  sectionValues: readonly string[] = [],
+  reviewValues: readonly string[] = [],
+  queryKeys: readonly string[] = [],
+) {
+  return createClinicDashboardLoginPath(
+    createClinicDashboardReturnTargetForRequest(
+      pathname,
+      inquiryValues,
+      sectionValues,
+      reviewValues,
+      queryKeys,
+    ),
+  )
 }
 
 export const clinicDashboardEmailDestinations = {

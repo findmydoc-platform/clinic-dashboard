@@ -16,6 +16,8 @@ export type {
 export {
   createClinicDashboardLoginPath,
   createClinicDashboardReturnTarget,
+  createClinicDashboardReturnTargetForRequest,
+  parseClinicDashboardExactTarget,
   parseClinicDashboardReturnTarget,
   parseInquiryDeepLink,
 } from "./auth/public"
@@ -27,3 +29,5 @@ export {
   clinicPreferenceCookieName,
   parseClinicDashboardSection,
 } from "./workspace/model/clinic-selection"
+
+export { ClinicWorkspaceLifetimeProvider } from "./workspace/ClinicWorkspaceLifetime"

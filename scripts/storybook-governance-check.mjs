@@ -63,6 +63,7 @@ const featureRootComponentLayers = new Map([
 ])
 const nonAtomicFeatureRootComponents = new Set([
   "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspaceComposition.tsx",
+  "src/features/clinic-dashboard/workspace/ClinicWorkspaceLifetime.tsx",
 ])
 const requiredStoryGlob = "../src/**/*.stories.@(ts|tsx)"
 
