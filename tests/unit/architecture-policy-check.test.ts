@@ -1623,26 +1623,26 @@ describe("architecture policy checker process fixtures", () => {
 
   it("allows native inquiry BFF routes to use the private server entry", () => {
     const fixtureRoot = createFixture({
-      "src/app/api/dashboard/inquiries/appeal/route.ts": `
-        import { handleInquiryAppealSubmit } from "../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/inquiries/appeal/route.ts": `
+        import { handleInquiryAppealSubmit } from "@/features/clinic-dashboard/server"
         export function POST(request: Request) {
           return handleInquiryAppealSubmit(request)
         }
       `,
-      "src/app/api/dashboard/inquiries/route.ts": `
-        import { handleInquiryQueueLoad } from "../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/inquiries/route.ts": `
+        import { handleInquiryQueueLoad } from "@/features/clinic-dashboard/server"
         export function GET(request: Request) {
           return handleInquiryQueueLoad(request)
         }
       `,
-      "src/app/api/dashboard/inquiries/attachments/drafts/finalize/route.ts": `
-        import { handleInquiryAttachmentDraftFinalize } from "../../../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/inquiries/attachments/drafts/finalize/route.ts": `
+        import { handleInquiryAttachmentDraftFinalize } from "@/features/clinic-dashboard/server"
         export function POST(request: Request) {
           return handleInquiryAttachmentDraftFinalize(request)
         }
       `,
-      "src/app/api/dashboard/inquiries/attachments/drafts/upload/route.ts": `
-        import { handleInquiryAttachmentDraftUpload } from "../../../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/inquiries/attachments/drafts/upload/route.ts": `
+        import { handleInquiryAttachmentDraftUpload } from "@/features/clinic-dashboard/server"
         export function PUT(request: Request) {
           return handleInquiryAttachmentDraftUpload(request)
         }

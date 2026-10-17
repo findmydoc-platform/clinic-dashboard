@@ -15,6 +15,7 @@ import type { InquiryOpeningRequest, InquiryOpeningResult } from "./model/inquir
 export type InquiryQueueProps = Readonly<{
   openingRequest?: InquiryOpeningRequest
   onOpeningResult?: (result: InquiryOpeningResult) => void
+  clinicId: string
   commands?: InquiryWorkspaceCommands
   focusHeading?: boolean
   focusInquiryId?: string
@@ -37,6 +38,7 @@ export type InquiryQueueProps = Readonly<{
 
 export function InquiryQueue({
   commands,
+  clinicId,
   openingRequest,
   onOpeningResult,
   focusHeading,
@@ -49,8 +51,9 @@ export function InquiryQueue({
   onUnreadCountChange,
   snapshot,
 }: InquiryQueueProps) {
-  const liveCommands = useMemo(() => createInquiryStatusApiCommands(), [])
+  const liveCommands = useMemo(() => createInquiryStatusApiCommands(clinicId), [clinicId])
   const controller = useInquiryQueueController({
+    clinicId,
     commands: commands ?? liveCommands,
     isActive,
     onSessionLost,
@@ -124,6 +127,10 @@ export function InquiryQueue({
   useEffect(() => {
     const generation = ++openingGenerationRef.current
     if (!openingRequest || !isActive) return
+    if (openingRequest.clinicId && openingRequest.clinicId !== clinicId) {
+      onOpeningResult?.({ ...openingRequest, status: "unavailable" })
+      return
+    }
     void openInquiryRef
       .current(openingRequest.inquiryId)
       .then((loaded) => {
@@ -142,7 +149,7 @@ export function InquiryQueue({
     return () => {
       openingGenerationRef.current += 1
     }
-  }, [openingRequest, isActive, onOpeningResult])
+  }, [openingRequest, isActive, onOpeningResult, clinicId])
   const handledTargetRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {

@@ -168,7 +168,7 @@ describe("patient inquiry BFF integration", () => {
       upload: { url: string }
     }
     expect(draft.upload.url).toBe(
-      `/api/dashboard/inquiries/attachments/drafts/upload?draftId=${draft.draftId}`,
+      `/api/dashboard/clinics/controlled-clinic/inquiries/attachments/drafts/upload?draftId=${draft.draftId}`,
     )
 
     const uploadResponse = requireResponse(
@@ -176,7 +176,7 @@ describe("patient inquiry BFF integration", () => {
         signedBinaryRequest(
           new URL(
             draft.upload.url.replace(
-              "/api/dashboard/inquiries",
+              "/api/dashboard/clinics/controlled-clinic/inquiries",
               "/api/dashboard/clinics/controlled-clinic/inquiries",
             ),
             "http://localhost:3000",

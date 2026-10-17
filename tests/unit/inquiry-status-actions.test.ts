@@ -133,7 +133,7 @@ describe("inquiry same-origin BFF", () => {
     const response = requireResponse(
       await handleInquiryQueueLoad(
         new NextRequest(
-          "http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false&clinicId=other-clinic",
+          "http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries?lifecycle=open&unreadOnly=false&clinicId=other-clinic",
           {
             headers: {
               "x-findmydoc-clinic-dashboard-contract": "attacker-selected-contract",
@@ -153,13 +153,13 @@ describe("inquiry same-origin BFF", () => {
     const scoped = provider()
     await handleInquiryQueueLoad(
       new NextRequest(
-        "http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false&knownChangeCursor=queue-marker-1",
+        "http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries?lifecycle=open&unreadOnly=false&knownChangeCursor=queue-marker-1",
       ),
       () => scoped,
     )
     await handleInquiryDetailLoad(
       new NextRequest(
-        "http://localhost:3000/api/dashboard/inquiries/detail?inquiryId=inquiry-1&knownChangeCursor=detail-marker-1&knownRevision=7",
+        "http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries/detail?inquiryId=inquiry-1&knownChangeCursor=detail-marker-1&knownRevision=7",
       ),
       () => scoped,
     )
@@ -180,7 +180,7 @@ describe("inquiry same-origin BFF", () => {
     const scoped = provider()
     const response = requireResponse(
       await handleInquiryStateChange(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/state", "PATCH", {
+        signedRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries/state", "PATCH", {
           action: "close",
           actorId: "other-staff",
           clinicId: "other-clinic",
@@ -199,7 +199,7 @@ describe("inquiry same-origin BFF", () => {
     const scoped = provider()
     const response = requireResponse(
       await handleInquiryStateChange(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/state", "PATCH", {
+        signedRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries/state", "PATCH", {
           action: "set-handling-status",
           expectedRevision: 1,
           handlingStatus: "submitted",
@@ -218,7 +218,7 @@ describe("inquiry same-origin BFF", () => {
     const text = "  Keep intentional spacing.\nSecond line.  "
     const response = requireResponse(
       await handleInquiryNoteAdd(
-        signedRequest("http://localhost:3000/api/dashboard/inquiries/notes", "POST", {
+        signedRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries/notes", "POST", {
           idempotencyKey: "note-action-0001",
           inquiryId: "inquiry-1",
           text,
@@ -241,7 +241,9 @@ describe("inquiry same-origin BFF", () => {
     })
     const response = requireResponse(
       await handleInquiryQueueLoad(
-        new NextRequest("http://localhost:3000/api/dashboard/inquiries?lifecycle=open&unreadOnly=false"),
+        new NextRequest(
+          "http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries?lifecycle=open&unreadOnly=false",
+        ),
         () => scoped,
       ),
     )
@@ -254,7 +256,7 @@ describe("inquiry same-origin BFF", () => {
     const response = requireResponse(
       await handleInquiryAttachmentDownload(
         new NextRequest(
-          "http://localhost:3000/api/dashboard/inquiries/attachments/download?attachmentId=attachment-1",
+          "http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries/attachments/download?attachmentId=attachment-1",
         ),
         () => provider(),
       ),

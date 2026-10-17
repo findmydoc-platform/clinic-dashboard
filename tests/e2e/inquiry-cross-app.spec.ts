@@ -63,7 +63,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   const clinicSendResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      new URL(response.url()).pathname === "/api/dashboard/inquiries/messages",
+      /^\/api\/dashboard\/clinics\/[^/]+\/inquiries\/messages$/u.test(new URL(response.url()).pathname),
   )
   await detail.getByRole("button", { name: "Send reply" }).click()
   expect((await clinicSendResponse).ok()).toBe(true)
@@ -137,7 +137,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   await foreignPage.getByLabel("Password").fill("clinic-dashboard-cross-app")
   const foreignDetailResponse = foreignPage.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/inquiries/detail" &&
+      /^\/api\/dashboard\/clinics\/[^/]+\/inquiries\/detail$/u.test(new URL(response.url()).pathname) &&
       response.request().method() === "GET",
   )
   await foreignPage.getByRole("button", { name: "Sign in" }).click()
@@ -150,16 +150,19 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
       .map((part) => part.trim())
       .find((part) => part.startsWith("clinic_dashboard_csrf="))
       ?.split("=")[1]
-    const response = await fetch("/api/dashboard/inquiries/messages", {
-      body: JSON.stringify({
-        expectedRevision: 1,
-        idempotencyKey: "cross-app-foreign-mutation-0001",
-        inquiryId: targetInquiryId,
-        text: "This foreign mutation must be rejected.",
-      }),
-      headers: { "content-type": "application/json", "x-csrf-token": decodeURIComponent(token ?? "") },
-      method: "POST",
-    })
+    const response = await fetch(
+      `/api/dashboard/clinics/${encodeURIComponent(location.pathname.split("/")[2] ?? "")}/inquiries/messages`,
+      {
+        body: JSON.stringify({
+          expectedRevision: 1,
+          idempotencyKey: "cross-app-foreign-mutation-0001",
+          inquiryId: targetInquiryId,
+          text: "This foreign mutation must be rejected.",
+        }),
+        headers: { "content-type": "application/json", "x-csrf-token": decodeURIComponent(token ?? "") },
+        method: "POST",
+      },
+    )
     return { body: await response.json(), status: response.status }
   }, inquiryId)
   expect(foreignMutation).toEqual({ body: { error: { code: "not-found" } }, status: 404 })
@@ -292,7 +295,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   await center.getByRole("tab", { name: "All" }).click()
   const repeatedDetail = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/inquiries/detail" &&
+      /^\/api\/dashboard\/clinics\/[^/]+\/inquiries\/detail$/u.test(new URL(response.url()).pathname) &&
       response.request().method() === "GET",
   )
   await page.route(
@@ -389,7 +392,9 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   })
   expect(offboardResponse.status()).toBe(204)
   const offboardedQueue = await page.evaluate(async () => {
-    const response = await fetch("/api/dashboard/inquiries?lifecycle=all")
+    const response = await fetch(
+      `/api/dashboard/clinics/${encodeURIComponent(location.pathname.split("/")[2] ?? "")}/inquiries?lifecycle=all`,
+    )
     return { body: await response.json(), status: response.status }
   })
   expect(offboardedQueue).toEqual({ body: { error: { code: "access-denied" } }, status: 403 })

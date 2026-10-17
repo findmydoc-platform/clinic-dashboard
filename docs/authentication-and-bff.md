@@ -141,23 +141,23 @@ temporary Supabase refresh failures from proven invalid credentials remains a se
 
 The Dashboard owns these same-origin contracts:
 
-| Route                              | Method                   | Contract                                                                                                                                                                                                                                      |
-| ---------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/login`                  | `POST`                   | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                                                     |
-| `/auth/callback`                   | `GET`                    | Validate the bounded flow and Website action reference through `validateAction`, without consuming the Supabase token; store the signed ten-minute pending context and redirect to the fixed confirmation page.                               |
-| `/api/auth/callback`               | `POST`                   | Validate same-origin CSRF, perform `verifyOtp`, retain the verified session, and call Website `confirmAction`. Signed subject-and-flow state resumes Website failures without consuming the token again.                                      |
-| `/api/auth/password/reset`         | `POST`                   | Forward only the email and Vercel-controlled original IP through Website `requestRecovery`; always return the neutral `202` acceptance for syntactically valid requests.                                                                      |
-| Invite/reset completion            | `POST`                   | Require the verified session and matching confirmed grant, forward the password to Website `completeAction`, and clear state/sign out only after Website completion succeeds. Exact uncertain retries preserve the original request envelope. |
-| `/api/auth/logout`                 | `POST`                   | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                                                   |
-| `/auth/session/recover`            | `GET`                    | Render the protected recovery form with one automatic submission or a Continue action without JavaScript.                                                                                                                                     |
-| `/api/auth/session/recover`        | `POST`                   | Validate the bounded form, origin and session-bound CSRF; refresh and retry once or verify and clear without refresh; propagate cookies through a private `303`.                                                                              |
-| `/api/dashboard/bootstrap`         | `GET`                    | Return the person-scoped `clinic-scope-v1` DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                                        |
-| `/api/dashboard/clinic-treatments` | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                                         |
-| `/api/dashboard/gallery`           | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                                            |
-| `/api/dashboard/gallery/media`     | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
-| `/api/dashboard/gallery/discard`   | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                                        |
-| `/api/dashboard/gallery/image`     | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
-| `/api/dashboard/inquiries/appeal`  | `POST`                   | Submit only `{ caseId, text }` through the current clinic session, shared mutation guard, and `clinic-inquiries:view` capability. No browser-supplied actor, clinic, revision, or replay key is accepted.                                     |
+| Route                                                | Method                   | Contract                                                                                                                                                                                                                                      |
+| ---------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/login`                                    | `POST`                   | Validate email, password, CSRF, exact origin, and the fixed internal destination; call `signInWithPassword` server-side and return a controlled redirect.                                                                                     |
+| `/auth/callback`                                     | `GET`                    | Validate the bounded flow and Website action reference through `validateAction`, without consuming the Supabase token; store the signed ten-minute pending context and redirect to the fixed confirmation page.                               |
+| `/api/auth/callback`                                 | `POST`                   | Validate same-origin CSRF, perform `verifyOtp`, retain the verified session, and call Website `confirmAction`. Signed subject-and-flow state resumes Website failures without consuming the token again.                                      |
+| `/api/auth/password/reset`                           | `POST`                   | Forward only the email and Vercel-controlled original IP through Website `requestRecovery`; always return the neutral `202` acceptance for syntactically valid requests.                                                                      |
+| Invite/reset completion                              | `POST`                   | Require the verified session and matching confirmed grant, forward the password to Website `completeAction`, and clear state/sign out only after Website completion succeeds. Exact uncertain retries preserve the original request envelope. |
+| `/api/auth/logout`                                   | `POST`                   | Validate origin and CSRF, revoke the Supabase session as supported, clear local session cookies, and return a controlled login destination.                                                                                                   |
+| `/auth/session/recover`                              | `GET`                    | Render the protected recovery form with one automatic submission or a Continue action without JavaScript.                                                                                                                                     |
+| `/api/auth/session/recover`                          | `POST`                   | Validate the bounded form, origin and session-bound CSRF; refresh and retry once or verify and clear without refresh; propagate cookies through a private `303`.                                                                              |
+| `/api/dashboard/bootstrap`                           | `GET`                    | Return the person-scoped `clinic-scope-v1` DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                                        |
+| `/api/dashboard/clinic-treatments`                   | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                                         |
+| `/api/dashboard/gallery`                             | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                                            |
+| `/api/dashboard/gallery/media`                       | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
+| `/api/dashboard/gallery/discard`                     | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                                        |
+| `/api/dashboard/gallery/image`                       | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
+| `/api/dashboard/clinics/{clinicId}/inquiries/appeal` | `POST`                   | Submit only `{ caseId, text }` through the current clinic session, shared mutation guard, and `clinic-inquiries:view` capability. No browser-supplied actor, clinic, revision, or replay key is accepted.                                     |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
 is unnecessary unless a later UI flow demonstrates the need. Callback and login failures return sanitized error codes;
@@ -344,7 +344,7 @@ requests and editor work. Reporting uses `/api/dashboard/clinics/{clinicId}/repo
 reporting route denies access. Source 403 responses hide the workspace and enter the restricted state. Temporary failures
 retain the valid session. Live CSV exports remain unavailable.
 
-`workspace/model/clinic-scope-conversions.ts` keeps profile, treatments, gallery, doctors, inquiries, reviews and notifications
+`workspace/model/clinic-scope-conversions.ts` keeps profile, treatments, gallery, doctors, reviews and notifications
 closed until their independent target-route conversions are integrated. The server does not load their source records, and
 the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
 records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
@@ -353,6 +353,15 @@ available for local behavior verification.
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
 Supabase identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
 
+Inquiry browser and Payload requests carry the selected clinic in the path. The request-local provider
+retains that clinic through reply, note, lifecycle, read-position, contact, draft, upload, cleanup and appeal
+operations. Protected attachment previews and downloads use the same target. Website checks current
+stored authority and each source relationship independently of the browser selection. Existing operation
+permissions and legal restrictions remain unchanged. Clinic-scoped controllers remount on committed
+switches and reject obsolete responses; unfinished replies, notes and uploads use the shared departure gate.
+Exact inquiry opening does not depend on the currently loaded queue page. Controlled browser evidence
+covers local behavior and does not establish Preview or Production acceptance.
+
 The patient-inquiry domain uses one private `PatientInquiryProvider` for both `loadQueue()` and
 `changeStatus({ inquiryId, status })`. Its Payload adapter owns the current-record read, transition validation, and
 status write; the browser and Route Handler do not observe that sequence. The adapter validates website responses and
@@ -360,7 +369,7 @@ projects only the approved inquiry fields. Its Controlled implementation is sele
 uses the same provider contract, and is impossible to enable in Preview or Production. No Payload failure selects
 Controlled data.
 
-`submitAppeal({ caseId, text })` uses the existing Website `POST /api/clinic-dashboard/inquiries/appeal`
+`submitAppeal({ caseId, text })` uses the existing Website `POST /api/clinic-dashboard/clinics/{clinicId}/inquiries/appeal`
 contract with the ordinary server-side clinic Bearer and inquiry-v2 header. The BFF returns only the validated
 `201 { submitted: true }` receipt. Text must be nonblank and at most 1,000 characters; its submitted whitespace
 is retained. Website owns participation, the current measure, and the one-time appeal predicate. Its eight closed
