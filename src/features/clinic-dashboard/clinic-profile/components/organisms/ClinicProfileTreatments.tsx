@@ -65,7 +65,7 @@ export function ClinicProfileTreatments({
         </div>
       ) : (
         <div className="p-5">
-          <div className="hidden grid-cols-[minmax(10rem,1fr)_7rem_6rem_7rem] gap-3 bg-[var(--surface)] px-4 py-3 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase sm:grid">
+          <div className="hidden grid-cols-[minmax(10rem,1fr)_7rem_6rem_7rem] gap-3 bg-[var(--surface)] px-4 py-3 text-xs font-bold tracking-wide text-[var(--foreground)] uppercase lg:grid">
             <span>Treatment</span>
             <span>Price</span>
             <span>Status</span>
@@ -76,18 +76,18 @@ export function ClinicProfileTreatments({
           ) : null}
           {treatments.map((treatment) => (
             <div
-              className="grid gap-3 border-b border-[var(--border)] px-1 py-4 last:border-0 sm:grid-cols-[minmax(10rem,1fr)_7rem_6rem_7rem] sm:items-center sm:px-4"
+              className="grid gap-3 border-b border-[var(--border)] px-1 py-4 last:border-0 lg:grid-cols-[minmax(10rem,1fr)_7rem_6rem_7rem] lg:items-center lg:px-4"
               key={treatment.id}
             >
               <strong className="text-sm">{treatment.treatment.name}</strong>
               <div className="flex items-baseline gap-2">
-                <span className="text-xs font-bold text-[var(--foreground)] sm:hidden">Price</span>
+                <span className="text-xs font-bold text-[var(--foreground)] lg:hidden">Price</span>
                 <span className="font-bold text-[var(--primary)]">
                   {euroFormatter.format(treatment.price)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[var(--foreground)] sm:hidden">Status</span>
+                <span className="text-xs font-bold text-[var(--foreground)] lg:hidden">Status</span>
                 <span
                   className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${
                     treatment.active

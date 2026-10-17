@@ -12,6 +12,7 @@ import {
 import {
   ClinicProfile,
   ClinicDoctorsWorkspace,
+  ClinicTreatmentsWorkspace,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
   type ClinicProfileFocusTarget,
@@ -73,6 +74,7 @@ import {
   type ClinicDashboardWorkspaceInput,
 } from "./model/workspace-input"
 import { selectClinicDashboardNavigationItems, selectSafeClinicDashboardSection } from "./navigation"
+import { Select } from "@/components/ui/select"
 import { clinicScopeConversions } from "./model/clinic-scope-conversions"
 import { useEditorDepartureGuard } from "./useEditorDepartureGuard"
 import { useClinicDashboardController } from "./useClinicDashboardController"
@@ -525,6 +527,24 @@ export function ClinicDashboardWorkspaceComposition({
     })
   }
 
+  const treatmentContextNavigation =
+    clinicLocations.length > 1 ? (
+      <label className="grid gap-1 text-xs font-bold">
+        Active clinic
+        <Select
+          aria-label="Active clinic while editing treatments"
+          value={selectedLocation.id}
+          onValueChange={selectLocation}
+        >
+          {clinicLocations.map((clinic) => (
+            <option key={clinic.id} value={clinic.id}>
+              {clinic.name}
+            </option>
+          ))}
+        </Select>
+      </label>
+    ) : undefined
+
   const openProfileDestination = (destination: ClinicProfileFocusTarget) => {
     cancelOpening()
     actions.navigateToProfileTarget(destination)
@@ -742,7 +762,7 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "profile"}>
         {authorizedClinics && !clinicScopeConversions.profile ? (
-          <>
+          <div className="space-y-6">
             <FutureAreaPlaceholderScreen
               heading="Clinic profile"
               description="The profile for this clinic is currently unavailable."
@@ -761,7 +781,18 @@ export function ClinicDashboardWorkspaceComposition({
                 }}
               />
             ) : null}
-          </>
+            {clinicScopeConversions.treatments ? (
+              <ClinicTreatmentsWorkspace
+                commands={clinicTreatmentCommands}
+                snapshot={workspaceInput.treatmentSnapshot}
+                management={treatmentManagement}
+                contextNavigation={treatmentContextNavigation}
+                onNavigationRequestChange={setProfileRequest}
+                onSaved={onSourceRefresh}
+                onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
+              />
+            ) : null}
+          </div>
         ) : (
           <ClinicProfile
             onNavigationRequestChange={setProfileRequest}
@@ -797,6 +828,7 @@ export function ClinicDashboardWorkspaceComposition({
             sourceProfileManagement={sourceProfileManagement}
             sourceCommands={clinicProfileSourceCommands}
             sourceSnapshot={workspaceInput.profileSourceSnapshot}
+            treatmentContextNavigation={treatmentContextNavigation}
             treatmentCommands={clinicTreatmentCommands}
             treatmentManagement={treatmentManagement}
             treatmentSnapshot={workspaceInput.treatmentSnapshot}
