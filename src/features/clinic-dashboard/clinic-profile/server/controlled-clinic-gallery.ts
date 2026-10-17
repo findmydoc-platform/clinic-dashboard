@@ -57,10 +57,8 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
       return { ok: true, value: snapshotFor(clinicId) }
     },
     async loadImage(sourceUrl) {
-      const source = new URL(sourceUrl)
       if (
-        source.hostname !== "images.unsplash.com" ||
-        source.pathname !== "/photo-1576091160399-112ba8d25d1d"
+        !snapshotFor(clinicId).items.some((item) => item.url === sourceUrl || item.thumbnailUrl === sourceUrl)
       ) {
         return { error: "forbidden", ok: false }
       }
@@ -104,12 +102,13 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
       if (current.items.length >= constraints.maxItems) return { error: "invalid-input", ok: false }
       const state = controlledState()
       state.mediaSequence += 1
+      const id = `controlled-gallery-${randomUUID()}`
       const media: ClinicGalleryMedia = {
         alt: input.alt ?? "",
         captionText: input.captionText,
-        id: `controlled-gallery-${randomUUID()}`,
+        id,
         status: "draft",
-        url: `https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1600&q=80&v=${state.mediaSequence}`,
+        url: `https://controlled.example/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/gallery/media/${id}/image`,
       }
       state.galleryByClinic.set(clinicId, { ...current, items: [...current.items, media] })
       return { ok: true, value: media }

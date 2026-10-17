@@ -94,7 +94,9 @@ export async function handleClinicGalleryRead(
   try {
     const result = await createProvider(authorization.accessToken, authorization.clinicId).loadGallery()
     return authorization.applyToResponse(
-      result.ok ? privateJson(toDashboardClinicGallerySnapshot(result.value)) : providerError(result.error),
+      result.ok
+        ? privateJson(toDashboardClinicGallerySnapshot(result.value, authorization.clinicId))
+        : providerError(result.error),
     )
   } catch {
     return authorization.applyToResponse(privateJson({ code: "CLINIC_GALLERY_UNAVAILABLE" }, 503))
@@ -117,7 +119,9 @@ export async function handleClinicGallerySave(
       input.data,
     )
     return authorization.applyToResponse(
-      result.ok ? privateJson(toDashboardClinicGallerySnapshot(result.value)) : providerError(result.error),
+      result.ok
+        ? privateJson(toDashboardClinicGallerySnapshot(result.value, authorization.clinicId))
+        : providerError(result.error),
     )
   } catch {
     return authorization.applyToResponse(privateJson({ code: "CLINIC_GALLERY_UNAVAILABLE" }, 503))
@@ -161,7 +165,9 @@ export async function handleClinicGalleryUpload(
       file,
     })
     return authorization.applyToResponse(
-      result.ok ? privateJson(toDashboardClinicGalleryMedia(result.value), 201) : providerError(result.error),
+      result.ok
+        ? privateJson(toDashboardClinicGalleryMedia(result.value, authorization.clinicId), 201)
+        : providerError(result.error),
     )
   } catch {
     return authorization.applyToResponse(privateJson({ code: "CLINIC_GALLERY_UNAVAILABLE" }, 503))

@@ -33,7 +33,7 @@ describe("Clinic gallery browser API", () => {
     vi.stubGlobal("fetch", fetcher)
 
     await expect(
-      createClinicGalleryApiCommands().uploadMedia({
+      createClinicGalleryApiCommands("clinic-1").uploadMedia({
         file: new File(["image"], "clinic.jpg", { type: "image/jpeg" }),
       }),
     ).resolves.toMatchObject({ id: "draft-1", status: "draft" })
@@ -47,7 +47,7 @@ describe("Clinic gallery browser API", () => {
     )
 
     await expect(
-      createClinicGalleryApiCommands().saveGallery({ expectedRevision: 4, items: [] }),
+      createClinicGalleryApiCommands("clinic-1").saveGallery({ expectedRevision: 4, items: [] }),
     ).rejects.toMatchObject({ code: "conflict" })
   })
 
@@ -67,7 +67,9 @@ describe("Clinic gallery browser API", () => {
       vi.fn(async () => new Response(JSON.stringify({ code }), { status })),
     )
 
-    await expect(createClinicGalleryApiCommands().loadGallery()).rejects.toMatchObject({ code: error })
+    await expect(createClinicGalleryApiCommands("clinic-1").loadGallery()).rejects.toMatchObject({
+      code: error,
+    })
   })
 
   it("discards only the requested draft media through the protected endpoint", async () => {
@@ -78,10 +80,10 @@ describe("Clinic gallery browser API", () => {
     )
     vi.stubGlobal("fetch", fetcher)
 
-    await createClinicGalleryApiCommands().discardDrafts(["draft-1"])
+    await createClinicGalleryApiCommands("clinic-1").discardDrafts(["draft-1"])
 
     expect(fetcher).toHaveBeenCalledWith(
-      "/api/dashboard/gallery/discard",
+      "/api/dashboard/clinics/clinic-1/gallery/discard",
       expect.objectContaining({
         body: JSON.stringify({ mediaIds: ["draft-1"] }),
         method: "POST",

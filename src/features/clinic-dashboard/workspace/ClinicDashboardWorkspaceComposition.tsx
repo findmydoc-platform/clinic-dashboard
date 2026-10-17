@@ -13,6 +13,7 @@ import {
   ClinicProfile,
   ClinicDoctorsWorkspace,
   ClinicTreatmentsWorkspace,
+  ClinicGalleryWorkspace,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
   type ClinicProfileFocusTarget,
@@ -769,6 +770,21 @@ export function ClinicDashboardWorkspaceComposition({
               heading="Clinic profile"
               description="The profile for this clinic is currently unavailable."
             />
+            {clinicScopeConversions.gallery ? (
+              <ClinicGalleryWorkspace
+                key={scope}
+                commands={clinicGalleryCommands}
+                management={galleryManagement}
+                snapshot={effectiveGallerySnapshot}
+                status={effectiveGalleryStatus}
+                onSaved={(snapshot) => {
+                  setGalleryProjection(snapshot)
+                  onSourceRefresh()
+                }}
+                onNavigationRequestChange={setGalleryRequest}
+                onContextNavigationRequestChange={setProfileRequest}
+              />
+            ) : null}
             {clinicScopeConversions.doctors && capabilities.teamManagement !== "hidden" ? (
               <ClinicDoctorsWorkspace
                 key={scope}

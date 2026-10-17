@@ -201,6 +201,7 @@ function ClinicDashboardWorkspaceContent({
     // eslint-disable-next-line react-hooks/refs
     return createClinicTreatmentApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
   }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
+
   const refreshSources = () => startSourceRefresh(() => router.refresh())
 
   if (recovery.model.restricted)

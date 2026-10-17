@@ -520,7 +520,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const firstAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const firstUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   const imageBuffer = Buffer.from(
@@ -538,7 +538,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const secondAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const secondUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   await secondAddImagesDialog
@@ -580,7 +580,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   const saveResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await waitForGalleryNotifications(page)
   await galleryEditor.getByRole("button", { name: "Save and return" }).click()
@@ -597,7 +598,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const thirdAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const thirdUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   await thirdAddImagesDialog
@@ -609,7 +610,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   const completeGalleryResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await waitForGalleryNotifications(page)
   await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
@@ -638,7 +640,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const removalDialog = page.getByRole("alertdialog", { name: "Remove 2 images and save?" })
   const removalResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await removalDialog.getByRole("button", { name: "Remove 2 and save" }).click()
   expect((await removalResponse).status()).toBe(200)
@@ -653,7 +656,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   await page.reload()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Clinic gallery", exact: true })).toBeVisible()
 
   const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })
   await cleanupGallery.getByRole("button", { name: "Manage gallery" }).click()
@@ -665,7 +668,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const cleanupDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
   const cleanupResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await cleanupDialog.getByRole("button", { name: "Remove image and save" }).click()
   expect((await cleanupResponse).status()).toBe(200)

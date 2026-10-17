@@ -29,9 +29,9 @@ const snapshot = {
 
 describe("clinic gallery model", () => {
   it("identifies only the authenticated gallery image proxy shape", () => {
-    const proxyUrl = createClinicGalleryImageProxyUrl("opaque-token")
+    const proxyUrl = createClinicGalleryImageProxyUrl("opaque-token", "controlled-clinic")
 
-    expect(proxyUrl).toBe("/api/dashboard/gallery/image?token=opaque-token")
+    expect(proxyUrl).toBe("/api/dashboard/clinics/controlled-clinic/gallery/image?token=opaque-token")
     expect(proxyUrl).not.toContain("preview.findmydoc.eu")
     expect(isClinicGalleryImageProxyUrl(proxyUrl)).toBe(true)
     expect(isClinicGalleryImageProxyUrl("/api/dashboard/doctors/doctor-1/image")).toBe(false)

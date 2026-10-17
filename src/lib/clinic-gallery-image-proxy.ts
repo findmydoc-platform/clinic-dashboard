@@ -1,9 +1,12 @@
-const CLINIC_GALLERY_IMAGE_PROXY_PATH = "/api/dashboard/gallery/image"
+const clinicGalleryImageProxyPath = (clinicId: string) =>
+  `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/gallery/image`
 
-export function createClinicGalleryImageProxyUrl(token: string) {
-  return `${CLINIC_GALLERY_IMAGE_PROXY_PATH}?token=${encodeURIComponent(token)}`
+export function createClinicGalleryImageProxyUrl(token: string, clinicId: string) {
+  return `${clinicGalleryImageProxyPath(clinicId)}?token=${encodeURIComponent(token)}`
 }
 
 export function isClinicGalleryImageProxyUrl(source: unknown) {
-  return typeof source === "string" && source.startsWith(`${CLINIC_GALLERY_IMAGE_PROXY_PATH}?token=`)
+  return (
+    typeof source === "string" && /^\/api\/dashboard\/clinics\/[^/]+\/gallery\/image\?token=/u.test(source)
+  )
 }
