@@ -1,17 +1,22 @@
 "use client"
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type {
+  EditorDepartureIntent,
+  EditorDepartureRequest,
+  ProtectedEditorWork,
+} from "@/lib/editor-departure"
 
-type DepartureIntent = "context-change" | "destination" | "section"
 type Editor = "profile" | "reviews" | "inquiries" | "gallery"
-type Request = (continuation: () => void, onCancel?: () => void, intent?: DepartureIntent) => void
 
 // Editors retain their own decisions, save commands and cleanup. This gate only
 // sequences their continuations and rejects superseded navigation attempts.
 export function useEditorDepartureGuard() {
-  const editors = useRef<Partial<Record<Editor, Request>>>({})
+  const editors = useRef<Partial<Record<Editor, EditorDepartureRequest>>>({})
+  const protectedRef = useRef<readonly ProtectedEditorWork[]>([])
+  const [protectedWork, setProtectedWork] = useState<readonly ProtectedEditorWork[]>([])
   const pending = useRef<{ cancel?: () => void } | undefined>(undefined)
-  const register = useCallback((editor: Editor, request?: Request | null) => {
+  const register = useCallback((editor: Editor, request?: EditorDepartureRequest | null) => {
     if (request) editors.current[editor] = request
     else delete editors.current[editor]
   }, [])
@@ -22,8 +27,12 @@ export function useEditorDepartureGuard() {
   }, [])
   useEffect(() => cancel, [cancel])
   const requestDeparture = useCallback(
-    (intent: DepartureIntent, continuation: () => void, onCancel?: () => void) => {
+    (intent: EditorDepartureIntent, continuation: () => void, onCancel?: () => void) => {
       cancel()
+      if (protectedRef.current.length) {
+        onCancel?.()
+        return
+      }
       const attempt = { cancel: onCancel }
       pending.current = attempt
       const order: Editor[] = intent === "section" ? ["gallery"] : ["reviews", "profile", "inquiries"]
@@ -50,12 +59,76 @@ export function useEditorDepartureGuard() {
     },
     [cancel],
   )
-  const setProfileRequest = useCallback((request: Request | null) => register("profile", request), [register])
-  const setReviewRequest = useCallback((request: Request | null) => register("reviews", request), [register])
-  const setInquiryRequest = useCallback(
-    (request: Request | null) => register("inquiries", request),
+  const protectScope = useCallback(() => {
+    cancel()
+    if (protectedRef.current.length) return
+    const requests = new Set(Object.values(editors.current))
+    const work: ProtectedEditorWork[] = []
+    for (const request of requests) {
+      const protectedDraft = request?.(() => {}, undefined, "access-loss")
+      if (protectedDraft) work.push(protectedDraft)
+    }
+    protectedRef.current = work
+    setProtectedWork(work)
+  }, [cancel])
+  const cleanups = useRef(new WeakMap<ProtectedEditorWork, Promise<void>>())
+  const discardOriginal = useCallback((editor: ProtectedEditorWork) => {
+    const existing = cleanups.current.get(editor)
+    if (existing) return existing
+    const pending = Promise.resolve()
+      .then(() => editor.discard())
+      .catch((error: unknown) => {
+        cleanups.current.delete(editor)
+        throw error
+      })
+    cleanups.current.set(editor, pending)
+    return pending
+  }, [])
+  const clearProtection = useCallback(
+    (cleanup = true) => {
+      const work = protectedRef.current
+      protectedRef.current = []
+      setProtectedWork([])
+      if (cleanup)
+        for (const editor of work) {
+          // Session/principal cleanup stays with the original clinic command owner.
+          void discardOriginal(editor).catch(() => {})
+        }
+    },
+    [discardOriginal],
+  )
+  const discardProtectedWork = useCallback(async () => {
+    const work = protectedRef.current
+    for (const editor of work) await discardOriginal(editor)
+    if (protectedRef.current === work) clearProtection(false)
+  }, [clearProtection, discardOriginal])
+  const setProfileRequest = useCallback(
+    (request: EditorDepartureRequest | null) => register("profile", request),
     [register],
   )
-  const setGalleryRequest = useCallback((request?: Request) => register("gallery", request), [register])
-  return { requestDeparture, setProfileRequest, setReviewRequest, setInquiryRequest, setGalleryRequest }
+  const setReviewRequest = useCallback(
+    (request: EditorDepartureRequest | null) => register("reviews", request),
+    [register],
+  )
+  const setInquiryRequest = useCallback(
+    (request: EditorDepartureRequest | null) => register("inquiries", request),
+    [register],
+  )
+  const setGalleryRequest = useCallback(
+    (request?: EditorDepartureRequest) => register("gallery", request),
+    [register],
+  )
+  const hasProtectedWork = useCallback(() => protectedRef.current.length > 0, [])
+  return {
+    hasProtectedWork,
+    requestDeparture,
+    setProfileRequest,
+    setReviewRequest,
+    setInquiryRequest,
+    setGalleryRequest,
+    protectScope,
+    protectedWork,
+    discardProtectedWork,
+    clearProtection,
+  }
 }

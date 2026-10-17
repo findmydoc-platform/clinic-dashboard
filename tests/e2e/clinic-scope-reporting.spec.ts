@@ -178,7 +178,8 @@ test("denied active reads hide clinic content and foreign page targets never fal
     }),
   )
   await page.getByRole("button", { name: "7 days", exact: true }).click()
-  await expect(page).toHaveURL(/\/access\?state=restricted$/)
+  await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toBeVisible()
+  await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
   await expect(page.getByRole("region", { name: "Dashboard metrics" })).toHaveCount(0)
   await page.goto("/clinics/foreign-clinic")
   await expect(page).toHaveURL(/\/access\?state=restricted$/)

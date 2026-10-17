@@ -458,3 +458,31 @@ describe("clinic gallery controller", () => {
     expect(hook.result.current.model.conflict).toBe(false)
   })
 })
+
+it("protects actual gallery metadata and uploaded draft ownership until explicit restricted discard", async () => {
+  stubImageDimensions()
+  const initial = snapshot(),
+    commands = createCommands(initial)
+  const hook = renderHook(() =>
+    useClinicGalleryController({ commands, initialSnapshot: initial, management: "interactive" }),
+  )
+  act(() => hook.result.current.actions.openGallery())
+  await act(async () => {
+    await hook.result.current.actions.uploadFiles([imageFile("private.jpg")])
+  })
+  act(() =>
+    hook.result.current.actions.updateItem("draft-private.jpg", {
+      alt: "Private unsaved original clinic image",
+    }),
+  )
+  const captured = hook.result.current.actions.requestNavigation(undefined, undefined, "access-loss")
+  hook.unmount()
+  expect(captured?.draft).toMatchObject({
+    items: expect.arrayContaining([
+      expect.objectContaining({ alt: "Private unsaved original clinic image" }),
+    ]),
+  })
+  expect(commands.discardDrafts).not.toHaveBeenCalled()
+  await captured?.discard()
+  expect(commands.discardDrafts).toHaveBeenCalledWith(["draft-private.jpg"])
+})

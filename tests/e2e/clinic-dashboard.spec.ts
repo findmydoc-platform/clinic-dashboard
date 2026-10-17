@@ -71,7 +71,9 @@ test("opens safe inquiry deep links and fails closed for foreign or unsafe ident
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill(testDashboardPassword)
   await page.getByRole("button", { name: "Sign in" }).click()
-  await expect(page).toHaveURL(`${testDashboardOrigin}/?inquiry=inquiry-lukas-weber`)
+  await expect(page).toHaveURL(
+    `${testDashboardOrigin}/clinics/controlled-clinic?section=messages&inquiry=inquiry-lukas-weber`,
+  )
   await expect(page.getByRole("button", { name: "Inquiries" })).toHaveAttribute("aria-current", "page")
   await expect(page.getByRole("region", { name: "Inquiry from Lukas Weber" })).toBeVisible()
 
@@ -119,7 +121,8 @@ test("retains the selected period and metric through review and notification nav
   const reportingRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
-    if (url.pathname === "/api/dashboard/reporting") reportingRequests.push(url.search)
+    if (url.pathname === "/api/dashboard/clinics/controlled-clinic/reporting")
+      reportingRequests.push(url.search)
   })
   await signIn(page)
   await page.getByRole("button", { name: /Contacts Not supported yet/ }).click()
@@ -146,7 +149,7 @@ test("keeps published profile information usable when reporting and notification
   await page.setViewportSize({ width: 1440, height: 1000 })
   await signIn(page)
   let failedNotificationRequests = 0
-  await page.route("**/api/dashboard/reporting?*", (route) =>
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?*", (route) =>
     route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -237,7 +240,7 @@ test("captures the restored dashboard without overflow in both themes and viewpo
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   }
   expect(consoleMessages).toEqual([])
-  await page.route("**/api/dashboard/reporting?*", (route) =>
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?*", (route) =>
     route.fulfill({
       status: 503,
       contentType: "application/json",

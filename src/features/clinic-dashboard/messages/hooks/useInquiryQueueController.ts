@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react"
 import type { ClinicDashboardReauthenticationCommand } from "@/features/clinic-dashboard/auth/public"
 import { createInquiryAttachmentAccessPaths } from "../browser/inquiry-attachment-paths"
 import type { InquiryWorkspaceCommands } from "../model/inquiry-status-commands"
@@ -26,6 +26,7 @@ import {
   inquiryQueueReducer,
 } from "../model/inquiry-queue.reducer"
 import { selectInquiryQueueViewModel } from "../model/inquiry-queue.selectors"
+import type { ProtectedEditorWork } from "@/lib/editor-departure"
 
 const POLLING_INTERVAL_MS = 15_000
 const MAX_MESSAGE_CHARACTERS = 3_000
@@ -37,6 +38,7 @@ type UseInquiryQueueControllerInput = Readonly<{
   commands: InquiryWorkspaceCommands
   isActive?: boolean
   onSessionLost?: (inquiryId?: string) => void
+  onAccessLost?: () => void
   reauthenticateSession?: ClinicDashboardReauthenticationCommand
   snapshot: PatientInquiryQueueSnapshot
 }>
@@ -101,15 +103,21 @@ export function useInquiryQueueController({
   clinicId,
   isActive = true,
   onSessionLost,
+  onAccessLost,
   reauthenticateSession = reauthenticationUnavailable,
   snapshot,
 }: UseInquiryQueueControllerInput): Readonly<{
   actions: InquiryWorkspaceActions
   discardUnfinishedWork: () => boolean
+  protectUnfinishedWork: () => ProtectedEditorWork | void
   model: InquiryWorkspaceViewModel
   openInquiry: (inquiryId: string) => Promise<boolean>
 }> {
   const [state, dispatch] = useReducer(inquiryQueueReducer, snapshot, createInquiryQueueState)
+  const onAccessLostRef = useRef(onAccessLost)
+  useLayoutEffect(() => {
+    onAccessLostRef.current = onAccessLost
+  }, [onAccessLost])
   const isMountedRef = useRef(true)
   const loadedInquiryIdsRef = useRef(new Set(snapshot.inquiries.map(({ id }) => id)))
   const loadedPageCountRef = useRef(1)
@@ -203,6 +211,7 @@ export function useInquiryQueueController({
     (result: InquiryResult<unknown>, inquiryId: string) => {
       if (result.ok) return false
       if (result.error.code === "access-denied") {
+        onAccessLostRef.current?.()
         selectedInquiryIdRef.current = undefined
         pendingKeysRef.current.clear()
         readyAttachmentDraftsRef.current.clear()
@@ -260,6 +269,27 @@ export function useInquiryQueueController({
     return true
   }, [discardUnboundReplyAttachment, state.attachments, state.drafts, state.isMutating])
 
+  const protectUnfinishedWork = useCallback((): ProtectedEditorWork | void => {
+    if (!hasUnsavedInquiryDrafts(state)) return
+    const attachments = new Map(readyAttachmentDraftsRef.current)
+    const draft = {
+      drafts: state.drafts,
+      attachments: state.attachments,
+      files: new Map(failedAttachmentFilesRef.current),
+    }
+    return {
+      draft,
+      discard: async () => {
+        for (const [inquiryId, attachment] of attachments) {
+          const result = await commands.discardAttachmentDraft({ inquiryId, draftId: attachment.draftId })
+          if (!result.ok && !["access-denied", "not-found", "unauthorized"].includes(result.error.code))
+            throw new Error("Original clinic attachment cleanup is temporarily unavailable.")
+        }
+        dispatch({ type: "draftsDiscarded" })
+      },
+    }
+  }, [commands, state])
+
   const loadQueuePage = useCallback(
     async (
       input: Readonly<{
@@ -279,6 +309,7 @@ export function useInquiryQueueController({
         })
         if (!isMountedRef.current || applySessionLoss(firstPageResult)) return firstPageResult
         if (!firstPageResult.ok && firstPageResult.error.code === "access-denied") {
+          onAccessLostRef.current?.()
           selectedInquiryIdRef.current = undefined
           terminalAccessLossRef.current = true
           pendingKeysRef.current.clear()
@@ -326,6 +357,7 @@ export function useInquiryQueueController({
           })
           if (!isMountedRef.current || applySessionLoss(pageResult)) return pageResult
           if (!pageResult.ok && pageResult.error.code === "access-denied") {
+            onAccessLostRef.current?.()
             selectedInquiryIdRef.current = undefined
             terminalAccessLossRef.current = true
             pendingKeysRef.current.clear()
@@ -378,6 +410,7 @@ export function useInquiryQueueController({
       })
       if (!isMountedRef.current || applySessionLoss(result)) return result
       if (!result.ok && result.error.code === "access-denied") {
+        onAccessLostRef.current?.()
         selectedInquiryIdRef.current = undefined
         terminalAccessLossRef.current = true
         pendingKeysRef.current.clear()
@@ -1049,5 +1082,11 @@ export function useInquiryQueueController({
     [loadSelectedInquiry],
   )
 
-  return { actions, discardUnfinishedWork, model: { ...model, attachmentAccessPaths }, openInquiry }
+  return {
+    actions,
+    discardUnfinishedWork,
+    protectUnfinishedWork,
+    model: { ...model, attachmentAccessPaths },
+    openInquiry,
+  }
 }

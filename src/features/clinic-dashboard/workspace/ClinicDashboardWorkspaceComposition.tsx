@@ -95,6 +95,9 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   authorizedClinics?: readonly AuthorizedClinic[]
   selectionNotice?: string
   onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
+  departureGuard?: ReturnType<typeof useEditorDepartureGuard>
+  onSectionChange?: (section: ClinicDashboardSection) => void
+  onAccessLost?: () => void
   clinicGalleryCommands: ClinicGalleryCommands
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
@@ -107,7 +110,6 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
   focusReviewId?: string
-  departureGuard?: ReturnType<typeof useEditorDepartureGuard>
   notificationController?: NotificationCenterController
   notificationsOpen?: boolean
   onNotificationsOpenChange?: (open: boolean) => void
@@ -138,13 +140,15 @@ export function ClinicDashboardWorkspaceComposition({
   authorizedClinics,
   selectionNotice,
   onClinicChange,
+  departureGuard,
+  onSectionChange,
+  onAccessLost,
   clinicGalleryCommands,
   clinicProfileSourceCommands,
   clinicTreatmentCommands,
   doctorProfileCommands,
   focusInquiryId,
   focusReviewId,
-  departureGuard,
   notificationController,
   notificationsOpen,
   onNotificationsOpenChange,
@@ -327,6 +331,9 @@ export function ClinicDashboardWorkspaceComposition({
     showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
   })
   const activeSection = selectSafeClinicDashboardSection(model.activeSection, navigationItems)
+  useEffect(() => {
+    onSectionChange?.(activeSection)
+  }, [activeSection, onSectionChange])
   const effectiveLocationId = capabilities.canSwitchLocations
     ? model.selectedLocationId
     : workspaceInput.defaultLocationId
@@ -425,10 +432,12 @@ export function ClinicDashboardWorkspaceComposition({
   const router = useRouter()
   const handleReviewAccessLoss = useCallback(
     (failure?: "unauthorized" | "forbidden") => {
-      if (failure === "forbidden") router.replace("/access?state=restricted")
-      else handleInquirySessionLoss()
+      if (failure === "forbidden") {
+        if (onAccessLost) onAccessLost()
+        else router.replace("/access?state=restricted")
+      } else handleInquirySessionLoss()
     },
-    [handleInquirySessionLoss, router],
+    [handleInquirySessionLoss, onAccessLost, router],
   )
 
   const openNotificationDestination = useCallback<NotificationDestinationOpen>(
@@ -671,6 +680,7 @@ export function ClinicDashboardWorkspaceComposition({
             onNavigationRequestChange={setInquiryRequest}
             onFocusHandled={actions.clearMessageFocusRequest}
             onSessionLost={handleInquirySessionLoss}
+            onAccessLost={onAccessLost}
             onUnreadCountChange={setInquiryUnreadCount}
             snapshot={workspaceInput.inquiryQueue}
           />

@@ -84,6 +84,7 @@ export default async function HomePage({ searchParams, params: routeParams }: Ho
 
   return (
     <ClinicDashboardWorkspace
+      key={access.context.principal.id}
       authenticatedContext={{
         principal: access.context.principal,
         clinic: { id: clinic.id, name: clinic.name },

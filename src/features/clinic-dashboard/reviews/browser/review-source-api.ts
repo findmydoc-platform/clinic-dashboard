@@ -64,15 +64,32 @@ async function postJson<T>(url: string, body: unknown, schema: z.ZodType<T>) {
   return parsed.data
 }
 
-export function createReviewSourceApiCommands(clinicId: string): ReviewSourceCommands {
+export function createReviewSourceApiCommands(
+  clinicId: string,
+  onAccessFailure?: (failure: "unauthorized" | "forbidden") => void,
+): ReviewSourceCommands {
+  const protect = async <T>(operation: Promise<T>) => {
+    try {
+      return await operation
+    } catch (error) {
+      if (
+        error instanceof ReviewSourceCommandError &&
+        (error.kind === "unauthorized" || error.kind === "forbidden")
+      )
+        onAccessFailure?.(error.kind)
+      throw error
+    }
+  }
   const endpoint = `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/reviews`
   return {
     async loadReview(reviewId, signal) {
       const timeout = AbortSignal.timeout(8_000)
-      const review = await getJson(
-        `${endpoint}/${encodeURIComponent(reviewId)}`,
-        clinicReviewRecordSchema,
-        signal ? AbortSignal.any([signal, timeout]) : timeout,
+      const review = await protect(
+        getJson(
+          `${endpoint}/${encodeURIComponent(reviewId)}`,
+          clinicReviewRecordSchema,
+          signal ? AbortSignal.any([signal, timeout]) : timeout,
+        ),
       )
       if (review.id !== reviewId)
         throw new ReviewSourceCommandError("unknown", "The review response was invalid.")
@@ -80,27 +97,22 @@ export function createReviewSourceApiCommands(clinicId: string): ReviewSourceCom
     },
     loadHistory(reviewId, cursor) {
       const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
-      return getJson(
-        `${endpoint}/${encodeURIComponent(reviewId)}/history${query}`,
-        reviewHistorySnapshotSchema,
+      return protect(
+        getJson(`${endpoint}/${encodeURIComponent(reviewId)}/history${query}`, reviewHistorySnapshotSchema),
       )
     },
     loadReviews(filters, page) {
       const query = new URLSearchParams({ ...filters, page: String(page) })
-      return getJson(`${endpoint}?${query}`, reviewsSourceSnapshotSchema)
+      return protect(getJson(`${endpoint}?${query}`, reviewsSourceSnapshotSchema))
     },
     submitAppeal(reviewId, submission) {
-      return postJson(
-        `${endpoint}/${encodeURIComponent(reviewId)}/appeal`,
-        submission,
-        clinicReviewRecordSchema,
+      return protect(
+        postJson(`${endpoint}/${encodeURIComponent(reviewId)}/appeal`, submission, clinicReviewRecordSchema),
       )
     },
     submitResponse(reviewId, body) {
-      return postJson(
-        `${endpoint}/${encodeURIComponent(reviewId)}/response`,
-        { body },
-        clinicReviewRecordSchema,
+      return protect(
+        postJson(`${endpoint}/${encodeURIComponent(reviewId)}/response`, { body }, clinicReviewRecordSchema),
       )
     },
   }

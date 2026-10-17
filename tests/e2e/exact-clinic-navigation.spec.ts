@@ -57,6 +57,57 @@ test.beforeEach(async ({ context, baseURL, page }) => {
   await page.route("**/api/notifications/read", acknowledgeFixture)
   await context.addCookies([{ name: "clinic_dashboard_controlled_clinics", value: "many", url: baseURL! }])
 })
+test("a real clinic page remount retains the restricted original inquiry draft until explicit discard", async ({
+  page,
+}) => {
+  const errors: string[] = []
+  page.on("pageerror", (error) => errors.push(error.message))
+  await signIn(page)
+  await page.getByRole("button", { name: /Switch clinic location/ }).click()
+  await page.getByRole("menuitem", { name: "Second Controlled Clinic", exact: true }).click()
+  await expect(page).toHaveURL(/controlled-second-clinic/)
+  await page.getByRole("button", { name: /Switch clinic location/ }).click()
+  await page.getByRole("menuitem", { name: "Controlled Clinic", exact: true }).click()
+  await expect(page).toHaveURL(/controlled-clinic/)
+  await page.getByRole("button", { name: "Inquiries", exact: true }).click()
+  await page.getByRole("button", { name: /Lukas Weber/ }).click()
+  const detail = page.getByRole("region", { name: "Inquiry from Lukas Weber" })
+  await detail.getByRole("textbox", { name: "Reply to patient" }).fill("Original private remount reply")
+  await page.route("**/api/dashboard/clinics/controlled-clinic/inquiries/messages", (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      json: { error: { code: "access-denied" } },
+    }),
+  )
+  await detail.getByRole("button", { name: "Send reply" }).click()
+  await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toBeVisible()
+  await page.evaluate(() => {
+    document.documentElement.dataset.navigationProbe = "same-browser-session"
+  })
+  await page.goBack()
+  await expect(page).toHaveURL(/controlled-second-clinic/)
+  expect(await page.evaluate(() => document.documentElement.dataset.navigationProbe)).toBe(
+    "same-browser-session",
+  )
+  await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toBeVisible()
+  await expect(
+    page.getByText("Your unfinished work is protected privately until you explicitly discard it."),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Open Second Controlled Clinic" }).click()
+  const confirmation = page.getByRole("alertdialog", { name: "Discard unfinished clinic work?" })
+  await confirmation.getByRole("button", { name: "Stay restricted" }).click()
+  await expect(
+    page.getByText("Your unfinished work is protected privately until you explicitly discard it."),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Open Second Controlled Clinic" }).click()
+  await confirmation.getByRole("button", { name: "Discard and open clinic" }).click()
+  await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toHaveCount(0)
+  await page.getByRole("button", { name: /Second clinic Lukas Weber/ }).click()
+  await expect(page.getByRole("textbox", { name: "Reply to patient" })).toHaveValue("")
+  expect(errors).toEqual([])
+})
+
 for (const target of targets) {
   test(`preserves the validated exact ${target.kind} clinic target through login without acknowledging`, async ({
     page,

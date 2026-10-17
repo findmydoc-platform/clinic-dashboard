@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import type { EditorDepartureRequest } from "@/lib/editor-departure"
+import { useEditorProtection } from "@/lib/use-editor-protection"
 import { Button } from "@/components/ui/button"
 import { Combobox } from "@/components/ui/combobox"
 import { Field } from "@/components/ui/field"
@@ -14,6 +16,7 @@ type AddressDialogProps = Readonly<{
   cities: readonly ClinicProfileCity[]
   errors: ClinicProfileValidationErrors
   navigationNotice?: string
+  onNavigationRequestChange?: (request: EditorDepartureRequest | null) => void
   onOpenChange: (open: boolean) => void
   onSave: (address: ClinicProfileDraftInput["address"]) => void
   open: boolean
@@ -24,11 +27,20 @@ export function AddressDialog({
   cities,
   errors,
   navigationNotice,
+  onNavigationRequestChange,
   onOpenChange,
   onSave,
   open,
 }: AddressDialogProps) {
   const [draft, setDraft] = useState(address)
+
+  useEditorProtection({
+    open,
+    dirty: JSON.stringify(draft) !== JSON.stringify(address),
+    draft,
+    discard: () => onOpenChange(false),
+    register: onNavigationRequestChange,
+  })
 
   return (
     <Modal

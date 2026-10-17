@@ -1,6 +1,14 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type MouseEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useTransition,
+  type MouseEvent,
+} from "react"
 import { useRouter } from "next/navigation"
 import type { AuthenticatedClinicContext, AuthorizedClinic } from "@/features/clinic-dashboard/auth/public"
 import {
@@ -30,6 +38,7 @@ import {
 import { rememberAuthorizedClinic } from "./browser/clinic-preference"
 import type { ClinicDashboardSection } from "./model/workspace"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
+import { ClinicAccessRecoveryScreen } from "./components/organisms/ClinicAccessRecoveryScreen"
 
 export type ClinicDashboardWorkspaceProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
@@ -73,6 +82,9 @@ function ClinicDashboardWorkspaceContent({
   useSessionRecoveryCompletion()
   const router = useRouter()
   const {
+    recovery,
+    recoverSession,
+    setSection,
     departureGuard,
     exactOpening,
     notificationCommands,
@@ -84,27 +96,34 @@ function ClinicDashboardWorkspaceContent({
   } = lifetime
   useEffect(() => {
     const lease = new AbortController()
-    register({ authenticatedContext, authorizedClinics, initialNotifications }, lease.signal)
+    register({ authenticatedContext, authorizedClinics, initialNotifications, initialSection }, lease.signal)
     return () => lease.abort()
-  }, [authenticatedContext, authorizedClinics, initialNotifications, register])
+  }, [authenticatedContext, authorizedClinics, initialNotifications, initialSection, register])
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
-  const activeScope = useRef(scope)
-  const [restrictedScope, setRestrictedScope] = useState<string>()
-  useEffect(() => {
+  const activeScope = useRef<string | undefined>(scope)
+  useLayoutEffect(() => {
     activeScope.current = scope
+    return () => {
+      activeScope.current = undefined
+    }
   }, [scope])
+  const restrict = recovery.restrict
+  const handleDomainAccessFailure = useCallback(
+    (failure: "unauthorized" | "forbidden") => {
+      if (activeScope.current !== scope) return
+      if (failure === "unauthorized") recoverSession()
+      else void restrict()
+    },
+    [recoverSession, restrict, scope],
+  )
   const loadReporting = useCallback(
     (days: ClinicDashboardReportingPeriodDays) =>
       loadClinicDashboardReportingFromBrowser(authenticatedContext.clinic.id, days, fetch, (failure) => {
         if (activeScope.current !== scope) return
-        setRestrictedScope(scope)
-        router.replace(
-          failure === "unauthorized"
-            ? "/auth/session/recover?mode=refresh&attempt="
-            : "/access?state=restricted",
-        )
+        if (failure === "unauthorized") recoverSession()
+        else void restrict()
       }),
-    [authenticatedContext.clinic.id, router, scope],
+    [authenticatedContext.clinic.id, recoverSession, restrict, scope],
   )
   useEffect(() => {
     if (authorizedClinics)
@@ -156,20 +175,37 @@ function ClinicDashboardWorkspaceContent({
     },
     [cancelNotificationOpening, openExactDestination],
   )
-  const reviewSourceCommands = useMemo(
-    () => createReviewSourceApiCommands(authenticatedContext.clinic.id),
-    [authenticatedContext.clinic.id],
-  )
+  const reviewSourceCommands = useMemo(() => {
+    // The factory stores this callback; only asynchronous command failures invoke it.
+    // eslint-disable-next-line react-hooks/refs
+    return createReviewSourceApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
   const refreshSources = () => startSourceRefresh(() => router.refresh())
 
-  if (restrictedScope === scope) return <p role="alert">Clinic access is no longer available.</p>
+  if (recovery.model.restricted)
+    return (
+      <ClinicAccessRecoveryScreen
+        model={recovery.model}
+        onChoose={recovery.chooseClinic}
+        onRefresh={() => void recovery.refreshChoices()}
+        onDeclineDiscard={recovery.declineDiscard}
+        onConfirmDiscard={() => void recovery.confirmDiscard()}
+      />
+    )
   return (
-    <div data-clinic-workspace onClick={openExactLink}>
+    <div
+      data-clinic-workspace
+      aria-busy={lifetime.registeredContext !== authenticatedContext}
+      inert={lifetime.registeredContext !== authenticatedContext}
+      onClick={openExactLink}
+    >
       <ClinicDashboardWorkspaceComposition
         key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
         authenticatedContext={authenticatedContext}
         departureGuard={departureGuard}
+        onSectionChange={setSection}
+        onAccessLost={() => void restrict()}
         notificationController={notifications}
         notificationsOpen={notificationsOpen}
         onNotificationsOpenChange={setNotificationsOpen}

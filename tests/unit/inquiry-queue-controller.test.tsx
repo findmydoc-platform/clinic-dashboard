@@ -1225,3 +1225,96 @@ describe("Inquiry queue controller", () => {
     },
   )
 })
+
+it("protects actual reply and attachment work before source access loss and cleans it only on explicit discard", async () => {
+  let protectedWork: import("@/lib/editor-departure").ProtectedEditorWork | void
+  const discardAttachmentDraft = vi
+    .fn<InquiryWorkspaceCommands["discardAttachmentDraft"]>()
+    .mockResolvedValue({ ok: true, value: { discarded: true } })
+  const { result } = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "clinic-1",
+      snapshot: inquiryQueueFixture,
+      commands: createCommands({
+        discardAttachmentDraft,
+        sendExternalMessage: async () => ({ ok: false, error: { code: "access-denied" } }),
+      }),
+      onAccessLost: () => {
+        protectedWork = result.current.protectUnfinishedWork()
+      },
+    }),
+  )
+  await act(async () => {
+    await result.current.actions.onInquirySelect(inquiryDetailFixtures.open.id)
+  })
+  act(() => result.current.actions.onDraftChange("Protected actual reply before revocation."))
+  await act(async () => {
+    await result.current.actions.onAttachmentSelect(
+      new File(["synthetic"], "private.pdf", { type: "application/pdf" }),
+    )
+  })
+  await act(async () => {
+    await result.current.actions.onSend()
+  })
+  expect(result.current.model.selectedInquiry).toBeUndefined()
+  expect(protectedWork!.draft).toMatchObject({
+    drafts: { [inquiryDetailFixtures.open.id]: { reply: "Protected actual reply before revocation." } },
+  })
+  expect(discardAttachmentDraft).not.toHaveBeenCalled()
+  await act(async () => {
+    await protectedWork!.discard()
+  })
+  expect(discardAttachmentDraft).toHaveBeenCalledWith({
+    inquiryId: inquiryDetailFixtures.open.id,
+    draftId: "synthetic-draft",
+  })
+})
+
+it("retains an actual pending file privately and cleans a late original-clinic upload after restriction unmount", async () => {
+  type UploadResult = Awaited<ReturnType<InquiryWorkspaceCommands["createAttachmentDraft"]>>
+  let resolveUpload!: (result: UploadResult) => void
+  const createAttachmentDraft: InquiryWorkspaceCommands["createAttachmentDraft"] = () =>
+    new Promise((resolve) => {
+      resolveUpload = resolve
+    })
+  const discardAttachmentDraft = vi.fn(createCommands().discardAttachmentDraft)
+  const hook = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "original-clinic",
+      commands: createCommands({ createAttachmentDraft, discardAttachmentDraft }),
+      snapshot: inquiryQueueFixture,
+    }),
+  )
+  await act(async () => {
+    await hook.result.current.actions.onInquirySelect(inquiryDetailFixtures.open.id)
+  })
+  const file = new File(["synthetic original file"], "private.pdf", { type: "application/pdf" })
+  let pending!: Promise<void>
+  act(() => {
+    pending = hook.result.current.actions.onAttachmentSelect(file)
+  })
+  const captured = hook.result.current.protectUnfinishedWork()
+  hook.unmount()
+  expect(captured?.draft).toMatchObject({ files: new Map([[inquiryDetailFixtures.open.id, file]]) })
+  expect(discardAttachmentDraft).not.toHaveBeenCalled()
+  await act(async () => {
+    resolveUpload({
+      ok: true,
+      value: {
+        draftId: "late-original-draft",
+        expiresAt: "2026-08-25T10:00:00.000Z",
+        fileName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+        status: "ready",
+      },
+    })
+    await pending
+  })
+  expect(discardAttachmentDraft).toHaveBeenCalledWith({
+    inquiryId: inquiryDetailFixtures.open.id,
+    draftId: "late-original-draft",
+  })
+  expect(captured?.draft).toMatchObject({ files: new Map([[inquiryDetailFixtures.open.id, file]]) })
+  await captured?.discard()
+})

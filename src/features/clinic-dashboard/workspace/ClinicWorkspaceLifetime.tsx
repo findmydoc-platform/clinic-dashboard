@@ -3,6 +3,7 @@
 import {
   createContext,
   useCallback,
+  useEffect,
   useContext,
   useMemo,
   useRef,
@@ -18,12 +19,15 @@ import {
   type NotificationLoadState,
   type NotificationCommands,
 } from "@/features/clinic-dashboard/notifications/public"
+import type { ClinicDashboardSection } from "./model/workspace"
+import { useClinicAccessRecovery } from "./useClinicAccessRecovery"
 import { useEditorDepartureGuard } from "./useEditorDepartureGuard"
 import { useExactClinicOpening } from "./useExactClinicOpening"
 
 type Registration = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
   authorizedClinics?: readonly AuthorizedClinic[]
+  initialSection?: ClinicDashboardSection
   initialNotifications?: NotificationLoadState
 }>
 const loading: NotificationLoadState = { status: "loading" }
@@ -31,12 +35,14 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
   const pathname = usePathname()
   const activePath = useRef(pathname)
   const sessionPrincipal = useRef<string | undefined>(undefined)
+  const recoveryTarget = useRef<{ clinicId: string; section: ClinicDashboardSection } | undefined>(undefined)
   useLayoutEffect(() => {
     activePath.current = pathname
   }, [pathname])
   const router = useRouter()
   const [registration, setRegistration] = useState<Registration>()
   const departureGuard = useEditorDepartureGuard()
+  const [section, setSection] = useState<ClinicDashboardSection>("dashboard")
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const navigate = useCallback((path: string) => router.push(path), [router])
   const principalId = registration?.authenticatedContext.principal.id ?? "unregistered"
@@ -70,6 +76,40 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
     cancelExactOpening()
     cancelNotificationOpening()
   }, [cancelExactOpening, cancelNotificationOpening])
+  const { clearProtection, hasProtectedWork } = departureGuard
+  useEffect(() => () => clearProtection(), [clearProtection])
+  const recoverSession = useCallback(() => {
+    onNavigationAway()
+    clearProtection()
+    router.replace("/auth/session/recover?mode=refresh&attempt=")
+  }, [clearProtection, onNavigationAway, router])
+  const chooseClinic = useCallback(
+    (id: string, nextSection: ClinicDashboardSection) => {
+      recoveryTarget.current = { clinicId: id, section: nextSection }
+      onNavigationAway()
+      router.push(`/clinics/${encodeURIComponent(id)}?section=${nextSection}`)
+    },
+    [onNavigationAway, router],
+  )
+  const recovery = useClinicAccessRecovery({
+    principalId,
+    clinicId,
+    section,
+    guard: departureGuard,
+    onChoose: chooseClinic,
+    onSessionLost: recoverSession,
+    protectionOwnedBySession: true,
+  })
+  const isRestricted = recovery.isRestricted
+  const restrictCurrentScope = recovery.restrict
+  const restrict = useCallback(() => {
+    // Capture the original editor commands before invalidating an exact opening.
+    recoveryTarget.current = undefined
+    const pending = restrictCurrentScope()
+    onNavigationAway()
+    return pending
+  }, [restrictCurrentScope, onNavigationAway])
+  const protectionCount = departureGuard.protectedWork.length
   const register = useCallback(
     (next: Registration, signal: AbortSignal) => {
       if (
@@ -78,8 +118,21 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
           activePath.current !== `/clinics/${encodeURIComponent(next.authenticatedContext.clinic.id)}`)
       )
         return
-      if (sessionPrincipal.current && sessionPrincipal.current !== next.authenticatedContext.principal.id)
+      if (sessionPrincipal.current && sessionPrincipal.current !== next.authenticatedContext.principal.id) {
         onNavigationAway()
+        clearProtection()
+        recoveryTarget.current = undefined
+      } else if (
+        protectionCount ||
+        hasProtectedWork() ||
+        (isRestricted() &&
+          (recoveryTarget.current?.clinicId !== next.authenticatedContext.clinic.id ||
+            recoveryTarget.current.section !== (next.initialSection ?? "dashboard")))
+      )
+        return
+      recoveryTarget.current = undefined
+      if (registration?.authenticatedContext.clinic.id !== next.authenticatedContext.clinic.id)
+        setSection(next.initialSection ?? "dashboard")
       sessionPrincipal.current = next.authenticatedContext.principal.id
       setRegistration((current) =>
         current?.authenticatedContext === next.authenticatedContext &&
@@ -89,9 +142,21 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
           : next,
       )
     },
-    [isolated, onNavigationAway],
+    [
+      isolated,
+      onNavigationAway,
+      clearProtection,
+      hasProtectedWork,
+      registration?.authenticatedContext.clinic.id,
+      protectionCount,
+      isRestricted,
+    ],
   )
   return {
+    registeredContext: registration?.authenticatedContext,
+    recovery: { ...recovery, restrict },
+    recoverSession,
+    setSection,
     departureGuard,
     exactOpening,
     notificationCommands,

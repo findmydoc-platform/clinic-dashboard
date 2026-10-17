@@ -264,3 +264,32 @@ describe("reviews source controller", () => {
     }
   })
 })
+
+it("ignores a late old-clinic action denial after its workspace unmounts", async () => {
+  const pending = deferred<(typeof reviewSourceRecordsFixture)[0]>()
+  const lost = vi.fn()
+  const commands = { ...createReviewSourceCommandsFixture(), submitResponse: vi.fn(() => pending.promise) }
+  const hook = renderHook(() =>
+    useReviewsController({
+      commands,
+      onSessionLost: lost,
+      showManagement: true,
+      snapshot: reviewSourceSnapshotFixture,
+    }),
+  )
+  act(() => hook.result.current.actions.openReviewResponse(reviewSourceRecordsFixture[1].id))
+  let result!: Promise<"applied" | "discarded">
+  act(() => {
+    result = hook.result.current.actions.submitReviewResponse(
+      "A private original-clinic response remains isolated.",
+    )
+  })
+  expect(commands.submitResponse).toHaveBeenCalledTimes(1)
+  hook.unmount()
+  await act(async () => {
+    pending.reject(new ReviewSourceCommandError("unauthorized", "Late session denial"))
+    await result
+  })
+  expect(lost).not.toHaveBeenCalled()
+  await expect(result).resolves.toBe("discarded")
+})

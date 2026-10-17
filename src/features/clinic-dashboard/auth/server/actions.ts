@@ -51,7 +51,11 @@ import {
 const loginSchema = z
   .object({
     email: z.string().email(),
-    next: z.string().min(1).max(128),
+    // The longest closed return target contains a 100-character clinic ID and a 128-character review ID.
+    next: z
+      .string()
+      .min(1)
+      .max("/clinics/".length + 100 + "?section=reviews&review=".length + 128),
     password: z.string().min(1),
   })
   .strict()
