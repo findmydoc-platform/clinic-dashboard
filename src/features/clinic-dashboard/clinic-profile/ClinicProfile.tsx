@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useEffect, useState } from "react"
+import { type ReactNode, useCallback, useRef, useEffect, useState } from "react"
 import type { EditorDepartureRequest, ProtectedEditorWork } from "@/lib/editor-departure"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -54,6 +54,7 @@ export type ClinicProfileProps = Readonly<{
   sourceProfileManagement: ClinicProfileManagementAccess
   sourceCommands: ClinicProfileSourceCommands
   sourceSnapshot?: ClinicProfileSnapshot
+  treatmentContextNavigation?: ReactNode
   treatmentCommands: ClinicTreatmentCommands
   treatmentManagement: ClinicProfileManagementAccess
   treatmentSnapshot: ClinicTreatmentsSnapshot
@@ -81,6 +82,7 @@ export function ClinicProfile({
   sourceCommands,
   sourceSnapshot,
   treatmentCommands,
+  treatmentContextNavigation,
   treatmentManagement,
   treatmentSnapshot,
 }: ClinicProfileProps) {
@@ -160,12 +162,6 @@ export function ClinicProfile({
           },
         }
       }
-      if (hasBlockingDialog) {
-        setNavigationNotice("Save or close the current editor before continuing.")
-        onCancel?.()
-        return
-      }
-      setNavigationNotice("")
       const continueAfterDoctor = () => {
         if (isGalleryOpen) requestGalleryNavigation(continuation, onCancel)
         else continuation()
@@ -175,9 +171,29 @@ export function ClinicProfile({
         if (doctor) doctor(continueAfterDoctor, onCancel)
         else continueAfterDoctor()
       }
+      if (treatmentController.model.dialogOpen && dialogNavigation.current) {
+        dialogNavigation.current(
+          () => requestSourceNavigation(continueAfterSource, onCancel),
+          onCancel,
+          intent,
+        )
+        return
+      }
+      if (hasBlockingDialog) {
+        setNavigationNotice("Save or close the current editor before continuing.")
+        onCancel?.()
+        return
+      }
+      setNavigationNotice("")
       requestSourceNavigation(continueAfterSource, onCancel)
     },
-    [hasBlockingDialog, isGalleryOpen, requestGalleryNavigation, requestSourceNavigation],
+    [
+      hasBlockingDialog,
+      isGalleryOpen,
+      requestGalleryNavigation,
+      requestSourceNavigation,
+      treatmentController.model.dialogOpen,
+    ],
   )
   useEffect(() => {
     const hasEditor =
@@ -404,7 +420,8 @@ export function ClinicProfile({
             if (!open) setNavigationNotice("")
             treatmentController.actions.setDialogOpen(open)
           }}
-          onSave={treatmentController.actions.save}
+          contextNavigation={treatmentContextNavigation}
+          onSave={(input) => treatmentController.actions.save(input, false)}
           onTreatmentMissing={onTreatmentMissing}
           open
         />

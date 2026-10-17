@@ -14,7 +14,7 @@ export const clinicScopeConversions: Readonly<
 > = {
   profile: false,
   gallery: false,
-  treatments: false,
+  treatments: true,
   doctors: false,
   inquiries: true,
   reviews: true,

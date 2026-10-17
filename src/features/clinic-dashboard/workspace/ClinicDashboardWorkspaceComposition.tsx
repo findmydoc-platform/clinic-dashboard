@@ -11,6 +11,7 @@ import {
 } from "@/features/clinic-dashboard/auth/public"
 import {
   ClinicProfile,
+  ClinicTreatmentsWorkspace,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
   type ClinicProfileFocusTarget,
@@ -70,6 +71,7 @@ import {
   type ClinicDashboardWorkspaceInput,
 } from "./model/workspace-input"
 import { selectClinicDashboardNavigationItems, selectSafeClinicDashboardSection } from "./navigation"
+import { Select } from "@/components/ui/select"
 import { clinicScopeConversions } from "./model/clinic-scope-conversions"
 import { useEditorDepartureGuard } from "./useEditorDepartureGuard"
 import { useClinicDashboardController } from "./useClinicDashboardController"
@@ -223,7 +225,9 @@ export function ClinicDashboardWorkspaceComposition({
       ? "interactive"
       : "read-only"
     : "hidden"
-  const canViewTreatments = authenticatedContext.capabilities.includes("clinic-treatments:view")
+  const canViewTreatments =
+    (!authorizedClinics || clinicScopeConversions.treatments) &&
+    authenticatedContext.capabilities.includes("clinic-treatments:view")
   const canEditTreatments = authenticatedContext.capabilities.includes("clinic-treatments:edit")
   const treatmentManagement = canViewTreatments ? (canEditTreatments ? "interactive" : "read-only") : "hidden"
   const navigationItems = selectClinicDashboardNavigationItems({
@@ -408,6 +412,24 @@ export function ClinicDashboardWorkspaceComposition({
       else actions.selectLocation(locationId, nextLocation.name)
     })
   }
+
+  const treatmentContextNavigation =
+    clinicLocations.length > 1 ? (
+      <label className="grid gap-1 text-xs font-bold">
+        Active clinic
+        <Select
+          aria-label="Active clinic while editing treatments"
+          value={selectedLocation.id}
+          onValueChange={selectLocation}
+        >
+          {clinicLocations.map((clinic) => (
+            <option key={clinic.id} value={clinic.id}>
+              {clinic.name}
+            </option>
+          ))}
+        </Select>
+      </label>
+    ) : undefined
 
   const openProfileDestination = (destination: ClinicProfileFocusTarget) => {
     cancelOpening()
@@ -598,10 +620,23 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "profile"}>
         {authorizedClinics && !clinicScopeConversions.profile ? (
-          <FutureAreaPlaceholderScreen
-            heading="Clinic profile"
-            description="The profile for this clinic is currently unavailable."
-          />
+          <div className="space-y-6">
+            <FutureAreaPlaceholderScreen
+              heading="Clinic profile"
+              description="The profile for this clinic is currently unavailable."
+            />
+            {clinicScopeConversions.treatments ? (
+              <ClinicTreatmentsWorkspace
+                commands={clinicTreatmentCommands}
+                snapshot={workspaceInput.treatmentSnapshot}
+                management={treatmentManagement}
+                contextNavigation={treatmentContextNavigation}
+                onNavigationRequestChange={setProfileRequest}
+                onSaved={onSourceRefresh}
+                onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
+              />
+            ) : null}
+          </div>
         ) : (
           <ClinicProfile
             onNavigationRequestChange={setProfileRequest}
@@ -634,6 +669,7 @@ export function ClinicDashboardWorkspaceComposition({
             sourceProfileManagement={sourceProfileManagement}
             sourceCommands={clinicProfileSourceCommands}
             sourceSnapshot={workspaceInput.profileSourceSnapshot}
+            treatmentContextNavigation={treatmentContextNavigation}
             treatmentCommands={clinicTreatmentCommands}
             treatmentManagement={treatmentManagement}
             treatmentSnapshot={workspaceInput.treatmentSnapshot}

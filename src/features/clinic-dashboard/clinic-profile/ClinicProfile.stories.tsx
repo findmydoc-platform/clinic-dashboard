@@ -619,7 +619,7 @@ export const ProfileNavigationRefusesBusySave: Story = {
   },
 }
 
-export const TreatmentEditorRefusesNotificationNavigation: Story = {
+export const TreatmentEditorGuardsNotificationNavigation: Story = {
   args: { onNavigationRequestChange: fn(), focusTarget: "treatments" },
   play: async ({ args, canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body)
@@ -630,10 +630,20 @@ export const TreatmentEditorRefusesNotificationNavigation: Story = {
     const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
     expect(request).toEqual(expect.any(Function))
     await act(() => request?.(continuation, cancelled))
-    expect(cancelled).toHaveBeenCalledTimes(1)
+    const confirmation = await body.findByRole("alertdialog", { name: "Leave treatment editing?" })
+    expect(cancelled).not.toHaveBeenCalled()
     expect(continuation).not.toHaveBeenCalled()
+    await userEvent.click(within(confirmation).getByRole("button", { name: "Keep editing" }))
+    expect(cancelled).toHaveBeenCalledTimes(1)
     expect(input).toHaveValue(375)
-    expect(await body.findByText("Save or close the current editor before continuing.")).toBeVisible()
+    const nextRequest = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    await act(() => nextRequest?.(continuation, cancelled))
+    await userEvent.click(
+      within(await body.findByRole("alertdialog", { name: "Leave treatment editing?" })).getByRole("button", {
+        name: "Discard and continue",
+      }),
+    )
+    expect(continuation).toHaveBeenCalledTimes(1)
   },
 }
 export const DoctorEditorProtectsNotificationNavigation: Story = {
