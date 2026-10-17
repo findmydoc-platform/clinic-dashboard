@@ -6,9 +6,16 @@ async function signIn(page: Page) {
   await page.getByLabel("Password").fill("clinic-dashboard-test")
   await page.getByRole("button", { name: "Sign in" }).click()
   await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
-  const mobileMenu = page.getByRole("button", { name: "Open navigation" })
-  if (await mobileMenu.isVisible()) await mobileMenu.click()
-  await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
+  const mobileMenu = page.getByRole("button", { name: "Open navigation", exact: true })
+  if (page.viewportSize()!.width < 768) {
+    await expect(mobileMenu).toBeVisible()
+    await mobileMenu.click()
+    await expect(page.getByRole("dialog", { name: "Clinic navigation", exact: true })).toBeVisible()
+  }
+  const profile = page.getByRole("button", { name: "Clinic profile", exact: true })
+  await expect(profile).toBeVisible()
+  await profile.click()
 }
 async function switchClinic(page: Page) {
   const selector = page.getByRole("dialog", { name: "Edit doctor" }).getByLabel("Active clinic")
