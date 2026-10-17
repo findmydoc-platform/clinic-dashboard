@@ -1,4 +1,5 @@
 import "server-only"
+import { clinicDashboardContractHeaders } from "../../payload-contract"
 
 import { validateEnvironment } from "@/lib/env"
 import type {
@@ -15,14 +16,6 @@ import type {
   ClinicProfileProviderResult,
   ClinicProfileReadError,
 } from "./clinic-profile-provider"
-
-const payloadClinicProfilePaths = {
-  createDraft: "/api/clinic-dashboard/profile/draft",
-  discardDraft: "/api/clinic-dashboard/profile/draft/discard",
-  loadProfile: "/api/clinic-dashboard/profile",
-  publishDraft: "/api/clinic-dashboard/profile/publish",
-  saveDraft: "/api/clinic-dashboard/profile/draft",
-} as const
 
 type PayloadResponse =
   | Readonly<{
@@ -42,6 +35,7 @@ function requestHeaders(accessToken: string) {
   return {
     Accept: "application/json",
     Authorization: `Bearer ${accessToken}`,
+    ...clinicDashboardContractHeaders(),
   }
 }
 
@@ -116,9 +110,19 @@ function mutationInit(
 
 export function createPayloadClinicProfileProvider(
   accessToken: string,
-  _clinicId: string,
+  clinicId: string,
   fetcher: typeof fetch = fetch,
 ): ClinicProfileProvider {
+  if (!/^[A-Za-z0-9_-]{1,128}$/u.test(clinicId)) throw new Error("Invalid profile clinic target")
+  const endpoint = `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/profile`
+  const payloadClinicProfilePaths = {
+    createDraft: `${endpoint}/draft`,
+    discardDraft: `${endpoint}/draft/discard`,
+    loadProfile: endpoint,
+    publishDraft: `${endpoint}/publish`,
+    saveDraft: `${endpoint}/draft`,
+  }
+
   async function requestSnapshot<TError extends ClinicProfileReadError | ClinicProfileChangeError>(
     pathname: string,
     init: RequestInit,

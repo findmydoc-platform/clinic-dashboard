@@ -45,6 +45,24 @@ describe("Clinic profile route actions", () => {
     vi.clearAllMocks()
   })
 
+  it.each(["/api/dashboard/profile", "/api/dashboard/clinics/foreign-clinic/profile"])(
+    "rejects an absent or mismatched target %s before source access",
+    async (path) => {
+      accessMocks.resolveClinicDashboardRouteAccess.mockResolvedValue({
+        accessToken: "verified-access-token",
+        clinicId: "server-derived-clinic",
+        status: "approved",
+        applyToResponse: (response: Response) => response,
+      })
+      const response = await handleClinicProfileLoad(
+        new NextRequest(`http://localhost:3000${path}`),
+        createProvider,
+      )
+      expect(response.status).toBe(403)
+      expect(createProvider).not.toHaveBeenCalled()
+    },
+  )
+
   it("derives provider scope from authenticated route access, never browser input", async () => {
     accessMocks.resolveClinicDashboardRouteAccess.mockResolvedValue({
       accessToken: "verified-access-token",
@@ -55,7 +73,9 @@ describe("Clinic profile route actions", () => {
     providerMocks.loadSnapshot.mockResolvedValue({ ok: true, value: sourceSnapshot })
 
     const response = await handleClinicProfileLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/profile?clinicId=other-clinic"),
+      new NextRequest(
+        "http://localhost:3000/api/dashboard/clinics/server-derived-clinic/profile?clinicId=other-clinic",
+      ),
       createProvider,
     )
 
@@ -64,6 +84,7 @@ describe("Clinic profile route actions", () => {
     expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(
       expect.any(NextRequest),
       "clinic-profile:view",
+      "server-derived-clinic",
     )
     expect(providerMocks.loadSnapshot).toHaveBeenCalledOnce()
   })

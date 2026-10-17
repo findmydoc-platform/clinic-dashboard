@@ -54,18 +54,40 @@ type ControlledClinicProfileState = {
   publishedProfile: PublishedClinicProfile
 }
 
-function controlledState() {
+function controlledStates() {
   const controlledGlobal = globalThis as typeof globalThis & {
-    __findmydocControlledClinicProfile?: ControlledClinicProfileState
+    __findmydocControlledClinicProfiles?: Map<string, ControlledClinicProfileState>
   }
-  controlledGlobal.__findmydocControlledClinicProfile ??= {
-    publishedProfile: initialPublishedProfile,
-  }
-  return controlledGlobal.__findmydocControlledClinicProfile
+  controlledGlobal.__findmydocControlledClinicProfiles ??= new Map()
+  return controlledGlobal.__findmydocControlledClinicProfiles
 }
 
-function currentSnapshot(): ClinicProfileSnapshot {
-  const state = controlledState()
+function controlledState(clinicId: string) {
+  const states = controlledStates()
+  let state = states.get(clinicId)
+  if (!state) {
+    state = {
+      publishedProfile: {
+        ...initialPublishedProfile,
+        ...(clinicId === "controlled-clinic" || clinicId === "clinic-acceptance"
+          ? {}
+          : {
+              name: "Controlled Ankara Clinic",
+              address: {
+                ...initialPublishedProfile.address,
+                city: availableCities[1],
+                street: "Atatürk Avenue",
+              },
+            }),
+      },
+    }
+    states.set(clinicId, state)
+  }
+  return state
+}
+
+function currentSnapshot(clinicId: string): ClinicProfileSnapshot {
+  const state = controlledState(clinicId)
   return cloneClinicProfileSourceSnapshot({
     availableCities,
     draft: state.persistentDraft,
@@ -120,15 +142,13 @@ function isPublishable(profile: ClinicProfileSourceFields) {
 }
 
 export function resetControlledClinicProfileProvider() {
-  const state = controlledState()
-  state.publishedProfile = initialPublishedProfile
-  state.persistentDraft = undefined
+  controlledStates().clear()
 }
 
-export function createControlledClinicProfileProvider(): ClinicProfileProvider {
+export function createControlledClinicProfileProvider(clinicId: string): ClinicProfileProvider {
   return {
     async createDraft(input) {
-      const state = controlledState()
+      const state = controlledState(clinicId)
       if (state.publishedProfile.revision !== input.expectedPublishedRevision || state.persistentDraft) {
         return { error: "conflict", ok: false }
       }
@@ -139,23 +159,23 @@ export function createControlledClinicProfileProvider(): ClinicProfileProvider {
         basePublishedRevision: state.publishedProfile.revision,
         revision: 1,
       }
-      return { ok: true, value: currentSnapshot() }
+      return { ok: true, value: currentSnapshot(clinicId) }
     },
     async discardDraft(input) {
-      const state = controlledState()
+      const state = controlledState(clinicId)
       if (!state.persistentDraft) return { error: "not-found", ok: false }
       if (state.persistentDraft.revision !== input.expectedDraftRevision) {
         return { error: "conflict", ok: false }
       }
 
       state.persistentDraft = undefined
-      return { ok: true, value: currentSnapshot() }
+      return { ok: true, value: currentSnapshot(clinicId) }
     },
     async loadSnapshot() {
-      return { ok: true, value: currentSnapshot() }
+      return { ok: true, value: currentSnapshot(clinicId) }
     },
     async publishDraft(input) {
-      const state = controlledState()
+      const state = controlledState(clinicId)
       if (!state.persistentDraft) return { error: "not-found", ok: false }
       if (
         state.publishedProfile.revision !== input.expectedPublishedRevision ||
@@ -176,10 +196,10 @@ export function createControlledClinicProfileProvider(): ClinicProfileProvider {
         revision: state.publishedProfile.revision + 1,
       }
       state.persistentDraft = undefined
-      return { ok: true, value: currentSnapshot() }
+      return { ok: true, value: currentSnapshot(clinicId) }
     },
     async saveDraft(input) {
-      const state = controlledState()
+      const state = controlledState(clinicId)
       if (!state.persistentDraft) return { error: "not-found", ok: false }
       if (
         state.publishedProfile.revision !== input.expectedPublishedRevision ||
@@ -197,7 +217,7 @@ export function createControlledClinicProfileProvider(): ClinicProfileProvider {
         basePublishedRevision: state.persistentDraft.basePublishedRevision,
         revision: state.persistentDraft.revision + 1,
       }
-      return { ok: true, value: currentSnapshot() }
+      return { ok: true, value: currentSnapshot(clinicId) }
     },
   }
 }

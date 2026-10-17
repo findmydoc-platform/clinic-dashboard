@@ -361,7 +361,7 @@ destination. Cleanup failure retains protection for an explicit retry. Principal
 and run original cleanup; obsolete choice reads, domain reads and actions cannot restore old content or navigate a new
 scope. Existing unmounted-domain cleanup owns late upload completion. No new revocation channel or age policy is added.
 
-`workspace/model/clinic-scope-conversions.ts` keeps profile, treatments, gallery, doctors
+`workspace/model/clinic-scope-conversions.ts` keeps treatments, gallery, doctors
 closed until their independent target-route conversions are integrated. The server does not load their source records, and
 the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
 records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
@@ -546,3 +546,9 @@ The additive `X-Findmydoc-Clinic-Notifications-Contract: clinic-notifications-v1
 The review browser commands bind list filters, pagination, exact detail, history, response and appeal submission to `/api/dashboard/clinics/:clinicId/reviews`. The BFF resolves the explicit target against fresh personal access and keeps session, origin and CSRF checks. Targetless legacy routes remain denied. The Payload provider uses only the dedicated Website review operations under the matching clinic prefix and negotiates `clinic-scope-v1`; mutation bodies cannot choose a clinic. No additional bootstrap capability names are introduced.
 
 The workspace enables the reviews conversion gate. A clinic switch preserves the reviews section, remounts clinic-owned state and creates new commands for the new target. Existing departure continuations preserve unfinished response and appeal drafts. Review confirmation and editor dialogs both use the native top layer so Keep editing, Escape and save/discard controls remain reachable and restore nested focus. Controlled acceptance uses distinguishable synthetic clinic records and cannot qualify real Preview or Production source behavior.
+
+## Explicit clinic profile operations
+
+Profile snapshot, draft create/save/discard and publication use `/api/dashboard/clinics/:clinicId/profile` and its draft/publish children. The BFF repeats current target access and operation capability checks and binds its private provider to that authorized target. Browser and source providers retain this target for pending actions and reconciliation reads. Payload requests include one literal `clinic-scope-v1` header. Editable bodies cannot choose clinic, country, coordinates or unrelated controlled fields. Türkiye city options come from the authorized profile snapshot.
+
+Controlled profile state is separate per clinic. The profile controller drops responses after its editor unmounts and does not issue a second save after a late create. Source 401/403 invokes the Workspace recovery callback before command rejection. The shared departure guard can retain the actual private draft, saved baseline and unresolved publication attempt before the editor disappears. Failed saves block departure; only explicit discard releases protected work. The profile conversion gate leaves treatments, doctors and gallery under their independent gates.
