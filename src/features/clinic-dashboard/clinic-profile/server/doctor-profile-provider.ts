@@ -33,6 +33,11 @@ export type DoctorProfileImageUpload = Readonly<{
 }>
 
 export type DoctorProfileProvider = Readonly<{
+  loadImage: (
+    doctorId: string,
+  ) => Promise<
+    DoctorProfileProviderResult<Readonly<{ bytes: Uint8Array; mimeType: string }>, DoctorProfileChangeError>
+  >
   createDoctor: (
     input: DoctorProfileFields,
   ) => Promise<DoctorProfileProviderResult<DoctorProfile, DoctorProfileChangeError>>

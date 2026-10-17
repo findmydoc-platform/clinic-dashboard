@@ -22,6 +22,7 @@ export {
 export {
   handleDoctorCreate,
   handleDoctorImageReplace,
+  handleDoctorImageRead,
   handleDoctorSpecialtyCreate,
   handleDoctorSpecialtyUpdate,
   handleDoctorUpdate,
