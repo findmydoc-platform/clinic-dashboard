@@ -19,6 +19,7 @@ async function switchClinic(page: Page, name: string) {
 }
 async function screenshot(page: Page, name: string) {
   await page.evaluate(async () => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     await Promise.all(
       document
         .getAnimations()
@@ -175,4 +176,43 @@ test("retains failed treatment saves and captures the actual draft before source
   await expect(page).toHaveURL(/\/clinics\/controlled-second-clinic/)
   await expect(page.getByText("€475.00", { exact: true })).toBeVisible()
   await expect(page.getByRole("dialog", { name: "Edit treatment" })).toHaveCount(0)
+})
+
+test("preserves the independent unsaved profile draft after discarding a treatment switch", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await signIn(page)
+  await page.getByRole("button", { name: "Edit profile", exact: true }).click()
+  const name = page.getByRole("textbox", { name: "Clinic name", exact: true })
+  await name.fill("Protected independent profile draft")
+  await page.getByRole("button", { name: "Edit Controlled treatment", exact: true }).click()
+  const treatment = page.getByRole("dialog", { name: "Edit treatment", exact: true })
+  await treatment.getByRole("spinbutton", { name: "Price (EUR)", exact: true }).fill("777")
+  await treatment
+    .getByRole("combobox", { name: "Active clinic while editing treatments" })
+    .selectOption("controlled-second-clinic")
+  await page
+    .getByRole("alertdialog", { name: "Leave treatment editing?" })
+    .getByRole("button", { name: "Discard and continue", exact: true })
+    .click()
+  const profileLeave = page.getByRole("alertdialog", { name: "Leave profile editing?", exact: true })
+  await expect(profileLeave).toBeVisible()
+  await expect(profileLeave).toBeInViewport()
+  await expect(profileLeave).toHaveCSS("opacity", "1")
+  await screenshot(page, "232-profile-and-treatment-departure-light")
+  await profileLeave.getByRole("button", { name: "Keep editing", exact: true }).click()
+  await expect(name).toHaveValue("Protected independent profile draft")
+  await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
+  await expect(treatment).toHaveCount(0)
+  await page.getByRole("button", { name: "Cancel editing", exact: true }).first().click()
+  await page
+    .getByRole("alertdialog", { name: "Leave profile editing?" })
+    .getByRole("button", { name: "Leave without saving", exact: true })
+    .click()
+  await expect(page.getByRole("button", { name: "Edit profile", exact: true })).toBeVisible()
+  const original = await (
+    await page.request.get("/api/dashboard/clinics/controlled-clinic/clinic-treatments")
+  ).json()
+  expect(original.offerings[0]).toMatchObject({ price: 310, active: false })
 })

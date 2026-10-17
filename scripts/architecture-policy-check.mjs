@@ -177,7 +177,9 @@ function isAllowedClinicDashboardServerImport(file) {
     /^src\/app\/api\/dashboard\/doctors(?:\/\[doctorId\](?:\/image|\/specialties(?:\/\[assignmentId\])?)?)?\/route\.ts$/u.test(
       file,
     ) ||
-    /^src\/app\/api\/dashboard\/profile(?:\/draft(?:\/discard)?|\/publish)?\/route\.ts$/u.test(file) ||
+    /^src\/app\/api\/dashboard\/(?:clinics\/\[clinicId\]\/)?profile(?:\/draft(?:\/discard)?|\/publish)?\/route\.ts$/u.test(
+      file,
+    ) ||
     file === "tests/unit/clinic-dashboard-demo-data.test.ts" ||
     file === "tests/integration/patient-inquiry-queue-loading.test.ts" ||
     file === "tests/integration/patient-inquiry-status-route.test.ts" ||

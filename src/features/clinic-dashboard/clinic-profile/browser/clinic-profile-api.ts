@@ -157,10 +157,17 @@ function responseError(response: Response, isMutation = false) {
   )
 }
 
-async function loadSnapshot() {
+type ProfileAccessFailure = (failure: "unauthorized" | "forbidden") => void
+
+function reportAccessFailure(response: Response, onAccessFailure?: ProfileAccessFailure) {
+  if (response.status === 401) onAccessFailure?.("unauthorized")
+  if (response.status === 403) onAccessFailure?.("forbidden")
+}
+
+async function loadSnapshot(endpoint: string, onAccessFailure?: ProfileAccessFailure) {
   let response: Response
   try {
-    response = await fetch("/api/dashboard/profile", {
+    response = await fetch(endpoint, {
       cache: "no-store",
       credentials: "same-origin",
       redirect: "error",
@@ -169,11 +176,17 @@ async function loadSnapshot() {
     throw new ClinicProfileSourceCommandError("unknown", "Clinic profile load outcome is unknown.")
   }
 
+  reportAccessFailure(response, onAccessFailure)
   if (!response.ok) throw responseError(response)
   return parseSnapshot(response)
 }
 
-async function submitJson(endpoint: string, method: "POST" | "PUT", body: unknown) {
+async function submitJson(
+  endpoint: string,
+  method: "POST" | "PUT",
+  body: unknown,
+  onAccessFailure?: ProfileAccessFailure,
+) {
   const csrfToken = readBrowserCsrfToken(document.cookie)
   if (!csrfToken) {
     throw new ClinicProfileSourceCommandError("rejected", "Missing request verification.")
@@ -196,16 +209,22 @@ async function submitJson(endpoint: string, method: "POST" | "PUT", body: unknow
     throw new ClinicProfileSourceCommandError("unknown", "Clinic profile operation outcome is unknown.")
   }
 
+  reportAccessFailure(response, onAccessFailure)
   if (!response.ok) throw responseError(response, true)
   return parseSnapshot(response)
 }
 
-export function createClinicProfileSourceApiCommands(): ClinicProfileSourceCommands {
+export function createClinicProfileSourceApiCommands(
+  clinicId: string,
+  onAccessFailure?: ProfileAccessFailure,
+): ClinicProfileSourceCommands {
+  if (!/^[A-Za-z0-9_-]{1,128}$/u.test(clinicId)) throw new Error("Invalid profile clinic target")
+  const endpoint = `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/profile`
   return {
-    createDraft: (input) => submitJson("/api/dashboard/profile/draft", "POST", input),
-    discardDraft: (input) => submitJson("/api/dashboard/profile/draft/discard", "POST", input),
-    loadSnapshot,
-    publishDraft: (input) => submitJson("/api/dashboard/profile/publish", "POST", input),
-    saveDraft: (input) => submitJson("/api/dashboard/profile/draft", "PUT", input),
+    createDraft: (input) => submitJson(`${endpoint}/draft`, "POST", input, onAccessFailure),
+    discardDraft: (input) => submitJson(`${endpoint}/draft/discard`, "POST", input, onAccessFailure),
+    loadSnapshot: () => loadSnapshot(endpoint, onAccessFailure),
+    publishDraft: (input) => submitJson(`${endpoint}/publish`, "POST", input, onAccessFailure),
+    saveDraft: (input) => submitJson(`${endpoint}/draft`, "PUT", input, onAccessFailure),
   }
 }

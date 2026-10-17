@@ -74,7 +74,7 @@ export function composeClinicDashboardDataProviders(
       ? { inquiryAttachmentDraftUpload: createControlledPatientInquiryAttachmentDraftUpload(clinicId) }
       : {}),
     profile: controlled
-      ? createControlledClinicProfileProvider()
+      ? createControlledClinicProfileProvider(clinicId)
       : createPayloadClinicProfileProvider(accessToken, clinicId),
     reporting: controlled
       ? createControlledClinicDashboardReportingProvider(clinicId)
