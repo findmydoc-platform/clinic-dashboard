@@ -22,7 +22,7 @@ const incompleteProfile = {
 const meta = {
   component: ClinicDashboardWorkspaceHarness,
   args: { prototypeMode: "presentation", profileSourceSnapshot: incompleteProfile },
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "fullscreen", nextjs: { appDirectory: true } },
   tags: ["domain:workspace", "layer:page", "status:stable"],
   title: "Clinic Dashboard/Journeys/Pages/Dashboard Restoration",
 } satisfies Meta<typeof ClinicDashboardWorkspaceHarness>

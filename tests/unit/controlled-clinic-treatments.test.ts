@@ -7,6 +7,16 @@ import {
 afterEach(resetControlledClinicTreatmentProviders)
 
 describe("controlled clinic treatment provider", () => {
+  it("starts eligible clinic workspaces with distinguishable source offerings", async () => {
+    const first = await createControlledClinicTreatmentProvider("controlled-clinic").loadTreatments()
+    const second = await createControlledClinicTreatmentProvider("controlled-second-clinic").loadTreatments()
+    if (!first.ok || !second.ok) throw new Error("Missing controlled treatment sources")
+    expect(first.value.offerings[0]?.price).toBe(250)
+    expect(second.value.offerings[0]?.price).toBe(475)
+    expect(first.value.offerings[0]?.id).not.toBe(second.value.offerings[0]?.id)
+    expect(first.value.offerings[0]?.treatment.id).not.toBe(second.value.offerings[0]?.treatment.id)
+  })
+
   it("persists create and update state across request-scoped provider instances", async () => {
     const firstRequest = createControlledClinicTreatmentProvider("clinic-1")
     const created = await firstRequest.createTreatment({

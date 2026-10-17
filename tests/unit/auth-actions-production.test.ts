@@ -38,15 +38,15 @@ function approvedBootstrapResponse(
 ) {
   return new Response(
     JSON.stringify({
-      capabilities,
-      clinic: { id: "clinic-1", name: "Clinic One" },
+      schemaVersion: "clinic-scope-v1",
+      clinics: [{ id: "clinic-1", name: "Clinic One", capabilities }],
       principal: { displayName: "Alex", email: "alex@example.com", id: "staff-1" },
       status: "approved",
     }),
     {
       headers: {
         "cache-control": "private, no-store",
-        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract, X-Findmydoc-Clinic-Scope-Contract",
       },
     },
   )
@@ -60,7 +60,7 @@ function deniedBootstrapResponse() {
     {
       headers: {
         "cache-control": "private, no-store",
-        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract, X-Findmydoc-Clinic-Scope-Contract",
       },
       status: 403,
     },

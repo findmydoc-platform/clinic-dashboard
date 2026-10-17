@@ -69,6 +69,19 @@ function validNewDraft() {
 }
 
 describe("doctor profile editor", () => {
+  it("retains the original doctor and draft without claiming saved changes when every submitted change fails", async () => {
+    const draft = { ...createDoctorProfileDraft(inactiveDoctor), biography: "Unfinished biography" }
+    const commands = commandFixture({
+      updateDoctor: vi.fn(async () => {
+        throw new Error("unavailable")
+      }),
+    })
+    const result = await saveDoctorProfileDraft(commands, draft, inactiveDoctor)
+    expect(result.status).toBe("failed")
+    expect(result.draft.biography).toBe("Unfinished biography")
+    expect(result.doctor?.id).toBe(inactiveDoctor.id)
+  })
+
   it("creates inactive, saves follow-up records, and activates only at the end", async () => {
     const calls: string[] = []
     const commands = commandFixture({

@@ -18,10 +18,15 @@ function isReportingResponse(value: unknown): value is ClinicDashboardReporting 
 }
 
 export async function loadClinicDashboardReportingFromBrowser(
+  clinicId: string,
   periodDays: ClinicDashboardReportingPeriodDays,
   fetcher: typeof fetch = fetch,
+  onAccessFailure?: (failure: "access-denied" | "unauthorized") => void,
 ): Promise<ClinicDashboardReporting | undefined> {
-  const endpoint = new URL("/api/dashboard/reporting", window.location.origin)
+  const endpoint = new URL(
+    `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/reporting`,
+    window.location.origin,
+  )
   endpoint.searchParams.set("periodDays", String(periodDays))
 
   try {
@@ -31,7 +36,11 @@ export async function loadClinicDashboardReportingFromBrowser(
       redirect: "error",
       signal: AbortSignal.timeout(8_000),
     })
-    if (!response.ok) return undefined
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403)
+        onAccessFailure?.(response.status === 401 ? "unauthorized" : "access-denied")
+      return undefined
+    }
 
     const body: unknown = await response.json().catch(() => null)
     return isReportingResponse(body) ? body : undefined

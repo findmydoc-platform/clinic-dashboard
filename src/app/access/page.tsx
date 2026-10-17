@@ -16,7 +16,8 @@ export default async function AccessPage({ searchParams }: AccessPageProps) {
   const [access, params] = await Promise.all([getClinicDashboardAccess(), searchParams])
   if (access.status === "unauthenticated") redirect("/login")
   if (access.status === "recovery-required" && params.state !== "temporarily-unavailable") redirect("/login")
-  if (access.status === "approved") redirect("/")
+  if (access.status === "approved" && access.context.clinics.length > 0 && params.state !== "restricted")
+    redirect("/")
 
   const state =
     access.status === "unauthorized" || params.state === "account-unavailable"

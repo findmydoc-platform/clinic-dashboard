@@ -1,7 +1,10 @@
 import "server-only"
 
 import type { NextRequest } from "next/server"
-import { composeClinicDashboardDataProviders } from "./data-provider-composition"
+import {
+  composeClinicDashboardDataProviders,
+  composeClinicDashboardPersonalNotifications,
+} from "./data-provider-composition"
 import { clinicDashboardDemoWorkspaceProvider } from "./demo/loader"
 import { toDashboardClinicGallerySnapshot } from "./clinic-profile/server/clinic-gallery-dto"
 import { getClinicDashboardAccess, getClinicDashboardAccessToken } from "./auth/server/public"
@@ -23,6 +26,7 @@ import {
   handleClinicTreatmentUpdate as handleClinicTreatmentUpdateWithProvider,
   handleDoctorCreate as handleDoctorCreateWithProvider,
   handleDoctorImageReplace as handleDoctorImageReplaceWithProvider,
+  handleDoctorImageRead as handleDoctorImageReadWithProvider,
   handleDoctorSpecialtyCreate as handleDoctorSpecialtyCreateWithProvider,
   handleDoctorSpecialtyUpdate as handleDoctorSpecialtyUpdateWithProvider,
   handleDoctorUpdate as handleDoctorUpdateWithProvider,
@@ -56,6 +60,7 @@ import {
   type PatientInquiryAttachmentDraftUploadFactory,
 } from "./messages/server/public"
 import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-input"
+import { clinicScopeConversions } from "./workspace/model/clinic-scope-conversions"
 import { defaultReviewListFilters } from "./reviews/model/review-source"
 import {
   handleReviewAppealSubmit as handleReviewAppealSubmitWithProvider,
@@ -73,8 +78,7 @@ import {
   type NotificationProviderFactory,
 } from "./notifications/server/public"
 
-const createNotificationProvider: NotificationProviderFactory = (accessToken, clinicId) =>
-  composeClinicDashboardDataProviders(accessToken, clinicId).notifications
+const createNotificationProvider: NotificationProviderFactory = composeClinicDashboardPersonalNotifications
 
 export function handleNotificationsLoad(request: NextRequest) {
   return handleNotificationsLoadWithProvider(request, createNotificationProvider)
@@ -83,11 +87,21 @@ export function handleNotificationsMarkRead(request: NextRequest) {
   return handleNotificationsMarkReadWithProvider(request, createNotificationProvider)
 }
 
-export async function loadClinicDashboardInitialNotifications(clinicId: string) {
-  const token = await getClinicDashboardAccessToken()
-  return token
-    ? loadInitialNotifications(token, clinicId, createNotificationProvider)
-    : ({ status: "unavailable", error: "UNAUTHENTICATED" } as const)
+export async function loadClinicDashboardInitialNotifications() {
+  if (!clinicScopeConversions.notifications)
+    return { status: "unavailable", error: "SERVICE_UNAVAILABLE" } as const
+  const [token, access] = await Promise.all([getClinicDashboardAccessToken(), getClinicDashboardAccess()])
+  return token && access.status === "approved"
+    ? loadInitialNotifications(
+        token,
+        access.context.principal.id,
+        access.context.clinics.map(({ id }) => id),
+        createNotificationProvider,
+      )
+    : ({
+        status: "unavailable",
+        error: access.status === "temporarily-unavailable" ? "SERVICE_UNAVAILABLE" : "UNAUTHENTICATED",
+      } as const)
 }
 
 export { getClinicDashboardAccess } from "./auth/server/public"
@@ -217,6 +231,10 @@ export function handleDoctorSpecialtyUpdate(request: NextRequest, doctorId: stri
   return handleDoctorSpecialtyUpdateWithProvider(request, doctorId, assignmentId, createDoctorProfileProvider)
 }
 
+export function handleDoctorImageRead(request: NextRequest, doctorId: string) {
+  return handleDoctorImageReadWithProvider(request, doctorId, createDoctorProfileProvider)
+}
+
 export function handleDoctorImageReplace(request: NextRequest, doctorId: string) {
   return handleDoctorImageReplaceWithProvider(request, doctorId, createDoctorProfileProvider)
 }
@@ -289,7 +307,9 @@ function createUnavailableProfileProgress() {
   })
 }
 
-export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboardWorkspaceInput> {
+export async function loadClinicDashboardWorkspaceInput(
+  targetClinicId?: string,
+): Promise<ClinicDashboardWorkspaceInput> {
   const workspace = await clinicDashboardDemoWorkspaceProvider.loadWorkspace()
   const accessToken = await getClinicDashboardAccessToken()
   if (!accessToken) {
@@ -327,25 +347,32 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
     }
   }
 
-  const providers = composeClinicDashboardDataProviders(accessToken, access.context.clinic.id)
-  const canViewProfile = access.context.capabilities.includes("clinic-profile:view")
-  const canViewGallery = access.context.capabilities.includes("clinic-gallery:view")
-  const canViewTreatments = access.context.capabilities.includes("clinic-treatments:view")
-  const canViewInquiries = access.context.capabilities.includes("clinic-inquiries:view")
+  const clinic = access.context.clinics.find(({ id }) => id === targetClinicId)
+  if (!clinic) throw new Error("An authorized target clinic is required.")
+  // Domain conversions have independent delivery tickets. A new person bootstrap
+  // must not turn the legacy domain routes or demo snapshots into group access.
+  const converted = clinicScopeConversions
+  const providers = composeClinicDashboardDataProviders(accessToken, clinic.id)
+  const canViewProfile = converted.profile && clinic.capabilities.includes("clinic-profile:view")
+  const canViewGallery = converted.gallery && clinic.capabilities.includes("clinic-gallery:view")
+  const canViewTreatments = converted.treatments && clinic.capabilities.includes("clinic-treatments:view")
+  const canViewInquiries = converted.inquiries && clinic.capabilities.includes("clinic-inquiries:view")
   const taskActionability = {
-    canEditGallery: access.context.capabilities.includes("clinic-gallery:edit"),
-    canEditProfile: access.context.capabilities.includes("clinic-profile:edit"),
-    canEditTreatments: access.context.capabilities.includes("clinic-treatments:edit"),
+    canEditGallery: converted.gallery && clinic.capabilities.includes("clinic-gallery:edit"),
+    canEditProfile: converted.profile && clinic.capabilities.includes("clinic-profile:edit"),
+    canEditTreatments: converted.treatments && clinic.capabilities.includes("clinic-treatments:edit"),
   }
   const [doctorResult, galleryResult, inquiryResult, profileResult, reviewResult, treatmentResult] =
     await Promise.allSettled([
-      providers.doctors.loadDirectory(),
+      converted.doctors ? providers.doctors.loadDirectory() : Promise.resolve({ ok: false } as const),
       canViewGallery ? providers.gallery.loadGallery() : Promise.resolve(undefined),
       canViewInquiries
         ? providers.inquiries.loadQueue({ lifecycle: "open", unreadOnly: false })
         : Promise.resolve(undefined),
       canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
-      providers.reviews.loadReviews(defaultReviewListFilters, 1),
+      converted.reviews
+        ? providers.reviews.loadReviews(defaultReviewListFilters, 1)
+        : Promise.resolve({ ok: false } as const),
       canViewTreatments
         ? providers.treatments.loadTreatments()
         : Promise.resolve({ error: "forbidden", ok: false } as const),
@@ -383,8 +410,29 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
     treatments: treatmentSnapshot,
   })
 
+  const location = { id: clinic.id, name: clinic.name, location: "", selectorLabel: clinic.name }
   return {
     ...workspace,
+    defaultLocationId: clinic.id,
+    locations: [location],
+    locationSnapshots: {
+      [clinic.id]: {
+        clinicProfile: {
+          id: clinic.id,
+          name: clinic.name,
+          revision: 0,
+          updatedAt: "",
+          address: { city: "", phone: "", postalCode: "", street: "" },
+          description: "",
+          gallery: [],
+          galleryTotal: 0,
+          openingHours: [],
+          specialties: [],
+          team: [],
+        },
+        reviews: { items: [], total: 0, rating: 0, distribution: [], referenceTime: "" },
+      },
+    },
     notifications: [],
     doctorDirectory:
       doctorResult.status === "fulfilled" && doctorResult.value.ok
@@ -395,7 +443,7 @@ export async function loadClinicDashboardWorkspaceInput(): Promise<ClinicDashboa
             status: "temporarily-unavailable",
           },
     gallerySnapshot: gallerySourceSnapshot
-      ? toDashboardClinicGallerySnapshot(gallerySourceSnapshot)
+      ? toDashboardClinicGallerySnapshot(gallerySourceSnapshot, clinic.id)
       : undefined,
     galleryStatus,
     inquiryQueue:

@@ -163,6 +163,36 @@ describe("controlled authentication route contract", () => {
     }
   })
 
+  it.each([
+    `/clinics/${"c".repeat(100)}?section=messages&inquiry=${"i".repeat(100)}`,
+    `/clinics/${"c".repeat(100)}?section=reviews&review=${"r".repeat(128)}`,
+  ])("preserves the maximum canonical exact target after login: %s", async (next) => {
+    const response = await handleClinicDashboardLogin(
+      mutationRequest("/api/auth/login", {
+        email: "clinic-staff@example.com",
+        next,
+        password: "test-password",
+      }),
+    )
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ redirectTo: next })
+  })
+
+  it.each([
+    `/clinics/${"c".repeat(101)}?section=reviews&review=record`,
+    `/clinics/clinic?section=reviews&review=${"r".repeat(129)}`,
+    "/clinics/clinic?section=reviews&review=%2F%2Fforeign.example",
+  ])("rejects targets outside the exact return grammar: %s", async (next) => {
+    const response = await handleClinicDashboardLogin(
+      mutationRequest("/api/auth/login", {
+        email: "clinic-staff@example.com",
+        next,
+        password: "test-password",
+      }),
+    )
+    expect(response.status).toBe(400)
+  })
+
   it("returns the neutral reset response for every syntactically valid email", async () => {
     for (const email of ["clinic-staff@example.com", "unknown@example.com"]) {
       const response = await handleClinicDashboardPasswordResetRequest(

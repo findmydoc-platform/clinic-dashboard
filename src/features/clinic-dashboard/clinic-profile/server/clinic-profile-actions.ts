@@ -46,11 +46,25 @@ function changeErrorResponse(error: ClinicProfileChangeError) {
   return readErrorResponse(error)
 }
 
+async function authorizeProfileTarget(
+  request: NextRequest,
+  capability: "clinic-profile:view" | "clinic-profile:edit",
+) {
+  const target = /^\/api\/dashboard\/clinics\/([A-Za-z0-9_-]{1,128})\/profile(?:\/|$)/u.exec(
+    request.nextUrl.pathname,
+  )?.[1]
+  if (!target) return { status: "denied" as const, applyToResponse: (response: Response) => response }
+  const access = await resolveClinicDashboardRouteAccess(request, capability, target)
+  if (access.status === "approved" && access.clinicId !== target)
+    return { ...access, status: "denied" as const }
+  return access
+}
+
 export async function handleClinicProfileLoad(
   request: NextRequest,
   createProvider: ClinicProfileProviderFactory,
 ) {
-  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:view")
+  const authorization = await authorizeProfileTarget(request, "clinic-profile:view")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
   }
@@ -70,7 +84,7 @@ export async function handleClinicProfileDraftSave(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")
+  const authorization = await authorizeProfileTarget(request, "clinic-profile:edit")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
   }
@@ -97,7 +111,7 @@ export async function handleClinicProfileDraftCreate(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")
+  const authorization = await authorizeProfileTarget(request, "clinic-profile:edit")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
   }
@@ -124,7 +138,7 @@ export async function handleClinicProfileDraftDiscard(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")
+  const authorization = await authorizeProfileTarget(request, "clinic-profile:edit")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
   }
@@ -151,7 +165,7 @@ export async function handleClinicProfilePublish(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const authorization = await resolveClinicDashboardRouteAccess(request, "clinic-profile:edit")
+  const authorization = await authorizeProfileTarget(request, "clinic-profile:edit")
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
   }

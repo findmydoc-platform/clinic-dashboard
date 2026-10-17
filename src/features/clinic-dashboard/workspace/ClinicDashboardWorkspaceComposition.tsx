@@ -1,14 +1,19 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   createClinicDashboardLoginPath,
   createClinicDashboardReturnTarget,
   submitClinicDashboardAuthAction,
   type AuthenticatedClinicContext,
+  type AuthorizedClinic,
 } from "@/features/clinic-dashboard/auth/public"
 import {
   ClinicProfile,
+  ClinicDoctorsWorkspace,
+  ClinicTreatmentsWorkspace,
+  ClinicGalleryWorkspace,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
   type ClinicProfileFocusTarget,
@@ -60,6 +65,8 @@ import {
   type NotificationOpeningOutcome,
   type NotificationCommands,
   type NotificationLoadState,
+  type NotificationCenterController,
+  type NotificationOpeningRequest,
 } from "@/features/clinic-dashboard/notifications/public"
 import { getClinicDashboardLocation, type ClinicDashboardLocationId } from "./model/locations"
 import type { ClinicDashboardDialog, ClinicDashboardSection } from "./model/workspace"
@@ -68,6 +75,9 @@ import {
   type ClinicDashboardWorkspaceInput,
 } from "./model/workspace-input"
 import { selectClinicDashboardNavigationItems, selectSafeClinicDashboardSection } from "./navigation"
+import { Select } from "@/components/ui/select"
+import { clinicScopeConversions } from "./model/clinic-scope-conversions"
+import { useEditorDepartureGuard } from "./useEditorDepartureGuard"
 import { useClinicDashboardController } from "./useClinicDashboardController"
 
 export type ClinicDashboardWorkspaceStartState =
@@ -86,6 +96,12 @@ export type ClinicDashboardWorkspaceStartState =
 
 type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
+  authorizedClinics?: readonly AuthorizedClinic[]
+  selectionNotice?: string
+  onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
+  departureGuard?: ReturnType<typeof useEditorDepartureGuard>
+  onSectionChange?: (section: ClinicDashboardSection) => void
+  onAccessLost?: () => void
   clinicGalleryCommands: ClinicGalleryCommands
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
@@ -97,6 +113,21 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   loadReporting?: (days: ClinicDashboardReportingPeriodDays) => Promise<ClinicDashboardReporting | undefined>
   inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
+  focusReviewId?: string
+  notificationController?: NotificationCenterController
+  notificationsOpen?: boolean
+  onNotificationsOpenChange?: (open: boolean) => void
+  onNotificationDestinationOpen?: NotificationDestinationOpen
+  notificationOpeningRequest?: NotificationOpeningRequest
+  onNotificationOpeningResult?: (
+    result: Readonly<{
+      requestId: string
+      kind: "inquiry" | "review"
+      recordId: string
+      status: NotificationOpeningOutcome
+    }>,
+  ) => void
+  onNavigationAway?: () => void
   isSourceRefreshPending: boolean
   onSourceRefresh: () => void
   prototypeMode: ClinicDashboardPrototypeMode
@@ -110,11 +141,25 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
 
 export function ClinicDashboardWorkspaceComposition({
   authenticatedContext,
+  authorizedClinics,
+  selectionNotice,
+  onClinicChange,
+  departureGuard,
+  onSectionChange,
+  onAccessLost,
   clinicGalleryCommands,
   clinicProfileSourceCommands,
   clinicTreatmentCommands,
   doctorProfileCommands,
   focusInquiryId,
+  focusReviewId,
+  notificationController,
+  notificationsOpen,
+  onNotificationsOpenChange,
+  onNotificationDestinationOpen,
+  notificationOpeningRequest,
+  onNotificationOpeningResult,
+  onNavigationAway,
   inquiryCommands,
   initialNotifications = { status: "loading" },
   notificationCommands,
@@ -130,6 +175,7 @@ export function ClinicDashboardWorkspaceComposition({
   start = {},
   workspaceInput,
 }: ClinicDashboardWorkspaceCompositionProps) {
+  const doctorClinicSelectId = useId()
   const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
   const [galleryProjection, setGalleryProjection] = useState<ClinicGallerySnapshot>()
   const [hasUnsavedInquiryDrafts, setHasUnsavedInquiryDrafts] = useState(false)
@@ -141,33 +187,27 @@ export function ClinicDashboardWorkspaceComposition({
   const [reviewOpeningRequest, setReviewOpeningRequest] =
     useState<Readonly<{ scope: string; request: ReviewOpeningRequest }>>()
   const pendingOpeningRef = useRef<
-    | Readonly<{ requestId: string; resolve: (outcome: NotificationOpeningOutcome) => void; scope: string }>
+    | Readonly<{
+        requestId: string
+        kind: "inquiry" | "review"
+        recordId: string
+        resolve: (outcome: NotificationOpeningOutcome) => void
+        scope: string
+      }>
     | undefined
   >(undefined)
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
   const scopeRef = useRef(scope)
-  const reviewNavigationRef = useRef<((continuation: () => void, onCancel?: () => void) => void) | null>(null)
-  const profileNavigationRef = useRef<((continuation: () => void, onCancel?: () => void) => void) | null>(
-    null,
-  )
-  const setReviewNavigation = useCallback(
-    (request: ((continuation: () => void, onCancel?: () => void) => void) | null) => {
-      reviewNavigationRef.current = request
-    },
-    [],
-  )
-  const setProfileNavigation = useCallback(
-    (request: ((continuation: () => void, onCancel?: () => void) => void) | null) => {
-      profileNavigationRef.current = request
-    },
-    [],
-  )
+  const localDepartureGuard = useEditorDepartureGuard()
+  const { requestDeparture, setProfileRequest, setReviewRequest, setInquiryRequest, setGalleryRequest } =
+    departureGuard ?? localDepartureGuard
   const cancelOpening = useCallback(() => {
+    onNavigationAway?.()
     pendingOpeningRef.current?.resolve("cancelled")
     pendingOpeningRef.current = undefined
     setInquiryOpeningRequest(undefined)
     setReviewOpeningRequest(undefined)
-  }, [])
+  }, [onNavigationAway])
   useEffect(() => {
     scopeRef.current = scope
     pendingOpeningRef.current?.resolve("cancelled")
@@ -177,29 +217,52 @@ export function ClinicDashboardWorkspaceComposition({
       pendingOpeningRef.current = undefined
     }
   }, [scope, cancelOpening])
-  const onInquiryOpeningResult = useCallback((result: InquiryOpeningResult) => {
-    const pending = pendingOpeningRef.current
-    if (!pending || pending.requestId !== result.requestId || pending.scope !== scopeRef.current) return
-    pendingOpeningRef.current = undefined
-    pending.resolve(result.status)
-    setInquiryOpeningRequest(undefined)
-  }, [])
-  const onReviewOpeningResult = useCallback((result: ReviewOpeningResult) => {
-    const pending = pendingOpeningRef.current
-    if (!pending || pending.requestId !== result.requestId || pending.scope !== scopeRef.current) return
-    pendingOpeningRef.current = undefined
-    pending.resolve(result.status)
-    setReviewOpeningRequest(undefined)
-  }, [])
-  const galleryNavigationRequestRef = useRef<((continuation: () => void) => void) | undefined>(undefined)
-  const setGalleryNavigationRequest = useCallback((request?: (continuation: () => void) => void) => {
-    galleryNavigationRequestRef.current = request
-  }, [])
-  const continueAfterGalleryGuard = useCallback((continuation: () => void) => {
-    const request = galleryNavigationRequestRef.current
-    if (request) request(continuation)
-    else continuation()
-  }, [])
+  const onInquiryOpeningResult = useCallback(
+    (result: InquiryOpeningResult) => {
+      onNotificationOpeningResult?.({
+        requestId: result.requestId,
+        kind: "inquiry",
+        recordId: result.inquiryId,
+        status: result.status,
+      })
+      const pending = pendingOpeningRef.current
+      if (
+        !pending ||
+        pending.requestId !== result.requestId ||
+        pending.scope !== scopeRef.current ||
+        pending.kind !== "inquiry" ||
+        pending.recordId !== result.inquiryId
+      )
+        return
+      pendingOpeningRef.current = undefined
+      pending.resolve(result.status)
+      setInquiryOpeningRequest(undefined)
+    },
+    [onNotificationOpeningResult],
+  )
+  const onReviewOpeningResult = useCallback(
+    (result: ReviewOpeningResult) => {
+      onNotificationOpeningResult?.({
+        requestId: result.requestId,
+        kind: "review",
+        recordId: result.reviewId,
+        status: result.status,
+      })
+      const pending = pendingOpeningRef.current
+      if (
+        !pending ||
+        pending.requestId !== result.requestId ||
+        pending.scope !== scopeRef.current ||
+        pending.kind !== "review" ||
+        pending.recordId !== result.reviewId
+      )
+        return
+      pendingOpeningRef.current = undefined
+      pending.resolve(result.status)
+      setReviewOpeningRequest(undefined)
+    },
+    [onNotificationOpeningResult],
+  )
   if (!isClinicDashboardPrototypeMode(prototypeMode)) {
     throw new Error(`Unsupported clinic dashboard prototype mode: ${prototypeMode}`)
   }
@@ -214,22 +277,62 @@ export function ClinicDashboardWorkspaceComposition({
     initialLocationId: workspaceInput.defaultLocationId,
     initialNotificationsOpen,
     initialProfileTask,
-    initialSection: focusInquiryId ? "messages" : (start.section ?? "dashboard"),
+    initialSection: focusInquiryId ? "messages" : focusReviewId ? "reviews" : (start.section ?? "dashboard"),
     prototypeMode,
   })
   const { actions, model } = controller
+  const setNotificationsOpen = onNotificationsOpenChange ?? actions.setNotificationsOpen
+  const navigate = actions.navigate
+  useEffect(() => {
+    if (!notificationOpeningRequest) return
+    navigate(notificationOpeningRequest.destination.kind === "inquiry" ? "messages" : "reviews")
+    setNotificationsOpen(false)
+  }, [notificationOpeningRequest, navigate, setNotificationsOpen])
+  const externalInquiryRequest = useMemo(
+    () =>
+      notificationOpeningRequest?.destination.kind === "inquiry"
+        ? {
+            requestId: notificationOpeningRequest.requestId,
+            clinicId: notificationOpeningRequest.clinicId,
+            inquiryId: notificationOpeningRequest.destination.inquiryId,
+            anchor: notificationOpeningRequest.destination.anchor,
+          }
+        : undefined,
+    [notificationOpeningRequest],
+  )
+  const externalReviewRequest = useMemo(
+    () =>
+      notificationOpeningRequest?.destination.kind === "review"
+        ? {
+            requestId: notificationOpeningRequest.requestId,
+            reviewId: notificationOpeningRequest.destination.reviewId,
+            anchor: notificationOpeningRequest.destination.anchor,
+          }
+        : undefined,
+    [notificationOpeningRequest],
+  )
+  const directReviewRequest = useMemo(
+    () =>
+      focusReviewId ? { requestId: `direct-review:${focusReviewId}`, reviewId: focusReviewId } : undefined,
+    [focusReviewId],
+  )
+
   const capabilities = getClinicDashboardDemoInteractionPolicy(model.activePrototypeMode)
   const sourceProfileManagement = authenticatedContext.capabilities.includes("clinic-profile:view")
     ? authenticatedContext.capabilities.includes("clinic-profile:edit")
       ? "interactive"
       : "read-only"
     : "hidden"
-  const galleryManagement = authenticatedContext.capabilities.includes("clinic-gallery:view")
-    ? authenticatedContext.capabilities.includes("clinic-gallery:edit")
-      ? "interactive"
-      : "read-only"
-    : "hidden"
-  const canViewTreatments = authenticatedContext.capabilities.includes("clinic-treatments:view")
+  const galleryManagement =
+    (!authorizedClinics || clinicScopeConversions.gallery) &&
+    authenticatedContext.capabilities.includes("clinic-gallery:view")
+      ? authenticatedContext.capabilities.includes("clinic-gallery:edit")
+        ? "interactive"
+        : "read-only"
+      : "hidden"
+  const canViewTreatments =
+    (!authorizedClinics || clinicScopeConversions.treatments) &&
+    authenticatedContext.capabilities.includes("clinic-treatments:view")
   const canEditTreatments = authenticatedContext.capabilities.includes("clinic-treatments:edit")
   const treatmentManagement = canViewTreatments ? (canEditTreatments ? "interactive" : "read-only") : "hidden"
   const navigationItems = selectClinicDashboardNavigationItems({
@@ -237,6 +340,9 @@ export function ClinicDashboardWorkspaceComposition({
     showSubscriptionsPlaceholder: capabilities.showSubscriptionsPlaceholder,
   })
   const activeSection = selectSafeClinicDashboardSection(model.activeSection, navigationItems)
+  useEffect(() => {
+    onSectionChange?.(activeSection)
+  }, [activeSection, onSectionChange])
   const effectiveLocationId = capabilities.canSwitchLocations
     ? model.selectedLocationId
     : workspaceInput.defaultLocationId
@@ -267,6 +373,7 @@ export function ClinicDashboardWorkspaceComposition({
     .join("")
 
   const dashboard = useDashboardOverviewController({
+    clinicId: authenticatedContext.clinic.id,
     initialReporting: initialReporting ?? { status: "temporarily-unavailable" },
     loadReporting,
     profileProgress,
@@ -289,19 +396,26 @@ export function ClinicDashboardWorkspaceComposition({
     profileProgress,
     snapshot: reportingDemo,
   })
-  const clinicLocations = reportingDemo
-    ? workspaceInput.locations
-    : [
-        {
-          id: authenticatedContext.clinic.id,
-          name: authenticatedContext.clinic.name,
-          location:
-            dashboard.model.clinicPreview.status === "available"
-              ? dashboard.model.clinicPreview.location
-              : "",
-          selectorLabel: authenticatedContext.clinic.name,
-        },
-      ]
+  const clinicLocations = authorizedClinics
+    ? authorizedClinics.map((clinic) => ({
+        id: clinic.id,
+        name: clinic.name,
+        location: "",
+        selectorLabel: clinic.name,
+      }))
+    : reportingDemo
+      ? workspaceInput.locations
+      : [
+          {
+            id: authenticatedContext.clinic.id,
+            name: authenticatedContext.clinic.name,
+            location:
+              dashboard.model.clinicPreview.status === "available"
+                ? dashboard.model.clinicPreview.location
+                : "",
+            selectorLabel: authenticatedContext.clinic.name,
+          },
+        ]
 
   const signOut = async () => {
     if (
@@ -324,13 +438,35 @@ export function ClinicDashboardWorkspaceComposition({
     window.location.assign(createClinicDashboardLoginPath(returnTarget))
   }, [])
 
+  const router = useRouter()
+  const handleReviewAccessLoss = useCallback(
+    (failure?: "unauthorized" | "forbidden") => {
+      if (failure === "forbidden") {
+        if (onAccessLost) onAccessLost()
+        else router.replace("/access?state=restricted")
+      } else handleInquirySessionLoss()
+    },
+    [handleInquirySessionLoss, onAccessLost, router],
+  )
+
   const openNotificationDestination = useCallback<NotificationDestinationOpen>(
     (request, signal) => {
+      if (authorizedClinics && request.clinicId !== authenticatedContext.clinic.id)
+        return Promise.resolve("unavailable")
       if (model.supportOpen || model.profileTaskOpen) return Promise.resolve("cancelled")
       if (signal.aborted) return Promise.resolve("cancelled")
       cancelOpening()
       return new Promise((resolve) => {
-        const pending = { requestId: request.requestId, resolve, scope }
+        const pending = {
+          requestId: request.requestId,
+          kind: request.destination.kind,
+          recordId:
+            request.destination.kind === "inquiry"
+              ? request.destination.inquiryId
+              : request.destination.reviewId,
+          resolve,
+          scope,
+        }
         pendingOpeningRef.current = pending
         const cancel = () => {
           if (pendingOpeningRef.current === pending) cancelOpening()
@@ -338,20 +474,11 @@ export function ClinicDashboardWorkspaceComposition({
         signal.addEventListener("abort", cancel, { once: true })
         const current = () =>
           pendingOpeningRef.current === pending && !signal.aborted && scopeRef.current === scope
-        if (
-          hasUnsavedInquiryDrafts &&
-          !window.confirm(
-            `Open this ${request.destination.kind === "review" ? "review" : "inquiry"}? Your unsent replies, internal notes and attachments will be kept.`,
-          )
-        ) {
-          cancel()
-          return
-        }
         const begin = () => {
           if (!current()) return
           if (request.destination.kind === "review") {
             actions.navigate("reviews")
-            actions.setNotificationsOpen(false)
+            setNotificationsOpen(false)
             setReviewOpeningRequest({
               scope,
               request: {
@@ -363,7 +490,7 @@ export function ClinicDashboardWorkspaceComposition({
             return
           }
           actions.navigate("messages")
-          actions.setNotificationsOpen(false)
+          setNotificationsOpen(false)
           setInquiryOpeningRequest({
             scope,
             request: {
@@ -373,34 +500,79 @@ export function ClinicDashboardWorkspaceComposition({
             },
           })
         }
-        const guardProfile = () => {
-          if (!current()) return
-          const guard = profileNavigationRef.current
-          if (guard) guard(begin, cancel)
-          else begin()
-        }
-        const guard = reviewNavigationRef.current
-        if (guard) guard(guardProfile, cancel)
-        else guardProfile()
+        requestDeparture("destination", begin, cancel)
       })
     },
-    [actions, cancelOpening, hasUnsavedInquiryDrafts, scope, model.supportOpen, model.profileTaskOpen],
+    [
+      actions,
+      setNotificationsOpen,
+      authorizedClinics,
+      authenticatedContext.clinic.id,
+      cancelOpening,
+      requestDeparture,
+      scope,
+      model.supportOpen,
+      model.profileTaskOpen,
+    ],
   )
 
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
-    const nextLocation = getClinicDashboardLocation(workspaceInput.locations, locationId)
+    if (locationId === selectedLocation.id) return
+    const nextLocation = getClinicDashboardLocation(clinicLocations, locationId)
 
-    continueAfterGalleryGuard(() => {
+    requestDeparture("context-change", () => {
       cancelOpening()
       setGalleryProjection(undefined)
-      actions.selectLocation(locationId, nextLocation.name)
+      if (onClinicChange) onClinicChange(locationId, activeSection)
+      else actions.selectLocation(locationId, nextLocation.name)
     })
   }
+
+  const treatmentContextNavigation =
+    clinicLocations.length > 1 ? (
+      <label className="grid gap-1 text-xs font-bold">
+        Active clinic
+        <Select
+          aria-label="Active clinic while editing treatments"
+          value={selectedLocation.id}
+          onValueChange={selectLocation}
+        >
+          {clinicLocations.map((clinic) => (
+            <option key={clinic.id} value={clinic.id}>
+              {clinic.name}
+            </option>
+          ))}
+        </Select>
+      </label>
+    ) : undefined
 
   const openProfileDestination = (destination: ClinicProfileFocusTarget) => {
     cancelOpening()
     actions.navigateToProfileTarget(destination)
   }
+
+  const doctorContextNavigation =
+    authorizedClinics && authorizedClinics.length > 1 ? (
+      <label htmlFor={doctorClinicSelectId} className="grid gap-1 text-sm">
+        Active clinic
+        <select
+          id={doctorClinicSelectId}
+          className="min-h-11 max-w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)]"
+          value={authenticatedContext.clinic.id}
+          onChange={(event) => {
+            const target = event.currentTarget.value
+            event.currentTarget.value = authenticatedContext.clinic.id
+            selectLocation(target)
+          }}
+        >
+          {clinicLocations.map(({ id, name }) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : undefined
 
   return (
     <ClinicDashboardShell
@@ -417,7 +589,11 @@ export function ClinicDashboardWorkspaceComposition({
       environmentBadge={reportingDemo ? "Reporting demo" : undefined}
       clinicIdentity={
         <ClinicLocationSelector
-          canSwitchLocations={reportingDemo !== undefined && capabilities.canSwitchLocations}
+          canSwitchLocations={
+            authorizedClinics
+              ? authorizedClinics.length > 1
+              : reportingDemo !== undefined && capabilities.canSwitchLocations
+          }
           isDemoData={reportingDemo !== undefined}
           locations={clinicLocations}
           onValueChange={selectLocation}
@@ -465,15 +641,16 @@ export function ClinicDashboardWorkspaceComposition({
       notificationCenter={
         <NotificationCenter
           key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
+          controller={notificationController}
           commands={notificationCommands}
           initialState={initialNotifications}
-          onOpenChange={actions.setNotificationsOpen}
-          onDestinationOpen={openNotificationDestination}
-          open={model.notificationsOpen}
+          onOpenChange={setNotificationsOpen}
+          onDestinationOpen={onNotificationDestinationOpen ?? openNotificationDestination}
+          open={notificationsOpen ?? model.notificationsOpen}
         />
       }
       onSectionSelect={(section) =>
-        continueAfterGalleryGuard(() => {
+        requestDeparture("section", () => {
           cancelOpening()
           actions.navigate(section)
         })
@@ -487,6 +664,11 @@ export function ClinicDashboardWorkspaceComposition({
           : undefined
       }
     >
+      {selectionNotice ? (
+        <p role="status" className="mb-4 rounded-lg border border-[var(--border)] p-4">
+          {selectionNotice}
+        </p>
+      ) : null}
       <p aria-live="polite" className="sr-only" role="status">
         {model.locationAnnouncement}
       </p>
@@ -517,7 +699,7 @@ export function ClinicDashboardWorkspaceComposition({
             onProfileProgressRetry={onSourceRefresh}
             onReportingRetry={() => void dashboard.actions.changePeriodDays(dashboard.model.periodDays)}
             onReviewsOpen={() =>
-              continueAfterGalleryGuard(() => {
+              requestDeparture("section", () => {
                 cancelOpening()
                 actions.navigateToReviews()
               })
@@ -526,72 +708,148 @@ export function ClinicDashboardWorkspaceComposition({
         )
       ) : null}
       <div hidden={activeSection !== "messages"}>
-        <InquiryQueue
-          commands={inquiryCommands}
-          key={scope}
-          openingRequest={inquiryOpeningRequest?.scope === scope ? inquiryOpeningRequest.request : undefined}
-          onOpeningResult={onInquiryOpeningResult}
-          focusHeading={model.messageFocusTarget === "heading"}
-          focusInquiryId={focusInquiryId}
-          isActive={activeSection === "messages"}
-          onDraftPresenceChange={setHasUnsavedInquiryDrafts}
-          onFocusHandled={actions.clearMessageFocusRequest}
-          onSessionLost={handleInquirySessionLoss}
-          onUnreadCountChange={setInquiryUnreadCount}
-          snapshot={workspaceInput.inquiryQueue}
-        />
+        {authorizedClinics && !clinicScopeConversions.inquiries ? (
+          <FutureAreaPlaceholderScreen
+            heading="Inquiries"
+            description="Inquiries for this clinic are currently unavailable."
+          />
+        ) : (
+          <InquiryQueue
+            clinicId={authenticatedContext.clinic.id}
+            commands={inquiryCommands}
+            key={scope}
+            openingRequest={
+              externalInquiryRequest ??
+              (inquiryOpeningRequest?.scope === scope ? inquiryOpeningRequest.request : undefined)
+            }
+            onOpeningResult={onInquiryOpeningResult}
+            focusHeading={model.messageFocusTarget === "heading"}
+            focusInquiryId={externalInquiryRequest ? undefined : focusInquiryId}
+            isActive={activeSection === "messages"}
+            onDraftPresenceChange={setHasUnsavedInquiryDrafts}
+            onNavigationRequestChange={setInquiryRequest}
+            onFocusHandled={actions.clearMessageFocusRequest}
+            onSessionLost={handleInquirySessionLoss}
+            onAccessLost={onAccessLost}
+            onUnreadCountChange={setInquiryUnreadCount}
+            snapshot={workspaceInput.inquiryQueue}
+          />
+        )}
       </div>
       <div hidden={activeSection !== "reviews"}>
-        <Reviews
-          key={scope}
-          isActive={activeSection === "reviews"}
-          openingRequest={reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : undefined}
-          onOpeningResult={onReviewOpeningResult}
-          onSessionLost={handleInquirySessionLoss}
-          onNavigationRequestChange={setReviewNavigation}
-          commands={reviewCommands}
-          focusTarget={model.reviewFocusTarget}
-          onFocusHandled={actions.clearReviewFocusRequest}
-          showManagement={capabilities.canManageReviews}
-          snapshot={workspaceInput.reviewSourceSnapshot}
-        />
+        {authorizedClinics && !clinicScopeConversions.reviews ? (
+          <FutureAreaPlaceholderScreen
+            heading="Reviews"
+            description="Reviews for this clinic are currently unavailable."
+          />
+        ) : (
+          <Reviews
+            key={scope}
+            isActive={activeSection === "reviews"}
+            openingRequest={
+              externalReviewRequest ??
+              (reviewOpeningRequest?.scope === scope ? reviewOpeningRequest.request : directReviewRequest)
+            }
+            onOpeningResult={onReviewOpeningResult}
+            onSessionLost={handleReviewAccessLoss}
+            onNavigationRequestChange={setReviewRequest}
+            commands={reviewCommands}
+            focusTarget={model.reviewFocusTarget}
+            onFocusHandled={actions.clearReviewFocusRequest}
+            showManagement={capabilities.canManageReviews}
+            snapshot={workspaceInput.reviewSourceSnapshot}
+          />
+        )}
       </div>
       <div hidden={activeSection !== "profile"}>
-        <ClinicProfile
-          onNavigationRequestChange={setProfileNavigation}
-          galleryCommands={clinicGalleryCommands}
-          galleryManagement={galleryManagement}
-          galleryStatus={effectiveGalleryStatus}
-          gallerySnapshot={effectiveGallerySnapshot}
-          doctorCommands={doctorProfileCommands}
-          doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
-          doctorManagement={capabilities.teamManagement}
-          focusTarget={model.profileFocusTarget}
-          initialDialog={
-            model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined
-          }
-          key={selectedLocation.id}
-          onFocusHandled={actions.clearProfileFocusRequest}
-          onGallerySaved={(snapshot) => {
-            setGalleryProjection(snapshot)
-            onSourceRefresh()
-          }}
-          onGalleryNavigationRequestChange={setGalleryNavigationRequest}
-          onDoctorsChange={(doctors) => {
-            const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
-            if (source.status !== "ready") return
-            setDoctorDirectoryProjection({ ...source, doctors })
-          }}
-          onSourceProfileChanged={onSourceRefresh}
-          onTreatmentSaved={onSourceRefresh}
-          onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
-          sourceProfileManagement={sourceProfileManagement}
-          sourceCommands={clinicProfileSourceCommands}
-          sourceSnapshot={workspaceInput.profileSourceSnapshot}
-          treatmentCommands={clinicTreatmentCommands}
-          treatmentManagement={treatmentManagement}
-          treatmentSnapshot={workspaceInput.treatmentSnapshot}
-        />
+        {authorizedClinics && !clinicScopeConversions.profile ? (
+          <div className="space-y-6">
+            <FutureAreaPlaceholderScreen
+              heading="Clinic profile"
+              description="The profile for this clinic is currently unavailable."
+            />
+            {clinicScopeConversions.doctors && capabilities.teamManagement !== "hidden" ? (
+              <ClinicDoctorsWorkspace
+                key={scope}
+                canManage={capabilities.teamManagement === "interactive"}
+                commands={doctorProfileCommands}
+                contextNavigation={doctorContextNavigation}
+                snapshot={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
+                onNavigationRequestChange={setProfileRequest}
+                onDoctorsChange={(doctors) => {
+                  const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
+                  if (source.status === "ready") setDoctorDirectoryProjection({ ...source, doctors })
+                }}
+              />
+            ) : null}
+            {clinicScopeConversions.gallery ? (
+              <ClinicGalleryWorkspace
+                key={scope}
+                commands={clinicGalleryCommands}
+                management={galleryManagement}
+                snapshot={effectiveGallerySnapshot}
+                status={effectiveGalleryStatus}
+                onSaved={(snapshot) => {
+                  setGalleryProjection(snapshot)
+                  onSourceRefresh()
+                }}
+                onNavigationRequestChange={setGalleryRequest}
+                onContextNavigationRequestChange={setProfileRequest}
+              />
+            ) : null}
+            {clinicScopeConversions.treatments ? (
+              <ClinicTreatmentsWorkspace
+                commands={clinicTreatmentCommands}
+                snapshot={workspaceInput.treatmentSnapshot}
+                management={treatmentManagement}
+                contextNavigation={treatmentContextNavigation}
+                onNavigationRequestChange={setProfileRequest}
+                onSaved={onSourceRefresh}
+                onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
+              />
+            ) : null}
+          </div>
+        ) : (
+          <ClinicProfile
+            onNavigationRequestChange={setProfileRequest}
+            galleryCommands={clinicGalleryCommands}
+            galleryManagement={galleryManagement}
+            galleryStatus={effectiveGalleryStatus}
+            gallerySnapshot={effectiveGallerySnapshot}
+            doctorContextNavigation={doctorContextNavigation}
+            doctorCommands={doctorProfileCommands}
+            doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
+            doctorManagement={
+              authorizedClinics && !clinicScopeConversions.doctors ? "hidden" : capabilities.teamManagement
+            }
+            focusTarget={model.profileFocusTarget}
+            initialDialog={
+              model.locationChangeCount === 0 && start.dialog === "treatment" ? start.dialog : undefined
+            }
+            key={selectedLocation.id}
+            onFocusHandled={actions.clearProfileFocusRequest}
+            onGallerySaved={(snapshot) => {
+              setGalleryProjection(snapshot)
+              onSourceRefresh()
+            }}
+            onGalleryNavigationRequestChange={setGalleryRequest}
+            onDoctorsChange={(doctors) => {
+              const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
+              if (source.status !== "ready") return
+              setDoctorDirectoryProjection({ ...source, doctors })
+            }}
+            onSourceProfileChanged={onSourceRefresh}
+            onTreatmentSaved={onSourceRefresh}
+            onTreatmentMissing={capabilities.showSupport ? actions.openSupport : undefined}
+            sourceProfileManagement={sourceProfileManagement}
+            sourceCommands={clinicProfileSourceCommands}
+            sourceSnapshot={workspaceInput.profileSourceSnapshot}
+            treatmentContextNavigation={treatmentContextNavigation}
+            treatmentCommands={clinicTreatmentCommands}
+            treatmentManagement={treatmentManagement}
+            treatmentSnapshot={workspaceInput.treatmentSnapshot}
+          />
+        )}
       </div>
       {activeSection === "subscriptions" && capabilities.showSubscriptionsPlaceholder ? (
         <FutureAreaPlaceholderScreen

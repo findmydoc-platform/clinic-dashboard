@@ -53,6 +53,9 @@ const featureRootComponentLayers = new Map([
   ["src/features/clinic-dashboard/auth/ClinicDashboardAuthScreen.tsx", "page"],
   ["src/features/clinic-dashboard/auth/ClinicDashboardSessionRecoveryPage.tsx", "page"],
   ["src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx", "organism"],
+  ["src/features/clinic-dashboard/clinic-profile/ClinicDoctorsWorkspace.tsx", "organism"],
+  ["src/features/clinic-dashboard/clinic-profile/ClinicTreatmentsWorkspace.tsx", "organism"],
+  ["src/features/clinic-dashboard/clinic-profile/ClinicGalleryWorkspace.tsx", "organism"],
   ["src/features/clinic-dashboard/dashboard/ClinicDashboardReporting.tsx", "organism"],
   ["src/features/clinic-dashboard/messages/InquiryQueueController.tsx", "organism"],
   ["src/features/clinic-dashboard/messages/Messages.tsx", "organism"],
@@ -63,6 +66,7 @@ const featureRootComponentLayers = new Map([
 ])
 const nonAtomicFeatureRootComponents = new Set([
   "src/features/clinic-dashboard/workspace/ClinicDashboardWorkspaceComposition.tsx",
+  "src/features/clinic-dashboard/workspace/ClinicWorkspaceLifetime.tsx",
 ])
 const requiredStoryGlob = "../src/**/*.stories.@(ts|tsx)"
 

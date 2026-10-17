@@ -17,7 +17,7 @@ import {
 } from "@/features/clinic-dashboard/clinic-profile/server/clinic-treatment-actions"
 
 function request(method: "GET" | "POST", body?: unknown) {
-  const endpoint = new URL("http://localhost:3000/api/dashboard/clinic-treatments")
+  const endpoint = new URL("http://localhost:3000/api/dashboard/clinics/clinic-1/clinic-treatments")
   const init = {
     body: body === undefined ? undefined : JSON.stringify(body),
     headers: { "content-type": "application/json", origin: "http://localhost:3000" },

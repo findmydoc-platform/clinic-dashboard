@@ -1,16 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
-import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { RatingStars } from "@/components/ui/rating-stars"
+import type { EditorDepartureIntent } from "@/lib/editor-departure"
 import type { ClinicReviewRecord } from "../../model/review-source"
 import type { ReviewMutationResult } from "../../model/reviews-view-model"
 
 type ReviewMutationDialogProps = Readonly<{
   children: ReactNode
   description: string
+  draft: unknown
   isDirty: boolean
   isSubmitDisabled: boolean
   onNavigationRequestChange?: (
@@ -26,6 +27,7 @@ type ReviewMutationDialogProps = Readonly<{
 export function ReviewMutationDialog({
   children,
   description,
+  draft,
   isDirty,
   isSubmitDisabled,
   onNavigationRequestChange,
@@ -55,7 +57,8 @@ export function ReviewMutationDialog({
     pending?.continuation()
   }
   const requestNavigation = useCallback(
-    (continuation: () => void, onCancel?: () => void) => {
+    (continuation: () => void, onCancel?: () => void, intent?: EditorDepartureIntent) => {
+      if (intent === "access-loss") return isDirty ? { draft, discard: onClose } : undefined
       cancelNavigation()
       if (isSavingRef.current) {
         onCancel?.()
@@ -69,7 +72,7 @@ export function ReviewMutationDialog({
       pendingNavigation.current = { continuation, onCancel }
       setIsLeaveConfirmationOpen(true)
     },
-    [cancelNavigation, isDirty, onClose],
+    [cancelNavigation, draft, isDirty, onClose],
   )
   useEffect(() => {
     onNavigationRequestChange?.(requestNavigation)
@@ -142,20 +145,17 @@ export function ReviewMutationDialog({
           ) : null}
         </div>
       </Modal>
-      <AlertDialog
+      <Modal
+        role="alertdialog"
+        contentClassName={submitError ? undefined : "hidden"}
         title="Leave review editing?"
-        description={
-          <span className="grid gap-2">
-            <span>Your review changes have not been submitted.</span>
-            {submitError ? <span role="alert">{submitError}</span> : null}
-          </span>
-        }
+        description="Your review changes have not been submitted."
         open={isLeaveConfirmationOpen}
         onOpenChange={(open) => {
           if (!open && !isSavingRef.current) cancelNavigation()
         }}
-        actions={
-          <>
+        footer={
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button disabled={isSaving} onClick={cancelNavigation} variant="outline">
               Keep editing
             </Button>
@@ -165,9 +165,11 @@ export function ReviewMutationDialog({
             <Button disabled={isSaving || isSubmitDisabled} onClick={submit}>
               {isSaving ? "Saving…" : "Submit and continue"}
             </Button>
-          </>
+          </div>
         }
-      />
+      >
+        {submitError ? <p role="alert">{submitError}</p> : null}
+      </Modal>
     </>
   )
 }

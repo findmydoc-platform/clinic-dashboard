@@ -36,7 +36,7 @@ const provider = {
 const createProvider = vi.fn(() => provider) satisfies ClinicGalleryProviderFactory
 
 function controlledRequest(method: "GET" | "POST" | "PUT", body?: BodyInit, contentType?: string) {
-  const endpoint = new URL("http://localhost:3000/api/dashboard/gallery")
+  const endpoint = new URL("http://localhost:3000/api/dashboard/clinics/controlled-clinic/gallery")
   const init = {
     body,
     headers: { ...(contentType ? { "content-type": contentType } : {}), origin: "http://localhost:3000" },
@@ -91,6 +91,20 @@ describe("Clinic gallery BFF", () => {
     expect(token).not.toContain("preview.findmydoc.eu")
     expect(openClinicGalleryImageSource(token)).toBe(source)
     expect(openClinicGalleryImageSource(`${token}modified`)).toBeUndefined()
+  })
+
+  it("rejects missing and foreign targets before constructing a provider", async () => {
+    const request = controlledRequest("GET")
+    const foreign = new NextRequest(
+      request.url.replace("/clinics/controlled-clinic/", "/clinics/foreign-clinic/"),
+      { headers: request.headers },
+    )
+    const missing = new NextRequest("http://localhost:3000/api/dashboard/gallery", {
+      headers: request.headers,
+    })
+    expect((await handleClinicGalleryRead(foreign, createProvider)).status).toBe(403)
+    expect((await handleClinicGalleryRead(missing, createProvider)).status).toBe(403)
+    expect(createProvider).not.toHaveBeenCalled()
   })
 
   it("reads privately through the server-derived clinic provider", async () => {

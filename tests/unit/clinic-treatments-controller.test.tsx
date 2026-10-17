@@ -4,12 +4,62 @@ import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useClinicTreatmentsController } from "@/features/clinic-dashboard/clinic-profile/hooks/useClinicTreatmentsController"
 import { ClinicTreatmentCommandError } from "@/features/clinic-dashboard/clinic-profile/model/clinic-treatment-commands"
-import type { ClinicTreatmentsSnapshot } from "@/features/clinic-dashboard/clinic-profile/model/clinic-treatment"
+import type {
+  ClinicTreatmentOffering,
+  ClinicTreatmentsSnapshot,
+} from "@/features/clinic-dashboard/clinic-profile/model/clinic-treatment"
 import { clinicTreatmentSnapshotFixture } from "@/features/clinic-dashboard/clinic-profile/testing/public"
 
 afterEach(cleanup)
 
 describe("clinic treatments controller", () => {
+  it.each(["create", "update"] as const)(
+    "ignores a late %s result after the clinic editor unmounts",
+    async (operation) => {
+      const offering = clinicTreatmentSnapshotFixture.offerings[0]!
+      let complete!: (value: ClinicTreatmentOffering) => void
+      const pending = new Promise<ClinicTreatmentOffering>((resolve) => {
+        complete = resolve
+      })
+      const onSaved = vi.fn()
+      const commands = {
+        createTreatment: vi.fn(() => pending),
+        updateTreatment: vi.fn(() => pending),
+        loadTreatments: vi.fn(),
+      }
+      const hook = renderHook(() =>
+        useClinicTreatmentsController({
+          commands,
+          initialSnapshot: clinicTreatmentSnapshotFixture,
+          management: "interactive",
+          onSaved,
+        }),
+      )
+      act(() =>
+        operation === "update"
+          ? hook.result.current.actions.openOffering(offering)
+          : hook.result.current.actions.openCreate(),
+      )
+      let result!: Promise<boolean>
+      act(() => {
+        result = hook.result.current.actions.save({
+          active: false,
+          price: 125,
+          treatmentId: operation === "create" ? "master-hair-transplant" : offering.treatment.id,
+        })
+      })
+      hook.unmount()
+      let accepted: boolean | undefined
+      await act(async () => {
+        complete({ ...offering, price: 125 })
+        accepted = await result
+      })
+      expect(accepted).toBe(false)
+      expect(onSaved).not.toHaveBeenCalled()
+      expect(commands.loadTreatments).not.toHaveBeenCalled()
+    },
+  )
+
   it("adopts a ready snapshot after an initial source error", () => {
     const commands = {
       createTreatment: vi.fn(),

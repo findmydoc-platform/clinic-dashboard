@@ -1,6 +1,6 @@
 import "server-only"
 import type { NextRequest } from "next/server"
-import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/auth/server/public"
+import { resolveClinicDashboardPersonalRouteAccess } from "@/features/clinic-dashboard/auth/server/public"
 import { createPrivateJsonResponse } from "@/lib/security/private-response"
 import { validateMutationRequest } from "@/lib/security/csrf"
 import {
@@ -52,7 +52,7 @@ export async function handleNotificationsMarkRead(
     !validateMutationRequest(request)
   )
     return fail("REQUEST_REJECTED")
-  const access = await resolveClinicDashboardRouteAccess(request)
+  const access = await resolveClinicDashboardPersonalRouteAccess(request)
   if (access.status !== "approved")
     return access.applyToResponse(
       fail(
@@ -96,7 +96,7 @@ export async function handleNotificationsMarkRead(
   if (!input.success || request.nextUrl.search) return access.applyToResponse(fail("INVALID_INPUT"))
   let provider
   try {
-    provider = createProvider(access.accessToken, access.clinicId)
+    provider = createProvider(access.accessToken, access.principalId, access.clinicIds)
   } catch {
     return access.applyToResponse(fail("SERVICE_UNAVAILABLE"))
   }
@@ -144,7 +144,7 @@ export async function handleNotificationsLoad(
     return finish({ ok: false, error: "INVALID_INPUT" })
   let access
   try {
-    access = await resolveClinicDashboardRouteAccess(request)
+    access = await resolveClinicDashboardPersonalRouteAccess(request)
   } catch {
     return finish({ ok: false, error: "SERVICE_UNAVAILABLE" })
   }
@@ -162,7 +162,10 @@ export async function handleNotificationsLoad(
       access.applyToResponse,
     )
   try {
-    const result = await createProvider(access.accessToken, access.clinicId).load(parsed.data, request.signal)
+    const result = await createProvider(access.accessToken, access.principalId, access.clinicIds).load(
+      parsed.data,
+      request.signal,
+    )
     return finish(result, access.applyToResponse)
   } catch {
     return finish({ ok: false, error: "SERVICE_UNAVAILABLE" }, access.applyToResponse)
@@ -171,11 +174,12 @@ export async function handleNotificationsLoad(
 
 export async function loadInitialNotifications(
   accessToken: string,
-  clinicId: string,
+  principalId: string,
+  clinicIds: readonly string[],
   createProvider: NotificationProviderFactory,
 ): Promise<NotificationLoadState> {
   try {
-    const result = await createProvider(accessToken, clinicId).load({ mode: "summary" })
+    const result = await createProvider(accessToken, principalId, clinicIds).load({ mode: "summary" })
     return result.ok
       ? { status: "ready", response: result.value }
       : { status: "unavailable", error: result.error }

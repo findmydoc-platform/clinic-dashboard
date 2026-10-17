@@ -30,13 +30,18 @@ function bootstrap(status = 200) {
     JSON.stringify(
       status === 200
         ? {
-            capabilities: [
-              "clinic-profile:view",
-              "clinic-profile:edit",
-              "clinic-treatments:view",
-              "clinic-treatments:edit",
+            schemaVersion: "clinic-scope-v1",
+            clinics: [
+              {
+                ...{ id: "clinic-1", name: "Synthetic Clinic" },
+                capabilities: [
+                  "clinic-profile:view",
+                  "clinic-profile:edit",
+                  "clinic-treatments:view",
+                  "clinic-treatments:edit",
+                ],
+              },
             ],
-            clinic: { id: "clinic-1", name: "Synthetic Clinic" },
             principal: { id: "staff-1", email: "staff@example.test", displayName: "Staff" },
             status: "approved",
           }
@@ -55,7 +60,7 @@ function bootstrap(status = 200) {
       status,
       headers: {
         "cache-control": "private, no-store",
-        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract, X-Findmydoc-Clinic-Scope-Contract",
       },
     },
   )

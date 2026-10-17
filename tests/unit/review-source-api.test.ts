@@ -19,11 +19,28 @@ describe("review source API", () => {
     vi.stubGlobal("fetch", fetcher)
 
     await expect(
-      createReviewSourceApiCommands().loadHistory("review 1", "cursor/+ value"),
+      createReviewSourceApiCommands("clinic-42").loadHistory("review 1", "cursor/+ value"),
     ).rejects.toMatchObject({ kind: "history-changed" })
     expect(fetcher).toHaveBeenCalledWith(
-      "/api/dashboard/reviews/review%201/history?cursor=cursor%2F%2B%20value",
+      "/api/dashboard/clinics/clinic-42/reviews/review%201/history?cursor=cursor%2F%2B%20value",
       expect.objectContaining({ cache: "no-store", credentials: "same-origin", redirect: "error" }),
     )
   })
+})
+
+it("reports confirmed access loss before the rejected operation reaches a clearing controller", async () => {
+  const events: string[] = []
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json({ code: "CLINIC_DASHBOARD_ACCESS_DENIED" }, { status: 403 })),
+  )
+  const commands = createReviewSourceApiCommands("clinic-42", (failure) => {
+    events.push(failure)
+  })
+  await commands
+    .loadReviews({ rating: "all", period: "all", treatment: "all", visibility: "all" }, 1)
+    .catch(() => {
+      events.push("controller rejection")
+    })
+  expect(events).toEqual(["forbidden", "controller rejection"])
 })

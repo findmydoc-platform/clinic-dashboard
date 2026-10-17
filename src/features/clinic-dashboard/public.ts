@@ -6,6 +6,8 @@ export { ClinicDashboardAuthScreen } from "./auth/public"
 export { ClinicDashboardSessionRecoveryPage } from "./auth/public"
 export type {
   AuthenticatedClinicContext,
+  AuthorizedClinic,
+  ClinicScopeBootstrap,
   ClinicDashboardAuthErrorCode,
   ClinicDashboardCapability,
   ClinicDashboardEmailFlow,
@@ -14,8 +16,18 @@ export type {
 export {
   createClinicDashboardLoginPath,
   createClinicDashboardReturnTarget,
+  createClinicDashboardReturnTargetForRequest,
+  parseClinicDashboardExactTarget,
   parseClinicDashboardReturnTarget,
   parseInquiryDeepLink,
 } from "./auth/public"
 export type { ClinicDashboardPrototypeMode } from "./prototype/public"
 export type { ClinicDashboardDialog, ClinicDashboardSection } from "./workspace/public"
+
+export {
+  resolveClinicSelection,
+  clinicPreferenceCookieName,
+  parseClinicDashboardSection,
+} from "./workspace/model/clinic-selection"
+
+export { ClinicWorkspaceLifetimeProvider } from "./workspace/ClinicWorkspaceLifetime"

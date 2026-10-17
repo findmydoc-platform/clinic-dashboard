@@ -22,9 +22,9 @@ describe("notification provider read contract", () => {
     resetControlledNotificationProvider()
   })
   it("retains personal first receipts across provider composition without changing another reader", async () => {
-    const first = createControlledNotificationProvider("reader-a", "clinic-a")
+    const first = createControlledNotificationProvider("token-a", "reader-a", ["controlled-clinic"])
     await first.markRead({ notificationIds: ["controlled-notification-0"] })
-    const reloaded = createControlledNotificationProvider("reader-a", "clinic-a")
+    const reloaded = createControlledNotificationProvider("token-a", "reader-a", ["controlled-clinic"])
     const all = await reloaded.load({ mode: "page", view: "all" })
     expect(all).toMatchObject({
       ok: true,
@@ -32,7 +32,9 @@ describe("notification provider read contract", () => {
     })
     const readAt = all.ok && all.value.mode === "page" ? all.value.items[0]?.members[0]?.readAt : null
     await reloaded.markRead({ notificationIds: ["controlled-notification-0"] })
-    const repeated = await createControlledNotificationProvider("reader-a", "clinic-a").load({
+    const repeated = await createControlledNotificationProvider("token-a", "reader-a", [
+      "controlled-clinic",
+    ]).load({
       mode: "page",
       view: "all",
     })
@@ -40,11 +42,20 @@ describe("notification provider read contract", () => {
       repeated.ok && repeated.value.mode === "page" ? repeated.value.items[0]?.members[0]?.readAt : null,
     ).toBe(readAt)
     expect(
-      await createControlledNotificationProvider("reader-b", "clinic-a").load({ mode: "summary" }),
+      await createControlledNotificationProvider("token-b", "reader-b", ["controlled-clinic"]).load({
+        mode: "summary",
+      }),
     ).toMatchObject({ ok: true, value: { unreadCount: 4 } })
     expect(
-      await createControlledNotificationProvider("reader-a", "clinic-b").load({ mode: "summary" }),
-    ).toMatchObject({ ok: true, value: { unreadCount: 4 } })
+      await createControlledNotificationProvider("rotated-token", "reader-a", [
+        "controlled-second-clinic",
+      ]).load({ mode: "summary" }),
+    ).toMatchObject({ ok: true, value: { unreadCount: 28 } })
+    expect(
+      await createControlledNotificationProvider("new-token", "reader-a", ["controlled-clinic"]).load({
+        mode: "summary",
+      }),
+    ).toMatchObject({ ok: true, value: { unreadCount: 3 } })
   })
   it("exposes validated complete summary and feed through both providers", async () => {
     const fetcher = vi.fn<typeof fetch>(
@@ -59,7 +70,7 @@ describe("notification provider read contract", () => {
             headers: {
               "content-type": "application/json",
               "cache-control": "private, no-store",
-              vary: "Authorization, X-Findmydoc-Clinic-Notifications-Contract",
+              vary: "Authorization, X-Findmydoc-Clinic-Notifications-Contract, X-Findmydoc-Clinic-Scope-Contract",
               "X-Findmydoc-Clinic-Notifications-Support": "clinic-notifications-v1",
             },
           },

@@ -7,6 +7,24 @@ import {
 describe("Controlled doctor profile provider", () => {
   beforeEach(() => resetControlledDoctorProfileProvider())
 
+  it("keeps doctor records and edits within their selected clinic", async () => {
+    const first = createControlledDoctorProfileProvider("clinic-a")
+    const second = createControlledDoctorProfileProvider("clinic-b")
+    const directory = await first.loadDirectory()
+    if (!directory.ok) throw new Error("Expected directory")
+    const id = directory.value.doctors[0]!.id
+    await expect(second.updateDoctor(id, { biography: "Foreign update" })).resolves.toEqual({
+      ok: false,
+      error: "not-found",
+    })
+    await expect(first.updateDoctor(id, { biography: "Clinic A update" })).resolves.toMatchObject({
+      ok: true,
+    })
+    await expect(second.loadDirectory()).resolves.not.toMatchObject({
+      value: { doctors: [expect.objectContaining({ biography: "Clinic A update" })] },
+    })
+  })
+
   it("supports the complete doctor and specialty mutation contract", async () => {
     const provider = createControlledDoctorProfileProvider()
     const created = await provider.createDoctor({

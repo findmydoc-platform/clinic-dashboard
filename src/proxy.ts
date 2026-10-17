@@ -76,6 +76,9 @@ export async function proxy(request: NextRequest) {
   const loginPath = createClinicDashboardLoginPathForRequest(
     request.nextUrl.pathname,
     request.nextUrl.searchParams.getAll("inquiry"),
+    request.nextUrl.searchParams.getAll("section"),
+    request.nextUrl.searchParams.getAll("review"),
+    [...request.nextUrl.searchParams.keys()],
   )
   const loginUrl = new URL(loginPath, request.nextUrl.origin)
   const redirect = copyResponseState(response, NextResponse.redirect(loginUrl))

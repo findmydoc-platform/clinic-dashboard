@@ -20,7 +20,7 @@ describe("inquiry workspace browser API", () => {
     vi.clearAllMocks()
   })
 
-  it("loads server-filtered pages through same-origin URLs without clinic input", async () => {
+  it("loads server-filtered pages through same-origin URLs with its fixed clinic target in the path", async () => {
     const fetcher = vi.fn<typeof fetch>(async () =>
       jsonResponse({
         changeCursor: "change-1",
@@ -31,7 +31,7 @@ describe("inquiry workspace browser API", () => {
       }),
     )
     vi.stubGlobal("fetch", fetcher)
-    const commands = createInquiryWorkspaceApiCommands()
+    const commands = createInquiryWorkspaceApiCommands("clinic-1")
 
     const result = await commands.loadQueue({
       cursor: "opaque-2",
@@ -44,7 +44,7 @@ describe("inquiry workspace browser API", () => {
 
     const target = String(fetcher.mock.calls[0]?.[0])
     expect(target).toBe(
-      "/api/dashboard/inquiries?lifecycle=all&unreadOnly=false&cursor=opaque-2&knownChangeCursor=queue-change-marker-1&handlingStatus=submitted%2Cin_review&query=attachment+match",
+      "/api/dashboard/clinics/clinic-1/inquiries?lifecycle=all&unreadOnly=false&cursor=opaque-2&knownChangeCursor=queue-change-marker-1&handlingStatus=submitted%2Cin_review&query=attachment+match",
     )
     expect(target).not.toContain("clinicId")
     expect(result).toMatchObject({ ok: true, value: { unreadCount: 9 } })
@@ -89,7 +89,7 @@ describe("inquiry workspace browser API", () => {
     )
 
     await expect(
-      createInquiryWorkspaceApiCommands().sendExternalMessage({
+      createInquiryWorkspaceApiCommands("clinic-1").sendExternalMessage({
         expectedRevision: 1,
         idempotencyKey: "reply-action-0001",
         inquiryId: "inquiry-1",
@@ -101,7 +101,7 @@ describe("inquiry workspace browser API", () => {
   it("adds CSRF but never actor or clinic fields to state mutations", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ error: { code: "invalid-state" } }, 422))
     vi.stubGlobal("fetch", fetcher)
-    const commands = createInquiryWorkspaceApiCommands()
+    const commands = createInquiryWorkspaceApiCommands("clinic-1")
     await commands.changeState({
       action: "close",
       expectedRevision: 4,
@@ -122,7 +122,7 @@ describe("inquiry workspace browser API", () => {
   it("sends internal notes without a root revision", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({ error: { code: "invalid-state" } }, 422))
     vi.stubGlobal("fetch", fetcher)
-    await createInquiryWorkspaceApiCommands().addInternalNote({
+    await createInquiryWorkspaceApiCommands("clinic-1").addInternalNote({
       idempotencyKey: "note-action-0001",
       inquiryId: "inquiry-1",
       text: "  Keep exact plain text.  ",
@@ -152,7 +152,7 @@ describe("inquiry workspace browser API", () => {
       .mockResolvedValueOnce(new Response(null, { status: 200 }))
       .mockResolvedValueOnce(jsonResponse({ finalized: true }))
     vi.stubGlobal("fetch", fetcher)
-    const commands = createInquiryWorkspaceApiCommands()
+    const commands = createInquiryWorkspaceApiCommands("clinic-1")
     const file = new File([new Uint8Array([1, 2, 3])], "scan.pdf", {
       type: "application/pdf",
     })
@@ -164,7 +164,9 @@ describe("inquiry workspace browser API", () => {
       value: { draftId: "draft-1", fileName: "scan.pdf", status: "ready" },
     })
     expect(fetcher.mock.calls[1]?.[0]).toBe("https://uploads.example.test/draft-1")
-    expect(fetcher.mock.calls[2]?.[0]).toBe("/api/dashboard/inquiries/attachments/drafts/finalize")
+    expect(fetcher.mock.calls[2]?.[0]).toBe(
+      "/api/dashboard/clinics/clinic-1/inquiries/attachments/drafts/finalize",
+    )
   })
 
   it("uses the exact protected same-origin upload route for controlled drafts", async () => {
@@ -177,7 +179,7 @@ describe("inquiry workspace browser API", () => {
           upload: {
             headers: { "content-type": "application/pdf" },
             method: "PUT",
-            url: "/api/dashboard/inquiries/attachments/drafts/upload?draftId=draft-controlled-1",
+            url: "/api/dashboard/clinics/clinic-1/inquiries/attachments/drafts/upload?draftId=draft-controlled-1",
           },
         }),
       )
@@ -185,14 +187,14 @@ describe("inquiry workspace browser API", () => {
       .mockResolvedValueOnce(jsonResponse({ finalized: true }))
     vi.stubGlobal("fetch", fetcher)
 
-    const result = await createInquiryWorkspaceApiCommands().createAttachmentDraft({
+    const result = await createInquiryWorkspaceApiCommands("clinic-1").createAttachmentDraft({
       file: new File(["safe"], "scan.pdf", { type: "application/pdf" }),
       inquiryId: "inquiry-1",
     })
 
     expect(result).toMatchObject({ ok: true, value: { draftId: "draft-controlled-1" } })
     expect(String(fetcher.mock.calls[1]?.[0])).toContain(
-      "/api/dashboard/inquiries/attachments/drafts/upload?draftId=draft-controlled-1",
+      "/api/dashboard/clinics/clinic-1/inquiries/attachments/drafts/upload?draftId=draft-controlled-1",
     )
     expect(fetcher.mock.calls[1]?.[1]).toMatchObject({
       credentials: "same-origin",
@@ -226,13 +228,15 @@ describe("inquiry workspace browser API", () => {
     const file = new File(["safe"], "scan.pdf", { type: "application/pdf" })
 
     await expect(
-      createInquiryWorkspaceApiCommands().createAttachmentDraft({
+      createInquiryWorkspaceApiCommands("clinic-1").createAttachmentDraft({
         file,
         inquiryId: "inquiry-1",
       }),
     ).resolves.toEqual({ error: { code: "service-unavailable" }, ok: false })
     expect(fetcher).toHaveBeenCalledTimes(2)
-    expect(fetcher.mock.calls[1]?.[0]).toBe("/api/dashboard/inquiries/attachments/drafts/discard")
+    expect(fetcher.mock.calls[1]?.[0]).toBe(
+      "/api/dashboard/clinics/clinic-1/inquiries/attachments/drafts/discard",
+    )
     expect(fetcher.mock.calls.some(([target]) => String(target).startsWith("https://"))).toBe(false)
   })
 
@@ -255,12 +259,14 @@ describe("inquiry workspace browser API", () => {
     vi.stubGlobal("fetch", fetcher)
 
     await expect(
-      createInquiryWorkspaceApiCommands().createAttachmentDraft({
+      createInquiryWorkspaceApiCommands("clinic-1").createAttachmentDraft({
         file: new File(["safe"], "scan.pdf", { type: "application/pdf" }),
         inquiryId: "inquiry-1",
       }),
     ).resolves.toEqual({ error: { code: "service-timeout" }, ok: false })
-    expect(fetcher.mock.calls[2]?.[0]).toBe("/api/dashboard/inquiries/attachments/drafts/discard")
+    expect(fetcher.mock.calls[2]?.[0]).toBe(
+      "/api/dashboard/clinics/clinic-1/inquiries/attachments/drafts/discard",
+    )
     expect(JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))).toEqual({
       draftId: "draft-put-failure",
       inquiryId: "inquiry-1",
@@ -287,12 +293,14 @@ describe("inquiry workspace browser API", () => {
     vi.stubGlobal("fetch", fetcher)
 
     await expect(
-      createInquiryWorkspaceApiCommands().createAttachmentDraft({
+      createInquiryWorkspaceApiCommands("clinic-1").createAttachmentDraft({
         file: new File(["safe"], "scan.pdf", { type: "application/pdf" }),
         inquiryId: "inquiry-1",
       }),
     ).resolves.toEqual({ error: { code: "service-timeout" }, ok: false })
-    expect(fetcher.mock.calls[3]?.[0]).toBe("/api/dashboard/inquiries/attachments/drafts/discard")
+    expect(fetcher.mock.calls[3]?.[0]).toBe(
+      "/api/dashboard/clinics/clinic-1/inquiries/attachments/drafts/discard",
+    )
   })
 
   it("surfaces definitive access loss returned while cleaning up a failed upload", async () => {
@@ -314,7 +322,7 @@ describe("inquiry workspace browser API", () => {
     vi.stubGlobal("fetch", fetcher)
 
     await expect(
-      createInquiryWorkspaceApiCommands().createAttachmentDraft({
+      createInquiryWorkspaceApiCommands("clinic-1").createAttachmentDraft({
         file: new File(["safe"], "scan.pdf", { type: "application/pdf" }),
         inquiryId: "inquiry-1",
       }),
@@ -341,7 +349,7 @@ describe("inquiry workspace browser API", () => {
     vi.stubGlobal("fetch", fetcher)
 
     await expect(
-      createInquiryWorkspaceApiCommands().createAttachmentDraft({
+      createInquiryWorkspaceApiCommands("clinic-1").createAttachmentDraft({
         file: new File(["safe"], "scan.pdf", { type: "application/pdf" }),
         inquiryId: "inquiry-1",
       }),
@@ -354,13 +362,13 @@ describe("inquiry workspace browser API", () => {
     )
     vi.stubGlobal("fetch", fetcher)
 
-    await createInquiryWorkspaceApiCommands().loadDetail({
+    await createInquiryWorkspaceApiCommands("clinic-1").loadDetail({
       inquiryId: "inquiry-1",
       knownChangeCursor: "detail.change~7",
     })
 
     expect(String(fetcher.mock.calls[0]?.[0])).toBe(
-      "/api/dashboard/inquiries/detail?inquiryId=inquiry-1&knownChangeCursor=detail.change%7E7",
+      "/api/dashboard/clinics/clinic-1/inquiries/detail?inquiryId=inquiry-1&knownChangeCursor=detail.change%7E7",
     )
   })
 
@@ -370,7 +378,7 @@ describe("inquiry workspace browser API", () => {
       vi.fn(async () => Promise.reject(Object.assign(new Error("aborted"), { name: "AbortError" }))),
     )
     await expect(
-      createInquiryWorkspaceApiCommands().loadQueue({ lifecycle: "open", unreadOnly: false }),
+      createInquiryWorkspaceApiCommands("clinic-1").loadQueue({ lifecycle: "open", unreadOnly: false }),
     ).resolves.toEqual({ error: { code: "service-timeout" }, ok: false })
   })
 })

@@ -99,7 +99,7 @@ export type ClinicDashboardReportingLoadState =
       status: "ready"
     }>
   | Readonly<{
-      status: "temporarily-unavailable"
+      status: "temporarily-unavailable" | "access-denied" | "unauthorized"
     }>
 
 export function isClinicDashboardReportingPeriodDays(

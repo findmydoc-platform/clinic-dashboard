@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useRef, useState, useEffectEvent } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useEffectEvent } from "react"
 import {
   nextNotificationExpiry,
   notificationRetryAt,
@@ -25,7 +25,17 @@ export function useNotificationCenterController(
   initialState: NotificationLoadState,
   open: boolean,
   onDestinationOpen?: NotificationDestinationOpen,
+  context?: Readonly<{ principalId: string; clinicId: string; enabled?: boolean }>,
 ) {
+  const enabled = context?.enabled !== false
+  const principalId = context?.principalId ?? "isolated"
+  const clinicId = context?.clinicId ?? "isolated"
+  const owner = `${principalId}:${clinicId}`
+  const previousOwner = useRef(owner)
+  const markGeneration = useRef(0)
+  const intentionalOpening = useRef<Readonly<{ principalId: string; clinicId: string }> | undefined>(
+    undefined,
+  )
   const blockAutomaticReads = useRef(false)
   const knownAccessLoss = useRef(false)
   const generation = useRef(0)
@@ -51,6 +61,7 @@ export function useNotificationCenterController(
       refreshAbort.current?.abort()
       mounted.current = false
       generation.current += 1
+      markGeneration.current += 1
     }
   }, [])
   const retryAt = "retryAt" in marking ? marking.retryAt : undefined
@@ -75,6 +86,35 @@ export function useNotificationCenterController(
   const [readRetryAt, setReadRetryAt] = useState<number | undefined>()
   const [pagination, setPagination] = useState<NotificationPaginationState>({ status: "idle" })
   const pageRetryAt = pagination.status === "unavailable" ? pagination.retryAt : undefined
+  useLayoutEffect(() => {
+    if (previousOwner.current === owner) return
+    previousOwner.current = owner
+    generation.current += 1
+    markGeneration.current += 1
+    refreshAbort.current?.abort()
+    paginationAbort.current?.abort()
+    refreshPending.current = false
+    refreshFollowUp.current = false
+    paginationPending.current = false
+    pending.current = false
+    blockAutomaticReads.current = false
+    knownAccessLoss.current = false
+    readBlockedUntil.current = undefined
+    failures.current = 0
+    feedRef.current = undefined
+    setFeed(undefined)
+    setCountState({ status: "loading" })
+    setMarking({ status: "idle" })
+    setPagination({ status: "idle" })
+    setReadRetryAt(undefined)
+    setRefreshState("idle")
+    const intentional = intentionalOpening.current
+    if (!intentional || intentional.principalId !== principalId || intentional.clinicId !== clinicId) {
+      openingAbort.current?.abort()
+      intentionalOpening.current = undefined
+      setOpening("cancelled")
+    }
+  }, [owner, principalId, clinicId])
   useEffect(() => {
     if (!pageRetryAt || pageRetryAt <= Date.now()) return
     const timer = window.setTimeout(
@@ -85,6 +125,7 @@ export function useNotificationCenterController(
   }, [pageRetryAt, now])
   useEffect(() => {
     if (
+      !enabled ||
       pending.current ||
       blockAutomaticReads.current ||
       !navigator.onLine ||
@@ -196,6 +237,8 @@ export function useNotificationCenterController(
             blockAutomaticReads.current = true
             refreshFollowUp.current = false
             knownAccessLoss.current = isAccessLoss(error)
+            markGeneration.current += 1
+            pending.current = false
             setCountState(unavailable)
             setFeed(open ? { view, state: unavailable } : undefined)
             openingAbort.current?.abort()
@@ -238,9 +281,10 @@ export function useNotificationCenterController(
       if (refreshAbort.current === abort) refreshAbort.current = undefined
       refreshPending.current = false
     }
-  }, [attempt, commands, open, view])
+  }, [attempt, commands, open, view, owner, enabled])
   const automaticRefresh = useEffectEvent(() => {
     if (
+      !enabled ||
       pending.current ||
       blockAutomaticReads.current ||
       (readBlockedUntil.current !== undefined && readBlockedUntil.current > Date.now()) ||
@@ -326,6 +370,7 @@ export function useNotificationCenterController(
     if (!fromOpening) setOpening("idle")
     const selection = Object.freeze([...notificationIds])
     pending.current = true
+    const actionGeneration = ++markGeneration.current
     generation.current += 1
     refreshAbort.current?.abort()
     refreshPending.current = false
@@ -339,8 +384,8 @@ export function useNotificationCenterController(
     } catch {
       result = { ok: false as const, error: "SERVICE_UNAVAILABLE" as const, writeOutcome: "unknown" as const }
     }
+    if (!mounted.current || actionGeneration !== markGeneration.current) return
     pending.current = false
-    if (!mounted.current) return
     if (result.ok) {
       setMarking({ status: "confirmed", notificationIds: selection })
       setAttempt((current) => current + 1)
@@ -365,6 +410,7 @@ export function useNotificationCenterController(
     openingAbort.current?.abort()
     const abort = new AbortController()
     openingAbort.current = abort
+    intentionalOpening.current = { principalId, clinicId: item.clinic.id }
     const selection = Object.freeze(item.members.map((member) => member.notificationId))
     const requestId = crypto.randomUUID()
     setOpeningKind(item.destination.kind)
@@ -373,11 +419,15 @@ export function useNotificationCenterController(
     setMarking({ status: "idle" })
     let outcome
     try {
-      outcome = await onDestinationOpen({ requestId, destination: item.destination }, abort.signal)
+      outcome = await onDestinationOpen(
+        { requestId, clinicId: item.clinic.id, destination: item.destination },
+        abort.signal,
+      )
     } catch {
       outcome = "unavailable" as const
     }
-    if (abort.signal.aborted || !mounted.current) return
+    if (abort.signal.aborted || !mounted.current || openingAbort.current !== abort) return
+    intentionalOpening.current = undefined
     setOpening(outcome)
     if (outcome === "displayed") await markRead(selection, true)
   }
@@ -424,6 +474,10 @@ export function useNotificationCenterController(
       if (isAccessLoss(result.error)) {
         blockAutomaticReads.current = true
         knownAccessLoss.current = true
+        markGeneration.current += 1
+        pending.current = false
+        openingAbort.current?.abort()
+        setOpening("cancelled")
         refreshFollowUp.current = false
         setCountState({ status: "unavailable", error: result.error })
         setFeed({ view, state: { status: "unavailable", error: result.error } })
@@ -487,6 +541,14 @@ export function useNotificationCenterController(
     paginationPending.current = false
     setPagination({ status: "idle" })
   }
+  const cancelOpening = useCallback(() => {
+    openingAbort.current?.abort()
+    intentionalOpening.current = undefined
+    markGeneration.current += 1
+    pending.current = false
+    setMarking({ status: "idle" })
+    setOpening("cancelled")
+  }, [])
   return {
     model: {
       state,
@@ -503,6 +565,7 @@ export function useNotificationCenterController(
       isPageRetryBlocked: pageRetryAt !== undefined && pageRetryAt > now,
     },
     actions: {
+      cancelOpening,
       openItem: onDestinationOpen ? openItem : undefined,
       selectView: (next: NotificationView) => {
         blockAutomaticReads.current = false

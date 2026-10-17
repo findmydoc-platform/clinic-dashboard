@@ -1,5 +1,6 @@
+import { act } from "@testing-library/react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, userEvent, waitFor, within } from "storybook/test"
+import { expect, fn, mocked, userEvent, waitFor, within } from "storybook/test"
 import { createDoctorProfileDraft, saveDoctorProfileDraft } from "../../model/doctor-profile-editor"
 import {
   createDoctorProfileCommandsFixture,
@@ -233,5 +234,51 @@ export const UnsavedCloseConfirmation: Story = {
     await userEvent.type(within(dialog).getByRole("textbox", { name: "First name" }), "Lea")
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await expect(within(dialog).getByText("Discard the unsaved changes?")).toBeVisible()
+  },
+}
+
+export const DepartureRetainsDraftUntilExplicitDecision: Story = {
+  args: { onNavigationRequestChange: fn() },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const dialog = canvas.getByRole("dialog", { name: "Edit doctor" })
+    const firstName = within(dialog).getByRole("textbox", { name: "First name" })
+    await userEvent.clear(firstName)
+    await userEvent.type(firstName, "Pending")
+    const continueNavigation = fn()
+    const cancelNavigation = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    await act(() => request?.(continueNavigation, cancelNavigation))
+    await expect(within(dialog).getByText("Discard the unsaved changes?")).toBeVisible()
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }))
+    expect(cancelNavigation).toHaveBeenCalledOnce()
+    expect(continueNavigation).not.toHaveBeenCalled()
+    await expect(firstName).toHaveValue("Pending")
+    await act(() => request?.(continueNavigation))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Discard changes" }))
+    expect(continueNavigation).toHaveBeenCalledOnce()
+  },
+}
+
+export const DepartureFailedSavePreservesDoctor: Story = {
+  args: {
+    onNavigationRequestChange: fn(),
+    onSave: async (draft) => ({ draft, failedSteps: [{ kind: "profile" }], status: "failed" }),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const dialog = canvas.getByRole("dialog", { name: "Edit doctor" })
+    const input = within(dialog).getByRole("textbox", { name: "First name" })
+    await userEvent.clear(input)
+    await userEvent.type(input, "Pending")
+    const continuation = fn()
+    const request = mocked(args.onNavigationRequestChange!).mock.lastCall?.[0]
+    await act(() => request?.(continuation))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save and continue" }))
+    await expect(
+      within(dialog).getByText("Profile details could not be saved. Check your connection and try again."),
+    ).toBeVisible()
+    expect(continuation).not.toHaveBeenCalled()
+    await expect(input).toHaveValue("Pending")
   },
 }

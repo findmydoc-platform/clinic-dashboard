@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Page } from "../fixtures/controlled-profile-scenario"
+import { clinicScopeConversions } from "@/features/clinic-dashboard/workspace/model/clinic-scope-conversions"
 import { controlledEmailCallbackPath } from "../fixtures/controlled-email-callback"
 
 const testDashboardPassword = "clinic-dashboard-test"
@@ -10,8 +11,10 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/login$/)
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill(testDashboardPassword)
-  await page.getByRole("button", { name: "Sign in" }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await Promise.all([
+    page.waitForURL(/\/clinics\/controlled-clinic\?section=dashboard$/),
+    page.getByRole("button", { name: "Sign in" }).click(),
+  ])
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   await page.waitForLoadState("networkidle")
 }
@@ -69,7 +72,9 @@ test("opens safe inquiry deep links and fails closed for foreign or unsafe ident
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill(testDashboardPassword)
   await page.getByRole("button", { name: "Sign in" }).click()
-  await expect(page).toHaveURL(`${testDashboardOrigin}/?inquiry=inquiry-lukas-weber`)
+  await expect(page).toHaveURL(
+    `${testDashboardOrigin}/clinics/controlled-clinic?section=messages&inquiry=inquiry-lukas-weber`,
+  )
   await expect(page.getByRole("button", { name: "Inquiries" })).toHaveAttribute("aria-current", "page")
   await expect(page.getByRole("region", { name: "Inquiry from Lukas Weber" })).toBeVisible()
 
@@ -89,7 +94,7 @@ test("loads controlled reporting through the request-bound BFF when the selected
   const reportingRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
-    if (url.pathname === "/api/dashboard/reporting") {
+    if (url.pathname === "/api/dashboard/clinics/controlled-clinic/reporting") {
       reportingRequests.push(`${url.pathname}${url.search}`)
     }
   })
@@ -105,7 +110,9 @@ test("loads controlled reporting through the request-bound BFF when the selected
   await page.getByRole("button", { name: "90 days" }).click()
   await expect(reportingMetrics.getByText("902", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect.poll(() => reportingRequests).toEqual(["/api/dashboard/reporting?periodDays=90"])
+  await expect
+    .poll(() => reportingRequests)
+    .toEqual(["/api/dashboard/clinics/controlled-clinic/reporting?periodDays=90"])
 })
 
 test("retains the selected period and metric through review and notification navigation", async ({
@@ -115,7 +122,8 @@ test("retains the selected period and metric through review and notification nav
   const reportingRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
-    if (url.pathname === "/api/dashboard/reporting") reportingRequests.push(url.search)
+    if (url.pathname === "/api/dashboard/clinics/controlled-clinic/reporting")
+      reportingRequests.push(url.search)
   })
   await signIn(page)
   await page.getByRole("button", { name: /Contacts Not supported yet/ }).click()
@@ -142,7 +150,7 @@ test("keeps published profile information usable when reporting and notification
   await page.setViewportSize({ width: 1440, height: 1000 })
   await signIn(page)
   let failedNotificationRequests = 0
-  await page.route("**/api/dashboard/reporting?*", (route) =>
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?*", (route) =>
     route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -168,11 +176,28 @@ test("keeps published profile information usable when reporting and notification
   )
   await page.getByRole("button", { name: "Close notifications" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
-  ).toBeVisible()
-  await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
-  await page.getByRole("button", { name: "View reviews" }).click()
+  if (clinicScopeConversions.gallery && clinicScopeConversions.treatments) {
+    // Retain the full progress acceptance for the #232/#233 domain composition.
+    await expect(
+      page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
+    await page.getByRole("button", { name: "View reviews" }).click()
+  } else {
+    await expect(
+      page.getByRole("heading", { name: "Profile progress unavailable", exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole("list", { name: "Profile tasks" })).toHaveCount(0)
+    await expect(
+      page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
+    ).toHaveCount(0)
+    await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
+    await expect(page.getByText("Controlled Bosphorus Clinic", { exact: true })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Profile basics" })).toContainText(
+      "A multidisciplinary clinic supporting international patients with coordinated treatment planning.",
+    )
+    await page.getByRole("button", { name: "Reviews", exact: true }).click()
+  }
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
 })
 
@@ -233,7 +258,7 @@ test("captures the restored dashboard without overflow in both themes and viewpo
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   }
   expect(consoleMessages).toEqual([])
-  await page.route("**/api/dashboard/reporting?*", (route) =>
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?*", (route) =>
     route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -288,6 +313,7 @@ test("works an inquiry end to end and guards an unsent draft before sign out", a
   const reply = page.getByRole("textbox", { name: "Reply to patient" })
   await reply.fill("Unsent synthetic reply kept for the draft guard.")
 
+  const retainedClinicUrl = page.url()
   let logoutRequests = 0
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === "/api/auth/logout") logoutRequests += 1
@@ -302,7 +328,7 @@ test("works an inquiry end to end and guards an unsent draft before sign out", a
 
   await expect.poll(() => confirmationMessage).toContain("discard all unsent inquiry")
   expect(logoutRequests).toBe(0)
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(retainedClinicUrl)
   await expect(reply).toHaveValue("Unsent synthetic reply kept for the draft guard.")
 
   await reply.fill("")
@@ -312,12 +338,13 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await page.setViewportSize({ height: 960, width: 1440 })
   await signIn(page)
 
+  const inquiryPath = "/api/dashboard/clinics/controlled-clinic/inquiries"
   const attachmentRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
     if (
-      url.pathname.startsWith("/api/dashboard/inquiries/attachments/drafts") ||
-      url.pathname === "/api/dashboard/inquiries/messages"
+      url.pathname.startsWith(`${inquiryPath}/attachments/drafts`) ||
+      url.pathname === `${inquiryPath}/messages`
     ) {
       attachmentRequests.push(`${request.method()} ${url.pathname}`)
     }
@@ -347,10 +374,10 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await expect(status).toHaveValue("contacted")
   expect(attachmentRequests).toEqual(
     expect.arrayContaining([
-      "POST /api/dashboard/inquiries/attachments/drafts",
-      "PUT /api/dashboard/inquiries/attachments/drafts/upload",
-      "POST /api/dashboard/inquiries/attachments/drafts/finalize",
-      "POST /api/dashboard/inquiries/messages",
+      `POST ${inquiryPath}/attachments/drafts`,
+      `PUT ${inquiryPath}/attachments/drafts/upload`,
+      `POST ${inquiryPath}/attachments/drafts/finalize`,
+      `POST ${inquiryPath}/messages`,
     ]),
   )
 
@@ -391,7 +418,7 @@ test("reauthenticates once before revealing protected inquiry contact details", 
   await signIn(page)
 
   let revealAttempts = 0
-  await page.route("**/api/dashboard/inquiries/contact/reveal", async (route) => {
+  await page.route("**/api/dashboard/clinics/controlled-clinic/inquiries/contact/reveal", async (route) => {
     revealAttempts += 1
     if (revealAttempts === 1) {
       await route.fulfill({
@@ -496,7 +523,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const firstAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const firstUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   const imageBuffer = Buffer.from(
@@ -514,7 +541,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const secondAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const secondUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   await secondAddImagesDialog
@@ -556,7 +583,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   const saveResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await waitForGalleryNotifications(page)
   await galleryEditor.getByRole("button", { name: "Save and return" }).click()
@@ -573,7 +601,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const thirdAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const thirdUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   await thirdAddImagesDialog
@@ -585,7 +613,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   const completeGalleryResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await waitForGalleryNotifications(page)
   await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
@@ -614,7 +643,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const removalDialog = page.getByRole("alertdialog", { name: "Remove 2 images and save?" })
   const removalResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await removalDialog.getByRole("button", { name: "Remove 2 and save" }).click()
   expect((await removalResponse).status()).toBe(200)
@@ -629,7 +659,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   await page.reload()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Clinic profile", exact: true })).toBeVisible()
 
   const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })
   await cleanupGallery.getByRole("button", { name: "Manage gallery" }).click()
@@ -641,7 +671,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const cleanupDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
   const cleanupResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await cleanupDialog.getByRole("button", { name: "Remove image and save" }).click()
   expect((await cleanupResponse).status()).toBe(200)
@@ -747,7 +778,8 @@ test("persists doctor creation and editing through the authenticated BFF", async
 
   const createDoctorResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/doctors" && response.request().method() === "POST",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/doctors" &&
+      response.request().method() === "POST",
   )
   const createSpecialtyResponse = page.waitForResponse(
     (response) =>
@@ -759,7 +791,10 @@ test("persists doctor creation and editing through the authenticated BFF", async
   )
   const activationResponse = page.waitForResponse((response) => {
     const pathname = new URL(response.url()).pathname
-    return /^\/api\/dashboard\/doctors\/[^/]+$/u.test(pathname) && response.request().method() === "PATCH"
+    return (
+      /^\/api\/dashboard\/clinics\/controlled-clinic\/doctors\/[^/]+$/u.test(pathname) &&
+      response.request().method() === "PATCH"
+    )
   })
 
   await createDialog.getByRole("button", { name: "Add doctor" }).click()
@@ -794,7 +829,10 @@ test("persists doctor creation and editing through the authenticated BFF", async
 
   const updateDoctorResponse = page.waitForResponse((response) => {
     const pathname = new URL(response.url()).pathname
-    return /^\/api\/dashboard\/doctors\/[^/]+$/u.test(pathname) && response.request().method() === "PATCH"
+    return (
+      /^\/api\/dashboard\/clinics\/controlled-clinic\/doctors\/[^/]+$/u.test(pathname) &&
+      response.request().method() === "PATCH"
+    )
   })
   const updateSpecialtyResponse = page.waitForResponse(
     (response) =>

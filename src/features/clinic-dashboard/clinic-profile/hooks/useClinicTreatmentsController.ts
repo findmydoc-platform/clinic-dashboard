@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useLayoutEffect, useRef, useState } from "react"
 import type { ClinicProfileManagementAccess } from "../model/clinic-profile-management"
 import { isClinicProfileManagementInteractive } from "../model/clinic-profile-management"
 import type {
@@ -35,6 +35,13 @@ export function useClinicTreatmentsController({
   management,
   onSaved,
 }: UseClinicTreatmentsControllerOptions) {
+  const activeCommands = useRef<ClinicTreatmentCommands | undefined>(commands)
+  useLayoutEffect(() => {
+    activeCommands.current = commands
+    return () => {
+      activeCommands.current = undefined
+    }
+  }, [commands])
   const initialSnapshotIdentity = clinicTreatmentsSnapshotIdentity(initialSnapshot)
   const [snapshot, setSnapshot] = useState(initialSnapshot)
   const [receivedInitialSnapshotIdentity, setReceivedInitialSnapshotIdentity] =
@@ -79,16 +86,18 @@ export function useClinicTreatmentsController({
     setIsBusy(true)
     try {
       const nextSnapshot = await commands.loadTreatments()
+      if (activeCommands.current !== commands) return
       setPendingInitialSnapshot(undefined)
       setSnapshot(nextSnapshot)
       setStatusMessage(
         nextSnapshot.status === "ready" ? "Treatments reloaded." : "Treatments could not be loaded.",
       )
     } catch {
+      if (activeCommands.current !== commands) return
       setSnapshot({ catalogue: [], offerings: [], status: "temporarily-unavailable" })
       setStatusMessage("Treatments could not be loaded. Try again.")
     } finally {
-      setIsBusy(false)
+      if (activeCommands.current === commands) setIsBusy(false)
     }
   }, [commands])
 
@@ -112,7 +121,7 @@ export function useClinicTreatmentsController({
   )
 
   const save = useCallback(
-    async (input: ClinicTreatmentFormInput) => {
+    async (input: ClinicTreatmentFormInput, closeOnSuccess = true) => {
       if (!isClinicProfileManagementInteractive(management) || snapshot.status !== "ready") {
         return false
       }
@@ -137,6 +146,7 @@ export function useClinicTreatmentsController({
               price: input.price,
             })
           : await commands.createTreatment({ price: input.price, treatmentId: input.treatmentId })
+        if (activeCommands.current !== commands) return false
         const nextSnapshot = {
           ...snapshot,
           offerings: selectedOffering
@@ -147,14 +157,16 @@ export function useClinicTreatmentsController({
         setSnapshot(nextSnapshot)
         onSaved?.(nextSnapshot)
         setStatusMessage(selectedOffering ? "Treatment updated." : "Treatment added.")
-        setDialogOpen(false)
+        if (closeOnSuccess) setDialogOpen(false)
         setSelectedOfferingId(undefined)
         return true
       } catch (error) {
+        if (activeCommands.current !== commands) return false
         if (error instanceof ClinicTreatmentCommandError && error.code === "conflict") {
           const refreshed = await commands
             .loadTreatments()
             .catch(() => ({ catalogue: [], offerings: [], status: "temporarily-unavailable" }) as const)
+          if (activeCommands.current !== commands) return false
           setPendingInitialSnapshot(undefined)
           setSnapshot(refreshed)
           const conflictedOfferingId =
@@ -182,7 +194,7 @@ export function useClinicTreatmentsController({
         )
         return false
       } finally {
-        setIsBusy(false)
+        if (activeCommands.current === commands) setIsBusy(false)
       }
     },
     [commands, management, onSaved, selectedOffering, snapshot],

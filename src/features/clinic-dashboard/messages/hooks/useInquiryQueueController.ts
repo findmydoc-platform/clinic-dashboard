@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react"
 import type { ClinicDashboardReauthenticationCommand } from "@/features/clinic-dashboard/auth/public"
 import { createInquiryAttachmentAccessPaths } from "../browser/inquiry-attachment-paths"
 import type { InquiryWorkspaceCommands } from "../model/inquiry-status-commands"
@@ -26,6 +26,7 @@ import {
   inquiryQueueReducer,
 } from "../model/inquiry-queue.reducer"
 import { selectInquiryQueueViewModel } from "../model/inquiry-queue.selectors"
+import type { ProtectedEditorWork } from "@/lib/editor-departure"
 
 const POLLING_INTERVAL_MS = 15_000
 const MAX_MESSAGE_CHARACTERS = 3_000
@@ -33,9 +34,11 @@ const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 const acceptedAttachmentTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"])
 
 type UseInquiryQueueControllerInput = Readonly<{
+  clinicId: string
   commands: InquiryWorkspaceCommands
   isActive?: boolean
   onSessionLost?: (inquiryId?: string) => void
+  onAccessLost?: () => void
   reauthenticateSession?: ClinicDashboardReauthenticationCommand
   snapshot: PatientInquiryQueueSnapshot
 }>
@@ -97,16 +100,24 @@ function latestVisibleActivityId(inquiry: PatientInquiryDetail) {
 
 export function useInquiryQueueController({
   commands,
+  clinicId,
   isActive = true,
   onSessionLost,
+  onAccessLost,
   reauthenticateSession = reauthenticationUnavailable,
   snapshot,
 }: UseInquiryQueueControllerInput): Readonly<{
   actions: InquiryWorkspaceActions
+  discardUnfinishedWork: () => boolean
+  protectUnfinishedWork: () => ProtectedEditorWork | void
   model: InquiryWorkspaceViewModel
   openInquiry: (inquiryId: string) => Promise<boolean>
 }> {
   const [state, dispatch] = useReducer(inquiryQueueReducer, snapshot, createInquiryQueueState)
+  const onAccessLostRef = useRef(onAccessLost)
+  useLayoutEffect(() => {
+    onAccessLostRef.current = onAccessLost
+  }, [onAccessLost])
   const isMountedRef = useRef(true)
   const loadedInquiryIdsRef = useRef(new Set(snapshot.inquiries.map(({ id }) => id)))
   const loadedPageCountRef = useRef(1)
@@ -127,11 +138,16 @@ export function useInquiryQueueController({
       Object.fromEntries(
         (model.selectedInquiry?.timeline ?? []).flatMap((item) =>
           item.kind === "external-message" && item.attachment
-            ? [[item.attachment.id, createInquiryAttachmentAccessPaths(item.attachment.id)] as const]
+            ? [
+                [
+                  item.attachment.id,
+                  createInquiryAttachmentAccessPaths(item.attachment.id, clinicId),
+                ] as const,
+              ]
             : [],
         ),
       ),
-    [model.selectedInquiry],
+    [model.selectedInquiry, clinicId],
   )
 
   useEffect(() => {
@@ -195,6 +211,7 @@ export function useInquiryQueueController({
     (result: InquiryResult<unknown>, inquiryId: string) => {
       if (result.ok) return false
       if (result.error.code === "access-denied") {
+        onAccessLostRef.current?.()
         selectedInquiryIdRef.current = undefined
         pendingKeysRef.current.clear()
         readyAttachmentDraftsRef.current.clear()
@@ -244,6 +261,35 @@ export function useInquiryQueueController({
     [discardAttachmentBestEffort, invalidateInquiryRuntime],
   )
 
+  const discardUnfinishedWork = useCallback(() => {
+    if (state.isMutating) return false
+    const inquiryIds = new Set([...Object.keys(state.drafts), ...Object.keys(state.attachments)])
+    for (const inquiryId of inquiryIds) discardUnboundReplyAttachment(inquiryId)
+    dispatch({ type: "draftsDiscarded" })
+    return true
+  }, [discardUnboundReplyAttachment, state.attachments, state.drafts, state.isMutating])
+
+  const protectUnfinishedWork = useCallback((): ProtectedEditorWork | void => {
+    if (!hasUnsavedInquiryDrafts(state)) return
+    const attachments = new Map(readyAttachmentDraftsRef.current)
+    const draft = {
+      drafts: state.drafts,
+      attachments: state.attachments,
+      files: new Map(failedAttachmentFilesRef.current),
+    }
+    return {
+      draft,
+      discard: async () => {
+        for (const [inquiryId, attachment] of attachments) {
+          const result = await commands.discardAttachmentDraft({ inquiryId, draftId: attachment.draftId })
+          if (!result.ok && !["access-denied", "not-found", "unauthorized"].includes(result.error.code))
+            throw new Error("Original clinic attachment cleanup is temporarily unavailable.")
+        }
+        dispatch({ type: "draftsDiscarded" })
+      },
+    }
+  }, [commands, state])
+
   const loadQueuePage = useCallback(
     async (
       input: Readonly<{
@@ -263,6 +309,7 @@ export function useInquiryQueueController({
         })
         if (!isMountedRef.current || applySessionLoss(firstPageResult)) return firstPageResult
         if (!firstPageResult.ok && firstPageResult.error.code === "access-denied") {
+          onAccessLostRef.current?.()
           selectedInquiryIdRef.current = undefined
           terminalAccessLossRef.current = true
           pendingKeysRef.current.clear()
@@ -310,6 +357,7 @@ export function useInquiryQueueController({
           })
           if (!isMountedRef.current || applySessionLoss(pageResult)) return pageResult
           if (!pageResult.ok && pageResult.error.code === "access-denied") {
+            onAccessLostRef.current?.()
             selectedInquiryIdRef.current = undefined
             terminalAccessLossRef.current = true
             pendingKeysRef.current.clear()
@@ -362,6 +410,7 @@ export function useInquiryQueueController({
       })
       if (!isMountedRef.current || applySessionLoss(result)) return result
       if (!result.ok && result.error.code === "access-denied") {
+        onAccessLostRef.current?.()
         selectedInquiryIdRef.current = undefined
         terminalAccessLossRef.current = true
         pendingKeysRef.current.clear()
@@ -694,7 +743,11 @@ export function useInquiryQueueController({
         type: "attachmentChanged",
       })
       const result = await commands.createAttachmentDraft({ file, inquiryId: selected.id })
-      if (!isMountedRef.current || applySessionLoss(result)) return
+      if (!isMountedRef.current) {
+        if (result.ok) discardAttachmentBestEffort(selected.id, result.value.draftId)
+        return
+      }
+      if (applySessionLoss(result)) return
       if (applyInquiryAccessLoss(result, selected.id)) return
       if (terminalAccessLossRef.current) {
         if (result.ok) discardAttachmentBestEffort(selected.id, result.value.draftId)
@@ -1029,5 +1082,11 @@ export function useInquiryQueueController({
     [loadSelectedInquiry],
   )
 
-  return { actions, model: { ...model, attachmentAccessPaths }, openInquiry }
+  return {
+    actions,
+    discardUnfinishedWork,
+    protectUnfinishedWork,
+    model: { ...model, attachmentAccessPaths },
+    openInquiry,
+  }
 }

@@ -89,7 +89,7 @@ function privateReportingResponse(body: unknown, status = 200) {
       "content-type": "application/json",
       expires: "0",
       pragma: "no-cache",
-      vary: "Authorization",
+      vary: "Authorization, X-Findmydoc-Clinic-Scope-Contract",
     },
     status,
   })
@@ -133,14 +133,16 @@ describe("clinic dashboard reporting BFF", () => {
     vi.stubGlobal("fetch", fetcher)
 
     const response = await handleClinicDashboardReportingLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reporting?periodDays=30"),
+      new NextRequest(
+        "http://localhost:3000/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=30",
+      ),
     )
 
     expect(response.status).toBe(200)
     const body = await response.json()
     expect(body).toEqual(reportingFixture)
     expect(String(fetcher.mock.calls[0]?.[0])).toBe(
-      "https://preview.findmydoc.eu/api/clinic-dashboard/reporting?periodDays=30",
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/server-derived-clinic/reporting?periodDays=30",
     )
     const [, upstreamInit] = fetcher.mock.calls[0] ?? []
     expect(upstreamInit).toMatchObject({
@@ -150,16 +152,20 @@ describe("clinic dashboard reporting BFF", () => {
     })
     expect(JSON.stringify(upstreamInit)).not.toContain("server-derived-clinic")
     expect(JSON.stringify(body)).not.toContain("session-access-token")
-    expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(expect.any(NextRequest))
+    expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      undefined,
+      "server-derived-clinic",
+    )
     expect(response.headers.get("x-session-applied")).toBe("true")
     expectPrivate(response)
   })
 
   it.each([
-    "/api/dashboard/reporting",
-    "/api/dashboard/reporting?periodDays=31",
-    "/api/dashboard/reporting?periodDays=7&periodDays=30",
-    "/api/dashboard/reporting?periodDays=7&clinicId=other-clinic",
+    "/api/dashboard/clinics/server-derived-clinic/reporting",
+    "/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=31",
+    "/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=7&periodDays=30",
+    "/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=7&clinicId=other-clinic",
   ])("rejects invalid browser input %s before reading the session", async (path) => {
     const fetcher = vi.fn()
     vi.stubGlobal("fetch", fetcher)
@@ -199,7 +205,9 @@ describe("clinic dashboard reporting BFF", () => {
     )
 
     const response = await handleClinicDashboardReportingLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reporting?periodDays=30"),
+      new NextRequest(
+        "http://localhost:3000/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=30",
+      ),
     )
 
     expect(response.status).toBe(200)
@@ -218,7 +226,9 @@ describe("clinic dashboard reporting BFF", () => {
     )
 
     const response = await handleClinicDashboardReportingLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reporting?periodDays=7"),
+      new NextRequest(
+        "http://localhost:3000/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=7",
+      ),
     )
 
     expect(response.status).toBe(503)
@@ -254,7 +264,9 @@ describe("clinic dashboard reporting BFF", () => {
     )
 
     const response = await handleClinicDashboardReportingLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/reporting?periodDays=30"),
+      new NextRequest(
+        "http://localhost:3000/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=30",
+      ),
     )
 
     expect(response.status).toBe(503)

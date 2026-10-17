@@ -153,3 +153,12 @@ export function createClinicProfileSourceCommandsFixture(
     },
   }
 }
+
+export function createClinicProfileSourceSaveFailureCommandsFixture(): ClinicProfileSourceCommands {
+  return {
+    ...createClinicProfileSourceCommandsFixture(),
+    saveDraft: async () => {
+      throw new ClinicProfileSourceCommandError("rejected", "Save failed.")
+    },
+  }
+}
