@@ -36,6 +36,25 @@ describe("Clinic gallery Payload adapter", () => {
     vi.unstubAllEnvs()
   })
 
+  it("sends one literal scope header for reads, saves, uploads, discards and private images", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({}, 503))
+    const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
+    await Promise.all([
+      provider.loadGallery(),
+      provider.saveGallery({ expectedRevision: 7, items: [] }),
+      provider.uploadMedia({ file: new File(["image"], "clinic.jpg", { type: "image/jpeg" }) }),
+      provider.discardDrafts(["draft-1"]),
+      provider.loadImage(media.url),
+    ])
+    expect(fetcher).toHaveBeenCalledTimes(5)
+    for (const [, init] of fetcher.mock.calls) {
+      const headers = new Headers(init?.headers)
+      expect(headers.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
+      expect(headers.get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe("inquiry-communication-v2")
+      expect(headers.get("Authorization")).toBe("Bearer access-token")
+    }
+  })
+
   it("loads the focused server-derived gallery contract", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(snapshot))
     const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
