@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useRef, useEffect, useState } from "react"
+import type { EditorDepartureRequest, ProtectedEditorWork } from "@/lib/editor-departure"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -44,9 +45,7 @@ export type ClinicProfileProps = Readonly<{
   initialDialog?: "treatment"
   onFocusHandled: () => void
   onGallerySaved?: (snapshot: ClinicGallerySnapshot) => void
-  onNavigationRequestChange?: (
-    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
-  ) => void
+  onNavigationRequestChange?: (request: EditorDepartureRequest | null) => void
   onGalleryNavigationRequestChange?: (request?: (continuation: () => void) => void) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   onSourceProfileChanged?: (snapshot: ClinicProfileSnapshot) => void
@@ -85,13 +84,14 @@ export function ClinicProfile({
   treatmentManagement,
   treatmentSnapshot,
 }: ClinicProfileProps) {
-  const doctorNavigation = useRef<((continuation: () => void, onCancel?: () => void) => void) | null>(null)
-  const setDoctorNavigation = useCallback(
-    (request: ((continuation: () => void, onCancel?: () => void) => void) | null) => {
-      doctorNavigation.current = request
-    },
-    [],
-  )
+  const doctorNavigation = useRef<EditorDepartureRequest | null>(null)
+  const dialogNavigation = useRef<EditorDepartureRequest | null>(null)
+  const setDialogNavigation = useCallback((request: EditorDepartureRequest | null) => {
+    dialogNavigation.current = request
+  }, [])
+  const setDoctorNavigation = useCallback((request: EditorDepartureRequest | null) => {
+    doctorNavigation.current = request
+  }, [])
   const [isDoctorEditorOpen, setIsDoctorEditorOpen] = useState(false)
   const [navigationNotice, setNavigationNotice] = useState("")
   const handleDoctorEditorPresenceChange = useCallback((isOpen: boolean) => {
@@ -140,7 +140,26 @@ export function ClinicProfile({
   const hasBlockingDialog =
     treatmentController.model.dialogOpen || treatmentController.model.isBusy || Boolean(sourceModel.dialog)
   const requestNavigation = useCallback(
-    (continuation: () => void, onCancel?: () => void) => {
+    (continuation: () => void, onCancel?: () => void, intent?: Parameters<EditorDepartureRequest>[2]) => {
+      if (intent === "access-loss") {
+        const work: ProtectedEditorWork[] = []
+        for (const request of [
+          requestSourceNavigation,
+          doctorNavigation.current,
+          dialogNavigation.current,
+          ...(isGalleryOpen ? [requestGalleryNavigation] : []),
+        ]) {
+          const captured = request?.(() => {}, undefined, intent)
+          if (captured) work.push(captured)
+        }
+        if (!work.length) return
+        return {
+          draft: work.map(({ draft }) => draft),
+          discard: async () => {
+            for (const item of work) await item.discard()
+          },
+        }
+      }
       if (hasBlockingDialog) {
         setNavigationNotice("Save or close the current editor before continuing.")
         onCancel?.()
@@ -341,6 +360,7 @@ export function ClinicProfile({
 
       {sourceModel.dialog === "address" && sourceModel.workingDraft && sourceModel.snapshot ? (
         <AddressDialog
+          onNavigationRequestChange={setDialogNavigation}
           navigationNotice={navigationNotice}
           address={sourceModel.workingDraft.address}
           cities={sourceModel.snapshot.availableCities}
@@ -355,6 +375,7 @@ export function ClinicProfile({
       ) : null}
       {sourceModel.dialog === "hours" && sourceModel.workingDraft ? (
         <OpeningHoursDialog
+          onNavigationRequestChange={setDialogNavigation}
           navigationNotice={navigationNotice}
           entries={sourceModel.workingDraft.openingHours}
           errors={sourceModel.validationErrors}
@@ -372,6 +393,7 @@ export function ClinicProfile({
       isClinicProfileManagementVisible(treatmentManagement) &&
       (treatments.selectedOffering || isClinicProfileManagementInteractive(treatmentManagement)) ? (
         <TreatmentDialog
+          onNavigationRequestChange={setDialogNavigation}
           availableTreatments={treatments.availableTreatments}
           initialTreatment={treatments.selectedOffering}
           isBusy={treatments.isBusy}

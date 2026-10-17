@@ -57,6 +57,7 @@ export function ReviewTextMutationDialog({
   return (
     <ReviewMutationDialog
       description={description}
+      draft={{ body: value }}
       isDirty={value !== initialValue}
       isSubmitDisabled={trimmedValue.length < 10 || isUnchanged}
       onClose={onClose}

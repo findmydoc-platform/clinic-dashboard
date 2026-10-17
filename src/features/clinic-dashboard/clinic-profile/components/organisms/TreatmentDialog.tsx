@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import type { EditorDepartureRequest } from "@/lib/editor-departure"
+import { useEditorProtection } from "@/lib/use-editor-protection"
 import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -20,6 +22,7 @@ type TreatmentDialogProps = Readonly<{
   isReadOnly: boolean
   message?: string
   navigationNotice?: string
+  onNavigationRequestChange?: (request: EditorDepartureRequest | null) => void
   onOpenChange: (open: boolean) => void
   onSave: (input: ClinicTreatmentFormInput) => Promise<boolean>
   onTreatmentMissing?: () => void
@@ -33,6 +36,7 @@ export function TreatmentDialog({
   isReadOnly,
   message,
   navigationNotice,
+  onNavigationRequestChange,
   onOpenChange,
   onSave,
   onTreatmentMissing,
@@ -65,6 +69,14 @@ export function TreatmentDialog({
     onOpenChange(false)
     onTreatmentMissing?.()
   }
+
+  useEditorProtection({
+    open,
+    dirty: !isReadOnly && hasChanged && Boolean(treatmentId || price || active),
+    draft: { treatmentId, price, active },
+    discard: () => onOpenChange(false),
+    register: onNavigationRequestChange,
+  })
 
   return (
     <Modal
