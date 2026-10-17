@@ -57,6 +57,9 @@ test.beforeEach(async ({ context, baseURL, page }) => {
   await page.route("**/api/notifications/read", acknowledgeFixture)
   await context.addCookies([{ name: "clinic_dashboard_controlled_clinics", value: "many", url: baseURL! }])
 })
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "wait" })
+})
 test("a real clinic page remount retains the restricted original inquiry draft until explicit discard", async ({
   page,
 }) => {

@@ -198,6 +198,7 @@ test("authorized selector works with keyboard and fits narrow screens in both th
   await setClinicSet(context, baseURL!, "many")
   await signIn(page)
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible()
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
   await page.getByRole("button", { name: /Switch clinic location/ }).focus()
   await page.keyboard.press("Enter")
   await expect(page.getByRole("menu", { name: /Switch clinic location/ })).toBeVisible()

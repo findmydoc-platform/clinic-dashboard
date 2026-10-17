@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "../fixtures/controlled-profile-scenario"
+import { clinicScopeConversions } from "@/features/clinic-dashboard/workspace/model/clinic-scope-conversions"
 import { controlledEmailCallbackPath } from "../fixtures/controlled-email-callback"
 
 const testDashboardPassword = "clinic-dashboard-test"
@@ -175,11 +176,28 @@ test("keeps published profile information usable when reporting and notification
   )
   await page.getByRole("button", { name: "Close notifications" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
-  ).toBeVisible()
-  await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
-  await page.getByRole("button", { name: "View reviews" }).click()
+  if (clinicScopeConversions.gallery && clinicScopeConversions.treatments) {
+    // Retain the full progress acceptance for the #232/#233 domain composition.
+    await expect(
+      page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
+    await page.getByRole("button", { name: "View reviews" }).click()
+  } else {
+    await expect(
+      page.getByRole("heading", { name: "Profile progress unavailable", exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole("list", { name: "Profile tasks" })).toHaveCount(0)
+    await expect(
+      page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
+    ).toHaveCount(0)
+    await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
+    await expect(page.getByText("Controlled Bosphorus Clinic", { exact: true })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Profile basics" })).toContainText(
+      "A multidisciplinary clinic supporting international patients with coordinated treatment planning.",
+    )
+    await page.getByRole("button", { name: "Reviews", exact: true }).click()
+  }
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
 })
 
@@ -295,6 +313,7 @@ test("works an inquiry end to end and guards an unsent draft before sign out", a
   const reply = page.getByRole("textbox", { name: "Reply to patient" })
   await reply.fill("Unsent synthetic reply kept for the draft guard.")
 
+  const retainedClinicUrl = page.url()
   let logoutRequests = 0
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === "/api/auth/logout") logoutRequests += 1
@@ -309,7 +328,7 @@ test("works an inquiry end to end and guards an unsent draft before sign out", a
 
   await expect.poll(() => confirmationMessage).toContain("discard all unsent inquiry")
   expect(logoutRequests).toBe(0)
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(retainedClinicUrl)
   await expect(reply).toHaveValue("Unsent synthetic reply kept for the draft guard.")
 
   await reply.fill("")
@@ -319,12 +338,13 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await page.setViewportSize({ height: 960, width: 1440 })
   await signIn(page)
 
+  const inquiryPath = "/api/dashboard/clinics/controlled-clinic/inquiries"
   const attachmentRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
     if (
-      url.pathname.startsWith("/api/dashboard/inquiries/attachments/drafts") ||
-      url.pathname === "/api/dashboard/inquiries/messages"
+      url.pathname.startsWith(`${inquiryPath}/attachments/drafts`) ||
+      url.pathname === `${inquiryPath}/messages`
     ) {
       attachmentRequests.push(`${request.method()} ${url.pathname}`)
     }
@@ -354,10 +374,10 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await expect(status).toHaveValue("contacted")
   expect(attachmentRequests).toEqual(
     expect.arrayContaining([
-      "POST /api/dashboard/inquiries/attachments/drafts",
-      "PUT /api/dashboard/inquiries/attachments/drafts/upload",
-      "POST /api/dashboard/inquiries/attachments/drafts/finalize",
-      "POST /api/dashboard/inquiries/messages",
+      `POST ${inquiryPath}/attachments/drafts`,
+      `PUT ${inquiryPath}/attachments/drafts/upload`,
+      `POST ${inquiryPath}/attachments/drafts/finalize`,
+      `POST ${inquiryPath}/messages`,
     ]),
   )
 
