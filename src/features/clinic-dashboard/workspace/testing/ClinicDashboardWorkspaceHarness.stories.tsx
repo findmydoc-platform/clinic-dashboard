@@ -11,7 +11,7 @@ const productionArgs = {
 const meta = {
   args: productionArgs,
   component: ClinicDashboardWorkspaceHarness,
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "fullscreen", nextjs: { appDirectory: true } },
   tags: ["domain:workspace", "layer:page", "status:prototype"],
   title: "Clinic Dashboard/Workspace/Pages/Workspace Fixture Journeys",
 } satisfies Meta<typeof ClinicDashboardWorkspaceHarness>

@@ -47,7 +47,7 @@ function notificationCommands() {
 }
 const meta = {
   component: ClinicDashboardWorkspaceHarness,
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "fullscreen", nextjs: { appDirectory: true } },
   tags: ["domain:workspace", "layer:page", "status:prototype"],
   title: "Clinic Dashboard/Journeys/Pages/Review Notification Opening",
 } satisfies Meta<typeof ClinicDashboardWorkspaceHarness>
