@@ -124,6 +124,7 @@ const notificationItemSchema = z
       .object({
         kind: z.literal("occurrence"),
         presentationId: id,
+        clinic: z.object({ id, name: z.string().min(1).max(200) }).strict(),
         display,
         destination: notificationDestinationSchema,
         members: z.array(notificationMemberSchema).length(1),
@@ -133,6 +134,7 @@ const notificationItemSchema = z
       .object({
         kind: z.literal("patient_message_group"),
         presentationId: id,
+        clinic: z.object({ id, name: z.string().min(1).max(200) }).strict(),
         display,
         destination: notificationDestinationSchema,
         members: z.array(notificationMemberSchema).min(1),

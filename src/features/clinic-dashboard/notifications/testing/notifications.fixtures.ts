@@ -11,6 +11,7 @@ export const notificationPageFixture = {
   items: [
     {
       kind: "occurrence",
+      clinic: { id: "clinic-1", name: "Clinic One" },
       presentationId: "fixture-notification-1",
       display: { eventLabel: "New inquiry", displayName: "Ada Patient" },
       destination: { kind: "inquiry", inquiryId: "fixture-inquiry-1" },
@@ -29,6 +30,7 @@ export const notificationPageFixture = {
     },
     {
       kind: "occurrence",
+      clinic: { id: "clinic-2", name: "Clinic Two" },
       presentationId: "fixture-notification-2",
       display: { eventLabel: "New inquiry", displayName: "Jamie Carter" },
       destination: { kind: "inquiry", inquiryId: "fixture-inquiry-2" },

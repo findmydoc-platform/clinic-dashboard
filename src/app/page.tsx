@@ -65,7 +65,7 @@ export default async function HomePage({ searchParams, params: routeParams }: Ho
   if (initialReporting.status === "access-denied") redirect("/access?state=restricted")
   if (initialReporting.status === "unauthorized")
     redirect(`/auth/session/recover?next=${encodeURIComponent(returnTarget)}&mode=refresh&attempt=`)
-  const initialNotifications = await loadClinicDashboardInitialNotifications(clinic.id)
+  const initialNotifications = await loadClinicDashboardInitialNotifications()
 
   return (
     <ClinicDashboardWorkspace

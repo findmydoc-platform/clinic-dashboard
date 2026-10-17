@@ -24,7 +24,10 @@ vi.mock("@/features/clinic-dashboard/auth/server/supabase-client", () => ({
   createRouteSupabaseClient: vi.fn(),
 }))
 
-import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/auth/server/route-access"
+import {
+  resolveClinicDashboardPersonalRouteAccess,
+  resolveClinicDashboardRouteAccess,
+} from "@/features/clinic-dashboard/auth/server/route-access"
 
 const request = new NextRequest("http://localhost:3000/api/dashboard/profile")
 
@@ -94,5 +97,28 @@ describe("clinic dashboard route access", () => {
     await expect(
       resolveClinicDashboardRouteAccess(request, undefined, "foreign-clinic"),
     ).resolves.toMatchObject({ status: "denied" })
+  })
+  it("authorizes a personal feed without choosing or requiring a target clinic", async () => {
+    const access = approvedAccess([])
+    access.context.clinics.push({ id: "clinic-2", name: "Clinic Two", capabilities: [] })
+    mocks.resolveAccessForSession.mockResolvedValue(access)
+    const result = await resolveClinicDashboardPersonalRouteAccess(
+      new NextRequest("http://localhost:3000/api/notifications?mode=summary"),
+    )
+    expect(result).toMatchObject({
+      status: "approved",
+      principalId: "staff-1",
+      clinicIds: ["clinic-1", "clinic-2"],
+    })
+    expect(result).not.toHaveProperty("clinicId")
+    mocks.resolveAccessForSession.mockResolvedValue({
+      ...access,
+      context: { ...access.context, clinics: [] },
+    })
+    await expect(
+      resolveClinicDashboardPersonalRouteAccess(
+        new NextRequest("http://localhost:3000/api/notifications?mode=summary"),
+      ),
+    ).resolves.toMatchObject({ status: "approved", clinicIds: [] })
   })
 })
