@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { ReviewSourceCommands } from "../model/review-source-commands"
 import { ReviewSourceCommandError } from "../model/review-source-commands"
 import {
@@ -53,6 +53,14 @@ export function useReviewsController({
   )
   const dialogOperationId = useRef(0)
   const requestId = useRef(0)
+  useEffect(
+    () => () => {
+      requestId.current += 1
+      exactGeneration.current += 1
+      dialogOperationId.current += 1
+    },
+    [],
+  )
 
   const clearDeniedAccess = useCallback(
     (error: unknown) => {
@@ -287,6 +295,7 @@ export function useReviewsController({
     const operationId = dialogOperationId.current
     try {
       const review = await commands.submitResponse(currentDialog.review.id, body)
+      if (operationId !== dialogOperationId.current) return "discarded"
       replaceReview(currentDialog.review.id, review)
       setStatusMessage("Response submitted for moderation.")
       return operationId === dialogOperationId.current ? "applied" : "discarded"
@@ -303,6 +312,7 @@ export function useReviewsController({
     const operationId = dialogOperationId.current
     try {
       const review = await commands.submitAppeal(currentDialog.review.id, submission)
+      if (operationId !== dialogOperationId.current) return "discarded"
       replaceReview(currentDialog.review.id, review)
       setStatusMessage("Appeal submitted for platform review.")
       return operationId === dialogOperationId.current ? "applied" : "discarded"

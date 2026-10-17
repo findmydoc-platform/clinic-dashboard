@@ -124,3 +124,54 @@ test("doctor BFF rejects a foreign clinic and mismatched doctor under another el
     { status: 404, cache: "private, no-store" },
   ])
 })
+
+test("doctor source access loss protects its actual draft until explicit discard", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await context.addCookies([{ name: "clinic_dashboard_controlled_clinics", value: "many", url: baseURL! }])
+  await page.setViewportSize({ width: 375, height: 812 })
+  const runtimeErrors: string[] = []
+  page.on("pageerror", (error) => runtimeErrors.push(error.name))
+  await signIn(page)
+  await page.getByRole("button", { name: "Edit Amelia Carter" }).click()
+  await page.getByRole("textbox", { name: "First name" }).fill("Unfinished restricted doctor")
+  await page.route("**/api/dashboard/clinics/controlled-clinic/doctors/controlled-doctor-1", (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ code: "DOCTOR_ACCESS_DENIED" }),
+    }),
+  )
+  await page.getByRole("button", { name: "Save doctor", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toBeFocused()
+  await expect(page.getByRole("dialog", { name: "Edit doctor" })).toHaveCount(0)
+  await expect(
+    page.getByText("Your unfinished work is protected privately until you explicitly discard it."),
+  ).toBeVisible()
+  await expect(page.getByText("Unfinished restricted doctor")).toHaveCount(0)
+  await page.screenshot({ path: "output/playwright/group-access/234/doctor-source-denial-protected-375.png" })
+  await page.getByRole("button", { name: "Open Second Controlled Clinic" }).click()
+  const confirmation = page.getByRole("alertdialog", { name: "Discard unfinished clinic work?" })
+  await expect(confirmation).toBeVisible()
+  await expect(confirmation).toHaveCSS("opacity", "1")
+  await page.screenshot({
+    path: "output/playwright/group-access/234/doctor-recovery-confirmation-375.png",
+    animations: "disabled",
+    style: "nextjs-portal { visibility: hidden }",
+  })
+  await confirmation.getByRole("button", { name: "Stay restricted" }).focus()
+  await page.keyboard.press("Enter")
+  await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
+  await expect(
+    page.getByText("Your unfinished work is protected privately until you explicitly discard it."),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Open Second Controlled Clinic" }).click()
+  await confirmation.getByRole("button", { name: "Discard and open clinic" }).focus()
+  await page.keyboard.press("Enter")
+  await expect(page).toHaveURL(/\/clinics\/controlled-second-clinic\?section=profile$/)
+  await expect(page.getByText("Noah Bennett", { exact: true })).toBeVisible()
+  await expect(page.getByText("Unfinished restricted doctor")).toHaveCount(0)
+  expect(runtimeErrors).toEqual([])
+})

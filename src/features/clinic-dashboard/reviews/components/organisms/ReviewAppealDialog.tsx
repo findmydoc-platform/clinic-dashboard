@@ -42,6 +42,7 @@ export function ReviewAppealDialog({
   return (
     <ReviewMutationDialog
       description="An appeal can be submitted once and cannot be edited. The platform team reviews the request; an upheld appeal does not by itself change the public review."
+      draft={{ details, reason }}
       isDirty={details !== "" || reason !== ""}
       isSubmitDisabled={!reason || trimmed.length < 10}
       onClose={onClose}
