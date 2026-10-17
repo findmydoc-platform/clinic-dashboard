@@ -79,6 +79,7 @@ export function NotificationCenterPanel({
   const allRef = useRef<HTMLButtonElement>(null)
   const id = useId()
   const [menuId, setMenuId] = useState<string | null>(null)
+  const restoreMarkFocus = useRef(false)
   useEffect(() => {
     const dialog = portalContainer
     if (!dialog || dialog !== dialogRef.current || !dialog.isConnected) return
@@ -488,12 +489,29 @@ export function NotificationCenterPanel({
                                   <MoreHorizontal aria-hidden="true" className="size-4" />
                                 </Button>
                               </DropdownMenu.Trigger>
-                              <DropdownMenu.Content portalContainer={portalContainer} align="end">
+                              <DropdownMenu.Content
+                                portalContainer={portalContainer}
+                                align="end"
+                                onCloseAutoFocus={(event) => {
+                                  if (!restoreMarkFocus.current) return
+                                  restoreMarkFocus.current = false
+                                  const dialog = dialogRef.current
+                                  if (!dialog?.open) return
+                                  // Marking can disable or remove the original menu trigger before its receipt settles.
+                                  const tab = dialog.querySelector<HTMLButtonElement>(
+                                    '[role="tab"][aria-selected="true"]',
+                                  )
+                                  if (!tab) return
+                                  event.preventDefault()
+                                  tab.focus()
+                                }}
+                              >
                                 <DropdownMenu.Item
                                   aria-label={`Mark as read: ${item.display.eventLabel}${item.display.displayName ? ` from ${item.display.displayName}` : ""}`}
-                                  onSelect={() =>
+                                  onSelect={() => {
+                                    restoreMarkFocus.current = true
                                     actions.markRead(item.members.map((member) => member.notificationId))
-                                  }
+                                  }}
                                 >
                                   Mark as read
                                 </DropdownMenu.Item>
