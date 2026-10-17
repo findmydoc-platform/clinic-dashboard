@@ -336,6 +336,69 @@ export const MobileKeyboardMarking: Story = {
     await waitFor(() => expect(canvas.getByRole("tab", { name: "Unread (0)" })).toHaveFocus())
   },
 }
+export const KeyboardMarkingPendingReceipt: Story = {
+  globals: { viewport: { value: "mobile320Short" } },
+  play: async ({ args, mount }) => {
+    let complete!: () => void
+    const receipt = new Promise<void>((resolve) => {
+      complete = resolve
+    })
+    let read = false
+    const source: NotificationCommands = {
+      load: async (query) => ({
+        ok: true,
+        value:
+          page.mode === "page"
+            ? {
+                ...page,
+                view: query.mode === "page" ? query.view : "unread",
+                unreadCount: read ? 0 : 1,
+                nextUnreadCountChangeAt: read ? null : "2027-01-12T09:00:00.000Z",
+                items: read ? [] : page.items,
+              }
+            : page,
+      }),
+      markRead: fn(
+        async (input: Readonly<{ notificationIds: readonly string[] }>): Promise<NotificationMarkResult> => {
+          expect(input.notificationIds).toEqual(["notification-001"])
+          await receipt
+          read = true
+          return {
+            ok: true,
+            value: {
+              contractVersion: "clinic-notifications-v1",
+              serverTime: "2026-10-14T09:01:00.000Z",
+              acknowledged: true,
+            },
+          }
+        },
+      ),
+    }
+    const canvas = await mount(
+      <NotificationCenter
+        {...args}
+        open
+        commands={source}
+        initialState={{ status: "ready", response: page }}
+      />,
+    )
+    await expect(await canvas.findByRole("button", { name: "Options for Synthetic event" })).toBeVisible()
+    await userEvent.keyboard("{Tab}{Tab}{Tab}{Enter}")
+    await expect(await canvas.findByRole("menuitem", { name: "Mark as read: Synthetic event" })).toHaveFocus()
+    await userEvent.keyboard("{Enter}")
+    try {
+      await expect(await canvas.findByText("Marking as read…")).toBeVisible()
+      await waitFor(() => expect(canvas.getByRole("tab", { name: "Unread (1)" })).toHaveFocus())
+    } finally {
+      complete()
+    }
+    await expect(await canvas.findByText("You're all caught up.")).toBeVisible()
+    expect(source.markRead).toHaveBeenCalledTimes(1)
+    expect(source.markRead).toHaveBeenCalledWith({ notificationIds: ["notification-001"] })
+    await waitFor(() => expect(canvas.getByRole("tab", { name: "Unread (0)" })).toHaveFocus())
+  },
+}
+
 export const KeyboardMarkingInAll: Story = {
   render: renderPersonalMarking,
   play: async ({ canvasElement }) => {
