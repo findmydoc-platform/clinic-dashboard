@@ -107,6 +107,10 @@ test("keeps failed-save departure blocked and captures the real draft before sou
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await signIn(page)
+  await switchClinic(page, "Second Controlled Clinic")
+  await expect(page).toHaveURL(/controlled-second-clinic/)
+  await switchClinic(page, "Controlled Clinic")
+  await expect(page).toHaveURL(/controlled-clinic/)
   await page.getByRole("button", { name: /^(?:Edit profile|Continue editing)$/ }).click()
   const description = page.getByRole("textbox", { name: "Description", exact: true })
   await description.fill("Private old clinic draft retained for recovery.")
@@ -139,6 +143,18 @@ test("keeps failed-save departure blocked and captures the real draft before sou
     page.getByText("Your unfinished work is protected privately until you explicitly discard it."),
   ).toBeVisible()
   await expect(description).toHaveCount(0)
+  await page.evaluate(() => {
+    document.documentElement.dataset.profileRecoveryProbe = "same-browser-session"
+  })
+  await page.goBack()
+  await expect(page).toHaveURL(/controlled-second-clinic/)
+  expect(await page.evaluate(() => document.documentElement.dataset.profileRecoveryProbe)).toBe(
+    "same-browser-session",
+  )
+  await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toBeVisible()
+  await expect(
+    page.getByText("Your unfinished work is protected privately until you explicitly discard it."),
+  ).toBeVisible()
   await page.getByRole("button", { name: "Open Second Controlled Clinic" }).click()
   const discard = page.getByRole("alertdialog", { name: "Discard unfinished clinic work?" })
   await discard.getByRole("button", { name: "Stay restricted" }).click()
