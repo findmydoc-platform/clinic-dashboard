@@ -168,7 +168,9 @@ function isAllowedClinicDashboardServerImport(file) {
       file,
     ) ||
     file === "src/app/api/dashboard/clinic-treatments/route.ts" ||
-    /^src\/app\/api\/dashboard\/gallery(?:\/(?:discard|image|media))?\/route\.ts$/u.test(file) ||
+    /^src\/app\/api\/dashboard\/clinics\/\[clinicId\]\/gallery(?:\/(?:discard|image|media))?\/route\.ts$/u.test(
+      file,
+    ) ||
     /^src\/app\/api\/dashboard\/reviews(?:\/\[reviewId\](?:\/(?:appeal|history|response))?)?\/route\.ts$/u.test(
       file,
     ) ||

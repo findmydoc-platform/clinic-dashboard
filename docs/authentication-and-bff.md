@@ -153,10 +153,10 @@ The Dashboard owns these same-origin contracts:
 | `/api/auth/session/recover`                          | `POST`                   | Validate the bounded form, origin and session-bound CSRF; refresh and retry once or verify and clear without refresh; propagate cookies through a private `303`.                                                                              |
 | `/api/dashboard/bootstrap`                           | `GET`                    | Return the person-scoped `clinic-scope-v1` DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                                        |
 | `/api/dashboard/clinic-treatments`                   | `GET` / `POST` / `PATCH` | Read the assigned clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                                         |
-| `/api/dashboard/gallery`                             | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                                            |
-| `/api/dashboard/gallery/media`                       | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
-| `/api/dashboard/gallery/discard`                     | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                                        |
-| `/api/dashboard/gallery/image`                       | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
+| `/api/dashboard/clinics/:clinicId/gallery`           | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                                            |
+| `/api/dashboard/clinics/:clinicId/gallery/media`     | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
+| `/api/dashboard/clinics/:clinicId/gallery/discard`   | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                                        |
+| `/api/dashboard/clinics/:clinicId/gallery/image`     | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
 | `/api/dashboard/clinics/{clinicId}/inquiries/appeal` | `POST`                   | Submit only `{ caseId, text }` through the current clinic session, shared mutation guard, and `clinic-inquiries:view` capability. No browser-supplied actor, clinic, revision, or replay key is accepted.                                     |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
@@ -319,7 +319,7 @@ requests and editor work. Reporting uses `/api/dashboard/clinics/{clinicId}/repo
 reporting route denies access. Source 403 responses hide the workspace and enter the restricted state. Temporary failures
 retain the valid session. Live CSV exports remain unavailable.
 
-`workspace/model/clinic-scope-conversions.ts` keeps profile, treatments, gallery, doctors and reviews
+`workspace/model/clinic-scope-conversions.ts` keeps profile, treatments, doctors and reviews
 closed until their independent target-route conversions are integrated. The server does not load their source records, and
 the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
 records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
@@ -368,19 +368,25 @@ review and resubmit unsaved values. The adapter validates the focused DTO and ne
 collection paths, query grammar, depth, relationship expansion, or collection response envelopes.
 
 The clinic-gallery domain uses one private `ClinicGalleryProvider` for snapshot reads, one-file draft uploads,
-atomic ordered saves, draft discard, and authorized image streaming. Its Payload adapter targets only the focused
-`/api/clinic-dashboard/gallery`, `/media`, and `/discard` contracts. The Website derives the clinic from the approved
-principal and returns `{ items, revision, constraints }`; the first ordered item is the public main image. Save sends
-only `{ expectedRevision, items: [{ mediaId, alt, captionText? }] }` and maps a stale revision to
-`409 CLINIC_GALLERY_CONFLICT` while preserving local editor state.
+atomic ordered saves, draft discard, and protected image streaming. Browser and Website operations carry the clinic
+in `/clinics/:clinicId/gallery` paths. The BFF re-authorizes the target against the current personal clinic set on
+every request. The Website independently verifies current assignment, membership, participation, and stored media
+ownership. Save sends only `{ expectedRevision, items: [{ mediaId, alt, captionText? }] }`; a stale revision returns
+`409 CLINIC_GALLERY_CONFLICT` and preserves local editor state.
 
 The browser may upload at most three files concurrently, one file per request, within the returned 12-item, 4 MiB,
-50 MP, and MIME constraints. Uploaded drafts remain private until save. Dashboard media responses replace every
-upstream file URL with `/api/dashboard/gallery/image` plus an authenticated-encryption token that keeps the upstream
-origin and path opaque. That endpoint re-authorizes the session and capability, opens the token server-side, and lets
-the Payload adapter accept only the configured Payload origin and `/api/clinicMedia/file/**` path. Gallery responses
-and image streams remain private and `no-store`. Browser code never receives a Bearer token, a direct upstream media
-URL, or performs a cross-origin Payload request.
+50 MP, and MIME constraints. Uploaded drafts remain private until save. Dashboard media responses use the same-origin
+`/api/dashboard/clinics/:clinicId/gallery/image` path and an encrypted source token. The token selects an explicit
+Website `/api/clinic-dashboard/clinics/:clinicId/gallery/media/:mediaId/image` operation. It never grants access.
+The provider checks configured origin and exact target path before fetching; the Website reads the actual owner
+before returning bytes. A foreign token, media ID, or target cannot transfer ownership. All responses remain private
+and `no-store`; browser code receives no Bearer token or direct upstream media URL.
+
+Gallery stays under the existing **Clinic profile** navigation item. While the profile domain is closed, an internal
+`ClinicGalleryWorkspace` composes the existing gallery and manager without activating profile, doctor, or treatment
+operations. Unsaved changes and active uploads register with the shared departure guard. Workspace remounting drops
+old responses; a late upload uses its original clinic commands for draft cleanup. Controlled browser checks prove
+this local UI/BFF behavior, not real Preview authorization or acceptance.
 
 ## Error and UI State Mapping
 

@@ -10,6 +10,7 @@ import {
 } from "@/features/clinic-dashboard/auth/public"
 import {
   ClinicProfile,
+  ClinicGalleryWorkspace,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
   type ClinicProfileFocusTarget,
@@ -575,10 +576,26 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "profile"}>
         {authorizedClinics && !clinicScopeConversions.profile ? (
-          <FutureAreaPlaceholderScreen
-            heading="Clinic profile"
-            description="The profile for this clinic is currently unavailable."
-          />
+          clinicScopeConversions.gallery ? (
+            <ClinicGalleryWorkspace
+              key={scope}
+              commands={clinicGalleryCommands}
+              management={galleryManagement}
+              snapshot={effectiveGallerySnapshot}
+              status={effectiveGalleryStatus}
+              onSaved={(snapshot) => {
+                setGalleryProjection(snapshot)
+                onSourceRefresh()
+              }}
+              onNavigationRequestChange={setGalleryRequest}
+              onContextNavigationRequestChange={setProfileRequest}
+            />
+          ) : (
+            <FutureAreaPlaceholderScreen
+              heading="Clinic profile"
+              description="The profile for this clinic is currently unavailable."
+            />
+          )
         ) : (
           <ClinicProfile
             onNavigationRequestChange={setProfileRequest}

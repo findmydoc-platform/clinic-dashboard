@@ -79,7 +79,10 @@ export function ClinicDashboardWorkspace({
   const [isSourceRefreshPending, startSourceRefresh] = useTransition()
   const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
-  const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
+  const clinicGalleryCommands = useMemo(
+    () => createClinicGalleryApiCommands(authenticatedContext.clinic.id),
+    [authenticatedContext.clinic.id],
+  )
   const notificationCommands = useMemo(() => createNotificationApiCommands(), [])
   const reviewSourceCommands = useMemo(() => createReviewSourceApiCommands(), [])
   const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])

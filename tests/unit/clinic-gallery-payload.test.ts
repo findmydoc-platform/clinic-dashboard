@@ -12,7 +12,7 @@ const media = {
   alt: "Reception",
   id: "media-1",
   status: "published",
-  url: "https://preview.findmydoc.eu/api/clinicMedia/file/reception.jpg",
+  url: "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/gallery/media/media-1/image",
 }
 const snapshot = { constraints, items: [media], revision: 7 }
 
@@ -41,7 +41,7 @@ describe("Clinic gallery Payload adapter", () => {
     const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
     await expect(provider.loadGallery()).resolves.toEqual({ ok: true, value: snapshot })
     const [input, init] = fetcher.mock.calls[0]
-    expect(String(input)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/gallery")
+    expect(String(input)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/gallery")
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token")
     expect(init).toMatchObject({ cache: "no-store", redirect: "error" })
   })
@@ -105,7 +105,9 @@ describe("Clinic gallery Payload adapter", () => {
 
   it("discards only named draft media through the focused contract", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
-      expect(String(input)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/gallery/discard")
+      expect(String(input)).toBe(
+        "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/gallery/discard",
+      )
       expect(init?.method).toBe("POST")
       expect(JSON.parse(String(init?.body))).toEqual({ mediaIds: ["draft-1"] })
       return jsonResponse({ mediaIds: ["draft-1"] })
@@ -121,15 +123,24 @@ describe("Clinic gallery Payload adapter", () => {
     )
     const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
     await expect(
-      provider.loadImage("https://preview.findmydoc.eu/api/clinicMedia/file/reception.jpg"),
+      provider.loadImage(
+        "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/gallery/media/media-1/image",
+      ),
     ).resolves.toMatchObject({ ok: true, value: { contentType: "image/jpeg" } })
     expect(new Headers(fetcher.mock.calls[0]?.[1]?.headers).get("authorization")).toBe("Bearer access-token")
 
     await expect(
-      provider.loadImage("https://attacker.example/api/clinicMedia/file/reception.jpg"),
+      provider.loadImage(
+        "https://attacker.example/api/clinic-dashboard/clinics/clinic-1/gallery/media/media-1/image",
+      ),
     ).resolves.toEqual({ error: "forbidden", ok: false })
     await expect(
       provider.loadImage("https://preview.findmydoc.eu/api/users/file/avatar.jpg"),
+    ).resolves.toEqual({ error: "forbidden", ok: false })
+    await expect(
+      provider.loadImage(
+        "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-2/gallery/media/media-1/image",
+      ),
     ).resolves.toEqual({ error: "forbidden", ok: false })
     expect(fetcher).toHaveBeenCalledOnce()
   })

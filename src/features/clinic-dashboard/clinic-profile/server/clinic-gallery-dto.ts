@@ -4,18 +4,24 @@ import { createClinicGalleryImageProxyUrl } from "@/lib/clinic-gallery-image-pro
 import type { ClinicGalleryMedia, ClinicGallerySnapshot } from "../model/clinic-gallery"
 import { sealClinicGalleryImageSource } from "./clinic-gallery-image-token"
 
-function proxiedMediaUrl(sourceUrl: string) {
-  return createClinicGalleryImageProxyUrl(sealClinicGalleryImageSource(sourceUrl))
+function proxiedMediaUrl(sourceUrl: string, clinicId: string) {
+  return createClinicGalleryImageProxyUrl(sealClinicGalleryImageSource(sourceUrl), clinicId)
 }
 
-export function toDashboardClinicGalleryMedia(media: ClinicGalleryMedia): ClinicGalleryMedia {
+export function toDashboardClinicGalleryMedia(
+  media: ClinicGalleryMedia,
+  clinicId: string,
+): ClinicGalleryMedia {
   return {
     ...media,
-    ...(media.thumbnailUrl ? { thumbnailUrl: proxiedMediaUrl(media.thumbnailUrl) } : {}),
-    url: proxiedMediaUrl(media.url),
+    ...(media.thumbnailUrl ? { thumbnailUrl: proxiedMediaUrl(media.thumbnailUrl, clinicId) } : {}),
+    url: proxiedMediaUrl(media.url, clinicId),
   }
 }
 
-export function toDashboardClinicGallerySnapshot(snapshot: ClinicGallerySnapshot): ClinicGallerySnapshot {
-  return { ...snapshot, items: snapshot.items.map(toDashboardClinicGalleryMedia) }
+export function toDashboardClinicGallerySnapshot(
+  snapshot: ClinicGallerySnapshot,
+  clinicId: string,
+): ClinicGallerySnapshot {
+  return { ...snapshot, items: snapshot.items.map((media) => toDashboardClinicGalleryMedia(media, clinicId)) }
 }

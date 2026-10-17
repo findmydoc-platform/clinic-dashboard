@@ -1,3 +1,4 @@
+import { clinicDashboardContractHeaders } from "../../payload-contract"
 import "server-only"
 
 import { z } from "zod"
@@ -33,8 +34,11 @@ const snapshotSchema = z.object({
   revision: z.number().int().nonnegative(),
 })
 
-function endpoint(path = "") {
-  return new URL(`/api/clinic-dashboard/gallery${path}`, validateEnvironment().PAYLOAD_API_URL)
+function endpoint(clinicId: string, path = "") {
+  return new URL(
+    `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/gallery${path}`,
+    validateEnvironment().PAYLOAD_API_URL,
+  )
 }
 
 function errorForStatus(status: number | undefined): ClinicGalleryErrorCode {
@@ -59,7 +63,12 @@ async function payloadRequest<T>(
     const response = await fetcher(url, {
       ...init,
       cache: "no-store",
-      headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}`, ...init.headers },
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        ...clinicDashboardContractHeaders(),
+        ...init.headers,
+      },
       redirect: "error",
       signal: AbortSignal.timeout(12_000),
     })
@@ -73,14 +82,14 @@ async function payloadRequest<T>(
 
 export function createPayloadClinicGalleryProvider(
   accessToken: string,
-  _clinicId: string,
+  clinicId: string,
   fetcher: typeof fetch = fetch,
 ): ClinicGalleryProvider {
   return {
     async discardDrafts(mediaIds) {
       const result = await payloadRequest(
         accessToken,
-        endpoint("/discard"),
+        endpoint(clinicId, "/discard"),
         {
           body: JSON.stringify({ mediaIds }),
           headers: { "Content-Type": "application/json" },
@@ -92,7 +101,7 @@ export function createPayloadClinicGalleryProvider(
       return result.ok ? { ok: true, value: undefined } : result
     },
     loadGallery: () =>
-      payloadRequest<ClinicGallerySnapshot>(accessToken, endpoint(), {}, snapshotSchema, fetcher),
+      payloadRequest<ClinicGallerySnapshot>(accessToken, endpoint(clinicId), {}, snapshotSchema, fetcher),
     async loadImage(sourceUrl) {
       let source: URL
       try {
@@ -100,14 +109,24 @@ export function createPayloadClinicGalleryProvider(
       } catch {
         return { error: "invalid-input", ok: false }
       }
-      const galleryOrigin = endpoint().origin
-      if (source.origin !== galleryOrigin || !source.pathname.startsWith("/api/clinicMedia/file/")) {
+      const galleryOrigin = endpoint(clinicId).origin
+      if (
+        source.origin !== galleryOrigin ||
+        !source.pathname.startsWith(`${endpoint(clinicId).pathname}/media/`) ||
+        !/^[A-Za-z0-9_-]{1,128}\/image$/u.test(
+          source.pathname.slice(`${endpoint(clinicId).pathname}/media/`.length),
+        )
+      ) {
         return { error: "forbidden", ok: false }
       }
       try {
         const response = await fetcher(source, {
           cache: "no-store",
-          headers: { Accept: "image/*", Authorization: `Bearer ${accessToken}` },
+          headers: {
+            Accept: "image/*",
+            Authorization: `Bearer ${accessToken}`,
+            ...clinicDashboardContractHeaders(),
+          },
           redirect: "error",
           signal: AbortSignal.timeout(12_000),
         })
@@ -124,7 +143,7 @@ export function createPayloadClinicGalleryProvider(
     saveGallery: (input: ClinicGallerySaveInput) =>
       payloadRequest<ClinicGallerySnapshot>(
         accessToken,
-        endpoint(),
+        endpoint(clinicId),
         { body: JSON.stringify(input), headers: { "Content-Type": "application/json" }, method: "PUT" },
         snapshotSchema,
         fetcher,
@@ -136,7 +155,7 @@ export function createPayloadClinicGalleryProvider(
       if (input.captionText !== undefined) body.set("captionText", input.captionText)
       return payloadRequest<ClinicGalleryMedia>(
         accessToken,
-        endpoint("/media"),
+        endpoint(clinicId, "/media"),
         { body, method: "POST" },
         mediaSchema,
         fetcher,

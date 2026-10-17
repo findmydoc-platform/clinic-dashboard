@@ -89,8 +89,8 @@ function mutationHeaders(contentType?: string) {
   }
 }
 
-export function createClinicGalleryApiCommands(): ClinicGalleryCommands {
-  const endpoint = "/api/dashboard/gallery"
+export function createClinicGalleryApiCommands(clinicId: string): ClinicGalleryCommands {
+  const endpoint = `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/gallery`
   return {
     async discardDrafts(mediaIds) {
       const response = await request(`${endpoint}/discard`, {

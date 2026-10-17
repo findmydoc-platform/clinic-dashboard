@@ -32,7 +32,7 @@ test("fresh personal clinic list scopes reporting and keeps the selected section
     page.getByRole("region", { name: "Dashboard metrics" }).getByText("284", { exact: true }),
   ).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
-  await expect(page.getByText("The profile for this clinic is currently unavailable.")).toBeVisible()
+  await expect(page.getByRole("region", { name: "Clinic image gallery" })).toBeVisible()
   await switchClinic(page, "Second Controlled Clinic")
   await expect(page).toHaveURL(/\/clinics\/controlled-second-clinic\?section=profile$/)
   await expect(page.getByRole("button", { name: "Clinic profile", exact: true })).toHaveAttribute(
@@ -221,7 +221,7 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
 }) => {
   await signIn(page)
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible()
-  for (const domain of ["profile", "gallery", "clinic-treatments", "reviews"]) {
+  for (const domain of ["profile", "clinic-treatments", "reviews"]) {
     const legacy = await page.request.get(`/api/dashboard/${domain}`)
     expect(legacy.status()).toBe(403)
     const scoped = await page.request.get(`/api/dashboard/clinics/controlled-clinic/${domain}`)

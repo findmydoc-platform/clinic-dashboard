@@ -53,6 +53,7 @@ const featureRootComponentLayers = new Map([
   ["src/features/clinic-dashboard/auth/ClinicDashboardAuthScreen.tsx", "page"],
   ["src/features/clinic-dashboard/auth/ClinicDashboardSessionRecoveryPage.tsx", "page"],
   ["src/features/clinic-dashboard/clinic-profile/ClinicProfile.tsx", "organism"],
+  ["src/features/clinic-dashboard/clinic-profile/ClinicGalleryWorkspace.tsx", "organism"],
   ["src/features/clinic-dashboard/dashboard/ClinicDashboardReporting.tsx", "organism"],
   ["src/features/clinic-dashboard/messages/InquiryQueueController.tsx", "organism"],
   ["src/features/clinic-dashboard/messages/Messages.tsx", "organism"],
