@@ -575,3 +575,40 @@ it("protects actual gallery metadata and uploaded draft ownership until explicit
   await captured?.discard()
   expect(commands.discardDrafts).toHaveBeenCalledWith(["draft-private.jpg"])
 })
+
+it("retains the actual pending File privately after access loss and cleans a late original upload", async () => {
+  stubImageDimensions()
+  const initial = snapshot([])
+  const commands = createCommands(initial)
+  let finish!: (value: ClinicGalleryMedia) => void
+  commands.uploadMedia.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+  )
+  const hook = renderHook(() =>
+    useClinicGalleryController({ commands, initialSnapshot: initial, management: "interactive" }),
+  )
+  const file = imageFile("pending-private.jpg")
+  let uploading!: Promise<void>
+  act(() => {
+    uploading = hook.result.current.actions.uploadFiles([file])
+  })
+  await act(async () => {
+    await Promise.resolve()
+  })
+  const work = hook.result.current.actions.requestNavigation(undefined, undefined, "access-loss")
+  const rows = work?.draft.uploadRows ?? []
+  expect(rows[0]?.file).toBe(file)
+  hook.unmount()
+  expect(rows[0]?.file).toBe(file)
+  expect(commands.discardDrafts).not.toHaveBeenCalled()
+  await work?.discard()
+  expect(commands.discardDrafts).not.toHaveBeenCalled()
+  await act(async () => {
+    finish(media("late-original-draft", "draft"))
+    await uploading
+  })
+  expect(commands.discardDrafts).toHaveBeenCalledExactlyOnceWith(["late-original-draft"])
+})

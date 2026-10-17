@@ -365,8 +365,23 @@ scope. Existing unmounted-domain cleanup owns late upload completion. No new rev
 `workspace/model/clinic-scope-conversions.ts` enables profile, gallery, doctors, treatments, inquiries, reviews and
 notifications through explicit clinic-target operations. The server does not load their source records, and
 
+<<<<<<< HEAD
 the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
 records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
+=======
+The personal notification controller survives the authorized clinic-page transition only for its captured intentional
+opening, bound to the current principal and navigation generation. Other feed, count and action responses are invalidated.
+An ordinary authorized exact inquiry or review detail must actually render and receive semantic focus before the existing
+separate acknowledgment marks the original fixed member selection. A successful fetch alone, declined discard, failed or
+obsolete display creates no receipt. The source still rechecks current rights, record ownership, expiry and atomic receipt
+conditions. A failed or unknown acknowledgment does not reverse a successful display. Optional anchors use the ordinary
+loaded projection without fetching extra history.
+
+`workspace/model/clinic-scope-conversions.ts` records independent domain target-route conversions.
+Gallery is enabled only in this experimental composition pending qualified source acceptance. Closed domains do not load source records, and
+the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. Conversion gates
+record implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
+>>>>>>> 46639cd4 (fix: preserve gallery editor composition across clinic navigation)
 available for local behavior verification.
 
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
