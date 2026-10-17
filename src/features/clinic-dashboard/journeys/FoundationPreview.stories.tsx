@@ -14,6 +14,7 @@ const meta = {
   component: ClinicDashboardWorkspaceHarness,
   parameters: {
     layout: "fullscreen",
+    nextjs: { appDirectory: true },
   },
   tags: ["domain:workspace", "layer:page", "status:prototype"],
   title: "Clinic Dashboard/Journeys/Pages/Foundation Preview",
