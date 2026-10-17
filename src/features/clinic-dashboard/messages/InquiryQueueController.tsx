@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { EditorDepartureIntent, EditorDepartureRequest } from "@/lib/editor-departure"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { reauthenticateClinicDashboardSession } from "@/features/clinic-dashboard/auth/public"
@@ -21,17 +22,10 @@ export type InquiryQueueProps = Readonly<{
   focusInquiryId?: string
   isActive: boolean
   onFocusHandled?: () => void
-  onNavigationRequestChange?: (
-    request:
-      | ((
-          continuation: () => void,
-          onCancel?: () => void,
-          intent?: "context-change" | "destination" | "section",
-        ) => void)
-      | null,
-  ) => void
+  onNavigationRequestChange?: (request: EditorDepartureRequest | null) => void
   onDraftPresenceChange?: (hasUnsavedDrafts: boolean) => void
   onSessionLost?: (inquiryId?: string) => void
+  onAccessLost?: () => void
   onUnreadCountChange?: (unreadCount: number) => void
   snapshot: PatientInquiryQueueSnapshot
 }>
@@ -48,6 +42,7 @@ export function InquiryQueue({
   onDraftPresenceChange,
   onNavigationRequestChange,
   onSessionLost,
+  onAccessLost,
   onUnreadCountChange,
   snapshot,
 }: InquiryQueueProps) {
@@ -57,6 +52,7 @@ export function InquiryQueue({
     commands: commands ?? liveCommands,
     isActive,
     onSessionLost,
+    onAccessLost,
     reauthenticateSession: reauthenticateClinicDashboardSession,
     snapshot,
   })
@@ -74,12 +70,10 @@ export function InquiryQueue({
     setDepartureOpen(false)
     pending?.onCancel?.()
   }, [])
+  const protectUnfinishedWork = controller.protectUnfinishedWork
   const requestNavigation = useCallback(
-    (
-      continuation: () => void,
-      onCancel?: () => void,
-      intent?: "context-change" | "destination" | "section",
-    ) => {
+    (continuation: () => void, onCancel?: () => void, intent?: EditorDepartureIntent) => {
+      if (intent === "access-loss") return protectUnfinishedWork()
       cancelDeparture()
       if (!controller.model.hasUnsavedDrafts) {
         continuation()
@@ -98,7 +92,7 @@ export function InquiryQueue({
       pendingDeparture.current = { continuation, onCancel }
       setDepartureOpen(true)
     },
-    [cancelDeparture, controller.model.hasUnsavedDrafts],
+    [cancelDeparture, controller.model.hasUnsavedDrafts, protectUnfinishedWork],
   )
   useEffect(() => {
     onNavigationRequestChange?.(requestNavigation)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import type { AuthenticatedClinicContext, AuthorizedClinic } from "@/features/clinic-dashboard/auth/public"
 import { useSessionRecoveryCompletion } from "@/features/clinic-dashboard/auth/public"
@@ -25,6 +25,9 @@ import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceC
 import { rememberAuthorizedClinic } from "./browser/clinic-preference"
 import type { ClinicDashboardSection } from "./model/workspace"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
+import { useEditorDepartureGuard } from "./useEditorDepartureGuard"
+import { useClinicAccessRecovery } from "./useClinicAccessRecovery"
+import { ClinicAccessRecoveryScreen } from "./components/organisms/ClinicAccessRecoveryScreen"
 
 export type ClinicDashboardWorkspaceProps = Readonly<{
   authenticatedContext: AuthenticatedClinicContext
@@ -54,23 +57,47 @@ export function ClinicDashboardWorkspace({
   useSessionRecoveryCompletion()
   const router = useRouter()
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
-  const activeScope = useRef(scope)
-  const [restrictedScope, setRestrictedScope] = useState<string>()
-  useEffect(() => {
+  const activeScope = useRef<string | undefined>(scope)
+  const departureGuard = useEditorDepartureGuard()
+  const [section, setSection] = useState<ClinicDashboardSection>(initialSection ?? "dashboard")
+  const changeClinic = (clinicId: string, nextSection: ClinicDashboardSection) =>
+    router.push(`/clinics/${encodeURIComponent(clinicId)}?section=${nextSection}`)
+  const clearProtection = departureGuard.clearProtection
+  const recoverSession = useCallback(() => {
+    clearProtection()
+    router.replace("/auth/session/recover?mode=refresh&attempt=")
+  }, [clearProtection, router])
+  const recovery = useClinicAccessRecovery({
+    principalId: authenticatedContext.principal.id,
+    clinicId: authenticatedContext.clinic.id,
+    section,
+    guard: departureGuard,
+    onChoose: changeClinic,
+    onSessionLost: recoverSession,
+  })
+  useLayoutEffect(() => {
     activeScope.current = scope
+    return () => {
+      activeScope.current = undefined
+    }
   }, [scope])
+  const restrict = recovery.restrict
+  const handleDomainAccessFailure = useCallback(
+    (failure: "unauthorized" | "forbidden") => {
+      if (activeScope.current !== scope) return
+      if (failure === "unauthorized") recoverSession()
+      else void restrict()
+    },
+    [recoverSession, restrict, scope],
+  )
   const loadReporting = useCallback(
     (days: ClinicDashboardReportingPeriodDays) =>
       loadClinicDashboardReportingFromBrowser(authenticatedContext.clinic.id, days, fetch, (failure) => {
         if (activeScope.current !== scope) return
-        setRestrictedScope(scope)
-        router.replace(
-          failure === "unauthorized"
-            ? "/auth/session/recover?mode=refresh&attempt="
-            : "/access?state=restricted",
-        )
+        if (failure === "unauthorized") recoverSession()
+        else void restrict()
       }),
-    [authenticatedContext.clinic.id, router, scope],
+    [authenticatedContext.clinic.id, recoverSession, restrict, scope],
   )
   useEffect(() => {
     if (authorizedClinics)
@@ -81,18 +108,31 @@ export function ClinicDashboardWorkspace({
   const clinicProfileSourceCommands = useMemo(() => createClinicProfileSourceApiCommands(), [])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
   const notificationCommands = useMemo(() => createNotificationApiCommands(), [])
-  const reviewSourceCommands = useMemo(
-    () => createReviewSourceApiCommands(authenticatedContext.clinic.id),
-    [authenticatedContext.clinic.id],
-  )
+  const reviewSourceCommands = useMemo(() => {
+    // The factory stores this callback; only asynchronous command failures invoke it.
+    // eslint-disable-next-line react-hooks/refs
+    return createReviewSourceApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
   const refreshSources = () => startSourceRefresh(() => router.refresh())
 
-  if (restrictedScope === scope) return <p role="alert">Clinic access is no longer available.</p>
+  if (recovery.model.restricted)
+    return (
+      <ClinicAccessRecoveryScreen
+        model={recovery.model}
+        onChoose={recovery.chooseClinic}
+        onRefresh={() => void recovery.refreshChoices()}
+        onDeclineDiscard={recovery.declineDiscard}
+        onConfirmDiscard={() => void recovery.confirmDiscard()}
+      />
+    )
   return (
     <ClinicDashboardWorkspaceComposition
       key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
       authenticatedContext={authenticatedContext}
+      departureGuard={departureGuard}
+      onSectionChange={setSection}
+      onAccessLost={() => void restrict()}
       authorizedClinics={authorizedClinics}
       selectionNotice={selectionNotice}
       start={{ section: initialSection }}

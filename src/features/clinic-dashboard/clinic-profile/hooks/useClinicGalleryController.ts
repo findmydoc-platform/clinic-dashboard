@@ -1,5 +1,6 @@
 "use client"
 
+import type { EditorDepartureIntent } from "@/lib/editor-departure"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ClinicProfileManagementAccess } from "../model/clinic-profile-management"
 import {
@@ -277,7 +278,26 @@ export function useClinicGalleryController({
   }, [commands, discardNewDrafts, replaceWithSnapshot])
 
   const requestNavigation = useCallback(
-    (continuation?: () => void, onCancel?: () => void) => {
+    (continuation?: () => void, onCancel?: () => void, intent?: EditorDepartureIntent) => {
+      if (intent === "access-loss") {
+        if (!isDirty && operation === "idle" && !uploadRows.length) return
+        return {
+          draft: { items, removed, uploadRows, selectedId, operation },
+          discard: async () => {
+            try {
+              await discardNewDrafts()
+            } catch (error) {
+              if (
+                !(error instanceof ClinicGalleryCommandError) ||
+                !["forbidden", "unauthorized", "media-not-found"].includes(error.code)
+              )
+                throw error
+            }
+            cancelPendingNavigation()
+            setUploadRows([])
+          },
+        }
+      }
       cancelPendingNavigation()
       if (operation !== "idle") {
         setMessage("Finish the current gallery operation before opening a notification.")
@@ -294,7 +314,17 @@ export function useClinicGalleryController({
       setOpen(false)
       continuePendingNavigation()
     },
-    [cancelPendingNavigation, continuePendingNavigation, isDirty, operation],
+    [
+      cancelPendingNavigation,
+      continuePendingNavigation,
+      discardNewDrafts,
+      isDirty,
+      items,
+      operation,
+      removed,
+      selectedId,
+      uploadRows,
+    ],
   )
 
   const requestClose = useCallback(() => requestNavigation(), [requestNavigation])
