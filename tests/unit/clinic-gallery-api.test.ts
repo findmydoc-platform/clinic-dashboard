@@ -14,6 +14,34 @@ describe("Clinic gallery browser API", () => {
     vi.unstubAllGlobals()
   })
 
+  it.each([401, 403] as const)(
+    "captures access failure %s before the caller can discard its actual draft",
+    async (status) => {
+      setCsrfCookie("csrf-token")
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("{}", { status })),
+      )
+      const events: string[] = []
+      const commands = createClinicGalleryApiCommands("original-clinic", (failure) => {
+        events.push(failure)
+      })
+      for (const action of [
+        () => commands.loadGallery(),
+        () => commands.saveGallery({ expectedRevision: 4, items: [] }),
+        () => commands.uploadMedia({ file: new File(["image"], "clinic.jpg", { type: "image/jpeg" }) }),
+        () => commands.discardDrafts(["draft-1"]),
+      ]) {
+        await action().catch(() => {
+          events.push("rejected")
+        })
+      }
+      expect(events).toEqual(
+        Array.from({ length: 4 }, () => [status === 401 ? "unauthorized" : "forbidden", "rejected"]).flat(),
+      )
+    },
+  )
+
   it("sends one verified multipart file without overriding its boundary", async () => {
     setCsrfCookie("csrf-token")
     const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
