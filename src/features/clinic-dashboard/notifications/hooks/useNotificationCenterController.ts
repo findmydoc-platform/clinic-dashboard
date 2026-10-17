@@ -373,7 +373,10 @@ export function useNotificationCenterController(
     setMarking({ status: "idle" })
     let outcome
     try {
-      outcome = await onDestinationOpen({ requestId, destination: item.destination }, abort.signal)
+      outcome = await onDestinationOpen(
+        { requestId, clinicId: item.clinic.id, destination: item.destination },
+        abort.signal,
+      )
     } catch {
       outcome = "unavailable" as const
     }

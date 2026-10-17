@@ -115,7 +115,7 @@ export function notificationRetryAt(retryAfter: string | undefined, now: number)
 
 export function notificationFailureCopy(error: NotificationErrorCode) {
   if (error === "CLINIC_ACCESS_DENIED" || error === "CONTENT_ACCESS_DENIED")
-    return "Notifications are unavailable for this clinic."
+    return "Notifications are unavailable for your current clinic access."
   if (error === "UNAUTHENTICATED") return "Your session has ended. Sign in again to view notifications."
   if (error === "CONTRACT_INCOMPATIBLE") return "Notifications can't be displayed right now."
   if (error === "PAYLOAD_TOO_LARGE") return "Some notifications couldn't be loaded."
@@ -124,6 +124,7 @@ export function notificationFailureCopy(error: NotificationErrorCode) {
 
 export type NotificationOpeningRequest = Readonly<{
   requestId: string
+  clinicId: string
   destination: NotificationItem["destination"]
 }>
 export type NotificationOpeningOutcome = "displayed" | "unavailable" | "cancelled"
