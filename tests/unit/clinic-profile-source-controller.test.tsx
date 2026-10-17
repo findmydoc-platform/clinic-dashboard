@@ -14,6 +14,83 @@ import {
 describe("clinic profile source controller", () => {
   afterEach(cleanup)
 
+  it("does not issue a save after a late draft-create response from an unmounted clinic", async () => {
+    const persisted = createClinicProfileSourceCommandsFixture()
+    const created = await persisted.createDraft({
+      expectedPublishedRevision: clinicProfileSourceFixture.published.revision,
+    })
+    let resolve!: (value: ClinicProfileSnapshot) => void
+    const createDraft = vi.fn(
+      () =>
+        new Promise<ClinicProfileSnapshot>((done) => {
+          resolve = done
+        }),
+    )
+    const saveDraft = vi.fn(persisted.saveDraft)
+    const changed = vi.fn()
+    const first = renderHook(() =>
+      useClinicProfileSourceController({
+        commands: { ...persisted, createDraft, saveDraft },
+        initialSnapshot: clinicProfileSourceFixture,
+        onSnapshotChanged: changed,
+      }),
+    )
+    act(() => first.result.current.actions.startEditing())
+    act(() => first.result.current.actions.changeName("Old clinic local draft"))
+    let pending!: Promise<boolean>
+    act(() => {
+      pending = first.result.current.actions.saveDraft()
+    })
+    first.unmount()
+    const second = renderHook(() =>
+      useClinicProfileSourceController({
+        commands: createClinicProfileSourceCommandsFixture(),
+        initialSnapshot: {
+          ...clinicProfileSourceFixture,
+          published: { ...clinicProfileSourceFixture.published, name: "Next clinic" },
+        },
+      }),
+    )
+    await act(async () => {
+      resolve(created)
+      await pending
+    })
+    expect(saveDraft).not.toHaveBeenCalled()
+    expect(changed).not.toHaveBeenCalled()
+    expect(second.result.current.model.published?.name).toBe("Next clinic")
+  })
+
+  it("drops a late publication response after its clinic editor unmounts", async () => {
+    let resolve!: (value: ClinicProfileSnapshot) => void
+    const publishDraft = vi.fn(
+      () =>
+        new Promise<ClinicProfileSnapshot>((done) => {
+          resolve = done
+        }),
+    )
+    const changed = vi.fn()
+    const first = renderHook(() =>
+      useClinicProfileSourceController({
+        commands: {
+          ...createClinicProfileSourceCommandsFixture(clinicProfileSourceDraftFixture),
+          publishDraft,
+        },
+        initialSnapshot: clinicProfileSourceDraftFixture,
+        onSnapshotChanged: changed,
+      }),
+    )
+    let pending!: Promise<void>
+    act(() => {
+      pending = first.result.current.actions.publishDraft()
+    })
+    first.unmount()
+    await act(async () => {
+      resolve(clinicProfileSourceFixture)
+      await pending
+    })
+    expect(changed).not.toHaveBeenCalled()
+  })
+
   it("starts in conflict when a persisted draft targets an older published revision", () => {
     const conflictingSnapshot = {
       ...clinicProfileSourceDraftFixture,

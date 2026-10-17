@@ -48,6 +48,37 @@ describe("Clinic profile Payload provider", () => {
     vi.unstubAllEnvs()
   })
 
+  it("binds every operation to one explicit clinic and sends one literal scope contract", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => privateJsonResponse({}, 503))
+    const provider = createPayloadClinicProfileProvider("access-token", "original-clinic", fetcher)
+    await Promise.all([
+      provider.loadSnapshot(),
+      provider.createDraft({ expectedPublishedRevision: 4 }),
+      provider.saveDraft({
+        expectedDraftRevision: 2,
+        expectedPublishedRevision: 4,
+        draft: {
+          name: "Draft",
+          descriptionText: "",
+          supportedLanguages: [],
+          address: { street: "", houseNumber: "", zipCode: "" },
+        },
+      }),
+      provider.discardDraft({ expectedDraftRevision: 2 }),
+      provider.publishDraft({ expectedDraftRevision: 2, expectedPublishedRevision: 4 }),
+    ])
+    expect(fetcher).toHaveBeenCalledTimes(5)
+    for (const [url, init] of fetcher.mock.calls) {
+      expect(new URL(String(url)).pathname).toMatch(
+        /^\/api\/clinic-dashboard\/clinics\/original-clinic\/profile(?:\/|$)/u,
+      )
+      const headers = new Headers(init?.headers)
+      expect(headers.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
+      expect(headers.get("Authorization")).toBe("Bearer access-token")
+      expect(init?.cache).toBe("no-store")
+    }
+  })
+
   it("loads the minimized profile contract from the isolated expected endpoint", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => privateJsonResponse(sourceSnapshot))
     const provider = createPayloadClinicProfileProvider("access-token", "server-clinic", fetcher)
@@ -55,7 +86,7 @@ describe("Clinic profile Payload provider", () => {
     await expect(provider.loadSnapshot()).resolves.toEqual({ ok: true, value: sourceSnapshot })
     expect(fetcher).toHaveBeenCalledOnce()
     expect(String(fetcher.mock.calls[0]?.[0])).toBe(
-      "https://preview.findmydoc.eu/api/clinic-dashboard/profile",
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/server-clinic/profile",
     )
     expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
       cache: "no-store",
@@ -101,7 +132,9 @@ describe("Clinic profile Payload provider", () => {
     })
 
     const [endpoint, init] = fetcher.mock.calls[0] ?? []
-    expect(String(endpoint)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/profile/draft")
+    expect(String(endpoint)).toBe(
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/server-clinic/profile/draft",
+    )
     expect(init).toMatchObject({ cache: "no-store", method: "PUT", redirect: "error" })
     const body = JSON.parse(String(init?.body))
     expect(body).toEqual(input)
@@ -127,7 +160,9 @@ describe("Clinic profile Payload provider", () => {
     })
 
     const [endpoint, init] = fetcher.mock.calls[0] ?? []
-    expect(String(endpoint)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/profile/draft")
+    expect(String(endpoint)).toBe(
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/server-clinic/profile/draft",
+    )
     expect(init).toMatchObject({ cache: "no-store", method: "POST", redirect: "error" })
     expect(JSON.parse(String(init?.body))).toEqual({ expectedPublishedRevision: 4 })
   })

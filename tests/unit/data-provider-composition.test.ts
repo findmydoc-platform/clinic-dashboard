@@ -179,7 +179,7 @@ describe("Clinic Dashboard data provider composition", () => {
       composeClinicDashboardDataProviders("access-token", "clinic-1").profile.loadSnapshot(),
     ).resolves.toEqual({ ok: true, value: clinicProfileSnapshot })
     expect(String(fetcher.mock.calls[0]?.[0])).toBe(
-      "https://preview.findmydoc.eu/api/clinic-dashboard/profile",
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/profile",
     )
   })
 
