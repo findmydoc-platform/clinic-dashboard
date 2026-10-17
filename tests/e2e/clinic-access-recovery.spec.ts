@@ -82,8 +82,17 @@ test("fresh approved empty choices keep clinic work restricted without ending th
   await page.getByLabel("Password").fill("clinic-dashboard-test")
   await page.getByRole("button", { name: "Sign in" }).click()
   await expect(page.getByRole("region", { name: "Dashboard metrics" })).toBeVisible()
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
+  const deniedReporting = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/reporting" &&
+      new URL(response.url()).searchParams.get("periodDays") === "7",
+  )
   await context.addCookies([{ name: "clinic_dashboard_controlled_clinics", value: "empty", url: baseURL! }])
   await page.getByRole("button", { name: "7 days", exact: true }).click()
+  const denied = await deniedReporting
+  expect(denied.status()).toBe(403)
+  expect(denied.headers()["cache-control"]).toContain("no-store")
   await expect(
     page.getByText("No other clinics are currently available. Clinic work remains restricted."),
   ).toBeVisible()
