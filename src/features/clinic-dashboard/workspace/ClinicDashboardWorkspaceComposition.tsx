@@ -13,6 +13,7 @@ import {
   ClinicProfile,
   ClinicDoctorsWorkspace,
   ClinicTreatmentsWorkspace,
+  ClinicGalleryWorkspace,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
   type ClinicProfileFocusTarget,
@@ -779,6 +780,21 @@ export function ClinicDashboardWorkspaceComposition({
                   const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
                   if (source.status === "ready") setDoctorDirectoryProjection({ ...source, doctors })
                 }}
+              />
+            ) : null}
+            {clinicScopeConversions.gallery ? (
+              <ClinicGalleryWorkspace
+                key={scope}
+                commands={clinicGalleryCommands}
+                management={galleryManagement}
+                snapshot={effectiveGallerySnapshot}
+                status={effectiveGalleryStatus}
+                onSaved={(snapshot) => {
+                  setGalleryProjection(snapshot)
+                  onSourceRefresh()
+                }}
+                onNavigationRequestChange={setGalleryRequest}
+                onContextNavigationRequestChange={setProfileRequest}
               />
             ) : null}
             {clinicScopeConversions.treatments ? (

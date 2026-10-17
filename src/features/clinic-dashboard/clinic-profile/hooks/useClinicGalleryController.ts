@@ -71,6 +71,13 @@ export function useClinicGalleryController({
   management: ClinicProfileManagementAccess
   onSaved?: (snapshot: ClinicGallerySnapshot) => void
 }>) {
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const [snapshot, setSnapshot] = useState(initialSnapshot)
   const initialSnapshotIdentity = clinicGallerySnapshotIdentity(initialSnapshot)
   const [receivedInitialSnapshotIdentity, setReceivedInitialSnapshotIdentity] =
@@ -168,14 +175,14 @@ export function useClinicGalleryController({
   }, [removed])
 
   useEffect(() => {
-    if (!isDirty) return
+    if (!isDirty && operation !== "uploading") return
     const preventUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
       event.returnValue = ""
     }
     window.addEventListener("beforeunload", preventUnload)
     return () => window.removeEventListener("beforeunload", preventUnload)
-  }, [isDirty])
+  }, [isDirty, operation])
 
   const continuePendingNavigation = useCallback(() => {
     const continuation = pendingNavigationRef.current
@@ -199,6 +206,7 @@ export function useClinicGalleryController({
     setMessage("")
     try {
       const nextSnapshot = await commands.loadGallery()
+      if (!mounted.current) return
       setPendingInitialSnapshot(undefined)
       replaceWithSnapshot(nextSnapshot)
     } catch (error) {
@@ -218,6 +226,7 @@ export function useClinicGalleryController({
     async (draftIds: readonly string[]) => {
       if (draftIds.length === 0) return
       await commands.discardDrafts(draftIds)
+      if (!mounted.current) return
       const discarded = new Set(draftIds)
       setRemoved((current) => current.filter((entry) => !discarded.has(entry.item.id)))
     },
@@ -240,6 +249,7 @@ export function useClinicGalleryController({
     setMessage("")
     try {
       await discardNewDrafts()
+      if (!mounted.current) return
       if (snapshot) replaceWithSnapshot(snapshot)
       setUploadRows([])
       setUploadReviewIds([])
@@ -263,6 +273,7 @@ export function useClinicGalleryController({
     try {
       await discardNewDrafts()
       const nextSnapshot = await commands.loadGallery()
+      if (!mounted.current) return
       setPendingInitialSnapshot(undefined)
       replaceWithSnapshot(nextSnapshot)
     } catch (error) {
@@ -300,7 +311,7 @@ export function useClinicGalleryController({
       }
       cancelPendingNavigation()
       if (operation !== "idle") {
-        setMessage("Finish the current gallery operation before opening a notification.")
+        setMessage("Finish the current gallery operation before leaving.")
         setMessageTone("info")
         onCancel?.()
         return
@@ -456,7 +467,12 @@ export function useClinicGalleryController({
             current.map((entry) => (entry.id === row.id ? { ...entry, status: "uploading" } : entry)),
           )
           try {
+            if (!mounted.current) return
             const media = await commands.uploadMedia({ file })
+            if (!mounted.current) {
+              await commands.discardDrafts([media.id]).catch(() => undefined)
+              return
+            }
             uploaded.set(row.id, media)
             setUploadRows((current) =>
               current.map((entry) => (entry.id === row.id ? { ...entry, status: "uploaded" } : entry)),
@@ -477,6 +493,7 @@ export function useClinicGalleryController({
             worker(),
           ),
         )
+        if (!mounted.current) return
         const uploadedInSelectionOrder = rows.flatMap((row) => {
           const item = uploaded.get(row.id)
           return item ? [item] : []
@@ -522,6 +539,10 @@ export function useClinicGalleryController({
         const invalid = await validateUploadFile(row.file)
         if (invalid) throw new Error(invalid)
         const media = await commands.uploadMedia({ file: row.file })
+        if (!mounted.current) {
+          await commands.discardDrafts([media.id]).catch(() => undefined)
+          return
+        }
         setItems((current) => [...current, media])
         setSelectedId(media.id)
         setUploadReviewIds((current) => [...current, media.id])
@@ -598,6 +619,7 @@ export function useClinicGalleryController({
     setMessage("")
     try {
       await discardRemovedDrafts()
+      if (!mounted.current) return
       if (!hasGalleryChanges) {
         replaceWithSnapshot(snapshot)
         setOpen(false)
@@ -605,6 +627,7 @@ export function useClinicGalleryController({
         return
       }
       const next = await commands.saveGallery(clinicGallerySaveInput(snapshot, items))
+      if (!mounted.current) return
       setPendingInitialSnapshot(undefined)
       replaceWithSnapshot(next)
       onSaved?.(next)
@@ -653,7 +676,9 @@ export function useClinicGalleryController({
     setMessage("")
     try {
       await discardRemovedDrafts()
+      if (!mounted.current) return
       const next = await commands.saveGallery(clinicGallerySaveInput(snapshot, items))
+      if (!mounted.current) return
       setPendingInitialSnapshot(undefined)
       replaceWithSnapshot(next)
       onSaved?.(next)

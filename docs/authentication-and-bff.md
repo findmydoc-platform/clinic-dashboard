@@ -153,10 +153,10 @@ The Dashboard owns these same-origin contracts:
 | `/api/auth/session/recover`                           | `POST`                   | Validate the bounded form, origin and session-bound CSRF; refresh and retry once or verify and clear without refresh; propagate cookies through a private `303`.                                                                              |
 | `/api/dashboard/bootstrap`                            | `GET`                    | Return the person-scoped `clinic-scope-v1` DTO for client-side refreshes. React Server Components call the same server data function directly instead.                                                                                        |
 | `/api/dashboard/clinics/[clinicId]/clinic-treatments` | `GET` / `POST` / `PATCH` | Read the selected clinic's treatment offerings, add a master-treatment assignment, or update only its EUR price and active status. The clinic identity is always derived server-side.                                                         |
-| `/api/dashboard/gallery`                              | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                                            |
-| `/api/dashboard/gallery/media`                        | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
-| `/api/dashboard/gallery/discard`                      | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                                        |
-| `/api/dashboard/gallery/image`                        | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
+| `/api/dashboard/clinics/{clinicId}/gallery`           | `GET` / `PUT`            | Read or atomically save the assigned clinic's ordered public gallery against its current revision.                                                                                                                                            |
+| `/api/dashboard/clinics/{clinicId}/gallery/media`     | `POST`                   | Upload one private clinic-owned draft image through a verified multipart request.                                                                                                                                                             |
+| `/api/dashboard/clinics/{clinicId}/gallery/discard`   | `POST`                   | Schedule deletion of selected clinic-owned drafts that were not saved.                                                                                                                                                                        |
+| `/api/dashboard/clinics/{clinicId}/gallery/image`     | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
 | `/api/dashboard/clinics/{clinicId}/inquiries/appeal`  | `POST`                   | Submit only `{ caseId, text }` through the current clinic session, shared mutation guard, and `clinic-inquiries:view` capability. No browser-supplied actor, clinic, revision, or replay key is accepted.                                     |
 
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
@@ -378,8 +378,8 @@ obsolete display creates no receipt. The source still rechecks current rights, r
 conditions. A failed or unknown acknowledgment does not reverse a successful display. Optional anchors use the ordinary
 loaded projection without fetching extra history.
 
-`workspace/model/clinic-scope-conversions.ts` keeps gallery
-closed until their independent target-route conversions are integrated. The server does not load their source records, and
+`workspace/model/clinic-scope-conversions.ts` records independent domain target-route conversions.
+Gallery is enabled only in this experimental composition pending qualified source acceptance. The server does not load their source records, and
 the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
 records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
 available for local behavior verification.
@@ -439,7 +439,7 @@ only `{ expectedRevision, items: [{ mediaId, alt, captionText? }] }` and maps a 
 
 The browser may upload at most three files concurrently, one file per request, within the returned 12-item, 4 MiB,
 50 MP, and MIME constraints. Uploaded drafts remain private until save. Dashboard media responses replace every
-upstream file URL with `/api/dashboard/gallery/image` plus an authenticated-encryption token that keeps the upstream
+upstream file URL with `/api/dashboard/clinics/{clinicId}/gallery/image` plus an authenticated-encryption token that keeps the upstream
 origin and path opaque. That endpoint re-authorizes the session and capability, opens the token server-side, and lets
 the Payload adapter accept only the configured Payload origin and `/api/clinicMedia/file/**` path. Gallery responses
 and image streams remain private and `no-store`. Browser code never receives a Bearer token, a direct upstream media

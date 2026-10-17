@@ -1,5 +1,6 @@
 export { ClinicDoctorsWorkspace } from "./ClinicDoctorsWorkspace"
 export { ClinicTreatmentsWorkspace } from "./ClinicTreatmentsWorkspace"
+export { ClinicGalleryWorkspace } from "./ClinicGalleryWorkspace"
 export { ClinicProfile, type ClinicProfileProps } from "./ClinicProfile"
 export { createClinicGalleryApiCommands } from "./browser/clinic-gallery-api"
 export { createClinicProfileSourceApiCommands } from "./browser/clinic-profile-api"

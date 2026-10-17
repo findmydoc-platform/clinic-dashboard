@@ -443,7 +443,7 @@ export async function loadClinicDashboardWorkspaceInput(
             status: "temporarily-unavailable",
           },
     gallerySnapshot: gallerySourceSnapshot
-      ? toDashboardClinicGallerySnapshot(gallerySourceSnapshot)
+      ? toDashboardClinicGallerySnapshot(gallerySourceSnapshot, clinic.id)
       : undefined,
     galleryStatus,
     inquiryQueue:

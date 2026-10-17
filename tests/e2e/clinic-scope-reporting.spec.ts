@@ -231,12 +231,9 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
 }) => {
   await signIn(page)
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible()
-  for (const domain of ["gallery"]) {
-    const legacy = await page.request.get(`/api/dashboard/${domain}`)
-    expect(legacy.status()).toBe(403)
-    const scoped = await page.request.get(`/api/dashboard/clinics/controlled-clinic/${domain}`)
-    expect(scoped.status()).toBe(404)
-  }
+  expect((await page.request.get("/api/dashboard/gallery")).status()).toBe(404)
+  expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/gallery")).status()).toBe(200)
+  expect((await page.request.get("/api/dashboard/clinics/foreign-clinic/gallery")).status()).toBe(403)
   expect((await page.request.get("/api/dashboard/reviews")).status()).toBe(403)
   expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/reviews")).status()).toBe(200)
   expect((await page.request.get("/api/dashboard/inquiries")).status()).toBe(404)

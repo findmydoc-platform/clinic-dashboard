@@ -140,7 +140,11 @@ function ClinicDashboardWorkspaceContent({
     // eslint-disable-next-line react-hooks/refs
     return createClinicProfileSourceApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
   }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
-  const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
+  const clinicGalleryCommands = useMemo(() => {
+    // The factory stores the same scope-bound recovery callback as the other editors.
+    // eslint-disable-next-line react-hooks/refs
+    return createClinicGalleryApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const cancelNotificationOpening = notifications.actions.cancelOpening
   const openExactDestination = exactOpening.open
   const openExactLink = useCallback(

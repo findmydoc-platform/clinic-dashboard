@@ -94,6 +94,16 @@ describe("controlled clinic gallery provider", () => {
     expect(new Set(snapshot.value.items.map((item) => item.id))).toHaveProperty("size", 2)
   })
 
+  it("does not use another clinic's protected image source as a grant", async () => {
+    const own = createControlledClinicGalleryProvider("clinic-1")
+    const upload = await own.uploadMedia({ file: new File(["image"], "clinic.jpg", { type: "image/jpeg" }) })
+    if (!upload.ok) throw new Error("Upload failed")
+    await expect(own.loadImage(upload.value.url)).resolves.toMatchObject({ ok: true })
+    await expect(
+      createControlledClinicGalleryProvider("clinic-2").loadImage(upload.value.url),
+    ).resolves.toEqual({ error: "forbidden", ok: false })
+  })
+
   it("isolates clinics and rejects stale revisions", async () => {
     const clinicOne = createControlledClinicGalleryProvider("clinic-1")
     const clinicTwo = createControlledClinicGalleryProvider("clinic-2")
