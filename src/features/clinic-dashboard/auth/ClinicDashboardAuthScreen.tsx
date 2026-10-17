@@ -242,7 +242,7 @@ function LoginScreen({
           </StatusMessage>
         </div>
       ) : null}
-      <form aria-busy={pending} onSubmit={submit}>
+      <form method="post" aria-busy={pending} onSubmit={submit}>
         <fieldset className="space-y-5" disabled={pending}>
           <Field isRequired label="Email address">
             {(props) => <Input {...props} autoComplete="email" name="email" type="email" />}
@@ -317,7 +317,7 @@ function ResetRequestScreen({ submitAction = submitClinicDashboardAuthAction }: 
               </StatusMessage>
             </div>
           ) : null}
-          <form aria-busy={pending} className="space-y-5" onSubmit={submit}>
+          <form method="post" aria-busy={pending} className="space-y-5" onSubmit={submit}>
             <Field isRequired label="Email address">
               {(props) => <Input {...props} autoComplete="email" name="email" type="email" />}
             </Field>
@@ -429,7 +429,7 @@ function CompletePasswordScreen({
           </StatusMessage>
         </div>
       ) : null}
-      <form aria-busy={pending} className="space-y-5" onSubmit={submit}>
+      <form method="post" aria-busy={pending} className="space-y-5" onSubmit={submit}>
         <Field
           description="Minimum eight characters."
           isInvalid={passwordMismatch}

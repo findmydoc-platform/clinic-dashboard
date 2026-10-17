@@ -253,6 +253,10 @@ The existing Dashboard confirmation/password journey clears its completion grant
 login obtains a fresh `clinic-scope-v1` bootstrap. Current eligible group clinics open through that response; an empty
 set stays on the restricted workspace. Neither the invitation nor a bootstrap snapshot supplies a later grant.
 
+The client-handled login, reset-request, and password-completion forms declare native POST submission so inputs do
+not enter navigation URLs before hydration. Hydrated requests retain the established JSON, origin, CSRF, session,
+and signed Auth protocol behavior.
+
 Website records `group-initial-password` evidence only after the completed identity-bound action and a fresh
 server-verified password event. The immutable proof binds principal, subject, original group, and Auth action; it
 contains no clinic-origin claim. The same protected update establishes `identity-v1` readiness. Current approval,

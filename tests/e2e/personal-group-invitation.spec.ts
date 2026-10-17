@@ -5,10 +5,19 @@ async function completeInvitation(page: Page) {
   await page.goto(controlledEmailCallbackPath("invite"))
   await page.getByRole("button", { name: "Continue invitation" }).click()
   await expect(page).toHaveURL(/\/auth\/invite\/complete$/)
+  await page.waitForLoadState("load")
   await page.getByLabel("Password", { exact: true }).fill("new-password")
   await page.getByLabel("Confirm password").fill("new-password")
+  const completion = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/auth/invite/complete" &&
+      response.request().method() === "POST",
+  )
   await page.getByRole("button", { name: "Save password" }).click()
+  expect((await completion).status()).toBe(200)
   await expect(page).toHaveURL(/\/login\?status=invite-complete$/)
+  await page.waitForLoadState("load")
+  await expect(page.getByRole("status")).toBeFocused()
 }
 async function signIn(page: Page) {
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
@@ -79,13 +88,112 @@ test("missing and expired invitation grants cannot complete a password or open t
   await page.goto(controlledEmailCallbackPath("invite"))
   await page.getByRole("button", { name: "Continue invitation" }).click()
   await expect(page).toHaveURL(/\/auth\/invite\/complete$/)
+  await page.waitForLoadState("load")
   await context.clearCookies({ name: "clinic_dashboard_completion_grant" })
   await page.getByLabel("Password", { exact: true }).fill("new-password")
   await page.getByLabel("Confirm password").fill("new-password")
+  const rejected = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/auth/invite/complete" &&
+      response.request().method() === "POST",
+  )
   await page.getByRole("button", { name: "Save password" }).click()
+  expect((await rejected).status()).toBe(401)
   await expect(page).not.toHaveURL(/status=invite-complete/)
   await expect(page.getByRole("region", { name: "Dashboard metrics" })).toHaveCount(0)
   const denied = await page.request.get("/api/dashboard/bootstrap")
   expect(denied.status()).toBe(403)
   expect(await denied.json()).toMatchObject({ code: "CLINIC_DASHBOARD_ACCESS_DENIED" })
 })
+
+test("pre-hydration sign-in never places personal credentials in the navigation URL", async ({
+  browser,
+  baseURL,
+}) => {
+  const isolated = await browser.newContext({ baseURL, javaScriptEnabled: false })
+  try {
+    const page = await isolated.newPage()
+    await page.route("**/login*", async (route) => {
+      const request = route.request()
+      if (request.method() === "POST" || new URL(request.url()).searchParams.has("password"))
+        await route.fulfill({
+          status: 200,
+          contentType: "text/html",
+          body: "Synthetic form submission captured",
+        })
+      else await route.continue()
+    })
+    await page.goto("/login")
+    await page.getByLabel("Email address").fill("clinic-staff@example.com")
+    await page.getByLabel("Password").fill("clinic-dashboard-test")
+    const submitted = page.waitForRequest(
+      (request) =>
+        request.isNavigationRequest() &&
+        (request.method() === "POST" || new URL(request.url()).searchParams.has("password")),
+    )
+    await page.getByRole("button", { name: "Sign in" }).click()
+    const request = await submitted
+    expect(new URL(request.url()).searchParams.has("password")).toBe(false)
+    expect(new URL(request.url()).searchParams.has("email")).toBe(false)
+    expect(request.method()).toBe("POST")
+  } finally {
+    await isolated.close()
+  }
+})
+
+for (const flow of ["recovery", "password-completion"] as const) {
+  test(`pre-hydration ${flow} keeps personal inputs out of the navigation URL`, async ({
+    page,
+    context,
+    browser,
+    baseURL,
+  }) => {
+    if (flow === "password-completion") {
+      await page.goto(controlledEmailCallbackPath("invite"))
+      await page.getByRole("button", { name: "Continue invitation" }).click()
+      await expect(page).toHaveURL(/\/auth\/invite\/complete$/)
+    }
+    const isolated = await browser.newContext({
+      baseURL,
+      javaScriptEnabled: false,
+      ...(flow === "password-completion" ? { storageState: await context.storageState() } : {}),
+    })
+    try {
+      const native = await isolated.newPage()
+      const target = flow === "recovery" ? "/auth/password/reset" : "/auth/invite/complete"
+      await native.route(`**${target}*`, async (route) => {
+        const request = route.request()
+        const query = new URL(request.url()).searchParams
+        if (request.method() === "POST" || query.has("password") || query.has("email"))
+          await route.fulfill({
+            status: 200,
+            contentType: "text/html",
+            body: "Synthetic form submission captured",
+          })
+        else await route.continue()
+      })
+      await native.goto(target)
+      if (flow === "recovery") await native.getByLabel("Email address").fill("clinic-staff@example.com")
+      else {
+        await native.getByLabel("Password", { exact: true }).fill("new-password")
+        await native.getByLabel("Confirm password").fill("new-password")
+      }
+      const submitted = native.waitForRequest(
+        (request) =>
+          request.isNavigationRequest() &&
+          (request.method() === "POST" ||
+            new URL(request.url()).searchParams.has("password") ||
+            new URL(request.url()).searchParams.has("email")),
+      )
+      await native
+        .getByRole("button", { name: flow === "recovery" ? "Send reset instructions" : "Save password" })
+        .click()
+      const request = await submitted
+      expect(new URL(request.url()).searchParams.has("password")).toBe(false)
+      expect(new URL(request.url()).searchParams.has("email")).toBe(false)
+      expect(request.method()).toBe("POST")
+    } finally {
+      await isolated.close()
+    }
+  })
+}
