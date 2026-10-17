@@ -1,9 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type MouseEvent } from "react"
 import { useRouter } from "next/navigation"
 import type { AuthenticatedClinicContext, AuthorizedClinic } from "@/features/clinic-dashboard/auth/public"
-import { useSessionRecoveryCompletion } from "@/features/clinic-dashboard/auth/public"
+import {
+  parseClinicDashboardExactTarget,
+  useSessionRecoveryCompletion,
+} from "@/features/clinic-dashboard/auth/public"
 import {
   createClinicProfileSourceApiCommands,
   createClinicGalleryApiCommands,
@@ -17,11 +20,13 @@ import {
   type ClinicDashboardReportingPeriodDays,
   type ClinicDashboardReportingLoadState,
 } from "@/features/clinic-dashboard/dashboard/public"
-import {
-  createNotificationApiCommands,
-  type NotificationLoadState,
-} from "@/features/clinic-dashboard/notifications/public"
+import { type NotificationLoadState } from "@/features/clinic-dashboard/notifications/public"
 import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceComposition"
+import {
+  ClinicWorkspaceLifetimeProvider,
+  useClinicWorkspaceLifetime,
+  type ClinicWorkspaceLifetime,
+} from "./ClinicWorkspaceLifetime"
 import { rememberAuthorizedClinic } from "./browser/clinic-preference"
 import type { ClinicDashboardSection } from "./model/workspace"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
@@ -35,6 +40,7 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
   initialSection?: ClinicDashboardSection
   selectionNotice?: string
   focusInquiryId?: string
+  focusReviewId?: string
   initialReporting?: ClinicDashboardReportingLoadState
   initialNotifications?: NotificationLoadState
   prototypeMode: ClinicDashboardPrototypeMode
@@ -42,20 +48,48 @@ export type ClinicDashboardWorkspaceProps = Readonly<{
   workspaceInput: ClinicDashboardWorkspaceInput
 }>
 
-export function ClinicDashboardWorkspace({
+export function ClinicDashboardWorkspace(props: ClinicDashboardWorkspaceProps) {
+  const lifetime = useClinicWorkspaceLifetime()
+  if (!lifetime)
+    return (
+      <ClinicWorkspaceLifetimeProvider isolated>
+        <ClinicDashboardWorkspace {...props} />
+      </ClinicWorkspaceLifetimeProvider>
+    )
+  return <ClinicDashboardWorkspaceContent {...props} lifetime={lifetime} />
+}
+
+function ClinicDashboardWorkspaceContent({
   authenticatedContext,
   authorizedClinics,
   initialSection,
   selectionNotice,
   focusInquiryId,
+  focusReviewId,
   initialReporting,
   initialNotifications,
   prototypeMode,
   showPrototypeModeToggle = false,
   workspaceInput,
-}: ClinicDashboardWorkspaceProps) {
+  lifetime,
+}: ClinicDashboardWorkspaceProps & Readonly<{ lifetime: ClinicWorkspaceLifetime }>) {
   useSessionRecoveryCompletion()
   const router = useRouter()
+  const {
+    departureGuard,
+    exactOpening,
+    notificationCommands,
+    notifications,
+    notificationsOpen,
+    setNotificationsOpen,
+    onNavigationAway,
+    register,
+  } = lifetime
+  useEffect(() => {
+    const lease = new AbortController()
+    register({ authenticatedContext, authorizedClinics, initialNotifications }, lease.signal)
+    return () => lease.abort()
+  }, [authenticatedContext, authorizedClinics, initialNotifications, register])
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
   const activeScope = useRef<string | undefined>(scope)
   const departureGuard = useEditorDepartureGuard()
@@ -114,7 +148,49 @@ export function ClinicDashboardWorkspace({
     return createClinicProfileSourceApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
   }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
-  const notificationCommands = useMemo(() => createNotificationApiCommands(), [])
+  const notificationCommands = lifetime.notificationCommands
+  const cancelNotificationOpening = notifications.actions.cancelOpening
+  const openExactDestination = exactOpening.open
+  const openExactLink = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !(event.target instanceof Element)
+      )
+        return
+      const anchor = event.target.closest("a[href]")
+      if (
+        !(anchor instanceof HTMLAnchorElement) ||
+        !event.currentTarget.contains(anchor) ||
+        anchor.hasAttribute("download") ||
+        (anchor.target && anchor.target !== "_self")
+      )
+        return
+      const url = new URL(anchor.href, window.location.href)
+      if (url.origin !== window.location.origin || url.hash) return
+      const target = parseClinicDashboardExactTarget(`${url.pathname}${url.search}`)
+      if (!target) return
+      event.preventDefault()
+      cancelNotificationOpening()
+      void openExactDestination(
+        {
+          requestId: crypto.randomUUID(),
+          clinicId: target.clinicId,
+          destination:
+            target.kind === "inquiry"
+              ? { kind: "inquiry", inquiryId: target.recordId }
+              : { kind: "review", reviewId: target.recordId },
+        },
+        new AbortController().signal,
+      )
+    },
+    [cancelNotificationOpening, openExactDestination],
+  )
   const reviewSourceCommands = useMemo(() => {
     // The factory stores this callback; only asynchronous command failures invoke it.
     // eslint-disable-next-line react-hooks/refs
@@ -134,33 +210,43 @@ export function ClinicDashboardWorkspace({
       />
     )
   return (
-    <ClinicDashboardWorkspaceComposition
-      key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
-      authenticatedContext={authenticatedContext}
-      departureGuard={departureGuard}
-      onSectionChange={setSection}
-      onAccessLost={() => void restrict()}
-      authorizedClinics={authorizedClinics}
-      selectionNotice={selectionNotice}
-      start={{ section: initialSection }}
-      onClinicChange={(clinicId, section) =>
-        startSourceRefresh(() => router.push(`/clinics/${encodeURIComponent(clinicId)}?section=${section}`))
-      }
-      clinicGalleryCommands={clinicGalleryCommands}
-      clinicProfileSourceCommands={clinicProfileSourceCommands}
-      clinicTreatmentCommands={clinicTreatmentCommands}
-      doctorProfileCommands={doctorProfileCommands}
-      focusInquiryId={focusInquiryId}
-      initialReporting={initialReporting}
-      loadReporting={loadReporting}
-      isSourceRefreshPending={isSourceRefreshPending}
-      onSourceRefresh={refreshSources}
-      initialNotifications={initialNotifications}
-      notificationCommands={notificationCommands}
-      prototypeMode={prototypeMode}
-      reviewCommands={reviewSourceCommands}
-      showPrototypeModeToggle={showPrototypeModeToggle}
-      workspaceInput={workspaceInput}
-    />
+    <div data-clinic-workspace onClick={openExactLink}>
+      <ClinicDashboardWorkspaceComposition
+        key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
+        authenticatedContext={authenticatedContext}
+        departureGuard={departureGuard}
+        onSectionChange={setSection}
+        onAccessLost={() => void restrict()}
+        notificationController={notifications}
+        notificationsOpen={notificationsOpen}
+        onNotificationsOpenChange={setNotificationsOpen}
+        onNotificationDestinationOpen={exactOpening.open}
+        notificationOpeningRequest={exactOpening.request}
+        onNotificationOpeningResult={exactOpening.complete}
+        onNavigationAway={onNavigationAway}
+        authorizedClinics={authorizedClinics}
+        selectionNotice={selectionNotice}
+        start={{ section: initialSection }}
+        onClinicChange={(clinicId, section) =>
+          startSourceRefresh(() => router.push(`/clinics/${encodeURIComponent(clinicId)}?section=${section}`))
+        }
+        clinicGalleryCommands={clinicGalleryCommands}
+        clinicProfileSourceCommands={clinicProfileSourceCommands}
+        clinicTreatmentCommands={clinicTreatmentCommands}
+        doctorProfileCommands={doctorProfileCommands}
+        focusInquiryId={focusInquiryId}
+        focusReviewId={focusReviewId}
+        initialReporting={initialReporting}
+        loadReporting={loadReporting}
+        isSourceRefreshPending={isSourceRefreshPending}
+        onSourceRefresh={refreshSources}
+        initialNotifications={initialNotifications}
+        notificationCommands={notificationCommands}
+        prototypeMode={prototypeMode}
+        reviewCommands={reviewSourceCommands}
+        showPrototypeModeToggle={showPrototypeModeToggle}
+        workspaceInput={workspaceInput}
+      />
+    </div>
   )
 }
