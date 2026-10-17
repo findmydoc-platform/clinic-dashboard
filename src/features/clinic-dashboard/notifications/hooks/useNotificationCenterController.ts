@@ -299,7 +299,7 @@ export function useNotificationCenterController(
           automaticRefresh()
         }
       },
-      Math.min(2_147_483_647, Math.max(0, wakeAt - Date.now())),
+      Math.min(Math.max(0, wakeAt - Date.now()), 2_147_483_647),
     )
     return () => window.clearTimeout(timer)
   }, [countDeadline, nextExpiry, now])
