@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   createClinicDashboardLoginPath,
@@ -11,6 +11,7 @@ import {
 } from "@/features/clinic-dashboard/auth/public"
 import {
   ClinicProfile,
+  ClinicDoctorsWorkspace,
   type ClinicGalleryCommands,
   type ClinicGallerySnapshot,
   type ClinicProfileFocusTarget,
@@ -146,6 +147,7 @@ export function ClinicDashboardWorkspaceComposition({
   start = {},
   workspaceInput,
 }: ClinicDashboardWorkspaceCompositionProps) {
+  const doctorClinicSelectId = useId()
   const [doctorDirectoryProjection, setDoctorDirectoryProjection] = useState<DoctorDirectorySnapshot>()
   const [galleryProjection, setGalleryProjection] = useState<ClinicGallerySnapshot>()
   const [hasUnsavedInquiryDrafts, setHasUnsavedInquiryDrafts] = useState(false)
@@ -418,6 +420,29 @@ export function ClinicDashboardWorkspaceComposition({
     actions.navigateToProfileTarget(destination)
   }
 
+  const doctorContextNavigation =
+    authorizedClinics && authorizedClinics.length > 1 ? (
+      <label htmlFor={doctorClinicSelectId} className="grid gap-1 text-sm">
+        Active clinic
+        <select
+          id={doctorClinicSelectId}
+          className="min-h-11 max-w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)]"
+          value={authenticatedContext.clinic.id}
+          onChange={(event) => {
+            const target = event.currentTarget.value
+            event.currentTarget.value = authenticatedContext.clinic.id
+            selectLocation(target)
+          }}
+        >
+          {clinicLocations.map(({ id, name }) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : undefined
+
   return (
     <ClinicDashboardShell
       accountMenu={
@@ -602,10 +627,26 @@ export function ClinicDashboardWorkspaceComposition({
       </div>
       <div hidden={activeSection !== "profile"}>
         {authorizedClinics && !clinicScopeConversions.profile ? (
-          <FutureAreaPlaceholderScreen
-            heading="Clinic profile"
-            description="The profile for this clinic is currently unavailable."
-          />
+          <>
+            <FutureAreaPlaceholderScreen
+              heading="Clinic profile"
+              description="The profile for this clinic is currently unavailable."
+            />
+            {clinicScopeConversions.doctors && capabilities.teamManagement !== "hidden" ? (
+              <ClinicDoctorsWorkspace
+                key={scope}
+                canManage={capabilities.teamManagement === "interactive"}
+                commands={doctorProfileCommands}
+                contextNavigation={doctorContextNavigation}
+                snapshot={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
+                onNavigationRequestChange={setProfileRequest}
+                onDoctorsChange={(doctors) => {
+                  const source = doctorDirectoryProjection ?? workspaceInput.doctorDirectory
+                  if (source.status === "ready") setDoctorDirectoryProjection({ ...source, doctors })
+                }}
+              />
+            ) : null}
+          </>
         ) : (
           <ClinicProfile
             onNavigationRequestChange={setProfileRequest}
@@ -613,6 +654,7 @@ export function ClinicDashboardWorkspaceComposition({
             galleryManagement={galleryManagement}
             galleryStatus={effectiveGalleryStatus}
             gallerySnapshot={effectiveGallerySnapshot}
+            doctorContextNavigation={doctorContextNavigation}
             doctorCommands={doctorProfileCommands}
             doctorDirectory={doctorDirectoryProjection ?? workspaceInput.doctorDirectory}
             doctorManagement={

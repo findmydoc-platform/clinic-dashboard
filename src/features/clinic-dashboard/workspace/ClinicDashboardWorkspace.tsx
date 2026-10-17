@@ -104,7 +104,11 @@ export function ClinicDashboardWorkspace({
       rememberAuthorizedClinic(authenticatedContext.principal.id, authenticatedContext.clinic.id)
   }, [authorizedClinics, authenticatedContext.principal.id, authenticatedContext.clinic.id])
   const [isSourceRefreshPending, startSourceRefresh] = useTransition()
-  const doctorProfileCommands = useMemo(() => createDoctorProfileApiCommands(), [])
+  const doctorProfileCommands = useMemo(() => {
+    // The factory stores this callback; only asynchronous command failures invoke it.
+    // eslint-disable-next-line react-hooks/refs
+    return createDoctorProfileApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const clinicProfileSourceCommands = useMemo(() => {
     // The factory stores the scope-bound callback; asynchronous source failures invoke it.
     // eslint-disable-next-line react-hooks/refs

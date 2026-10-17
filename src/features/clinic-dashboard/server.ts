@@ -26,6 +26,7 @@ import {
   handleClinicTreatmentUpdate as handleClinicTreatmentUpdateWithProvider,
   handleDoctorCreate as handleDoctorCreateWithProvider,
   handleDoctorImageReplace as handleDoctorImageReplaceWithProvider,
+  handleDoctorImageRead as handleDoctorImageReadWithProvider,
   handleDoctorSpecialtyCreate as handleDoctorSpecialtyCreateWithProvider,
   handleDoctorSpecialtyUpdate as handleDoctorSpecialtyUpdateWithProvider,
   handleDoctorUpdate as handleDoctorUpdateWithProvider,
@@ -228,6 +229,10 @@ export function handleDoctorSpecialtyCreate(request: NextRequest, doctorId: stri
 
 export function handleDoctorSpecialtyUpdate(request: NextRequest, doctorId: string, assignmentId: string) {
   return handleDoctorSpecialtyUpdateWithProvider(request, doctorId, assignmentId, createDoctorProfileProvider)
+}
+
+export function handleDoctorImageRead(request: NextRequest, doctorId: string) {
+  return handleDoctorImageReadWithProvider(request, doctorId, createDoctorProfileProvider)
 }
 
 export function handleDoctorImageReplace(request: NextRequest, doctorId: string) {

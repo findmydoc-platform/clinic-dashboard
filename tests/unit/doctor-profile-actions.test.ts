@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   handleDoctorCreate,
   handleDoctorImageReplace,
+  handleDoctorImageRead,
   handleDoctorSpecialtyCreate,
   handleDoctorUpdate,
 } from "@/features/clinic-dashboard/clinic-profile/server/public"
@@ -14,6 +15,7 @@ const providerMocks = vi.hoisted(() => ({
   createDoctor: vi.fn(),
   createSpecialty: vi.fn(),
   loadDirectory: vi.fn(),
+  loadImage: vi.fn(),
   replaceImage: vi.fn(),
   updateDoctor: vi.fn(),
   updateSpecialty: vi.fn(),
@@ -91,6 +93,23 @@ function expectPrivate(response: Response) {
 }
 
 describe("Doctor profile mutations", () => {
+  it("serves exact doctor image bytes through a private scoped read", async () => {
+    providerMocks.loadImage.mockResolvedValue({
+      ok: true,
+      value: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png" },
+    })
+    const request = new NextRequest(
+      "http://localhost:3000/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/image",
+      { headers: { cookie: "clinic_dashboard_controlled_session=controlled-clinic-staff" } },
+    )
+    const response = await handleDoctorImageRead(request, "doctor-1", createProvider)
+    expect(response.status).toBe(200)
+    expectPrivate(response)
+    expect(response.headers.get("content-type")).toBe("image/png")
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]))
+    expect(providerMocks.loadImage).toHaveBeenCalledWith("doctor-1")
+  })
+
   beforeEach(() => {
     vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
     vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")

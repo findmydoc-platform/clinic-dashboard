@@ -751,7 +751,8 @@ test("persists doctor creation and editing through the authenticated BFF", async
 
   const createDoctorResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/doctors" && response.request().method() === "POST",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/doctors" &&
+      response.request().method() === "POST",
   )
   const createSpecialtyResponse = page.waitForResponse(
     (response) =>
@@ -763,7 +764,10 @@ test("persists doctor creation and editing through the authenticated BFF", async
   )
   const activationResponse = page.waitForResponse((response) => {
     const pathname = new URL(response.url()).pathname
-    return /^\/api\/dashboard\/doctors\/[^/]+$/u.test(pathname) && response.request().method() === "PATCH"
+    return (
+      /^\/api\/dashboard\/clinics\/controlled-clinic\/doctors\/[^/]+$/u.test(pathname) &&
+      response.request().method() === "PATCH"
+    )
   })
 
   await createDialog.getByRole("button", { name: "Add doctor" }).click()
@@ -798,7 +802,10 @@ test("persists doctor creation and editing through the authenticated BFF", async
 
   const updateDoctorResponse = page.waitForResponse((response) => {
     const pathname = new URL(response.url()).pathname
-    return /^\/api\/dashboard\/doctors\/[^/]+$/u.test(pathname) && response.request().method() === "PATCH"
+    return (
+      /^\/api\/dashboard\/clinics\/controlled-clinic\/doctors\/[^/]+$/u.test(pathname) &&
+      response.request().method() === "PATCH"
+    )
   })
   const updateSpecialtyResponse = page.waitForResponse(
     (response) =>

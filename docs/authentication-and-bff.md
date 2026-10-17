@@ -361,7 +361,7 @@ destination. Cleanup failure retains protection for an explicit retry. Principal
 and run original cleanup; obsolete choice reads, domain reads and actions cannot restore old content or navigate a new
 scope. Existing unmounted-domain cleanup owns late upload completion. No new revocation channel or age policy is added.
 
-`workspace/model/clinic-scope-conversions.ts` keeps treatments, gallery, doctors
+`workspace/model/clinic-scope-conversions.ts` keeps treatments and gallery
 closed until their independent target-route conversions are integrated. The server does not load their source records, and
 the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
 records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
@@ -552,3 +552,15 @@ The workspace enables the reviews conversion gate. A clinic switch preserves the
 Profile snapshot, draft create/save/discard and publication use `/api/dashboard/clinics/:clinicId/profile` and its draft/publish children. The BFF repeats current target access and operation capability checks and binds its private provider to that authorized target. Browser and source providers retain this target for pending actions and reconciliation reads. Payload requests include one literal `clinic-scope-v1` header. Editable bodies cannot choose clinic, country, coordinates or unrelated controlled fields. Türkiye city options come from the authorized profile snapshot.
 
 Controlled profile state is separate per clinic. The profile controller drops responses after its editor unmounts and does not issue a second save after a late create. Source 401/403 invokes the Workspace recovery callback before command rejection. The shared departure guard can retain the actual private draft, saved baseline and unresolved publication attempt before the editor disappears. Failed saves block departure; only explicit discard releases protected work. The profile conversion gate leaves treatments, doctors and gallery under their independent gates.
+
+## Doctor profiles in the selected clinic
+
+The existing Profile navigation can show the doctor directory independently from the profile, treatment and gallery conversion gates. Doctor management retains its existing operation availability and does not add a bootstrap capability. Controlled doctor state is isolated by clinic; Payload remains the authority in normal mode.
+
+Doctor commands use `/api/dashboard/clinics/:clinicId/doctors`, `/:doctorId`, `/:doctorId/image`, `/:doctorId/specialties` and `/:doctorId/specialties/:assignmentId`. Image reads use the same explicit doctor image path. The server resolves the current person and requested clinic before constructing the request-local provider. Directory and update-detail source reads also carry that clinic in their Website path. The global medical-specialty catalogue remains a reference catalogue.
+
+The Payload provider uses `/api/clinic-dashboard/clinics/:clinicId/doctors`, `/doctor-specialties` and `/doctor-media`. Existing conditional image replacement, conflicts, partial saves and cleanup behavior remain distinct. A save with no successful submitted changes reports failure and retains the draft. Uploads keep the existing 4 MiB limit and accepted image formats. Protected image reads accept at most 5 MiB and never redirect or expose provider credentials to the browser.
+
+The doctor dialog receives an optional Workspace-owned clinic control. It uses the same current selection and departure guard as the workspace selector. Stay and failed saves retain the source clinic and actual draft; save or explicit discard continues the pending transition. Late save results from an unmounted doctor context cannot update the next clinic directory. The access-loss departure port returns the actual draft, pending file, persisted doctor and save state privately in memory, with the original discard cleanup. It creates no storage, URL or authorization grant.
+
+Website source checks apply to ordinary collection requests as well as these BFF requests. Doctor, specialty and media ownership is checked against the current principal, local or group assignment, participation and exact target. No hosted provider activation or Preview/Production qualification follows from controlled browser evidence.

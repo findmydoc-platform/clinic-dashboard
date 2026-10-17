@@ -27,6 +27,30 @@ describe("Doctor profile browser API", () => {
     vi.unstubAllGlobals()
   })
 
+  it("reports source access loss before rejecting a submitted doctor change", async () => {
+    setCsrfCookie("csrf-token")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 403 })),
+    )
+    const accessFailure = vi.fn()
+    await expect(
+      createDoctorProfileApiCommands("clinic-a", accessFailure).updateDoctor("doctor-1", {
+        biography: "Private draft",
+      }),
+    ).rejects.toMatchObject({ outcome: "rejected" })
+    expect(accessFailure).toHaveBeenCalledWith("forbidden")
+  })
+
+  it("binds each command to its explicit clinic path", async () => {
+    setCsrfCookie("csrf-token")
+    const fetcher = vi.fn(async () => new Response(null, { status: 409 }))
+    vi.stubGlobal("fetch", fetcher)
+    const commands = createDoctorProfileApiCommands("clinic-b")
+    await expect(commands.createDoctor(doctorInput)).rejects.toMatchObject({ outcome: "rejected" })
+    expect(fetcher).toHaveBeenCalledWith("/api/dashboard/clinics/clinic-b/doctors", expect.any(Object))
+  })
+
   it("marks a non-success create response as definitively rejected", async () => {
     setCsrfCookie("csrf-token")
     vi.stubGlobal(
@@ -34,7 +58,7 @@ describe("Doctor profile browser API", () => {
       vi.fn(async () => new Response(null, { status: 400 })),
     )
 
-    const result = createDoctorProfileApiCommands().createDoctor(doctorInput)
+    const result = createDoctorProfileApiCommands("clinic-a").createDoctor(doctorInput)
 
     await expect(result).rejects.toBeInstanceOf(DoctorProfileCommandError)
     await expect(result).rejects.toMatchObject({ outcome: "rejected" })
@@ -47,7 +71,7 @@ describe("Doctor profile browser API", () => {
       vi.fn(async () => Promise.reject(new Error("offline"))),
     )
 
-    await expect(createDoctorProfileApiCommands().createDoctor(doctorInput)).rejects.toMatchObject({
+    await expect(createDoctorProfileApiCommands("clinic-a").createDoctor(doctorInput)).rejects.toMatchObject({
       outcome: "unknown",
     })
   })
@@ -59,7 +83,7 @@ describe("Doctor profile browser API", () => {
       vi.fn(async () => new Response(JSON.stringify({ id: "doctor-1" }), { status: 201 })),
     )
 
-    await expect(createDoctorProfileApiCommands().createDoctor(doctorInput)).rejects.toMatchObject({
+    await expect(createDoctorProfileApiCommands("clinic-a").createDoctor(doctorInput)).rejects.toMatchObject({
       outcome: "unknown",
     })
   })

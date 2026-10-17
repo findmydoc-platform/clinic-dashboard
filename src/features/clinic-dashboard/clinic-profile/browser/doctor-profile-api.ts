@@ -41,7 +41,12 @@ const doctorImageReplaceSchema = z.object({
   profile: doctorProfileSchema,
 })
 
-async function submitJson(endpoint: string, method: "PATCH" | "POST", body: unknown) {
+async function submitJson(
+  endpoint: string,
+  method: "PATCH" | "POST",
+  body: unknown,
+  onAccessFailure?: (failure: "unauthorized" | "forbidden") => void,
+) {
   const csrfToken = readBrowserCsrfToken(document.cookie)
   if (!csrfToken) throw new DoctorProfileCommandError("rejected", "Missing request verification.")
 
@@ -61,16 +66,22 @@ async function submitJson(endpoint: string, method: "PATCH" | "POST", body: unkn
     throw new DoctorProfileCommandError("unknown", "Doctor profile update outcome is unknown.")
   }
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403)
+      onAccessFailure?.(response.status === 401 ? "unauthorized" : "forbidden")
     throw new DoctorProfileCommandError("rejected", "Doctor profile update failed.")
   }
 
   return response.json().catch(() => null)
 }
 
-export function createDoctorProfileApiCommands(): DoctorProfileCommands {
+export function createDoctorProfileApiCommands(
+  clinicId: string,
+  onAccessFailure?: (failure: "unauthorized" | "forbidden") => void,
+): DoctorProfileCommands {
+  const base = `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/doctors`
   return {
     async createDoctor(input) {
-      const parsed = doctorProfileSchema.safeParse(await submitJson("/api/dashboard/doctors", "POST", input))
+      const parsed = doctorProfileSchema.safeParse(await submitJson(base, "POST", input, onAccessFailure))
       if (!parsed.success) {
         throw new DoctorProfileCommandError("unknown", "Doctor profile response was invalid.")
       }
@@ -78,7 +89,12 @@ export function createDoctorProfileApiCommands(): DoctorProfileCommands {
     },
     async createSpecialty(doctorId, input) {
       const parsed = doctorSpecialtySchema.safeParse(
-        await submitJson(`/api/dashboard/doctors/${encodeURIComponent(doctorId)}/specialties`, "POST", input),
+        await submitJson(
+          `${base}/${encodeURIComponent(doctorId)}/specialties`,
+          "POST",
+          input,
+          onAccessFailure,
+        ),
       )
       if (!parsed.success) throw new Error("Doctor specialty response was invalid.")
       return parsed.data
@@ -92,7 +108,7 @@ export function createDoctorProfileApiCommands(): DoctorProfileCommands {
       body.set("file", input.file)
       let response: Response
       try {
-        response = await fetch(`/api/dashboard/doctors/${encodeURIComponent(doctorId)}/image`, {
+        response = await fetch(`${base}/${encodeURIComponent(doctorId)}/image`, {
           body,
           credentials: "same-origin",
           headers: { [CLINIC_DASHBOARD_CSRF_HEADER]: csrfToken },
@@ -103,6 +119,8 @@ export function createDoctorProfileApiCommands(): DoctorProfileCommands {
         throw new DoctorProfileCommandError("unknown", "Doctor image update outcome is unknown.")
       }
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403)
+          onAccessFailure?.(response.status === 401 ? "unauthorized" : "forbidden")
         throw new DoctorProfileCommandError("rejected", "Doctor image update failed.")
       }
 
@@ -114,7 +132,7 @@ export function createDoctorProfileApiCommands(): DoctorProfileCommands {
     },
     async updateDoctor(doctorId, input) {
       const parsed = doctorProfileSchema.safeParse(
-        await submitJson(`/api/dashboard/doctors/${encodeURIComponent(doctorId)}`, "PATCH", input),
+        await submitJson(`${base}/${encodeURIComponent(doctorId)}`, "PATCH", input, onAccessFailure),
       )
       if (!parsed.success) throw new Error("Doctor profile response was invalid.")
       return parsed.data
@@ -122,9 +140,10 @@ export function createDoctorProfileApiCommands(): DoctorProfileCommands {
     async updateSpecialty(doctorId, assignmentId, input) {
       const parsed = doctorSpecialtySchema.safeParse(
         await submitJson(
-          `/api/dashboard/doctors/${encodeURIComponent(doctorId)}/specialties/${encodeURIComponent(assignmentId)}`,
+          `${base}/${encodeURIComponent(doctorId)}/specialties/${encodeURIComponent(assignmentId)}`,
           "PATCH",
           input,
+          onAccessFailure,
         ),
       )
       if (!parsed.success) throw new Error("Doctor specialty response was invalid.")

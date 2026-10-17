@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useEffect, useState } from "react"
+import { useCallback, useRef, useEffect, useState, type ReactNode } from "react"
 import type { EditorDepartureRequest, ProtectedEditorWork } from "@/lib/editor-departure"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,7 @@ export type ClinicProfileProps = Readonly<{
   galleryManagement: ClinicProfileManagementAccess
   galleryStatus: ClinicGalleryLoadStatus
   gallerySnapshot?: ClinicGallerySnapshot
+  doctorContextNavigation?: ReactNode
   doctorCommands: DoctorProfileCommands
   doctorDirectory: DoctorDirectorySnapshot
   doctorManagement: ClinicProfileManagementAccess
@@ -64,6 +65,7 @@ export function ClinicProfile({
   galleryManagement,
   galleryStatus,
   gallerySnapshot,
+  doctorContextNavigation,
   doctorCommands,
   doctorDirectory,
   doctorManagement,
@@ -166,16 +168,14 @@ export function ClinicProfile({
         return
       }
       setNavigationNotice("")
+      const continueAfterGallery = () => requestSourceNavigation(continuation, onCancel)
       const continueAfterDoctor = () => {
-        if (isGalleryOpen) requestGalleryNavigation(continuation, onCancel)
-        else continuation()
+        if (isGalleryOpen) requestGalleryNavigation(continueAfterGallery, onCancel)
+        else continueAfterGallery()
       }
-      const continueAfterSource = () => {
-        const doctor = doctorNavigation.current
-        if (doctor) doctor(continueAfterDoctor, onCancel)
-        else continueAfterDoctor()
-      }
-      requestSourceNavigation(continueAfterSource, onCancel)
+      const doctor = doctorNavigation.current
+      if (doctor) doctor(continueAfterDoctor, onCancel)
+      else continueAfterDoctor()
     },
     [hasBlockingDialog, isGalleryOpen, requestGalleryNavigation, requestSourceNavigation],
   )
@@ -319,6 +319,7 @@ export function ClinicProfile({
     <>
       {!galleryController.model.open ? (
         <ClinicProfileScreen
+          doctorContextNavigation={doctorContextNavigation}
           actions={screenActions}
           navigationNotice={navigationNotice}
           onDoctorEditorPresenceChange={handleDoctorEditorPresenceChange}
