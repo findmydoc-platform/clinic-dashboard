@@ -17,6 +17,7 @@ const serverMocks = vi.hoisted(() => ({
 
 vi.mock("@/features/clinic-dashboard/data-provider-composition", () => ({
   composeClinicDashboardDataProviders: serverMocks.composeDataProviders,
+  composeClinicDashboardPersonalNotifications: vi.fn(),
 }))
 vi.mock("@/features/clinic-dashboard/demo/loader", () => ({
   clinicDashboardDemoWorkspaceProvider: { loadWorkspace: serverMocks.loadWorkspace },

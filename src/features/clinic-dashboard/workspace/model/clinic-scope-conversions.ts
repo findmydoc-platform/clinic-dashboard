@@ -18,6 +18,6 @@ export const clinicScopeConversions: Readonly<
   doctors: false,
   inquiries: false,
   reviews: false,
-  notifications: false,
+  notifications: true,
   reporting: true,
 }

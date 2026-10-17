@@ -320,6 +320,8 @@ export function ClinicDashboardWorkspaceComposition({
 
   const openNotificationDestination = useCallback<NotificationDestinationOpen>(
     (request, signal) => {
+      if (authorizedClinics && request.clinicId !== authenticatedContext.clinic.id)
+        return Promise.resolve("unavailable")
       if (model.supportOpen || model.profileTaskOpen) return Promise.resolve("cancelled")
       if (signal.aborted) return Promise.resolve("cancelled")
       cancelOpening()
@@ -361,7 +363,16 @@ export function ClinicDashboardWorkspaceComposition({
         requestDeparture("destination", begin, cancel)
       })
     },
-    [actions, cancelOpening, requestDeparture, scope, model.supportOpen, model.profileTaskOpen],
+    [
+      actions,
+      authorizedClinics,
+      authenticatedContext.clinic.id,
+      cancelOpening,
+      requestDeparture,
+      scope,
+      model.supportOpen,
+      model.profileTaskOpen,
+    ],
   )
 
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
