@@ -119,6 +119,12 @@ test("replaces old reporting state and rejects a delayed old-clinic response", a
     release = resolve
   })
   let oldRequested = false
+  expect((await page.request.get("/api/dashboard/clinic-treatments")).status()).toBe(404)
+  expect(
+    (await page.request.get("/api/dashboard/clinics/controlled-clinic/clinic-treatments")).status(),
+  ).toBe(200)
+  expect((await page.request.get("/api/dashboard/reviews")).status()).toBe(403)
+  expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/reviews")).status()).toBe(200)
   expect((await page.request.get("/api/dashboard/inquiries")).status()).toBe(404)
   expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/inquiries")).status()).toBe(200)
   await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7", async (route) => {
