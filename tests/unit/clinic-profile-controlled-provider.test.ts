@@ -10,8 +10,21 @@ describe("Controlled clinic profile provider", () => {
     resetControlledClinicProfileProvider()
   })
 
+  it("keeps two clinics drafts, publications and revisions independent", async () => {
+    const first = createControlledClinicProfileProvider("controlled-clinic")
+    const second = createControlledClinicProfileProvider("controlled-second-clinic")
+    const before = await second.loadSnapshot()
+    await first.createDraft({ expectedPublishedRevision: 1 })
+    expect(await second.loadSnapshot()).toEqual(before)
+    expect(await first.loadSnapshot()).toMatchObject({ ok: true, value: { draft: { revision: 1 } } })
+    expect(before).not.toMatchObject({
+      ok: true,
+      value: { published: { name: "Controlled Bosphorus Clinic" } },
+    })
+  })
+
   it("persists a structurally valid incomplete draft without changing published data", async () => {
-    const provider = createControlledClinicProfileProvider()
+    const provider = createControlledClinicProfileProvider("controlled-clinic")
     const loaded = await provider.loadSnapshot()
     if (!loaded.ok) throw new Error("Expected controlled profile")
     const created = await provider.createDraft({
@@ -49,12 +62,12 @@ describe("Controlled clinic profile provider", () => {
       },
     })
 
-    const resumed = await createControlledClinicProfileProvider().loadSnapshot()
+    const resumed = await createControlledClinicProfileProvider("controlled-clinic").loadSnapshot()
     expect(resumed).toMatchObject({ ok: true, value: { draft: { revision: 2 } } })
   })
 
   it("rejects stale draft saves and publishes only a complete current draft", async () => {
-    const provider = createControlledClinicProfileProvider()
+    const provider = createControlledClinicProfileProvider("controlled-clinic")
     const loaded = await provider.loadSnapshot()
     if (!loaded.ok) throw new Error("Expected controlled profile")
 
@@ -91,7 +104,7 @@ describe("Controlled clinic profile provider", () => {
   })
 
   it("keeps an incomplete draft after publish validation fails and supports conflict-safe discard", async () => {
-    const provider = createControlledClinicProfileProvider()
+    const provider = createControlledClinicProfileProvider("controlled-clinic")
     const loaded = await provider.loadSnapshot()
     if (!loaded.ok) throw new Error("Expected controlled profile")
     const created = await provider.createDraft({ expectedPublishedRevision: 1 })

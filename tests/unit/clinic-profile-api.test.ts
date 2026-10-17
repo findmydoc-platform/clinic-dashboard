@@ -35,6 +35,33 @@ describe("Clinic profile browser API", () => {
     vi.unstubAllGlobals()
   })
 
+  it.each([401, 403] as const)(
+    "captures source access failure %s before caller error handling",
+    async (status) => {
+      setCsrfCookie("csrf-token")
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("{}", { status })),
+      )
+      const events: string[] = []
+      const commands = createClinicProfileSourceApiCommands("original-clinic", (failure) => {
+        events.push(failure)
+      })
+      await commands.loadSnapshot().catch(() => {
+        events.push("rejected")
+      })
+      await commands.publishDraft({ expectedDraftRevision: 1, expectedPublishedRevision: 4 }).catch(() => {
+        events.push("rejected")
+      })
+      expect(events).toEqual([
+        status === 401 ? "unauthorized" : "forbidden",
+        "rejected",
+        status === 401 ? "unauthorized" : "forbidden",
+        "rejected",
+      ])
+    },
+  )
+
   it("uses the five same-origin operations and sends only editable draft data", async () => {
     setCsrfCookie("csrf-token")
     const fetcher = vi.fn<typeof fetch>(
@@ -44,7 +71,7 @@ describe("Clinic profile browser API", () => {
         }),
     )
     vi.stubGlobal("fetch", fetcher)
-    const commands = createClinicProfileSourceApiCommands()
+    const commands = createClinicProfileSourceApiCommands("original-clinic")
     const draftInput = {
       draft: {
         address: {
@@ -68,11 +95,11 @@ describe("Clinic profile browser API", () => {
     await commands.publishDraft({ expectedDraftRevision: 1, expectedPublishedRevision: 4 })
 
     expect(fetcher.mock.calls.map(([endpoint]) => endpoint)).toEqual([
-      "/api/dashboard/profile",
-      "/api/dashboard/profile/draft",
-      "/api/dashboard/profile/draft",
-      "/api/dashboard/profile/draft/discard",
-      "/api/dashboard/profile/publish",
+      "/api/dashboard/clinics/original-clinic/profile",
+      "/api/dashboard/clinics/original-clinic/profile/draft",
+      "/api/dashboard/clinics/original-clinic/profile/draft",
+      "/api/dashboard/clinics/original-clinic/profile/draft/discard",
+      "/api/dashboard/clinics/original-clinic/profile/publish",
     ])
     expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual([
       undefined,
@@ -102,7 +129,7 @@ describe("Clinic profile browser API", () => {
     )
 
     await expect(
-      createClinicProfileSourceApiCommands().publishDraft({
+      createClinicProfileSourceApiCommands("original-clinic").publishDraft({
         expectedDraftRevision: 1,
         expectedPublishedRevision: 4,
       }),
@@ -119,7 +146,7 @@ describe("Clinic profile browser API", () => {
     )
 
     await expect(
-      createClinicProfileSourceApiCommands().saveDraft({
+      createClinicProfileSourceApiCommands("original-clinic").saveDraft({
         draft: {
           address: {
             cityId: "city-istanbul",
@@ -143,7 +170,7 @@ describe("Clinic profile browser API", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ code: "OUTAGE" }), { status: 503 })),
     )
-    const commands = createClinicProfileSourceApiCommands()
+    const commands = createClinicProfileSourceApiCommands("original-clinic")
 
     await expect(
       commands.publishDraft({
@@ -171,7 +198,9 @@ describe("Clinic profile browser API", () => {
       ),
     )
 
-    await expect(createClinicProfileSourceApiCommands().loadSnapshot()).rejects.toMatchObject({
+    await expect(
+      createClinicProfileSourceApiCommands("original-clinic").loadSnapshot(),
+    ).rejects.toMatchObject({
       outcome: "unknown",
     })
   })

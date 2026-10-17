@@ -79,13 +79,16 @@ function expectPrivate(response: Response) {
 
 const protectedRouteCases: ReadonlyArray<Readonly<{ invoke: () => Promise<Response>; routeName: string }>> = [
   {
-    invoke: () => handleClinicProfileLoad(new NextRequest("http://localhost:3000/api/dashboard/profile")),
+    invoke: () =>
+      handleClinicProfileLoad(
+        new NextRequest("http://localhost:3000/api/dashboard/clinics/server-derived-clinic/profile"),
+      ),
     routeName: "load",
   },
   {
     invoke: () =>
       handleClinicProfileDraftCreate(
-        mutationRequest("/api/dashboard/profile/draft", {
+        mutationRequest("/api/dashboard/clinics/server-derived-clinic/profile/draft", {
           expectedPublishedRevision: 4,
         }),
       ),
@@ -95,7 +98,7 @@ const protectedRouteCases: ReadonlyArray<Readonly<{ invoke: () => Promise<Respon
     invoke: () =>
       handleClinicProfileDraftSave(
         mutationRequest(
-          "/api/dashboard/profile/draft",
+          "/api/dashboard/clinics/server-derived-clinic/profile/draft",
           {
             draft: {
               address: {
@@ -119,7 +122,7 @@ const protectedRouteCases: ReadonlyArray<Readonly<{ invoke: () => Promise<Respon
   {
     invoke: () =>
       handleClinicProfileDraftDiscard(
-        mutationRequest("/api/dashboard/profile/draft/discard", {
+        mutationRequest("/api/dashboard/clinics/server-derived-clinic/profile/draft/discard", {
           expectedDraftRevision: 1,
         }),
       ),
@@ -128,7 +131,7 @@ const protectedRouteCases: ReadonlyArray<Readonly<{ invoke: () => Promise<Respon
   {
     invoke: () =>
       handleClinicProfilePublish(
-        mutationRequest("/api/dashboard/profile/publish", {
+        mutationRequest("/api/dashboard/clinics/server-derived-clinic/profile/publish", {
           expectedDraftRevision: 1,
           expectedPublishedRevision: 4,
         }),
@@ -191,18 +194,19 @@ describe("Clinic profile BFF routes", () => {
     vi.stubGlobal("fetch", fetcher)
 
     const response = await handleClinicProfileLoad(
-      new NextRequest("http://localhost:3000/api/dashboard/profile"),
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/server-derived-clinic/profile"),
     )
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual(sourceSnapshot)
     expect(String(fetcher.mock.calls[0]?.[0])).toBe(
-      "https://preview.findmydoc.eu/api/clinic-dashboard/profile",
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/server-derived-clinic/profile",
     )
     expect(response.headers.get("x-session-applied")).toBe("true")
     expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(
       expect.any(NextRequest),
       "clinic-profile:view",
+      "server-derived-clinic",
     )
     expectPrivate(response)
   })
@@ -236,7 +240,7 @@ describe("Clinic profile BFF routes", () => {
     }
 
     const response = await handleClinicProfileDraftSave(
-      mutationRequest("/api/dashboard/profile/draft", input, "PUT"),
+      mutationRequest("/api/dashboard/clinics/server-derived-clinic/profile/draft", input, "PUT"),
     )
 
     expect(response.status).toBe(200)
@@ -248,6 +252,7 @@ describe("Clinic profile BFF routes", () => {
     expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(
       expect.any(NextRequest),
       "clinic-profile:edit",
+      "server-derived-clinic",
     )
     expectPrivate(response)
   })
@@ -266,7 +271,9 @@ describe("Clinic profile BFF routes", () => {
     vi.stubGlobal("fetch", fetcher)
 
     const response = await handleClinicProfileDraftCreate(
-      mutationRequest("/api/dashboard/profile/draft", { expectedPublishedRevision: 4 }),
+      mutationRequest("/api/dashboard/clinics/server-derived-clinic/profile/draft", {
+        expectedPublishedRevision: 4,
+      }),
     )
 
     expect(response.status).toBe(200)
@@ -276,6 +283,7 @@ describe("Clinic profile BFF routes", () => {
     expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(
       expect.any(NextRequest),
       "clinic-profile:edit",
+      "server-derived-clinic",
     )
     expectPrivate(response)
   })
@@ -285,7 +293,7 @@ describe("Clinic profile BFF routes", () => {
     vi.stubGlobal("fetch", fetcher)
 
     const response = await handleClinicProfileDraftCreate(
-      mutationRequest("/api/dashboard/profile/draft", {
+      mutationRequest("/api/dashboard/clinics/server-derived-clinic/profile/draft", {
         draft: { name: "Browser supplied" },
         expectedPublishedRevision: 4,
       }),
@@ -304,7 +312,7 @@ describe("Clinic profile BFF routes", () => {
     )
 
     const response = await handleClinicProfilePublish(
-      mutationRequest("/api/dashboard/profile/publish", {
+      mutationRequest("/api/dashboard/clinics/server-derived-clinic/profile/publish", {
         expectedDraftRevision: 1,
         expectedPublishedRevision: 4,
       }),
@@ -320,7 +328,7 @@ describe("Clinic profile BFF routes", () => {
     vi.stubGlobal("fetch", fetcher)
 
     const response = await handleClinicProfilePublish(
-      new NextRequest("http://localhost:3000/api/dashboard/profile/publish", {
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/server-derived-clinic/profile/publish", {
         body: JSON.stringify({
           expectedDraftRevision: 1,
           expectedPublishedRevision: 4,
@@ -345,7 +353,7 @@ describe("Clinic profile BFF routes", () => {
 
     const response = await handleClinicProfileDraftSave(
       mutationRequest(
-        "/api/dashboard/profile/draft",
+        "/api/dashboard/clinics/server-derived-clinic/profile/draft",
         {
           clinicId: "other-clinic",
           draft: {
@@ -396,7 +404,7 @@ describe("Clinic profile BFF routes", () => {
   it("rejects a streamed request body over 64 KiB without a Content-Length header", async () => {
     const fetcher = vi.fn()
     vi.stubGlobal("fetch", fetcher)
-    const url = "http://localhost:3000/api/dashboard/profile/draft"
+    const url = "http://localhost:3000/api/dashboard/clinics/server-derived-clinic/profile/draft"
     const unsignedRequest = new NextRequest(url, {
       headers: { origin: "http://localhost:3000" },
       method: "PUT",
