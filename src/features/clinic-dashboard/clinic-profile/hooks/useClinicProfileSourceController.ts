@@ -1,5 +1,6 @@
 "use client"
 
+import type { EditorDepartureIntent } from "@/lib/editor-departure"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
@@ -455,7 +456,19 @@ export function useClinicProfileSourceController({
   )
 
   const requestNavigation = useCallback(
-    (continuation: () => void, onCancel?: () => void) => {
+    (continuation: () => void, onCancel?: () => void, intent?: EditorDepartureIntent) => {
+      if (intent === "access-loss") {
+        if (!workingDraft || (!isDirty && mode !== "conflict" && operation === "idle")) return
+        return {
+          draft: { workingDraft, savedBaseline, unresolvedPublish },
+          discard: () => {
+            cancelPendingNavigation()
+            setWorkingDraft(undefined)
+            setSavedBaseline(undefined)
+            setUnresolvedPublish(undefined)
+          },
+        }
+      }
       cancelPendingNavigation()
       if (operation !== "idle" || unresolvedPublish || dialog) {
         setStatusMessage(
@@ -475,7 +488,16 @@ export function useClinicProfileSourceController({
       pendingNavigation.current = { continuation, onCancel }
       setConfirmationState("leave")
     },
-    [cancelPendingNavigation, dialog, isDirty, mode, operation, unresolvedPublish],
+    [
+      cancelPendingNavigation,
+      dialog,
+      isDirty,
+      mode,
+      operation,
+      savedBaseline,
+      unresolvedPublish,
+      workingDraft,
+    ],
   )
 
   const requestCancel = useCallback(() => {

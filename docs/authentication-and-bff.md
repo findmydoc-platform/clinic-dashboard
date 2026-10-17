@@ -345,8 +345,21 @@ Authorized pages use `/clinics/{clinicId}?section={section}`. A manual change pa
 departure guard and retains the current section. Committing the new context remounts clinic-scoped state and clears old
 requests and editor work. Reporting uses `/api/dashboard/clinics/{clinicId}/reporting?periodDays=...` and
 `/api/clinic-dashboard/clinics/{clinicId}/reporting?periodDays=...` upstream. Both reads recheck the target; the old targetless
-reporting route denies access. Source 403 responses hide the workspace and enter the restricted state. Temporary failures
-retain the valid session. Live CSV exports remain unavailable.
+reporting route denies access. Confirmed clinic-access loss immediately removes clinic content and actions. The same valid
+personal session requests fresh choices from the existing private bootstrap BFF. Recovery never selects an alternative
+automatically during active use, including when exactly one alternative exists. No alternatives keep the workspace
+restricted. A temporary choices outage permits retry without restoring denied content or ending the session. Unverified
+or malformed authentication failures count as unavailable; a verified session loss uses the existing session recovery.
+Live CSV exports remain unavailable.
+
+The parent Workspace retains the shared editor departure guard while inaccessible child editors unmount. Its `access-loss`
+intent captures actual unfinished values and owned attachment references in opaque, editor-owned memory capsules. These
+capsules never enter the recovery view model, URLs, browser storage, telemetry, logs or responses. Declining discard keeps
+the old work privately protected and leaves the user restricted. Confirming discard invokes each captured original clinic
+controller's cleanup before opening an explicitly chosen clinic in the same section. It does not save an old draft to the
+destination. Cleanup failure retains protection for an explicit retry. Principal/session changes release the private work
+and run original cleanup; obsolete choice reads, domain reads and actions cannot restore old content or navigate a new
+scope. Existing unmounted-domain cleanup owns late upload completion. No new revocation channel or age policy is added.
 
 `workspace/model/clinic-scope-conversions.ts` keeps profile, treatments, gallery, doctors
 closed until their independent target-route conversions are integrated. The server does not load their source records, and
