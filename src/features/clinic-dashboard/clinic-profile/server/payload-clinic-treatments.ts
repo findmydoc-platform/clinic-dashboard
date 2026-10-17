@@ -33,13 +33,17 @@ const snapshotSchema = z.object({
 
 type PayloadResponse = Readonly<{ ok: true; value: unknown }> | Readonly<{ ok: false; status?: number }>
 
-function endpoint() {
-  return new URL("/api/clinic-dashboard/treatments", validateEnvironment().PAYLOAD_API_URL)
+function endpoint(clinicId: string) {
+  return new URL(
+    `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/treatments`,
+    validateEnvironment().PAYLOAD_API_URL,
+  )
 }
 
 function requestHeaders(accessToken: string) {
   return {
     Accept: "application/json",
+    "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
     Authorization: `Bearer ${accessToken}`,
   }
 }
@@ -60,12 +64,13 @@ function changeErrorForStatus(status: number | undefined): ClinicTreatmentChange
 }
 
 async function requestPayloadJson(
+  target: URL,
   accessToken: string,
   init: RequestInit,
   fetcher: typeof fetch,
 ): Promise<PayloadResponse> {
   try {
-    const response = await fetcher(endpoint(), {
+    const response = await fetcher(target, {
       ...init,
       cache: "no-store",
       headers: {
@@ -106,12 +111,14 @@ function mapOffering(offering: z.infer<typeof offeringSchema>): ClinicTreatmentO
 
 export function createPayloadClinicTreatmentProvider(
   accessToken: string,
-  _clinicId: string,
+  clinicId: string,
   fetcher: typeof fetch = fetch,
 ): ClinicTreatmentProvider {
+  const target = endpoint(clinicId)
   return {
     async createTreatment(input: ClinicTreatmentCreateInput) {
       const response = await requestPayloadJson(
+        target,
         accessToken,
         mutationInit("POST", {
           priceEUR: input.price,
@@ -127,7 +134,7 @@ export function createPayloadClinicTreatmentProvider(
     },
 
     async loadTreatments() {
-      const response = await requestPayloadJson(accessToken, {}, fetcher)
+      const response = await requestPayloadJson(target, accessToken, {}, fetcher)
       if (!response.ok) return { error: readErrorForStatus(response.status), ok: false }
       const parsed = snapshotSchema.safeParse(response.value)
       if (!parsed.success) return { error: "temporarily-unavailable", ok: false }
@@ -144,6 +151,7 @@ export function createPayloadClinicTreatmentProvider(
 
     async updateTreatment(offeringId: string, input: ClinicTreatmentUpdateInput) {
       const response = await requestPayloadJson(
+        target,
         accessToken,
         mutationInit("PATCH", {
           active: input.active,
