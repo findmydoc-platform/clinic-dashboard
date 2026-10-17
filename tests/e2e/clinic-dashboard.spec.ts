@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Page } from "../fixtures/controlled-profile-scenario"
 import { controlledEmailCallbackPath } from "../fixtures/controlled-email-callback"
 
 const testDashboardPassword = "clinic-dashboard-test"

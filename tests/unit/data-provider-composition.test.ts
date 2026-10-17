@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { composeClinicDashboardDataProviders } from "@/features/clinic-dashboard/data-provider-composition"
+import { createClinicProfileDraftInput } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source"
+import { resetControlledClinicProfileProvider } from "@/features/clinic-dashboard/clinic-profile/server/controlled-clinic-profile"
 import { resetControlledPatientInquiryProvider } from "@/features/clinic-dashboard/messages/server/controlled-inquiries"
 
 const localEnvironment = {
@@ -48,6 +50,7 @@ describe("Clinic Dashboard data provider composition", () => {
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
     resetControlledPatientInquiryProvider()
+    resetControlledClinicProfileProvider()
   })
 
   it("selects the deterministic inquiry adapter for a verified controlled session", async () => {
@@ -68,6 +71,55 @@ describe("Clinic Dashboard data provider composition", () => {
       },
     })
     expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it("isolates profile publications per controlled scenario while retaining clinic-wide state within it", async () => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password") // pragma: allowlist secret
+    const firstToken = "controlled-many:profile:first-scenario"
+    const secondToken = "controlled-many:profile:second-scenario"
+    const first = composeClinicDashboardDataProviders(firstToken, "controlled-clinic").profile
+    const second = composeClinicDashboardDataProviders(secondToken, "controlled-clinic").profile
+    const before = await second.loadSnapshot()
+    if (!before.ok) throw new Error("Expected initial controlled profile")
+    await first.createDraft({ expectedPublishedRevision: 1 })
+    await first.saveDraft({
+      draft: { ...createClinicProfileDraftInput(before.value.published), name: "First scenario publication" },
+      expectedDraftRevision: 1,
+      expectedPublishedRevision: 1,
+    })
+    expect(
+      await first.publishDraft({ expectedDraftRevision: 2, expectedPublishedRevision: 1 }),
+    ).toMatchObject({
+      ok: true,
+      value: { published: { name: "First scenario publication", revision: 2 } },
+    })
+    expect(
+      await composeClinicDashboardDataProviders(firstToken, "controlled-clinic").profile.loadSnapshot(),
+    ).toMatchObject({
+      ok: true,
+      value: { published: { name: "First scenario publication", revision: 2 } },
+    })
+    expect(await second.loadSnapshot()).toEqual(before)
+    expect(before).toMatchObject({
+      ok: true,
+      value: {
+        published: {
+          name: "Controlled Bosphorus Clinic",
+          address: { street: "Bağdat Avenue" },
+          revision: 1,
+        },
+      },
+    })
+    expect(
+      await composeClinicDashboardDataProviders(
+        firstToken,
+        "controlled-second-clinic",
+      ).profile.loadSnapshot(),
+    ).toMatchObject({
+      ok: true,
+      value: { published: { name: "Controlled Ankara Clinic", revision: 1 } },
+    })
   })
 
   it("selects the Payload inquiry adapter outside controlled mode", async () => {

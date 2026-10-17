@@ -1,6 +1,7 @@
 import "server-only"
 
 import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
+import { readControlledProfileScenario } from "../../controlled-profile-scenario"
 import { CLINIC_DASHBOARD_CONTRACT_HEADER_NAME, clinicDashboardContractHeaders } from "../../payload-contract"
 import {
   clinicScopeBootstrapSchema,
@@ -84,9 +85,10 @@ export async function fetchClinicDashboardBootstrap(
   fetcher: typeof fetch = fetch,
 ): Promise<ClinicDashboardAccessResult> {
   if (isControlledAuthTestMode()) {
-    if (accessToken === "controlled-denied") return { status: "denied" }
-    if (accessToken === "controlled-outage") return { status: "temporarily-unavailable" }
-    return { context: controlledAuthenticatedClinicContext(accessToken), status: "approved" }
+    const controlledToken = readControlledProfileScenario(accessToken).accessToken
+    if (controlledToken === "controlled-denied") return { status: "denied" }
+    if (controlledToken === "controlled-outage") return { status: "temporarily-unavailable" }
+    return { context: controlledAuthenticatedClinicContext(controlledToken), status: "approved" }
   }
 
   const environment = validateEnvironment()

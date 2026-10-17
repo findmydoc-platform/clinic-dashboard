@@ -62,9 +62,10 @@ function controlledStates() {
   return controlledGlobal.__findmydocControlledClinicProfiles
 }
 
-function controlledState(clinicId: string) {
+function controlledState(clinicId: string, scenario?: string) {
   const states = controlledStates()
-  let state = states.get(clinicId)
+  const stateKey = JSON.stringify([scenario ?? null, clinicId])
+  let state = states.get(stateKey)
   if (!state) {
     state = {
       publishedProfile: {
@@ -81,13 +82,13 @@ function controlledState(clinicId: string) {
             }),
       },
     }
-    states.set(clinicId, state)
+    states.set(stateKey, state)
   }
   return state
 }
 
-function currentSnapshot(clinicId: string): ClinicProfileSnapshot {
-  const state = controlledState(clinicId)
+function currentSnapshot(clinicId: string, scenario?: string): ClinicProfileSnapshot {
+  const state = controlledState(clinicId, scenario)
   return cloneClinicProfileSourceSnapshot({
     availableCities,
     draft: state.persistentDraft,
@@ -145,10 +146,13 @@ export function resetControlledClinicProfileProvider() {
   controlledStates().clear()
 }
 
-export function createControlledClinicProfileProvider(clinicId: string): ClinicProfileProvider {
+export function createControlledClinicProfileProvider(
+  clinicId: string,
+  scenario?: string,
+): ClinicProfileProvider {
   return {
     async createDraft(input) {
-      const state = controlledState(clinicId)
+      const state = controlledState(clinicId, scenario)
       if (state.publishedProfile.revision !== input.expectedPublishedRevision || state.persistentDraft) {
         return { error: "conflict", ok: false }
       }
@@ -159,23 +163,23 @@ export function createControlledClinicProfileProvider(clinicId: string): ClinicP
         basePublishedRevision: state.publishedProfile.revision,
         revision: 1,
       }
-      return { ok: true, value: currentSnapshot(clinicId) }
+      return { ok: true, value: currentSnapshot(clinicId, scenario) }
     },
     async discardDraft(input) {
-      const state = controlledState(clinicId)
+      const state = controlledState(clinicId, scenario)
       if (!state.persistentDraft) return { error: "not-found", ok: false }
       if (state.persistentDraft.revision !== input.expectedDraftRevision) {
         return { error: "conflict", ok: false }
       }
 
       state.persistentDraft = undefined
-      return { ok: true, value: currentSnapshot(clinicId) }
+      return { ok: true, value: currentSnapshot(clinicId, scenario) }
     },
     async loadSnapshot() {
-      return { ok: true, value: currentSnapshot(clinicId) }
+      return { ok: true, value: currentSnapshot(clinicId, scenario) }
     },
     async publishDraft(input) {
-      const state = controlledState(clinicId)
+      const state = controlledState(clinicId, scenario)
       if (!state.persistentDraft) return { error: "not-found", ok: false }
       if (
         state.publishedProfile.revision !== input.expectedPublishedRevision ||
@@ -196,10 +200,10 @@ export function createControlledClinicProfileProvider(clinicId: string): ClinicP
         revision: state.publishedProfile.revision + 1,
       }
       state.persistentDraft = undefined
-      return { ok: true, value: currentSnapshot(clinicId) }
+      return { ok: true, value: currentSnapshot(clinicId, scenario) }
     },
     async saveDraft(input) {
-      const state = controlledState(clinicId)
+      const state = controlledState(clinicId, scenario)
       if (!state.persistentDraft) return { error: "not-found", ok: false }
       if (
         state.publishedProfile.revision !== input.expectedPublishedRevision ||
@@ -217,7 +221,7 @@ export function createControlledClinicProfileProvider(clinicId: string): ClinicP
         basePublishedRevision: state.persistentDraft.basePublishedRevision,
         revision: state.persistentDraft.revision + 1,
       }
-      return { ok: true, value: currentSnapshot(clinicId) }
+      return { ok: true, value: currentSnapshot(clinicId, scenario) }
     },
   }
 }

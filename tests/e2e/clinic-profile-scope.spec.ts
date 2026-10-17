@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Page } from "../fixtures/controlled-profile-scenario"
 
 async function signIn(page: Page) {
   await page.goto("/login")
