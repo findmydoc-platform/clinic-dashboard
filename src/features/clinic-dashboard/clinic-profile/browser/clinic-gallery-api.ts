@@ -89,11 +89,20 @@ function mutationHeaders(contentType?: string) {
   }
 }
 
-export function createClinicGalleryApiCommands(clinicId: string): ClinicGalleryCommands {
+export function createClinicGalleryApiCommands(
+  clinicId: string,
+  onAccessFailure?: (failure: "unauthorized" | "forbidden") => void,
+): ClinicGalleryCommands {
+  const scopedRequest = async (endpoint: string, init?: RequestInit) => {
+    const response = await request(endpoint, init)
+    if (response.status === 401) onAccessFailure?.("unauthorized")
+    if (response.status === 403) onAccessFailure?.("forbidden")
+    return response
+  }
   const endpoint = `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/gallery`
   return {
     async discardDrafts(mediaIds) {
-      const response = await request(`${endpoint}/discard`, {
+      const response = await scopedRequest(`${endpoint}/discard`, {
         body: JSON.stringify({ mediaIds }),
         headers: mutationHeaders("application/json"),
         method: "POST",
@@ -101,11 +110,11 @@ export function createClinicGalleryApiCommands(clinicId: string): ClinicGalleryC
       if (!response.ok) throw errorForResponse(response, await response.json().catch(() => null))
     },
     async loadGallery(): Promise<ClinicGallerySnapshot> {
-      return parseResponse(await request(endpoint), snapshotSchema)
+      return parseResponse(await scopedRequest(endpoint), snapshotSchema)
     },
     async saveGallery(input): Promise<ClinicGallerySnapshot> {
       return parseResponse(
-        await request(endpoint, {
+        await scopedRequest(endpoint, {
           body: JSON.stringify(input),
           headers: mutationHeaders("application/json"),
           method: "PUT",
@@ -119,7 +128,7 @@ export function createClinicGalleryApiCommands(clinicId: string): ClinicGalleryC
       if (input.alt !== undefined) body.set("alt", input.alt)
       if (input.captionText !== undefined) body.set("captionText", input.captionText)
       return parseResponse(
-        await request(`${endpoint}/media`, {
+        await scopedRequest(`${endpoint}/media`, {
           body,
           headers: mutationHeaders(),
           method: "POST",
