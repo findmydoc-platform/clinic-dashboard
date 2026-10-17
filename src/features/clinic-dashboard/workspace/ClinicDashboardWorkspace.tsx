@@ -113,7 +113,11 @@ export function ClinicDashboardWorkspace({
     // eslint-disable-next-line react-hooks/refs
     return createReviewSourceApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
   }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
-  const clinicTreatmentCommands = useMemo(() => createClinicTreatmentApiCommands(), [])
+  const clinicTreatmentCommands = useMemo(() => {
+    // The command factory stores this callback for source responses; it does not call it during render.
+    // eslint-disable-next-line react-hooks/refs
+    return createClinicTreatmentApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const refreshSources = () => startSourceRefresh(() => router.refresh())
 
   if (recovery.model.restricted)

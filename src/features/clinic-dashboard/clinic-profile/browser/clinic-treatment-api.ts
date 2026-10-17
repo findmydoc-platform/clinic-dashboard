@@ -40,10 +40,18 @@ function commandErrorForStatus(status: number): ClinicTreatmentCommandErrorCode 
   return status >= 500 ? "unknown" : "rejected"
 }
 
-async function readSnapshot() {
+type AccessFailure = (failure: "unauthorized" | "forbidden") => void
+
+function reportAccessFailure(response: Response, onAccessFailure?: AccessFailure) {
+  if (response.status === 401 || response.status === 403) {
+    onAccessFailure?.(response.status === 401 ? "unauthorized" : "forbidden")
+  }
+}
+
+async function readSnapshot(endpoint: string, onAccessFailure?: AccessFailure) {
   let response: Response
   try {
-    response = await fetch("/api/dashboard/clinic-treatments", {
+    response = await fetch(endpoint, {
       cache: "no-store",
       credentials: "same-origin",
       headers: { Accept: "application/json" },
@@ -53,6 +61,7 @@ async function readSnapshot() {
     throw new ClinicTreatmentCommandError("unknown", "Treatment list outcome is unknown.")
   }
 
+  reportAccessFailure(response, onAccessFailure)
   if (response.status === 403) {
     return { catalogue: [], offerings: [], status: "forbidden" } as const
   }
@@ -67,13 +76,19 @@ async function readSnapshot() {
   return parsed.data
 }
 
-async function submitJson(method: "PATCH" | "POST", body: unknown, offeringId?: string) {
+async function submitJson(
+  base: string,
+  method: "PATCH" | "POST",
+  body: unknown,
+  offeringId?: string,
+  onAccessFailure?: AccessFailure,
+) {
   const csrfToken = readBrowserCsrfToken(document.cookie)
   if (!csrfToken) {
     throw new ClinicTreatmentCommandError("rejected", "Missing request verification.")
   }
 
-  const endpoint = new URL("/api/dashboard/clinic-treatments", window.location.origin)
+  const endpoint = new URL(base, window.location.origin)
   if (offeringId) endpoint.searchParams.set("offeringId", offeringId)
   let response: Response
   try {
@@ -90,6 +105,7 @@ async function submitJson(method: "PATCH" | "POST", body: unknown, offeringId?: 
   } catch {
     throw new ClinicTreatmentCommandError("unknown", "Treatment update outcome is unknown.")
   }
+  reportAccessFailure(response, onAccessFailure)
   if (!response.ok) {
     throw new ClinicTreatmentCommandError(commandErrorForStatus(response.status), "Treatment update failed.")
   }
@@ -101,10 +117,14 @@ async function submitJson(method: "PATCH" | "POST", body: unknown, offeringId?: 
   return parsed.data
 }
 
-export function createClinicTreatmentApiCommands(): ClinicTreatmentCommands {
+export function createClinicTreatmentApiCommands(
+  clinicId: string,
+  onAccessFailure?: AccessFailure,
+): ClinicTreatmentCommands {
+  const base = `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/clinic-treatments`
   return {
-    createTreatment: (input) => submitJson("POST", input),
-    loadTreatments: readSnapshot,
-    updateTreatment: (offeringId, input) => submitJson("PATCH", input, offeringId),
+    createTreatment: (input) => submitJson(base, "POST", input, undefined, onAccessFailure),
+    loadTreatments: () => readSnapshot(base, onAccessFailure),
+    updateTreatment: (offeringId, input) => submitJson(base, "PATCH", input, offeringId, onAccessFailure),
   }
 }

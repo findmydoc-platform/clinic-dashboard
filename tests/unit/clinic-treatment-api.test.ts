@@ -15,6 +15,42 @@ describe("Clinic treatment browser API", () => {
     vi.unstubAllGlobals()
   })
 
+  it("retains the original explicit clinic for reads, creation and updates", async () => {
+    setCsrfCookie("csrf-token")
+    const fetcher = vi.fn<typeof fetch>(async () => new Response(null, { status: 503 }))
+    vi.stubGlobal("fetch", fetcher)
+    const commands = createClinicTreatmentApiCommands("clinic-a")
+    await commands.loadTreatments()
+    await commands.createTreatment({ price: 20, treatmentId: "master-a" }).catch(() => undefined)
+    await commands
+      .updateTreatment("offering-a", {
+        active: false,
+        expectedRevision: "2026-01-01T00:00:00.000Z",
+        price: 30,
+      })
+      .catch(() => undefined)
+    expect(fetcher.mock.calls.map(([url]) => new URL(String(url), window.location.origin).pathname)).toEqual([
+      "/api/dashboard/clinics/clinic-a/clinic-treatments",
+      "/api/dashboard/clinics/clinic-a/clinic-treatments",
+      "/api/dashboard/clinics/clinic-a/clinic-treatments",
+    ])
+  })
+
+  it.each([401, 403])("reports source denial %s before the caller can clear its draft", async (status) => {
+    setCsrfCookie("csrf-token")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status })),
+    )
+    const onAccessFailure = vi.fn()
+    const commands = createClinicTreatmentApiCommands("clinic-a", onAccessFailure)
+    await commands.loadTreatments()
+    expect(onAccessFailure).toHaveBeenLastCalledWith(status === 401 ? "unauthorized" : "forbidden")
+    onAccessFailure.mockClear()
+    await commands.createTreatment({ price: 20, treatmentId: "master-a" }).catch(() => undefined)
+    expect(onAccessFailure).toHaveBeenLastCalledWith(status === 401 ? "unauthorized" : "forbidden")
+  })
+
   it("maps duplicate assignments to a conflict command error", async () => {
     setCsrfCookie("csrf-token")
     vi.stubGlobal(
@@ -22,7 +58,7 @@ describe("Clinic treatment browser API", () => {
       vi.fn(async () => new Response(null, { status: 409 })),
     )
 
-    const result = createClinicTreatmentApiCommands().createTreatment({
+    const result = createClinicTreatmentApiCommands("clinic-a").createTreatment({
       price: 0,
       treatmentId: "treatment-1",
     })
@@ -38,7 +74,7 @@ describe("Clinic treatment browser API", () => {
     )
 
     await expect(
-      createClinicTreatmentApiCommands().createTreatment({
+      createClinicTreatmentApiCommands("clinic-a").createTreatment({
         price: 0,
         treatmentId: "treatment-1",
       }),

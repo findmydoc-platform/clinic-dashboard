@@ -37,7 +37,7 @@ describe("Clinic treatment Payload adapter", () => {
     vi.unstubAllEnvs()
   })
 
-  it("loads the focused server-derived treatment contract without a clinic identifier", async () => {
+  it("loads the focused treatment contract for its original explicit clinic", async () => {
     const fetcher = vi.fn<typeof fetch>(async () =>
       jsonResponse({ catalogue: [treatment], offerings: [offering] }),
     )
@@ -61,8 +61,11 @@ describe("Clinic treatment Payload adapter", () => {
     })
 
     const [input, init] = fetcher.mock.calls[0]
-    expect(String(input)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/treatments")
+    expect(String(input)).toBe(
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/treatments",
+    )
     expect(init).toMatchObject({ cache: "no-store", redirect: "error" })
+    expect(new Headers(init?.headers).get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token")
   })
 
