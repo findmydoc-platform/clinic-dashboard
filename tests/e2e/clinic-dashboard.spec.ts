@@ -1023,7 +1023,17 @@ test("completes invite and recovery links through explicit confirmation", async 
     expect(completionGrant).toMatchObject({ httpOnly: true, path: "/", sameSite: "Lax" })
     await page.getByLabel("Password", { exact: true }).fill("new-password")
     await page.getByLabel("Confirm password").fill("new-password")
-    await page.getByRole("button", { name: "Save password" }).click()
+    const completionResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname ===
+          (flow === "invite" ? "/api/auth/invite/complete" : "/api/auth/password/reset/complete"),
+    )
+    const [completed] = await Promise.all([
+      completionResponse,
+      page.getByRole("button", { name: "Save password" }).click(),
+    ])
+    expect(completed.status()).toBe(200)
     await expect(page).toHaveURL(new RegExp(`/login\\?status=${flow}-complete$`))
     expect(
       (await page.context().cookies()).find((cookie) => cookie.name === "clinic_dashboard_completion_grant"),

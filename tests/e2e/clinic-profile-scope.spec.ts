@@ -6,9 +6,16 @@ async function signIn(page: Page) {
   await page.getByLabel("Password").fill("clinic-dashboard-test")
   await page.getByRole("button", { name: "Sign in", exact: true }).click()
   await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
   const navigation = page.getByRole("button", { name: "Open navigation", exact: true })
-  if (await navigation.isVisible()) await navigation.click()
-  await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
+  if (page.viewportSize()!.width < 768) {
+    await expect(navigation).toBeVisible()
+    await navigation.click()
+    await expect(page.getByRole("dialog", { name: "Clinic navigation", exact: true })).toBeVisible()
+  }
+  const profile = page.getByRole("button", { name: "Clinic profile", exact: true })
+  await expect(profile).toBeVisible()
+  await profile.click()
 }
 async function switchClinic(page: Page, name: string) {
   await page.getByRole("button", { name: /Switch clinic location/ }).click()
