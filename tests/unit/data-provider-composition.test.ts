@@ -160,6 +160,95 @@ describe("Clinic Dashboard data provider composition", () => {
     ).toEqual({ ok: false, error: "forbidden" })
   })
 
+  it("isolates concurrent inquiry scenarios across commands and attachment uploads while sharing each clinic within one scenario", async () => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password") // pragma: allowlist secret
+    const firstToken = "controlled-many:profile:first-inquiry-scenario"
+    const secondToken = "controlled-many:profile:second-inquiry-scenario"
+    const first = composeClinicDashboardDataProviders(firstToken, "controlled-clinic")
+    const second = composeClinicDashboardDataProviders(secondToken, "controlled-clinic")
+    const shared = composeClinicDashboardDataProviders(
+      "controlled-access-token:profile:first-inquiry-scenario",
+      "controlled-clinic",
+    )
+    const inquiryId = "inquiry-lukas-weber"
+    const changes = await Promise.all(
+      [first, second].map(({ inquiries }) =>
+        inquiries.changeState({
+          action: "set-handling-status",
+          expectedRevision: 4,
+          handlingStatus: "in_review",
+          inquiryId,
+        }),
+      ),
+    )
+    expect(changes.every((result) => result.ok)).toBe(true)
+    const created = await first.inquiries.createAttachmentDraft({
+      fileName: "first-scenario.pdf",
+      inquiryId,
+      mimeType: "application/pdf",
+      sizeBytes: 1,
+    })
+    if (!created.ok) throw new Error("Expected controlled attachment draft")
+    const upload = {
+      body: new Uint8Array([1]).buffer,
+      draftId: created.value.draftId,
+      mimeType: "application/pdf" as const,
+    }
+    expect(await second.inquiryAttachmentDraftUpload!(upload)).toMatchObject({
+      ok: false,
+      error: { code: "not-found" },
+    })
+    expect(await shared.inquiryAttachmentDraftUpload!(upload)).toMatchObject({ ok: true })
+    const finalize = { draftId: created.value.draftId, inquiryId }
+    expect(await second.inquiries.finalizeAttachmentDraft(finalize)).toMatchObject({
+      ok: false,
+      error: { code: "not-found" },
+    })
+    expect(await shared.inquiries.finalizeAttachmentDraft(finalize)).toMatchObject({ ok: true })
+    const sent = await Promise.all([
+      shared.inquiries.sendExternalMessage({
+        inquiryId,
+        expectedRevision: 5,
+        idempotencyKey: "first-message",
+        text: "First scenario reply",
+        attachmentDraftId: created.value.draftId,
+      }),
+      second.inquiries.sendExternalMessage({
+        inquiryId,
+        expectedRevision: 5,
+        idempotencyKey: "second-message",
+        text: "Second scenario reply",
+      }),
+    ])
+    expect(sent.every((result) => result.ok)).toBe(true)
+    const firstDetail = await first.inquiries.loadDetail({ inquiryId })
+    const secondDetail = await second.inquiries.loadDetail({ inquiryId })
+    expect(firstDetail).toMatchObject({
+      ok: true,
+      value: {
+        inquiry: {
+          timeline: expect.arrayContaining([expect.objectContaining({ body: "First scenario reply" })]),
+        },
+      },
+    })
+    expect(secondDetail).toMatchObject({
+      ok: true,
+      value: {
+        inquiry: {
+          timeline: expect.arrayContaining([expect.objectContaining({ body: "Second scenario reply" })]),
+        },
+      },
+    })
+    if (!firstDetail.ok || !secondDetail.ok) throw new Error("Expected controlled inquiry details")
+    expect(secondDetail.value.inquiry.timeline).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ body: "First scenario reply" })]),
+    )
+    expect(firstDetail.value.inquiry.timeline).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ body: "Second scenario reply" })]),
+    )
+  })
+
   it("selects the Payload inquiry adapter outside controlled mode", async () => {
     const fetcher = vi.fn<typeof fetch>(async () =>
       jsonResponse({

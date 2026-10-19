@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { expect, test, type Page } from "../fixtures/controlled-profile-scenario"
 import { clinicScopeConversions } from "@/features/clinic-dashboard/workspace/model/clinic-scope-conversions"
 import { controlledEmailCallbackPath } from "../fixtures/controlled-email-callback"
@@ -16,7 +17,7 @@ async function signIn(page: Page) {
     page.getByRole("button", { name: "Sign in" }).click(),
   ])
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
-  await page.waitForLoadState("networkidle")
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
 }
 
 async function waitForGalleryNotifications(page: Page) {
@@ -166,7 +167,14 @@ test("keeps published profile information usable when reporting and notification
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Public profile progress" })).toBeVisible()
   await expect(page.getByRole("region", { name: "Dashboard clinic location summary" })).toBeVisible()
+  const failedPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.pathname === "/api/notifications" && url.searchParams.get("mode") === "page"
+  })
   await page.getByRole("button", { name: /^Notifications,/ }).click()
+  const failedPage = await failedPageResponse
+  expect(failedPage.status()).toBe(503)
+  expect(await failedPage.finished()).toBeNull()
   await expect.poll(() => failedNotificationRequests).toBeGreaterThan(0)
   await expect(page.getByRole("dialog", { name: "Notifications" }).getByRole("status")).toHaveText(
     "Notifications can't be displayed right now.",
@@ -230,28 +238,45 @@ test("captures the restored dashboard without overflow in both themes and viewpo
   await expect(page.locator("html")).not.toHaveClass(/dark/)
   await page.locator("nextjs-portal").evaluateAll((portals) => portals.forEach((portal) => portal.remove()))
   await page.screenshot({
+    caret: "initial",
     fullPage: true,
     path: "output/playwright/clinic-dashboard-reporting-light-320.png",
   })
 
   await page.emulateMedia({ colorScheme: "dark" })
   await expect(page.locator("html")).toHaveClass(/dark/)
-  await page.screenshot({ fullPage: true, path: "output/playwright/clinic-dashboard-reporting-dark-320.png" })
+  await page.screenshot({
+    caret: "initial",
+    fullPage: true,
+    path: "output/playwright/clinic-dashboard-reporting-dark-320.png",
+  })
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
   await page.setViewportSize({ height: 1000, width: 1440 })
   await page.emulateMedia({ colorScheme: "light" })
   await expect(page.locator("html")).not.toHaveClass(/dark/)
-  await page.screenshot({ fullPage: true, path: "output/playwright/dashboard-restoration-light-1440.png" })
+  await page.screenshot({
+    caret: "initial",
+    fullPage: true,
+    path: "output/playwright/dashboard-restoration-light-1440.png",
+  })
   await page.emulateMedia({ colorScheme: "dark" })
   await expect(page.locator("html")).toHaveClass(/dark/)
-  await page.screenshot({ fullPage: true, path: "output/playwright/dashboard-restoration-dark-1440.png" })
+  await page.screenshot({
+    caret: "initial",
+    fullPage: true,
+    path: "output/playwright/dashboard-restoration-dark-1440.png",
+  })
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440)
   await page.setViewportSize({ height: 844, width: 390 })
   for (const theme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: theme })
     await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /light/)
-    await page.screenshot({ fullPage: true, path: `output/playwright/dashboard-journey-${theme}-390.png` })
+    await page.screenshot({
+      caret: "initial",
+      fullPage: true,
+      path: `output/playwright/dashboard-journey-${theme}-390.png`,
+    })
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   }
   expect(consoleMessages).toEqual([])
@@ -272,6 +297,7 @@ test("captures the restored dashboard without overflow in both themes and viewpo
       await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /light/)
       await page.evaluate(() => window.scrollTo(0, 0))
       await page.screenshot({
+        caret: "initial",
         fullPage: true,
         path: `output/playwright/dashboard-journey-unavailable-${theme}-${width}.png`,
       })
@@ -354,11 +380,19 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await status.selectOption("in_review")
   await expect(status).toHaveValue("in_review")
 
+  const finalizedResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === `${inquiryPath}/attachments/drafts/finalize`,
+  )
   await detail.getByLabel("Choose reply attachment").setInputFiles({
     buffer: Buffer.from("%PDF-1.4\nSynthetic treatment plan\n%%EOF", "utf8"),
     mimeType: "application/pdf",
     name: "synthetic-treatment-plan.pdf",
   })
+  const finalized = await finalizedResponse
+  expect(finalized.status()).toBe(200)
+  expect(await finalized.finished()).toBeNull()
   await expect(detail.getByText("synthetic-treatment-plan.pdf", { exact: true })).toBeVisible()
   await expect(detail.getByText("application/pdf · 39 B")).toBeVisible()
 
@@ -385,6 +419,69 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await expect(reloadedDetail.getByText("Synthetic reply with a controlled attachment.")).toBeVisible()
   await expect(reloadedDetail.getByText("synthetic-treatment-plan.pdf", { exact: true })).toBeVisible()
   await expect(reloadedDetail.getByRole("combobox", { name: "Inquiry status" })).toHaveValue("contacted")
+})
+
+test("concurrent controlled scenarios keep inquiry attachment writes and reloads independent", async ({
+  browser,
+  baseURL,
+}) => {
+  const contexts = await Promise.all([browser.newContext({ baseURL }), browser.newContext({ baseURL })])
+  try {
+    await Promise.all(
+      contexts.map((context) =>
+        context.addCookies([
+          { name: "clinic_dashboard_controlled_profile_scenario", value: randomUUID(), url: baseURL! },
+        ]),
+      ),
+    )
+    const pages = await Promise.all(contexts.map((context) => context.newPage()))
+    const details = await Promise.all(
+      pages.map(async (page) => {
+        await signIn(page)
+        await page.getByRole("button", { name: "Inquiries", exact: true }).click()
+        await page.getByRole("button", { name: /Lukas Weber/ }).click()
+        const detail = page.getByRole("region", { name: "Inquiry from Lukas Weber" })
+        await expect(detail.getByRole("combobox", { name: "Inquiry status" })).toHaveValue("contacted")
+        return detail
+      }),
+    )
+    await Promise.all(
+      details.map((detail) =>
+        detail.getByRole("combobox", { name: "Inquiry status" }).selectOption("in_review"),
+      ),
+    )
+    await Promise.all(
+      pages.map(async (page, index) => {
+        const detail = details[index]!
+        const fileName = `parallel-scenario-${index + 1}.pdf`
+        const text = `Scenario ${index + 1} isolated attachment reply.`
+        const foreignText = `Scenario ${2 - index} isolated attachment reply.`
+        await detail.getByLabel("Choose reply attachment").setInputFiles({
+          buffer: Buffer.from("%PDF-1.4\nSynthetic treatment plan\n%%EOF", "utf8"),
+          mimeType: "application/pdf",
+          name: fileName,
+        })
+        await expect(detail.getByText("application/pdf · 39 B")).toBeVisible()
+        const reply = detail.getByRole("textbox", { name: "Reply to patient" })
+        await reply.fill(text)
+        await detail.getByRole("button", { name: "Send reply", exact: true }).click()
+        await expect(reply).toHaveValue("")
+        await expect(detail.getByText(text, { exact: true })).toBeVisible()
+        await expect(detail.getByText(foreignText, { exact: true })).toHaveCount(0)
+        await page.reload()
+        await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
+        await page.getByRole("button", { name: "Inquiries", exact: true }).click()
+        await page.getByRole("button", { name: /Lukas Weber/ }).click()
+        const reloaded = page.getByRole("region", { name: "Inquiry from Lukas Weber" })
+        await expect(reloaded.getByText(text, { exact: true })).toBeVisible()
+        await expect(reloaded.getByText(fileName, { exact: true })).toBeVisible()
+        await expect(reloaded.getByText(foreignText, { exact: true })).toHaveCount(0)
+        await expect(reloaded.getByRole("combobox", { name: "Inquiry status" })).toHaveValue("contacted")
+      }),
+    )
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()))
+  }
 })
 
 test("keeps the inquiry list and detail separate at 320 pixels", async ({ page }) => {

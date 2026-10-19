@@ -72,10 +72,18 @@ export function composeClinicDashboardDataProviders(
       : createPayloadClinicGalleryProvider(accessToken, clinicId),
     inquiries:
       controlled && !localInquiryAcceptance
-        ? createControlledPatientInquiryProvider(clinicId)
+        ? createControlledPatientInquiryProvider(
+            clinicId,
+            readControlledProfileScenario(accessToken).scenario,
+          )
         : createPayloadPatientInquiryProvider(accessToken, clinicId, fetch, validatedEnvironment),
     ...(controlled && !localInquiryAcceptance
-      ? { inquiryAttachmentDraftUpload: createControlledPatientInquiryAttachmentDraftUpload(clinicId) }
+      ? {
+          inquiryAttachmentDraftUpload: createControlledPatientInquiryAttachmentDraftUpload(
+            clinicId,
+            readControlledProfileScenario(accessToken).scenario,
+          ),
+        }
       : {}),
     profile: controlled
       ? createControlledClinicProfileProvider(

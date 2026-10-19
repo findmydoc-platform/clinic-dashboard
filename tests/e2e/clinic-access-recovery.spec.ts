@@ -9,7 +9,11 @@ test("confirmed active access loss hides content and waits for an explicit alter
   await page.goto("/login")
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill("clinic-dashboard-test")
-  await page.getByRole("button", { name: "Sign in" }).click()
+  await Promise.all([
+    page.waitForURL(/\/clinics\/controlled-clinic\?section=dashboard$/),
+    page.getByRole("button", { name: "Sign in" }).click(),
+  ])
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
   await expect(page.getByRole("region", { name: "Dashboard metrics" })).toBeVisible()
   await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7", (route) =>
     route.fulfill({
@@ -18,7 +22,15 @@ test("confirmed active access loss hides content and waits for an explicit alter
       body: JSON.stringify({ code: "REPORTING_ACCESS_DENIED" }),
     }),
   )
+  const deniedResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/reporting" &&
+      new URL(response.url()).searchParams.get("periodDays") === "7",
+  )
   await page.getByRole("button", { name: "7 days", exact: true }).click()
+  const denied = await deniedResponse
+  expect(denied.status()).toBe(403)
+  expect(await denied.finished()).toBeNull()
   await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toBeVisible()
   await expect(page.getByRole("region", { name: "Dashboard metrics" })).toHaveCount(0)
   await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
