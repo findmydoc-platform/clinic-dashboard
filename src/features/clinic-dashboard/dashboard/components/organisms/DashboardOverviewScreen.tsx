@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useId } from "react"
 import type { DashboardOverviewModel, DashboardJourneyStageId } from "../../model/dashboard-overview"
+import { formatReportingObservationTimestamp } from "../../model/clinic-dashboard-reporting-display"
 import type { DashboardProfileTask } from "../../model/profile-tasks"
 import { ReportingMetricCard } from "../molecules/ReportingMetricCard"
 import { ReportingInformation } from "../molecules/ReportingInformation"
@@ -128,9 +129,7 @@ export function DashboardOverviewScreen({
       </div>
       <p className="text-xs text-[var(--foreground)]">
         Reporting timezone: {model.timezone}
-        {model.asOf
-          ? ` · Observed ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: model.timezone }).format(new Date(model.asOf))}`
-          : ""}
+        {model.asOf ? ` · Observed ${formatReportingObservationTimestamp(model.asOf, model.timezone)}` : ""}
       </p>
     </div>
   )
