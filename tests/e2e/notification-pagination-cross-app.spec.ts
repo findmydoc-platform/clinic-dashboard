@@ -12,7 +12,10 @@ const websiteOrigin = required("INQUIRY_ACCEPTANCE_WEBSITE_ORIGIN")
 const secondToken = required("INQUIRY_ACCEPTANCE_SECOND_CLINIC_TOKEN")
 const foreignToken = required("INQUIRY_ACCEPTANCE_FOREIGN_CLINIC_TOKEN")
 const clinicToken = required("INQUIRY_ACCEPTANCE_CLINIC_TOKEN")
-const contractHeader = { "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1" }
+const contractHeader = {
+  "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
+  "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
+}
 type FeedItem = {
   presentationId: string
   kind: string

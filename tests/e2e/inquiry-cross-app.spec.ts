@@ -30,6 +30,7 @@ const clinicName = requiredValue("INQUIRY_ACCEPTANCE_CLINIC_NAME")
 const patientToken = requiredValue("INQUIRY_ACCEPTANCE_PATIENT_TOKEN")
 const patientSessionCookie = requiredValue("INQUIRY_ACCEPTANCE_PATIENT_SESSION_COOKIE")
 const foreignClinicToken = requiredValue("INQUIRY_ACCEPTANCE_FOREIGN_CLINIC_TOKEN")
+const foreignClinicId = requiredValue("INQUIRY_ACCEPTANCE_FOREIGN_CLINIC_ID")
 const clinicToken = requiredValue("INQUIRY_ACCEPTANCE_CLINIC_TOKEN")
 const secondClinicToken = requiredValue("INQUIRY_ACCEPTANCE_SECOND_CLINIC_TOKEN")
 const inquiryId = requiredValue("INQUIRY_ACCEPTANCE_INQUIRY_ID")
@@ -125,6 +126,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
     headers: {
       Authorization: `Bearer ${clinicToken}`,
       "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+      "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
     },
   })
   expect(bootstrap.ok()).toBe(true)
@@ -224,6 +226,8 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
       .find((member: { notificationId: string }) => member.notificationId === arrivalBody.notificationId)
       ?.readAt,
   ).toBeNull()
+  await expect(center).not.toBeVisible()
+  await page.getByRole("button", { name: /Notifications,.*unread/ }).click()
   const markResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/notifications/read" &&
@@ -276,6 +280,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
       headers: {
         Authorization: `Bearer ${secondClinicToken}`,
         "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+        "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
         "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
       },
     },
@@ -401,12 +406,16 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   await page.reload()
   await expect(page.getByText("Ada Patient")).not.toBeVisible()
 
-  const foreignQueue = await request.get(`${websiteOrigin}/api/clinic-dashboard/inquiries?lifecycle=all`, {
-    headers: {
-      Authorization: `Bearer ${foreignClinicToken}`,
-      "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+  const foreignQueue = await request.get(
+    `${websiteOrigin}/api/clinic-dashboard/clinics/${encodeURIComponent(foreignClinicId)}/inquiries?lifecycle=all`,
+    {
+      headers: {
+        Authorization: `Bearer ${foreignClinicToken}`,
+        "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+        "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
+      },
     },
-  })
+  )
   expect(foreignQueue.ok()).toBe(true)
   const foreignQueueBody = (await foreignQueue.json()) as { items: Array<{ id: string }> }
   expect(foreignQueueBody.items.some((item) => item.id === inquiryId)).toBe(false)

@@ -9,6 +9,7 @@ const controlOrigin = required("INQUIRY_ACCEPTANCE_CONTROL_ORIGIN")
 const controlToken = required("INQUIRY_ACCEPTANCE_CONTROL_TOKEN")
 const websiteOrigin = required("INQUIRY_ACCEPTANCE_WEBSITE_ORIGIN")
 const secondToken = required("INQUIRY_ACCEPTANCE_SECOND_CLINIC_TOKEN")
+const clinicId = required("INQUIRY_ACCEPTANCE_CLINIC_ID")
 const headers = { Authorization: `Bearer ${controlToken}` }
 
 test("shows real review transitions, exact off-page detail, current safe projections and personal receipts across both apps", async ({
@@ -63,7 +64,8 @@ test("shows real review transitions, exact off-page detail, current safe project
     release = resolve
   })
   let submitted: unknown
-  await page.route(`**/api/dashboard/reviews/${body.reviewId}`, async (route) => {
+  const reviewDetailRoute = `**/api/dashboard/clinics/${encodeURIComponent(clinicId)}/reviews/${body.reviewId}`
+  await page.route(reviewDetailRoute, async (route) => {
     const response = await route.fetch()
     await held
     await route.fulfill({ response })
@@ -85,7 +87,7 @@ test("shows real review transitions, exact off-page detail, current safe project
   await expect(page.getByText("Review opened. Marked as read.", { exact: true })).toBeVisible()
   expect(submitted).toEqual({ notificationIds: [publicationId] })
   await expectPersonalReceipt(publicationId)
-  await page.unroute(`**/api/dashboard/reviews/${body.reviewId}`)
+  await page.unroute(reviewDetailRoute)
   await page.unroute("**/api/notifications/read")
   expect(await rating.inputValue()).toBe("1")
   await expect(
@@ -99,6 +101,7 @@ test("shows real review transitions, exact off-page detail, current safe project
       headers: {
         Authorization: `Bearer ${secondToken}`,
         "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
+        "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
       },
     },
   )
