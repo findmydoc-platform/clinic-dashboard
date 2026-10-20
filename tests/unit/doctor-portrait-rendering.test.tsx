@@ -51,7 +51,7 @@ it("keeps image optimization for ordinary shared avatar sources", () => {
   expect(container.querySelector("img")).toHaveAttribute("srcset")
 })
 
-it("reloads the directory portrait after replacement when the authorized URL stays the same", async () => {
+it("remounts the directory portrait when its media identity changes", async () => {
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true
   }

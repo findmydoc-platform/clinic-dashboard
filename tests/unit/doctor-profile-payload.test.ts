@@ -107,7 +107,7 @@ describe("Doctor profile Payload adapter", () => {
             image: {
               alt: "Portrait of Dr Amelia Carter",
               id: "media-old",
-              url: "/api/dashboard/clinics/clinic-1/doctors/doctor-1/image",
+              url: "/api/dashboard/clinics/clinic-1/doctors/doctor-1/image?revision=media-old",
             },
             languages: ["english", "german"],
             lastName: "Carter",
@@ -554,7 +554,7 @@ describe("Doctor profile Payload adapter", () => {
       value: {
         cleanupPending: false,
         profile: {
-          image: { id: "23" },
+          image: { id: "23", url: "/api/dashboard/clinics/7/doctors/14/image?revision=23" },
           specialties: [{ id: "17" }],
         },
       },

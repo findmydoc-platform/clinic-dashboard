@@ -93,13 +93,13 @@ function expectPrivate(response: Response) {
 }
 
 describe("Doctor profile mutations", () => {
-  it("serves exact doctor image bytes through a private scoped read", async () => {
+  it("serves exact doctor image bytes through a versioned private scoped read", async () => {
     providerMocks.loadImage.mockResolvedValue({
       ok: true,
       value: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png" },
     })
     const request = new NextRequest(
-      "http://localhost:3000/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/image",
+      "http://localhost:3000/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/image?revision=media-new",
       { headers: { cookie: "clinic_dashboard_controlled_session=controlled-clinic-staff" } },
     )
     const response = await handleDoctorImageRead(request, "doctor-1", createProvider)
@@ -108,6 +108,15 @@ describe("Doctor profile mutations", () => {
     expect(response.headers.get("content-type")).toBe("image/png")
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]))
     expect(providerMocks.loadImage).toHaveBeenCalledWith("doctor-1")
+    expect(providerMocks.loadImage.mock.calls[0]).toEqual(["doctor-1"])
+
+    for (const search of ["?other=media-new", "?revision=a&revision=b", "?revision=", "?revision=a%2Fb"]) {
+      const invalid = new NextRequest(
+        `http://localhost:3000/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/image${search}`,
+      )
+      expect((await handleDoctorImageRead(invalid, "doctor-1", createProvider)).status).toBe(400)
+    }
+    expect(providerMocks.loadImage).toHaveBeenCalledOnce()
   })
 
   beforeEach(() => {

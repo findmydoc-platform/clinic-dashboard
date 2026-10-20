@@ -190,7 +190,7 @@ function mapImage(
   return {
     alt: value.alt,
     id: value.id,
-    url: `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/doctors/${encodeURIComponent(doctorId)}/image`,
+    url: `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/doctors/${encodeURIComponent(doctorId)}/image?revision=${encodeURIComponent(value.id)}`,
   }
 }
 

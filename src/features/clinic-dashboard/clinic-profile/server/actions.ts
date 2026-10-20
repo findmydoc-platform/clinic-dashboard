@@ -342,7 +342,10 @@ export async function handleDoctorImageRead(
   createProvider: DoctorProfileProviderFactory,
 ) {
   const doctorId = validatedId(doctorIdValue)
-  if (!doctorId || request.nextUrl.search) return privateJson({ code: "INVALID_INPUT" }, 400)
+  const query = request.nextUrl.searchParams
+  const revision = query.get("revision")
+  const validQuery = query.size === 0 || (query.size === 1 && revision !== null && validatedId(revision))
+  if (!doctorId || !validQuery) return privateJson({ code: "INVALID_INPUT" }, 400)
   const authorization = await resolveClinicDashboardRouteAccess(request)
   if (authorization.status !== "approved")
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
