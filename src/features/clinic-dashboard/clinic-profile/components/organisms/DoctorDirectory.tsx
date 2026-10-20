@@ -144,6 +144,7 @@ export function DoctorDirectory({
                   <Avatar
                     className="size-14"
                     initials={initials(doctor)}
+                    key={doctor.image?.id}
                     src={doctor.image?.url}
                     unoptimized
                   />
