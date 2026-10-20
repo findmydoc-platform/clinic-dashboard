@@ -7,9 +7,10 @@ type AvatarProps = Readonly<{
   loading?: ImageProps["loading"]
   sizes?: ImageProps["sizes"]
   src?: StaticImageData | string
+  unoptimized?: ImageProps["unoptimized"]
 }>
 
-export function Avatar({ className, initials, loading, sizes = "64px", src }: AvatarProps) {
+export function Avatar({ className, initials, loading, sizes = "64px", src, unoptimized }: AvatarProps) {
   return (
     <span
       aria-hidden="true"
@@ -19,7 +20,15 @@ export function Avatar({ className, initials, loading, sizes = "64px", src }: Av
       )}
     >
       {src ? (
-        <Image alt="" className="object-cover" fill loading={loading} sizes={sizes} src={src} />
+        <Image
+          alt=""
+          className="object-cover"
+          fill
+          loading={loading}
+          sizes={sizes}
+          src={src}
+          unoptimized={unoptimized}
+        />
       ) : (
         initials
       )}

@@ -452,6 +452,7 @@ export function DoctorProfileDialog({
                 initials={doctorInitials(persistedDoctor, draft) || "DR"}
                 sizes="160px"
                 src={imagePreviewUrl ?? persistedDoctor?.image?.url}
+                unoptimized
               />
               <input
                 accept="image/avif,image/gif,image/jpeg,image/png,image/webp"
