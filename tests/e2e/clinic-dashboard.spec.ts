@@ -1114,6 +1114,8 @@ test("completes invite and recovery links through explicit confirmation", async 
       })
       .click()
     await expect(page).toHaveURL(new RegExp(`${completionPath.replaceAll("/", "\\/")}$`))
+    // The redirect commits before the new document's form scripts have loaded.
+    await page.waitForLoadState("load")
     const completionGrant = (await page.context().cookies()).find(
       (cookie) => cookie.name === "clinic_dashboard_completion_grant",
     )
