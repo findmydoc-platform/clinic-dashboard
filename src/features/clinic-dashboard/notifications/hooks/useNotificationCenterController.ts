@@ -600,6 +600,7 @@ export function useNotificationCenterController(
       cancelOpening,
       openItem: onDestinationOpen ? openItem : undefined,
       selectView: (next: NotificationView) => {
+        if (next === view) return
         blockAutomaticReads.current = false
         invalidatePagination()
         setView(next)
