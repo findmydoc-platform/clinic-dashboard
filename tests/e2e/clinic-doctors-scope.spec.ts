@@ -74,7 +74,26 @@ test("doctor edits and protected switching stay bound to the selected clinic", a
   await expect(page.getByText("Private unfinished doctor", { exact: true })).toHaveCount(0)
   for (const width of [320, 375, 640, 768, 1024, 1280]) {
     await page.setViewportSize({ width, height: 900 })
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    const overflow = await page.evaluate(() => {
+      const elements = [...document.querySelectorAll("body *")]
+        .map((element) => {
+          const rect = element.getBoundingClientRect()
+          return {
+            tag: element.tagName.toLowerCase(),
+            name: element.getAttribute("aria-label") ?? element.textContent?.trim().slice(0, 40),
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            scrollWidth: element.scrollWidth,
+          }
+        })
+        .filter((element) => element.left < -1 || element.right > innerWidth + 1)
+        .slice(0, 8)
+      return { pageWidth: document.documentElement.scrollWidth, elements }
+    })
+    expect(
+      overflow.pageWidth,
+      `document overflows at ${width}px: ${JSON.stringify(overflow.elements)}`,
+    ).toBeLessThanOrEqual(width)
     await page.screenshot({ path: `output/playwright/group-access/234/doctor-directory-${width}.png` })
   }
   await page.getByRole("button", { name: "Edit Noah Bennett" }).click()

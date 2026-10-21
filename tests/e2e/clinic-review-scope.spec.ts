@@ -146,6 +146,7 @@ test("late old-clinic list completion cannot restore data and current access los
     }),
   )
   await page.getByRole("button", { name: "Refresh", exact: true }).click()
-  await expect(page).toHaveURL(/\/access\?state=restricted$/)
+  await expect(page).toHaveURL(/\/clinics\/controlled-second-clinic\?section=reviews$/)
+  await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toBeVisible()
   await expect(page.getByText("Synthetic controlled-second-clinic", { exact: true })).toHaveCount(0)
 })

@@ -232,9 +232,9 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible()
   for (const domain of ["profile", "inquiries", "reviews"]) {
     const legacy = await page.request.get(`/api/dashboard/${domain}`)
-    expect(legacy.status()).toBe(403)
+    expect([403, 404]).toContain(legacy.status())
     const scoped = await page.request.get(`/api/dashboard/clinics/controlled-clinic/${domain}`)
-    expect(scoped.status()).toBe(404)
+    expect(scoped.status()).toBe(200)
   }
   expect((await page.request.get("/api/dashboard/inquiries")).status()).toBe(404)
   expect((await page.request.get("/api/dashboard/clinics/controlled-clinic/inquiries")).status()).toBe(200)

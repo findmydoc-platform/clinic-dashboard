@@ -35,7 +35,12 @@ export function useEditorDepartureGuard() {
       }
       const attempt = { cancel: onCancel }
       pending.current = attempt
-      const order: Editor[] = intent === "section" ? ["gallery"] : ["reviews", "profile", "inquiries"]
+      const order: Editor[] =
+        intent === "section"
+          ? ["gallery"]
+          : intent === "context-change"
+            ? ["gallery", "reviews", "profile", "inquiries"]
+            : ["reviews", "profile", "inquiries"]
       const proceed = (index: number) => {
         if (pending.current !== attempt) return
         const editor = order[index]
