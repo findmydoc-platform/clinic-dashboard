@@ -139,20 +139,13 @@ export function ClinicProfile({
   })
   const { actions: sourceActions, model: sourceModel } = source
   const requestSourceNavigation = sourceActions.requestNavigation
-  const requestGalleryNavigation = galleryController.actions.requestNavigation
-  const isGalleryOpen = galleryController.model.open
   const hasBlockingDialog =
     treatmentController.model.dialogOpen || treatmentController.model.isBusy || Boolean(sourceModel.dialog)
   const requestNavigation = useCallback(
     (continuation: () => void, onCancel?: () => void, intent?: Parameters<EditorDepartureRequest>[2]) => {
       if (intent === "access-loss") {
         const work: ProtectedEditorWork[] = []
-        for (const request of [
-          requestSourceNavigation,
-          doctorNavigation.current,
-          dialogNavigation.current,
-          ...(isGalleryOpen ? [requestGalleryNavigation] : []),
-        ]) {
+        for (const request of [requestSourceNavigation, doctorNavigation.current, dialogNavigation.current]) {
           const captured = request?.(() => {}, undefined, intent)
           if (captured) work.push(captured)
         }
@@ -164,14 +157,10 @@ export function ClinicProfile({
           },
         }
       }
-      const continueAfterDoctor = () => {
-        if (isGalleryOpen) requestGalleryNavigation(continuation, onCancel)
-        else continuation()
-      }
       const continueAfterSource = () => {
         const doctor = doctorNavigation.current
-        if (doctor) doctor(continueAfterDoctor, onCancel)
-        else continueAfterDoctor()
+        if (doctor) doctor(continuation, onCancel)
+        else continuation()
       }
       if (treatmentController.model.dialogOpen && dialogNavigation.current) {
         dialogNavigation.current(
@@ -189,13 +178,7 @@ export function ClinicProfile({
       setNavigationNotice("")
       requestSourceNavigation(continueAfterSource, onCancel)
     },
-    [
-      hasBlockingDialog,
-      isGalleryOpen,
-      requestGalleryNavigation,
-      requestSourceNavigation,
-      treatmentController.model.dialogOpen,
-    ],
+    [hasBlockingDialog, requestSourceNavigation, treatmentController.model.dialogOpen],
   )
   useEffect(() => {
     const hasEditor =
