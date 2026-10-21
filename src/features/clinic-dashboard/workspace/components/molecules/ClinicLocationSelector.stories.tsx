@@ -59,7 +59,9 @@ export const KeyboardFocusAndSelection: Story = {
     await userEvent.keyboard("{Enter}")
 
     await waitFor(() => expect(page.queryByRole("menu")).not.toBeInTheDocument())
-    await expect(trigger).toHaveAccessibleName(/Current location: Berlin Health Clinic — Charlottenburg/)
+    await waitFor(() =>
+      expect(trigger).toHaveAccessibleName(/Current location: Berlin Health Clinic — Charlottenburg/),
+    )
     await expect(args.onValueChange).toHaveBeenCalledWith("berlin-charlottenburg")
     await expect(trigger).toHaveFocus()
   },
@@ -78,7 +80,9 @@ export const NarrowViewport: Story = {
       canvasElement.ownerDocument.documentElement.clientWidth,
     )
     await userEvent.click(potsdam)
-    await expect(trigger).toHaveAccessibleName(/Current location: Berlin Health Clinic — Potsdam/)
+    await waitFor(() =>
+      expect(trigger).toHaveAccessibleName(/Current location: Berlin Health Clinic — Potsdam/),
+    )
     await expect(canvas.getByText(workspaceOrganizationFixture.name, { exact: true })).toBeVisible()
     await expect(canvas.getByText("Potsdam", { exact: true })).toBeVisible()
     await expect(canvas.getByText("Berlin Health Clinic — Potsdam", { exact: true })).not.toBeVisible()

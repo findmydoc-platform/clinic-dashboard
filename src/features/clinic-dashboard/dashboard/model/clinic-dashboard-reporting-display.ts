@@ -109,3 +109,23 @@ export function createSessionConversionDisplay(
     value: current.state === "available" ? formatReportingPercent(current.ratePercent) : display.value,
   }
 }
+
+export function formatReportingObservationTimestamp(timestamp: string, timezone: string) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      calendar: "gregory",
+      numberingSystem: "latn",
+      timeZone: timezone,
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(new Date(timestamp))
+      .map(({ type, value }) => [type, value]),
+  )
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  return `${Number(parts.day)} ${months[Number(parts.month) - 1]} ${parts.year}, ${parts.hour.padStart(2, "0")}:${parts.minute.padStart(2, "0")}`
+}

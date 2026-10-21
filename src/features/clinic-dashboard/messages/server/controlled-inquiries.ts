@@ -262,7 +262,11 @@ function controlledStateByClinic() {
   return controlledGlobal.__clinicDashboardInquiryStateByClinic
 }
 
-function createControlledState(): ControlledInquiryState {
+function controlledInquiryStateKey(clinicId: string, scenario?: string) {
+  return scenario ? `${scenario}:${clinicId}` : clinicId
+}
+
+function createControlledState(clinicId: string): ControlledInquiryState {
   const syntheticAttachmentBody = new TextEncoder().encode("synthetic attachment").buffer
   return {
     attachmentBodies: new Map([
@@ -270,7 +274,18 @@ function createControlledState(): ControlledInquiryState {
     ]),
     drafts: new Map(),
     idempotentResults: new Map<string, ControlledIdempotentResult>(),
-    inquiries: details(),
+    inquiries: details().map((inquiry) =>
+      clinicId === "controlled-second-clinic"
+        ? {
+            ...inquiry,
+            id: `second-${inquiry.id}`,
+            patient:
+              inquiry.patient.kind === "deleted"
+                ? inquiry.patient
+                : { ...inquiry.patient, name: `Second clinic ${inquiry.patient.name}` },
+          }
+        : inquiry,
+    ),
     nextDraftSequence: 1,
     priorHandlingStatus: new Map(),
   }
@@ -286,15 +301,16 @@ function controlledChangeCursor(value: string) {
 }
 
 export function resetControlledPatientInquiryProvider(clinicId?: string) {
-  if (clinicId) controlledStateByClinic().set(clinicId, createControlledState())
+  if (clinicId) controlledStateByClinic().set(clinicId, createControlledState(clinicId))
   else controlledStateByClinic().clear()
 }
 
 export function createControlledPatientInquiryAttachmentDraftUpload(
   clinicId = "controlled-clinic",
+  scenario?: string,
 ): PatientInquiryAttachmentDraftUpload {
   return async ({ body, draftId, mimeType }) => {
-    const state = controlledStateByClinic().get(clinicId)
+    const state = controlledStateByClinic().get(controlledInquiryStateKey(clinicId, scenario))
     const draft = state?.drafts.get(draftId)
     if (!state || !draft) return { error: { code: "not-found" }, ok: false }
     if (
@@ -312,10 +328,12 @@ export function createControlledPatientInquiryAttachmentDraftUpload(
 
 export function createControlledPatientInquiryProvider(
   clinicId = "controlled-clinic",
+  scenario?: string,
 ): PatientInquiryProvider {
   const stateByClinic = controlledStateByClinic()
-  const state = stateByClinic.get(clinicId) ?? createControlledState()
-  stateByClinic.set(clinicId, state)
+  const stateKey = controlledInquiryStateKey(clinicId, scenario)
+  const state = stateByClinic.get(stateKey) ?? createControlledState(clinicId)
+  stateByClinic.set(stateKey, state)
 
   const find = (inquiryId: string) => state.inquiries.find((inquiry) => inquiry.id === inquiryId)
   const replace = (next: PatientInquiryDetail) => {
@@ -499,7 +517,7 @@ export function createControlledPatientInquiryProvider(
           upload: {
             headers: { "content-type": mimeType },
             method: "PUT",
-            url: `/api/dashboard/inquiries/attachments/drafts/upload?draftId=${encodeURIComponent(draftId)}`,
+            url: `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/inquiries/attachments/drafts/upload?draftId=${encodeURIComponent(draftId)}`,
           },
         },
       }

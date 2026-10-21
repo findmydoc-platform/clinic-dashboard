@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { POST } from "@/app/api/dashboard/inquiries/appeal/route"
+import { POST } from "@/app/api/dashboard/clinics/[clinicId]/inquiries/appeal/route"
 import { createCsrfToken } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
 
 const supabase = vi.hoisted(() => ({ getClaims: vi.fn(), getSession: vi.fn() }))
 vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: supabase }) }))
 
-const route = "http://localhost:3000/api/dashboard/inquiries/appeal"
+const route = "http://localhost:3000/api/dashboard/clinics/clinic-123/inquiries/appeal"
 const cookie = "clinic-dashboard-auth=synthetic-session"
 const appeal = { caseId: "case-123", text: " Please reconsider the measure. " }
 
@@ -68,20 +68,23 @@ describe("ordinary clinic Inquiry appeal BFF", () => {
       if (String(url) === "https://preview.findmydoc.eu/api/clinic-dashboard/bootstrap") {
         return Response.json(
           {
-            capabilities,
-            clinic: { id: "clinic-123", name: "Synthetic clinic" },
+            schemaVersion: "clinic-scope-v1",
+            clinics: [{ id: "clinic-123", name: "Synthetic clinic", capabilities }],
             principal: { displayName: "Synthetic staff", email: "staff@example.com", id: "staff-123" },
             status: "approved",
           },
           {
             headers: {
               "cache-control": "private, no-store",
-              vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+              vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract, X-Findmydoc-Clinic-Scope-Contract",
             },
           },
         )
       }
-      if (String(url) === "https://preview.findmydoc.eu/api/clinic-dashboard/inquiries/appeal") {
+      if (
+        String(url) ===
+        "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-123/inquiries/appeal"
+      ) {
         return Response.json({ submitted: true }, { status: 201 })
       }
       throw new Error("Unexpected external request")

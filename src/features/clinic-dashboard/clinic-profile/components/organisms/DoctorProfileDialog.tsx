@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Camera, CirclePlus, X } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -63,10 +63,18 @@ const levelLabels: Record<(typeof doctorSpecializationLevelValues)[number], stri
   specialist: "Specialist",
 }
 
+export type DoctorEditorDepartureRequest = (
+  continuation: () => void,
+  onCancel?: () => void,
+  intent?: "context-change" | "destination" | "section" | "access-loss",
+) => Readonly<{ draft: unknown; discard: () => void | Promise<void> }> | void
+
 type DoctorProfileDialogProps = Readonly<{
+  contextNavigation?: ReactNode
   initialDoctor?: DoctorProfile
   medicalSpecialties: readonly MedicalSpecialtyOption[]
   navigationNotice?: string
+  onNavigationRequestChange?: (request: DoctorEditorDepartureRequest | null) => void
   onOpenChange: (open: boolean) => void
   onSave: (draft: DoctorProfileDraft, persistedDoctor?: DoctorProfile) => Promise<DoctorProfileSaveResult>
   open: boolean
@@ -179,13 +187,22 @@ function saveFailureMessage(
 }
 
 export function DoctorProfileDialog({
+  contextNavigation,
   initialDoctor,
   medicalSpecialties,
   navigationNotice,
   onOpenChange,
+  onNavigationRequestChange,
   onSave,
   open,
 }: DoctorProfileDialogProps) {
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const initialDraft = useMemo(() => createDoctorProfileDraft(initialDoctor), [initialDoctor])
   const [draft, setDraft] = useState(initialDraft)
   const [persistedDoctor, setPersistedDoctor] = useState(initialDoctor)
@@ -218,9 +235,85 @@ export function DoctorProfileDialog({
     [],
   )
 
+  const [hasPendingDeparture, setHasPendingDeparture] = useState(false)
+  const pendingDeparture = useRef<{ continuation: () => void; onCancel?: () => void } | undefined>(undefined)
+  const cancelDeparture = useCallback(() => {
+    const pending = pendingDeparture.current
+    pendingDeparture.current = undefined
+    setHasPendingDeparture(false)
+    setDiscardConfirmation(false)
+    pending?.onCancel?.()
+  }, [])
+  const finishDeparture = () => {
+    const pending = pendingDeparture.current
+    pendingDeparture.current = undefined
+    setHasPendingDeparture(false)
+    onOpenChange(false)
+    pending?.continuation()
+  }
+  const requestNavigation = useCallback(
+    (
+      continuation: () => void,
+      onCancel?: () => void,
+      intent?: "context-change" | "destination" | "section" | "access-loss",
+    ) => {
+      if (intent === "access-loss") {
+        if (!isDirty && !isSaving && !creationNeedsReload) return
+        return {
+          draft: { draft, persistedDoctor, baseline, saveState },
+          discard: () => {
+            if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current)
+            imagePreviewUrlRef.current = undefined
+            if (mounted.current) {
+              cancelDeparture()
+              setDraft(initialDraft)
+              onOpenChange(false)
+            }
+          },
+        }
+      }
+      cancelDeparture()
+      if (isSaving) {
+        onCancel?.()
+        return
+      }
+      if (!isDirty) {
+        onOpenChange(false)
+        continuation()
+        return
+      }
+      pendingDeparture.current = { continuation, onCancel }
+      setHasPendingDeparture(true)
+      setDiscardConfirmation(true)
+    },
+    [
+      baseline,
+      cancelDeparture,
+      creationNeedsReload,
+      draft,
+      initialDraft,
+      isDirty,
+      isSaving,
+      onOpenChange,
+      persistedDoctor,
+      saveState,
+    ],
+  )
+  useEffect(() => {
+    onNavigationRequestChange?.(requestNavigation)
+    return () => onNavigationRequestChange?.(null)
+  }, [onNavigationRequestChange, requestNavigation])
+  useEffect(
+    () => () => {
+      pendingDeparture.current?.onCancel?.()
+      pendingDeparture.current = undefined
+    },
+    [],
+  )
+
   const updateDraft = (update: Partial<DoctorProfileDraft>) => {
     setDraft((current) => ({ ...current, ...update }))
-    setDiscardConfirmation(false)
+    cancelDeparture()
   }
 
   const requestClose = () => {
@@ -263,7 +356,16 @@ export function DoctorProfileDialog({
 
     setSaveState("saving")
     setStatusMessage("")
-    const result = await onSave(draft, persistedDoctor)
+    let result: DoctorProfileSaveResult
+    try {
+      result = await onSave(draft, persistedDoctor)
+      if (!mounted.current) return
+    } catch {
+      if (!mounted.current) return
+      setStatusMessage("The doctor could not be saved. Check your connection and try again.")
+      setSaveState("idle")
+      return
+    }
     setSaveState("idle")
 
     if (result.doctor) {
@@ -278,7 +380,7 @@ export function DoctorProfileDialog({
       setImagePreviewUrl(undefined)
     }
     if (result.status === "saved") {
-      onOpenChange(false)
+      finishDeparture()
       return
     }
     setStatusMessage(saveFailureMessage(result, medicalSpecialties))
@@ -287,19 +389,25 @@ export function DoctorProfileDialog({
   return (
     <Modal
       contentClassName="p-0 sm:p-0"
+      headerMeta={contextNavigation}
       footer={
         discardConfirmation ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-bold text-[var(--destructive)]" role="alert">
-              Discard the unsaved changes?
+              {statusMessage || "Discard the unsaved changes?"}
             </p>
-            <div className="flex justify-end gap-2">
-              <Button onClick={() => setDiscardConfirmation(false)} variant="outline">
+            <div className="flex flex-col justify-end gap-2 sm:flex-row">
+              <Button disabled={isSaving} onClick={cancelDeparture} variant="outline">
                 Keep editing
               </Button>
-              <Button onClick={() => onOpenChange(false)} variant="destructive">
+              <Button disabled={isSaving} onClick={finishDeparture} variant="destructive">
                 Discard changes
               </Button>
+              {hasPendingDeparture ? (
+                <Button disabled={isSaving || creationNeedsReload} onClick={save}>
+                  {isSaving ? "Saving…" : "Save and continue"}
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -344,6 +452,7 @@ export function DoctorProfileDialog({
                 initials={doctorInitials(persistedDoctor, draft) || "DR"}
                 sizes="160px"
                 src={imagePreviewUrl ?? persistedDoctor?.image?.url}
+                unoptimized
               />
               <input
                 accept="image/avif,image/gif,image/jpeg,image/png,image/webp"

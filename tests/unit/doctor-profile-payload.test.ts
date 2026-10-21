@@ -63,14 +63,30 @@ describe("Doctor profile Payload adapter", () => {
     vi.unstubAllEnvs()
   })
 
+  it("reads image bytes only from the explicit target doctor route", async () => {
+    const fetcher = vi.fn<typeof fetch>(
+      async () => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/png" } }),
+    )
+    const provider = createPayloadDoctorProfileProvider("access-token", "clinic-1", fetcher)
+    await expect(provider.loadImage("doctor-1")).resolves.toMatchObject({
+      ok: true,
+      value: { mimeType: "image/png" },
+    })
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe(
+      "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/doctors/doctor-1/image",
+    )
+    expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ cache: "no-store", redirect: "error" })
+  })
+
   it("loads only the authenticated clinic directory and existing specialty catalogue", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input))
-      if (url.pathname === "/api/doctors") return jsonResponse({ docs: [upstreamDoctor] })
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors")
+        return jsonResponse({ docs: [upstreamDoctor] })
       if (url.pathname === "/api/medical-specialties") {
         return jsonResponse({ docs: upstreamSpecialties })
       }
-      if (url.pathname === "/api/doctorspecialties") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties") {
         return jsonResponse({ docs: [upstreamAssignment] })
       }
       return jsonResponse({}, 404)
@@ -91,7 +107,7 @@ describe("Doctor profile Payload adapter", () => {
             image: {
               alt: "Portrait of Dr Amelia Carter",
               id: "media-old",
-              url: "https://preview.findmydoc.eu/api/doctorMedia/file/amelia-old.png",
+              url: "/api/dashboard/clinics/clinic-1/doctors/doctor-1/image?revision=media-old",
             },
             languages: ["english", "german"],
             lastName: "Carter",
@@ -125,7 +141,9 @@ describe("Doctor profile Payload adapter", () => {
       },
     })
 
-    const doctorRequest = fetcher.mock.calls.find(([input]) => String(input).includes("/api/doctors?"))
+    const doctorRequest = fetcher.mock.calls.find(([input]) =>
+      String(input).includes("/api/clinic-dashboard/clinics/clinic-1/doctors?"),
+    )
     const doctorUrl = new URL(String(doctorRequest?.[0]))
     expect(doctorUrl.searchParams.get("where[clinic][equals]")).toBe("clinic-1")
     expect(doctorRequest?.[1]).toMatchObject({
@@ -167,7 +185,7 @@ describe("Doctor profile Payload adapter", () => {
 
     expect(result).toMatchObject({ ok: true, value: { active: false, id: "14" } })
     const [url, init] = fetcher.mock.calls[0] ?? []
-    expect(String(url)).toContain("/api/doctors?depth=1")
+    expect(String(url)).toContain("/api/clinic-dashboard/clinics/7/doctors?depth=1")
     expect(JSON.parse(String(init?.body))).toEqual({
       active: false,
       biography: "Cardiology biography.",
@@ -231,16 +249,19 @@ describe("Doctor profile Payload adapter", () => {
   ] as const)("maps a Payload %i mutation response to %s", async (status, expectedError) => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && !init?.method) {
         return jsonResponse({ docs: [upstreamDoctor] })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties" && !init?.method) {
         return jsonResponse({ docs: [upstreamAssignment] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: upstreamSpecialties })
       }
-      if (url.pathname === "/api/doctors/doctor-1" && init?.method === "PATCH") {
+      if (
+        url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors/doctor-1" &&
+        init?.method === "PATCH"
+      ) {
         return jsonResponse({ error: "rejected" }, status)
       }
       return jsonResponse({}, 500)
@@ -256,7 +277,8 @@ describe("Doctor profile Payload adapter", () => {
   it("accepts only catalogued specialties", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input))
-      if (url.pathname === "/api/doctors") return jsonResponse({ docs: [upstreamDoctor] })
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors")
+        return jsonResponse({ docs: [upstreamDoctor] })
       if (url.pathname === "/api/medical-specialties") {
         return jsonResponse({ docs: upstreamSpecialties })
       }
@@ -273,7 +295,8 @@ describe("Doctor profile Payload adapter", () => {
     expect(
       fetcher.mock.calls.some(
         ([input, init]) =>
-          new URL(String(input)).pathname === "/api/doctorspecialties" && init?.method === "POST",
+          new URL(String(input)).pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties" &&
+          init?.method === "POST",
       ),
     ).toBe(false)
   })
@@ -303,16 +326,16 @@ describe("Doctor profile Payload adapter", () => {
     }
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctors" && !init?.method) {
         return jsonResponse({ docs: [numericDoctor] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: numericSpecialties })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctor-specialties" && !init?.method) {
         return jsonResponse({ docs: [] })
       }
-      if (url.pathname === "/api/doctorspecialties" && init?.method === "POST") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctor-specialties" && init?.method === "POST") {
         expect(JSON.parse(String(init.body))).toEqual({
           doctor: 14,
           medicalSpecialty: 35,
@@ -344,17 +367,20 @@ describe("Doctor profile Payload adapter", () => {
     let specialtyReads = 0
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && !init?.method) {
         return jsonResponse({ docs: [upstreamDoctor] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: upstreamSpecialties })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties" && !init?.method) {
         specialtyReads += 1
         return jsonResponse({ docs: specialtyReads === 1 ? [] : [upstreamAssignment] })
       }
-      if (url.pathname === "/api/doctorspecialties" && init?.method === "POST") {
+      if (
+        url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties" &&
+        init?.method === "POST"
+      ) {
         return jsonResponse({ code: "CONFLICT" }, 409)
       }
       return jsonResponse({}, 500)
@@ -395,18 +421,21 @@ describe("Doctor profile Payload adapter", () => {
     }
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctors" && !init?.method) {
         return jsonResponse({ docs: [numericDoctor] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: numericSpecialties })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctor-specialties" && !init?.method) {
         expect(url.searchParams.get("where[and][0][doctor][equals]")).toBe("14")
         expect(url.searchParams.get("where[and][1][id][equals]")).toBe("17")
         return jsonResponse({ docs: [numericAssignment] })
       }
-      if (url.pathname === "/api/doctorspecialties/17" && init?.method === "PATCH") {
+      if (
+        url.pathname === "/api/clinic-dashboard/clinics/7/doctor-specialties/17" &&
+        init?.method === "PATCH"
+      ) {
         expect(JSON.parse(String(init.body))).toEqual({
           medicalSpecialty: 35,
           specializationLevel: "expert",
@@ -462,16 +491,16 @@ describe("Doctor profile Payload adapter", () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
       calls.push(`${init?.method ?? "GET"} ${url.pathname}`)
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctors" && !init?.method) {
         return jsonResponse({ docs: [numericDoctor] })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctor-specialties" && !init?.method) {
         return jsonResponse({ docs: [numericAssignment] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: numericSpecialties })
       }
-      if (url.pathname === "/api/doctorMedia" && init?.method === "POST") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctor-media" && init?.method === "POST") {
         const formData = init.body as FormData
         expect(JSON.parse(String(formData.get("_payload")))).toEqual({
           alt: "Updated portrait",
@@ -488,7 +517,7 @@ describe("Doctor profile Payload adapter", () => {
           },
         })
       }
-      if (url.pathname === "/api/doctors" && init?.method === "PATCH") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctors" && init?.method === "PATCH") {
         expect(init.body).toBe('{"profileImage":23}')
         expect(url.searchParams.get("where[and][0][clinic][equals]")).toBe("7")
         expect(url.searchParams.get("where[and][1][id][equals]")).toBe("14")
@@ -506,7 +535,7 @@ describe("Doctor profile Payload adapter", () => {
           ],
         })
       }
-      if (url.pathname === "/api/doctorMedia/22" && init?.method === "DELETE") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/7/doctor-media/22" && init?.method === "DELETE") {
         return new Response(null, { status: 200 })
       }
       return jsonResponse({}, 500)
@@ -525,18 +554,18 @@ describe("Doctor profile Payload adapter", () => {
       value: {
         cleanupPending: false,
         profile: {
-          image: { id: "23" },
+          image: { id: "23", url: "/api/dashboard/clinics/7/doctors/14/image?revision=23" },
           specialties: [{ id: "17" }],
         },
       },
     })
     expect(calls).toEqual([
-      "GET /api/doctors",
-      "GET /api/doctorspecialties",
+      "GET /api/clinic-dashboard/clinics/7/doctors",
+      "GET /api/clinic-dashboard/clinics/7/doctor-specialties",
       "GET /api/medical-specialties",
-      "POST /api/doctorMedia",
-      "PATCH /api/doctors",
-      "DELETE /api/doctorMedia/22",
+      "POST /api/clinic-dashboard/clinics/7/doctor-media",
+      "PATCH /api/clinic-dashboard/clinics/7/doctors",
+      "DELETE /api/clinic-dashboard/clinics/7/doctor-media/22",
     ])
   })
 
@@ -544,16 +573,16 @@ describe("Doctor profile Payload adapter", () => {
     let cleanupAttempts = 0
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && !init?.method) {
         return jsonResponse({ docs: [upstreamDoctor] })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties" && !init?.method) {
         return jsonResponse({ docs: [upstreamAssignment] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: upstreamSpecialties })
       }
-      if (url.pathname === "/api/doctorMedia" && init?.method === "POST") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-media" && init?.method === "POST") {
         return jsonResponse({
           doc: {
             alt: "Updated portrait",
@@ -564,7 +593,7 @@ describe("Doctor profile Payload adapter", () => {
           },
         })
       }
-      if (url.pathname === "/api/doctors" && init?.method === "PATCH") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && init?.method === "PATCH") {
         return jsonResponse({
           docs: [
             {
@@ -578,7 +607,10 @@ describe("Doctor profile Payload adapter", () => {
           ],
         })
       }
-      if (url.pathname === "/api/doctorMedia/media-old" && init?.method === "DELETE") {
+      if (
+        url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-media/media-old" &&
+        init?.method === "DELETE"
+      ) {
         cleanupAttempts += 1
         return jsonResponse({ code: "UNAVAILABLE" }, 500)
       }
@@ -608,7 +640,7 @@ describe("Doctor profile Payload adapter", () => {
     const deletedMedia: string[] = []
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && !init?.method) {
         doctorReads += 1
         return jsonResponse({
           docs: [
@@ -625,13 +657,13 @@ describe("Doctor profile Payload adapter", () => {
           ],
         })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties" && !init?.method) {
         return jsonResponse({ docs: [upstreamAssignment] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: upstreamSpecialties })
       }
-      if (url.pathname === "/api/doctorMedia" && init?.method === "POST") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-media" && init?.method === "POST") {
         return jsonResponse({
           doc: {
             alt: "Updated portrait",
@@ -642,10 +674,13 @@ describe("Doctor profile Payload adapter", () => {
           },
         })
       }
-      if (url.pathname === "/api/doctors" && init?.method === "PATCH") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && init?.method === "PATCH") {
         throw new Error("response lost")
       }
-      if (url.pathname.startsWith("/api/doctorMedia/") && init?.method === "DELETE") {
+      if (
+        url.pathname.startsWith("/api/clinic-dashboard/clinics/clinic-1/doctor-media/") &&
+        init?.method === "DELETE"
+      ) {
         deletedMedia.push(url.pathname)
         return new Response(null, { status: 200 })
       }
@@ -668,7 +703,7 @@ describe("Doctor profile Payload adapter", () => {
       },
     })
     expect(doctorReads).toBe(2)
-    expect(deletedMedia).toEqual(["/api/doctorMedia/media-old"])
+    expect(deletedMedia).toEqual(["/api/clinic-dashboard/clinics/clinic-1/doctor-media/media-old"])
   })
 
   it("rejects a concurrent image replacement and removes its unused upload", async () => {
@@ -676,16 +711,16 @@ describe("Doctor profile Payload adapter", () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
       calls.push(`${init?.method ?? "GET"} ${url.pathname}`)
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && !init?.method) {
         return jsonResponse({ docs: [upstreamDoctor] })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties" && !init?.method) {
         return jsonResponse({ docs: [upstreamAssignment] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: upstreamSpecialties })
       }
-      if (url.pathname === "/api/doctorMedia" && init?.method === "POST") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-media" && init?.method === "POST") {
         return jsonResponse({
           doc: {
             alt: "Updated portrait",
@@ -696,10 +731,13 @@ describe("Doctor profile Payload adapter", () => {
           },
         })
       }
-      if (url.pathname === "/api/doctors" && init?.method === "PATCH") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && init?.method === "PATCH") {
         return jsonResponse({ docs: [] })
       }
-      if (url.pathname === "/api/doctorMedia/media-new" && init?.method === "DELETE") {
+      if (
+        url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-media/media-new" &&
+        init?.method === "DELETE"
+      ) {
         return new Response(null, { status: 200 })
       }
       return jsonResponse({}, 500)
@@ -714,7 +752,7 @@ describe("Doctor profile Payload adapter", () => {
         mimeType: "image/png",
       }),
     ).resolves.toEqual({ error: "conflict", ok: false })
-    expect(calls.at(-1)).toBe("DELETE /api/doctorMedia/media-new")
+    expect(calls.at(-1)).toBe("DELETE /api/clinic-dashboard/clinics/clinic-1/doctor-media/media-new")
   })
 
   it("cleans up a new media record when assigning it to the doctor fails", async () => {
@@ -722,16 +760,16 @@ describe("Doctor profile Payload adapter", () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const url = new URL(String(input))
       calls.push(`${init?.method ?? "GET"} ${url.pathname}`)
-      if (url.pathname === "/api/doctors" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && !init?.method) {
         return jsonResponse({ docs: [upstreamDoctor] })
       }
-      if (url.pathname === "/api/doctorspecialties" && !init?.method) {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-specialties" && !init?.method) {
         return jsonResponse({ docs: [upstreamAssignment] })
       }
       if (url.pathname === "/api/medical-specialties" && !init?.method) {
         return jsonResponse({ docs: upstreamSpecialties })
       }
-      if (url.pathname === "/api/doctorMedia" && init?.method === "POST") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-media" && init?.method === "POST") {
         return jsonResponse({
           doc: {
             alt: "Updated portrait",
@@ -742,10 +780,13 @@ describe("Doctor profile Payload adapter", () => {
           },
         })
       }
-      if (url.pathname === "/api/doctors" && init?.method === "PATCH") {
+      if (url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctors" && init?.method === "PATCH") {
         return jsonResponse({ error: "unavailable" }, 500)
       }
-      if (url.pathname === "/api/doctorMedia/media-new" && init?.method === "DELETE") {
+      if (
+        url.pathname === "/api/clinic-dashboard/clinics/clinic-1/doctor-media/media-new" &&
+        init?.method === "DELETE"
+      ) {
         return new Response(null, { status: 200 })
       }
       return jsonResponse({}, 500)
@@ -761,12 +802,12 @@ describe("Doctor profile Payload adapter", () => {
       }),
     ).resolves.toEqual({ error: "temporarily-unavailable", ok: false })
     expect(calls).toEqual([
-      "GET /api/doctors",
-      "GET /api/doctorspecialties",
+      "GET /api/clinic-dashboard/clinics/clinic-1/doctors",
+      "GET /api/clinic-dashboard/clinics/clinic-1/doctor-specialties",
       "GET /api/medical-specialties",
-      "POST /api/doctorMedia",
-      "PATCH /api/doctors",
-      "DELETE /api/doctorMedia/media-new",
+      "POST /api/clinic-dashboard/clinics/clinic-1/doctor-media",
+      "PATCH /api/clinic-dashboard/clinics/clinic-1/doctors",
+      "DELETE /api/clinic-dashboard/clinics/clinic-1/doctor-media/media-new",
     ])
   })
 })

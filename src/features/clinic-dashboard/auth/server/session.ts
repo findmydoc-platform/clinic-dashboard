@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NextResponse } from "next/server"
 import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode } from "@/lib/env"
+import { withControlledProfileScenario } from "../../controlled-profile-scenario"
 import { createReadOnlySupabaseClient } from "./supabase-client"
 
 const CONTROLLED_SESSION_COOKIE = "clinic_dashboard_controlled_session"
@@ -55,14 +56,22 @@ export async function getClinicDashboardSession(
   if (isControlledAuthTestMode()) {
     return cookieSource.get(CONTROLLED_SESSION_COOKIE)?.value === CONTROLLED_SESSION_VALUE
       ? {
-          accessToken:
+          accessToken: withControlledProfileScenario(
             cookieSource.get("clinic_dashboard_controlled_access_state")?.value === "denied"
               ? "controlled-denied"
               : cookieSource.get("clinic_dashboard_controlled_access_state")?.value === "outage"
                 ? "controlled-outage"
                 : isLocalInquiryAcceptanceMode()
                   ? (process.env.CLINIC_DASHBOARD_LOCAL_ACCEPTANCE_TOKEN ?? "")
-                  : "controlled-access-token",
+                  : cookieSource.get("clinic_dashboard_controlled_clinics")?.value === "many"
+                    ? "controlled-many"
+                    : cookieSource.get("clinic_dashboard_controlled_clinics")?.value === "empty"
+                      ? "controlled-empty"
+                      : "controlled-access-token",
+            isLocalInquiryAcceptanceMode()
+              ? undefined
+              : cookieSource.get("clinic_dashboard_controlled_profile_scenario")?.value,
+          ),
           email: "clinic-staff@example.com",
           isClinicAccount: true,
           subject: "controlled-clinic-staff",

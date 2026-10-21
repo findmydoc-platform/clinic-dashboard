@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test"
+import { randomUUID } from "node:crypto"
+import { expect, test, type Page } from "../fixtures/controlled-profile-scenario"
+import { clinicScopeConversions } from "@/features/clinic-dashboard/workspace/model/clinic-scope-conversions"
 import { controlledEmailCallbackPath } from "../fixtures/controlled-email-callback"
 
 const testDashboardPassword = "clinic-dashboard-test"
@@ -10,10 +12,12 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/login$/)
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill(testDashboardPassword)
-  await page.getByRole("button", { name: "Sign in" }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await Promise.all([
+    page.waitForURL(/\/clinics\/controlled-clinic\?section=dashboard$/),
+    page.getByRole("button", { name: "Sign in" }).click(),
+  ])
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
-  await page.waitForLoadState("networkidle")
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
 }
 
 async function waitForGalleryNotifications(page: Page) {
@@ -69,7 +73,9 @@ test("opens safe inquiry deep links and fails closed for foreign or unsafe ident
   await page.getByLabel("Email address").fill("clinic-staff@example.com")
   await page.getByLabel("Password").fill(testDashboardPassword)
   await page.getByRole("button", { name: "Sign in" }).click()
-  await expect(page).toHaveURL(`${testDashboardOrigin}/?inquiry=inquiry-lukas-weber`)
+  await expect(page).toHaveURL(
+    `${testDashboardOrigin}/clinics/controlled-clinic?section=messages&inquiry=inquiry-lukas-weber`,
+  )
   await expect(page.getByRole("button", { name: "Inquiries" })).toHaveAttribute("aria-current", "page")
   await expect(page.getByRole("region", { name: "Inquiry from Lukas Weber" })).toBeVisible()
 
@@ -89,7 +95,7 @@ test("loads controlled reporting through the request-bound BFF when the selected
   const reportingRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
-    if (url.pathname === "/api/dashboard/reporting") {
+    if (url.pathname === "/api/dashboard/clinics/controlled-clinic/reporting") {
       reportingRequests.push(`${url.pathname}${url.search}`)
     }
   })
@@ -105,7 +111,9 @@ test("loads controlled reporting through the request-bound BFF when the selected
   await page.getByRole("button", { name: "90 days" }).click()
   await expect(reportingMetrics.getByText("902", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect.poll(() => reportingRequests).toEqual(["/api/dashboard/reporting?periodDays=90"])
+  await expect
+    .poll(() => reportingRequests)
+    .toEqual(["/api/dashboard/clinics/controlled-clinic/reporting?periodDays=90"])
 })
 
 test("retains the selected period and metric through review and notification navigation", async ({
@@ -115,7 +123,8 @@ test("retains the selected period and metric through review and notification nav
   const reportingRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
-    if (url.pathname === "/api/dashboard/reporting") reportingRequests.push(url.search)
+    if (url.pathname === "/api/dashboard/clinics/controlled-clinic/reporting")
+      reportingRequests.push(url.search)
   })
   await signIn(page)
   await page.getByRole("button", { name: /Contacts Not supported yet/ }).click()
@@ -142,7 +151,7 @@ test("keeps published profile information usable when reporting and notification
   await page.setViewportSize({ width: 1440, height: 1000 })
   await signIn(page)
   let failedNotificationRequests = 0
-  await page.route("**/api/dashboard/reporting?*", (route) =>
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?*", (route) =>
     route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -161,18 +170,42 @@ test("keeps published profile information usable when reporting and notification
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Public profile progress" })).toBeVisible()
   await expect(page.getByRole("region", { name: "Dashboard clinic location summary" })).toBeVisible()
+  const failedPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.pathname === "/api/notifications" && url.searchParams.get("mode") === "page"
+  })
   await page.getByRole("button", { name: /^Notifications,/ }).click()
+  const failedPage = await failedPageResponse
+  expect(failedPage.status()).toBe(503)
+  expect(await failedPage.finished()).toBeNull()
   await expect.poll(() => failedNotificationRequests).toBeGreaterThan(0)
   await expect(page.getByRole("dialog", { name: "Notifications" }).getByRole("status")).toHaveText(
     "Notifications can't be displayed right now.",
   )
   await page.getByRole("button", { name: "Close notifications" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
-  ).toBeVisible()
-  await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
-  await page.getByRole("button", { name: "View reviews" }).click()
+  if (clinicScopeConversions.gallery && clinicScopeConversions.treatments) {
+    // Retain the full progress acceptance for the #232/#233 domain composition.
+    await expect(
+      page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
+    await page.getByRole("button", { name: "View reviews" }).click()
+  } else {
+    await expect(
+      page.getByRole("heading", { name: "Profile progress unavailable", exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole("list", { name: "Profile tasks" })).toHaveCount(0)
+    await expect(
+      page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
+    ).toHaveCount(0)
+    await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
+    await expect(page.getByText("Controlled Bosphorus Clinic", { exact: true })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Profile basics" })).toContainText(
+      "A multidisciplinary clinic supporting international patients with coordinated treatment planning.",
+    )
+    await page.getByRole("button", { name: "Reviews", exact: true }).click()
+  }
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
 })
 
@@ -208,32 +241,49 @@ test("captures the restored dashboard without overflow in both themes and viewpo
   await expect(page.locator("html")).not.toHaveClass(/dark/)
   await page.locator("nextjs-portal").evaluateAll((portals) => portals.forEach((portal) => portal.remove()))
   await page.screenshot({
+    caret: "initial",
     fullPage: true,
     path: "output/playwright/clinic-dashboard-reporting-light-320.png",
   })
 
   await page.emulateMedia({ colorScheme: "dark" })
   await expect(page.locator("html")).toHaveClass(/dark/)
-  await page.screenshot({ fullPage: true, path: "output/playwright/clinic-dashboard-reporting-dark-320.png" })
+  await page.screenshot({
+    caret: "initial",
+    fullPage: true,
+    path: "output/playwright/clinic-dashboard-reporting-dark-320.png",
+  })
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
   await page.setViewportSize({ height: 1000, width: 1440 })
   await page.emulateMedia({ colorScheme: "light" })
   await expect(page.locator("html")).not.toHaveClass(/dark/)
-  await page.screenshot({ fullPage: true, path: "output/playwright/dashboard-restoration-light-1440.png" })
+  await page.screenshot({
+    caret: "initial",
+    fullPage: true,
+    path: "output/playwright/dashboard-restoration-light-1440.png",
+  })
   await page.emulateMedia({ colorScheme: "dark" })
   await expect(page.locator("html")).toHaveClass(/dark/)
-  await page.screenshot({ fullPage: true, path: "output/playwright/dashboard-restoration-dark-1440.png" })
+  await page.screenshot({
+    caret: "initial",
+    fullPage: true,
+    path: "output/playwright/dashboard-restoration-dark-1440.png",
+  })
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440)
   await page.setViewportSize({ height: 844, width: 390 })
   for (const theme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: theme })
     await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /light/)
-    await page.screenshot({ fullPage: true, path: `output/playwright/dashboard-journey-${theme}-390.png` })
+    await page.screenshot({
+      caret: "initial",
+      fullPage: true,
+      path: `output/playwright/dashboard-journey-${theme}-390.png`,
+    })
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   }
   expect(consoleMessages).toEqual([])
-  await page.route("**/api/dashboard/reporting?*", (route) =>
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?*", (route) =>
     route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -250,6 +300,7 @@ test("captures the restored dashboard without overflow in both themes and viewpo
       await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /light/)
       await page.evaluate(() => window.scrollTo(0, 0))
       await page.screenshot({
+        caret: "initial",
         fullPage: true,
         path: `output/playwright/dashboard-journey-unavailable-${theme}-${width}.png`,
       })
@@ -288,6 +339,7 @@ test("works an inquiry end to end and guards an unsent draft before sign out", a
   const reply = page.getByRole("textbox", { name: "Reply to patient" })
   await reply.fill("Unsent synthetic reply kept for the draft guard.")
 
+  const retainedClinicUrl = page.url()
   let logoutRequests = 0
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === "/api/auth/logout") logoutRequests += 1
@@ -302,7 +354,7 @@ test("works an inquiry end to end and guards an unsent draft before sign out", a
 
   await expect.poll(() => confirmationMessage).toContain("discard all unsent inquiry")
   expect(logoutRequests).toBe(0)
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(retainedClinicUrl)
   await expect(reply).toHaveValue("Unsent synthetic reply kept for the draft guard.")
 
   await reply.fill("")
@@ -312,12 +364,13 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await page.setViewportSize({ height: 960, width: 1440 })
   await signIn(page)
 
+  const inquiryPath = "/api/dashboard/clinics/controlled-clinic/inquiries"
   const attachmentRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
     if (
-      url.pathname.startsWith("/api/dashboard/inquiries/attachments/drafts") ||
-      url.pathname === "/api/dashboard/inquiries/messages"
+      url.pathname.startsWith(`${inquiryPath}/attachments/drafts`) ||
+      url.pathname === `${inquiryPath}/messages`
     ) {
       attachmentRequests.push(`${request.method()} ${url.pathname}`)
     }
@@ -330,11 +383,19 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await status.selectOption("in_review")
   await expect(status).toHaveValue("in_review")
 
+  const finalizedResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === `${inquiryPath}/attachments/drafts/finalize`,
+  )
   await detail.getByLabel("Choose reply attachment").setInputFiles({
     buffer: Buffer.from("%PDF-1.4\nSynthetic treatment plan\n%%EOF", "utf8"),
     mimeType: "application/pdf",
     name: "synthetic-treatment-plan.pdf",
   })
+  const finalized = await finalizedResponse
+  expect(finalized.status()).toBe(200)
+  expect(await finalized.finished()).toBeNull()
   await expect(detail.getByText("synthetic-treatment-plan.pdf", { exact: true })).toBeVisible()
   await expect(detail.getByText("application/pdf · 39 B")).toBeVisible()
 
@@ -347,10 +408,10 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await expect(status).toHaveValue("contacted")
   expect(attachmentRequests).toEqual(
     expect.arrayContaining([
-      "POST /api/dashboard/inquiries/attachments/drafts",
-      "PUT /api/dashboard/inquiries/attachments/drafts/upload",
-      "POST /api/dashboard/inquiries/attachments/drafts/finalize",
-      "POST /api/dashboard/inquiries/messages",
+      `POST ${inquiryPath}/attachments/drafts`,
+      `PUT ${inquiryPath}/attachments/drafts/upload`,
+      `POST ${inquiryPath}/attachments/drafts/finalize`,
+      `POST ${inquiryPath}/messages`,
     ]),
   )
 
@@ -361,6 +422,69 @@ test("uploads and sends a synthetic reply attachment through the controlled BFF"
   await expect(reloadedDetail.getByText("Synthetic reply with a controlled attachment.")).toBeVisible()
   await expect(reloadedDetail.getByText("synthetic-treatment-plan.pdf", { exact: true })).toBeVisible()
   await expect(reloadedDetail.getByRole("combobox", { name: "Inquiry status" })).toHaveValue("contacted")
+})
+
+test("concurrent controlled scenarios keep inquiry attachment writes and reloads independent", async ({
+  browser,
+  baseURL,
+}) => {
+  const contexts = await Promise.all([browser.newContext({ baseURL }), browser.newContext({ baseURL })])
+  try {
+    await Promise.all(
+      contexts.map((context) =>
+        context.addCookies([
+          { name: "clinic_dashboard_controlled_profile_scenario", value: randomUUID(), url: baseURL! },
+        ]),
+      ),
+    )
+    const pages = await Promise.all(contexts.map((context) => context.newPage()))
+    const details = await Promise.all(
+      pages.map(async (page) => {
+        await signIn(page)
+        await page.getByRole("button", { name: "Inquiries", exact: true }).click()
+        await page.getByRole("button", { name: /Lukas Weber/ }).click()
+        const detail = page.getByRole("region", { name: "Inquiry from Lukas Weber" })
+        await expect(detail.getByRole("combobox", { name: "Inquiry status" })).toHaveValue("contacted")
+        return detail
+      }),
+    )
+    await Promise.all(
+      details.map((detail) =>
+        detail.getByRole("combobox", { name: "Inquiry status" }).selectOption("in_review"),
+      ),
+    )
+    await Promise.all(
+      pages.map(async (page, index) => {
+        const detail = details[index]!
+        const fileName = `parallel-scenario-${index + 1}.pdf`
+        const text = `Scenario ${index + 1} isolated attachment reply.`
+        const foreignText = `Scenario ${2 - index} isolated attachment reply.`
+        await detail.getByLabel("Choose reply attachment").setInputFiles({
+          buffer: Buffer.from("%PDF-1.4\nSynthetic treatment plan\n%%EOF", "utf8"),
+          mimeType: "application/pdf",
+          name: fileName,
+        })
+        await expect(detail.getByText("application/pdf · 39 B")).toBeVisible()
+        const reply = detail.getByRole("textbox", { name: "Reply to patient" })
+        await reply.fill(text)
+        await detail.getByRole("button", { name: "Send reply", exact: true }).click()
+        await expect(reply).toHaveValue("")
+        await expect(detail.getByText(text, { exact: true })).toBeVisible()
+        await expect(detail.getByText(foreignText, { exact: true })).toHaveCount(0)
+        await page.reload()
+        await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
+        await page.getByRole("button", { name: "Inquiries", exact: true }).click()
+        await page.getByRole("button", { name: /Lukas Weber/ }).click()
+        const reloaded = page.getByRole("region", { name: "Inquiry from Lukas Weber" })
+        await expect(reloaded.getByText(text, { exact: true })).toBeVisible()
+        await expect(reloaded.getByText(fileName, { exact: true })).toBeVisible()
+        await expect(reloaded.getByText(foreignText, { exact: true })).toHaveCount(0)
+        await expect(reloaded.getByRole("combobox", { name: "Inquiry status" })).toHaveValue("contacted")
+      }),
+    )
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()))
+  }
 })
 
 test("keeps the inquiry list and detail separate at 320 pixels", async ({ page }) => {
@@ -391,7 +515,7 @@ test("reauthenticates once before revealing protected inquiry contact details", 
   await signIn(page)
 
   let revealAttempts = 0
-  await page.route("**/api/dashboard/inquiries/contact/reveal", async (route) => {
+  await page.route("**/api/dashboard/clinics/controlled-clinic/inquiries/contact/reveal", async (route) => {
     revealAttempts += 1
     if (revealAttempts === 1) {
       await route.fulfill({
@@ -496,7 +620,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const firstAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const firstUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   const imageBuffer = Buffer.from(
@@ -514,7 +638,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const secondAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const secondUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   await secondAddImagesDialog
@@ -556,7 +680,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   const saveResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await waitForGalleryNotifications(page)
   await galleryEditor.getByRole("button", { name: "Save and return" }).click()
@@ -573,7 +698,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const thirdAddImagesDialog = page.getByRole("dialog", { name: "Add images" })
   const thirdUploadResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery/media" &&
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery/media" &&
       response.request().method() === "POST",
   )
   await thirdAddImagesDialog
@@ -585,7 +710,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   const completeGalleryResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await waitForGalleryNotifications(page)
   await reopenedEditor.getByRole("button", { name: "Save and return" }).click()
@@ -614,7 +740,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const removalDialog = page.getByRole("alertdialog", { name: "Remove 2 images and save?" })
   const removalResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await removalDialog.getByRole("button", { name: "Remove 2 and save" }).click()
   expect((await removalResponse).status()).toBe(200)
@@ -629,7 +756,7 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
 
   await page.reload()
   await page.getByRole("button", { exact: true, name: "Clinic profile" }).click()
-  await expect(page.getByText("Controlled Bosphorus Clinic")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Clinic profile", exact: true })).toBeVisible()
 
   const cleanupGallery = page.getByRole("region", { name: "Clinic image gallery" })
   await cleanupGallery.getByRole("button", { name: "Manage gallery" }).click()
@@ -641,7 +768,8 @@ test("persists clinic-scoped gallery curation across reload", async ({ page }, t
   const cleanupDialog = page.getByRole("alertdialog", { name: "Remove 1 image and save?" })
   const cleanupResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/gallery" && response.request().method() === "PUT",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/gallery" &&
+      response.request().method() === "PUT",
   )
   await cleanupDialog.getByRole("button", { name: "Remove image and save" }).click()
   expect((await cleanupResponse).status()).toBe(200)
@@ -747,7 +875,8 @@ test("persists doctor creation and editing through the authenticated BFF", async
 
   const createDoctorResponse = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/doctors" && response.request().method() === "POST",
+      new URL(response.url()).pathname === "/api/dashboard/clinics/controlled-clinic/doctors" &&
+      response.request().method() === "POST",
   )
   const createSpecialtyResponse = page.waitForResponse(
     (response) =>
@@ -759,7 +888,10 @@ test("persists doctor creation and editing through the authenticated BFF", async
   )
   const activationResponse = page.waitForResponse((response) => {
     const pathname = new URL(response.url()).pathname
-    return /^\/api\/dashboard\/doctors\/[^/]+$/u.test(pathname) && response.request().method() === "PATCH"
+    return (
+      /^\/api\/dashboard\/clinics\/controlled-clinic\/doctors\/[^/]+$/u.test(pathname) &&
+      response.request().method() === "PATCH"
+    )
   })
 
   await createDialog.getByRole("button", { name: "Add doctor" }).click()
@@ -794,7 +926,10 @@ test("persists doctor creation and editing through the authenticated BFF", async
 
   const updateDoctorResponse = page.waitForResponse((response) => {
     const pathname = new URL(response.url()).pathname
-    return /^\/api\/dashboard\/doctors\/[^/]+$/u.test(pathname) && response.request().method() === "PATCH"
+    return (
+      /^\/api\/dashboard\/clinics\/controlled-clinic\/doctors\/[^/]+$/u.test(pathname) &&
+      response.request().method() === "PATCH"
+    )
   })
   const updateSpecialtyResponse = page.waitForResponse(
     (response) =>
@@ -982,13 +1117,25 @@ test("completes invite and recovery links through explicit confirmation", async 
       })
       .click()
     await expect(page).toHaveURL(new RegExp(`${completionPath.replaceAll("/", "\\/")}$`))
+    // The redirect commits before the new document's form scripts have loaded.
+    await page.waitForLoadState("load")
     const completionGrant = (await page.context().cookies()).find(
       (cookie) => cookie.name === "clinic_dashboard_completion_grant",
     )
     expect(completionGrant).toMatchObject({ httpOnly: true, path: "/", sameSite: "Lax" })
     await page.getByLabel("Password", { exact: true }).fill("new-password")
     await page.getByLabel("Confirm password").fill("new-password")
-    await page.getByRole("button", { name: "Save password" }).click()
+    const completionResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname ===
+          (flow === "invite" ? "/api/auth/invite/complete" : "/api/auth/password/reset/complete"),
+    )
+    const [completed] = await Promise.all([
+      completionResponse,
+      page.getByRole("button", { name: "Save password" }).click(),
+    ])
+    expect(completed.status()).toBe(200)
     await expect(page).toHaveURL(new RegExp(`/login\\?status=${flow}-complete$`))
     expect(
       (await page.context().cookies()).find((cookie) => cookie.name === "clinic_dashboard_completion_grant"),

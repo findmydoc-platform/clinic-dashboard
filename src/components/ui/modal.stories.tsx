@@ -56,3 +56,34 @@ export const Closed: Story = {
 export const Open: Story = {
   args: { open: true },
 }
+
+export const ConfirmationRole: Story = {
+  args: { role: "alertdialog", title: "Confirm departure" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole("button", { name: "Open dialog" })
+    await userEvent.click(trigger)
+    expect(canvas.getByRole("alertdialog", { name: "Confirm departure" })).toBeVisible()
+    await userEvent.keyboard("{Escape}")
+    expect(canvas.queryByRole("alertdialog")).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  },
+}
+
+export const ReopenedBeforeQueuedClose: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "Open dialog" }))
+    const dialog = canvas.getByRole("dialog", { name: "Example dialog" }) as HTMLDialogElement
+    const closed = new Promise<void>((resolve) =>
+      dialog.addEventListener("close", () => resolve(), { once: true }),
+    )
+    // Native close events are queued. Reopening must not turn an old close into a new dismissal.
+    dialog.close()
+    dialog.showModal()
+    await closed
+    expect(args.onOpenChange).not.toHaveBeenCalled()
+    expect(dialog.open).toBe(true)
+    expect(dialog).toBeVisible()
+  },
+}

@@ -73,6 +73,7 @@ test("opens exact authorized review decisions before personal acknowledgment and
       headers: {
         Authorization: `Bearer ${secondToken}`,
         "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
+        "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
       },
     },
   )

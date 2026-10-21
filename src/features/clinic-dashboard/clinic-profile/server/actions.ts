@@ -2,7 +2,10 @@ import "server-only"
 
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
-import { resolveClinicDashboardMutationAccess } from "@/features/clinic-dashboard/auth/server/public"
+import {
+  resolveClinicDashboardMutationAccess,
+  resolveClinicDashboardRouteAccess,
+} from "@/features/clinic-dashboard/auth/server/public"
 import { validateMultipartMutationRequest, validateMutationRequest } from "@/lib/security/csrf"
 import {
   applyPrivateResponseHeaders,
@@ -327,6 +330,33 @@ export async function handleDoctorImageReplace(
       },
     )
     const response = result.ok ? privateJson(result.value) : providerErrorResponse(result.error)
+    return authorization.applyToResponse(response)
+  } catch {
+    return authorization.applyToResponse(privateJson({ code: "DOCTOR_SERVICE_UNAVAILABLE" }, 503))
+  }
+}
+
+export async function handleDoctorImageRead(
+  request: NextRequest,
+  doctorIdValue: string,
+  createProvider: DoctorProfileProviderFactory,
+) {
+  const doctorId = validatedId(doctorIdValue)
+  const query = request.nextUrl.searchParams
+  const revision = query.get("revision")
+  const validQuery = query.size === 0 || (query.size === 1 && revision !== null && validatedId(revision))
+  if (!doctorId || !validQuery) return privateJson({ code: "INVALID_INPUT" }, 400)
+  const authorization = await resolveClinicDashboardRouteAccess(request)
+  if (authorization.status !== "approved")
+    return authorization.applyToResponse(accessErrorResponse(authorization.status))
+  try {
+    const result = await createProvider(authorization.accessToken, authorization.clinicId).loadImage(doctorId)
+    if (!result.ok) return authorization.applyToResponse(providerErrorResponse(result.error))
+    const response = new NextResponse(new Uint8Array(result.value.bytes), {
+      headers: { "Content-Type": result.value.mimeType, "X-Content-Type-Options": "nosniff" },
+    })
+    applyPrivateResponseHeaders(response.headers)
+    response.headers.set("Vary", "Cookie")
     return authorization.applyToResponse(response)
   } catch {
     return authorization.applyToResponse(privateJson({ code: "DOCTOR_SERVICE_UNAVAILABLE" }, 503))

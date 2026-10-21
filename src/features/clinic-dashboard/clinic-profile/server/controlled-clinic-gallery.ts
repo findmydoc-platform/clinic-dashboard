@@ -28,12 +28,12 @@ function controlledState() {
   return controlledGlobal.__findmydocControlledClinicGallery
 }
 
-function snapshotFor(clinicId: string) {
+function snapshotFor(stateKey: string) {
   const state = controlledState()
-  const existing = state.galleryByClinic.get(clinicId)
+  const existing = state.galleryByClinic.get(stateKey)
   if (existing) return existing
   const empty = { constraints, items: [], revision: 0 } as const
-  state.galleryByClinic.set(clinicId, empty)
+  state.galleryByClinic.set(stateKey, empty)
   return empty
 }
 
@@ -43,24 +43,26 @@ export function resetControlledClinicGallery() {
   state.mediaSequence = 0
 }
 
-export function createControlledClinicGalleryProvider(clinicId: string): ClinicGalleryProvider {
+export function createControlledClinicGalleryProvider(
+  clinicId: string,
+  scenario?: string,
+): ClinicGalleryProvider {
+  const stateKey = JSON.stringify([scenario ?? null, clinicId])
   return {
     async discardDrafts(mediaIds) {
-      const current = snapshotFor(clinicId)
-      controlledState().galleryByClinic.set(clinicId, {
+      const current = snapshotFor(stateKey)
+      controlledState().galleryByClinic.set(stateKey, {
         ...current,
         items: current.items.filter((item) => item.status === "published" || !mediaIds.includes(item.id)),
       })
       return { ok: true, value: undefined }
     },
     async loadGallery() {
-      return { ok: true, value: snapshotFor(clinicId) }
+      return { ok: true, value: snapshotFor(stateKey) }
     },
     async loadImage(sourceUrl) {
-      const source = new URL(sourceUrl)
       if (
-        source.hostname !== "images.unsplash.com" ||
-        source.pathname !== "/photo-1576091160399-112ba8d25d1d"
+        !snapshotFor(stateKey).items.some((item) => item.url === sourceUrl || item.thumbnailUrl === sourceUrl)
       ) {
         return { error: "forbidden", ok: false }
       }
@@ -74,7 +76,7 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
       }
     },
     async saveGallery(input) {
-      const current = snapshotFor(clinicId)
+      const current = snapshotFor(stateKey)
       if (current.revision !== input.expectedRevision) return { error: "conflict", ok: false }
       if (new Set(input.items.map((item) => item.mediaId)).size !== input.items.length) {
         return { error: "invalid-input", ok: false }
@@ -92,11 +94,11 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
         })
       }
       const next = { constraints, items, revision: current.revision + 1 }
-      controlledState().galleryByClinic.set(clinicId, next)
+      controlledState().galleryByClinic.set(stateKey, next)
       return { ok: true, value: next }
     },
     async uploadMedia(input) {
-      const current = snapshotFor(clinicId)
+      const current = snapshotFor(stateKey)
       if (input.file.size > constraints.maxFileBytes) return { error: "upload-too-large", ok: false }
       if (!constraints.acceptedMimeTypes.some((mimeType) => mimeType === input.file.type)) {
         return { error: "unsupported-media-type", ok: false }
@@ -104,14 +106,15 @@ export function createControlledClinicGalleryProvider(clinicId: string): ClinicG
       if (current.items.length >= constraints.maxItems) return { error: "invalid-input", ok: false }
       const state = controlledState()
       state.mediaSequence += 1
+      const id = `controlled-gallery-${randomUUID()}`
       const media: ClinicGalleryMedia = {
         alt: input.alt ?? "",
         captionText: input.captionText,
-        id: `controlled-gallery-${randomUUID()}`,
+        id,
         status: "draft",
-        url: `https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1600&q=80&v=${state.mediaSequence}`,
+        url: `https://controlled.example/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/gallery/media/${id}/image`,
       }
-      state.galleryByClinic.set(clinicId, { ...current, items: [...current.items, media] })
+      state.galleryByClinic.set(stateKey, { ...current, items: [...current.items, media] })
       return { ok: true, value: media }
     },
   }

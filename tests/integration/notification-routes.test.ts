@@ -3,11 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import cases from "../fixtures/clinic-notifications-v1.json"
 import readCases from "../fixtures/clinic-notification-read-v1.json"
 
-const accessMocks = vi.hoisted(() => ({ resolveClinicDashboardRouteAccess: vi.fn() }))
+const accessMocks = vi.hoisted(() => ({ resolveClinicDashboardPersonalRouteAccess: vi.fn() }))
 vi.mock("@/features/clinic-dashboard/auth/server/public", () => ({
   getClinicDashboardAccess: vi.fn(),
   getClinicDashboardAccessToken: vi.fn(),
-  resolveClinicDashboardRouteAccess: accessMocks.resolveClinicDashboardRouteAccess,
+  resolveClinicDashboardPersonalRouteAccess: accessMocks.resolveClinicDashboardPersonalRouteAccess,
 }))
 import { handleNotificationsLoad } from "@/features/clinic-dashboard/server"
 import { handleNotificationsMarkRead } from "@/features/clinic-dashboard/server"
@@ -35,7 +35,7 @@ function upstream(body: unknown, status = 200) {
     headers: {
       "content-type": "application/json",
       "cache-control": "private, no-store",
-      vary: "Authorization, X-Findmydoc-Clinic-Notifications-Contract",
+      vary: "Authorization, X-Findmydoc-Clinic-Notifications-Contract, X-Findmydoc-Clinic-Scope-Contract",
       "X-Findmydoc-Clinic-Notifications-Support": "clinic-notifications-v1",
     },
   })
@@ -52,9 +52,10 @@ describe("notification BFF contract", () => {
       SUPABASE_PUBLISHABLE_KEY: "publishable-key",
       SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
     }).forEach(([key, value]) => vi.stubEnv(key, value))
-    accessMocks.resolveClinicDashboardRouteAccess.mockResolvedValue({
+    accessMocks.resolveClinicDashboardPersonalRouteAccess.mockResolvedValue({
       accessToken: "verified-session-token",
-      clinicId: "verified-clinic",
+      principalId: "verified-person",
+      clinicIds: ["verified-clinic"],
       status: "approved",
       applyToResponse: (response: Response) => {
         response.headers.set("x-session-applied", "true")
@@ -199,7 +200,7 @@ describe("notification BFF contract", () => {
         error: { code: "REQUEST_REJECTED" },
         writeOutcome: "not_committed",
       })
-      expect(accessMocks.resolveClinicDashboardRouteAccess).not.toHaveBeenCalled()
+      expect(accessMocks.resolveClinicDashboardPersonalRouteAccess).not.toHaveBeenCalled()
       expect(fetcher).not.toHaveBeenCalled()
     },
   )
@@ -356,7 +357,7 @@ describe("notification BFF contract", () => {
       new NextRequest(`http://localhost:3000/api/notifications${query}`),
     )
     expect(response.status).toBe(400)
-    expect(accessMocks.resolveClinicDashboardRouteAccess).not.toHaveBeenCalled()
+    expect(accessMocks.resolveClinicDashboardPersonalRouteAccess).not.toHaveBeenCalled()
     expect(fetcher).not.toHaveBeenCalled()
   })
 
@@ -367,7 +368,7 @@ describe("notification BFF contract", () => {
   ])("rejects %s with session updates and no source access", async (status, expectedStatus, code) => {
     const fetcher = vi.fn()
     vi.stubGlobal("fetch", fetcher)
-    accessMocks.resolveClinicDashboardRouteAccess.mockResolvedValue({
+    accessMocks.resolveClinicDashboardPersonalRouteAccess.mockResolvedValue({
       status,
       applyToResponse: (response: Response) => {
         response.headers.set("x-session-applied", "true")

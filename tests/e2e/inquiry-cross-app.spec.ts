@@ -30,6 +30,7 @@ const clinicName = requiredValue("INQUIRY_ACCEPTANCE_CLINIC_NAME")
 const patientToken = requiredValue("INQUIRY_ACCEPTANCE_PATIENT_TOKEN")
 const patientSessionCookie = requiredValue("INQUIRY_ACCEPTANCE_PATIENT_SESSION_COOKIE")
 const foreignClinicToken = requiredValue("INQUIRY_ACCEPTANCE_FOREIGN_CLINIC_TOKEN")
+const foreignClinicId = requiredValue("INQUIRY_ACCEPTANCE_FOREIGN_CLINIC_ID")
 const clinicToken = requiredValue("INQUIRY_ACCEPTANCE_CLINIC_TOKEN")
 const secondClinicToken = requiredValue("INQUIRY_ACCEPTANCE_SECOND_CLINIC_TOKEN")
 const inquiryId = requiredValue("INQUIRY_ACCEPTANCE_INQUIRY_ID")
@@ -63,7 +64,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   const clinicSendResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      new URL(response.url()).pathname === "/api/dashboard/inquiries/messages",
+      /^\/api\/dashboard\/clinics\/[^/]+\/inquiries\/messages$/u.test(new URL(response.url()).pathname),
   )
   await detail.getByRole("button", { name: "Send reply" }).click()
   expect((await clinicSendResponse).ok()).toBe(true)
@@ -125,6 +126,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
     headers: {
       Authorization: `Bearer ${clinicToken}`,
       "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+      "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
     },
   })
   expect(bootstrap.ok()).toBe(true)
@@ -137,7 +139,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   await foreignPage.getByLabel("Password").fill("clinic-dashboard-cross-app")
   const foreignDetailResponse = foreignPage.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/inquiries/detail" &&
+      /^\/api\/dashboard\/clinics\/[^/]+\/inquiries\/detail$/u.test(new URL(response.url()).pathname) &&
       response.request().method() === "GET",
   )
   await foreignPage.getByRole("button", { name: "Sign in" }).click()
@@ -150,16 +152,19 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
       .map((part) => part.trim())
       .find((part) => part.startsWith("clinic_dashboard_csrf="))
       ?.split("=")[1]
-    const response = await fetch("/api/dashboard/inquiries/messages", {
-      body: JSON.stringify({
-        expectedRevision: 1,
-        idempotencyKey: "cross-app-foreign-mutation-0001",
-        inquiryId: targetInquiryId,
-        text: "This foreign mutation must be rejected.",
-      }),
-      headers: { "content-type": "application/json", "x-csrf-token": decodeURIComponent(token ?? "") },
-      method: "POST",
-    })
+    const response = await fetch(
+      `/api/dashboard/clinics/${encodeURIComponent(location.pathname.split("/")[2] ?? "")}/inquiries/messages`,
+      {
+        body: JSON.stringify({
+          expectedRevision: 1,
+          idempotencyKey: "cross-app-foreign-mutation-0001",
+          inquiryId: targetInquiryId,
+          text: "This foreign mutation must be rejected.",
+        }),
+        headers: { "content-type": "application/json", "x-csrf-token": decodeURIComponent(token ?? "") },
+        method: "POST",
+      },
+    )
     return { body: await response.json(), status: response.status }
   }, inquiryId)
   expect(foreignMutation).toEqual({ body: { error: { code: "not-found" } }, status: 404 })
@@ -221,6 +226,8 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
       .find((member: { notificationId: string }) => member.notificationId === arrivalBody.notificationId)
       ?.readAt,
   ).toBeNull()
+  await expect(center).not.toBeVisible()
+  await page.getByRole("button", { name: /Notifications,.*unread/ }).click()
   const markResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/notifications/read" &&
@@ -273,6 +280,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
       headers: {
         Authorization: `Bearer ${secondClinicToken}`,
         "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+        "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
         "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
       },
     },
@@ -292,7 +300,7 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   await center.getByRole("tab", { name: "All" }).click()
   const repeatedDetail = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/inquiries/detail" &&
+      /^\/api\/dashboard\/clinics\/[^/]+\/inquiries\/detail$/u.test(new URL(response.url()).pathname) &&
       response.request().method() === "GET",
   )
   await page.route(
@@ -389,19 +397,25 @@ test("proves a tenant-safe clinic and patient exchange across both applications"
   })
   expect(offboardResponse.status()).toBe(204)
   const offboardedQueue = await page.evaluate(async () => {
-    const response = await fetch("/api/dashboard/inquiries?lifecycle=all")
+    const response = await fetch(
+      `/api/dashboard/clinics/${encodeURIComponent(location.pathname.split("/")[2] ?? "")}/inquiries?lifecycle=all`,
+    )
     return { body: await response.json(), status: response.status }
   })
   expect(offboardedQueue).toEqual({ body: { error: { code: "access-denied" } }, status: 403 })
   await page.reload()
   await expect(page.getByText("Ada Patient")).not.toBeVisible()
 
-  const foreignQueue = await request.get(`${websiteOrigin}/api/clinic-dashboard/inquiries?lifecycle=all`, {
-    headers: {
-      Authorization: `Bearer ${foreignClinicToken}`,
-      "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+  const foreignQueue = await request.get(
+    `${websiteOrigin}/api/clinic-dashboard/clinics/${encodeURIComponent(foreignClinicId)}/inquiries?lifecycle=all`,
+    {
+      headers: {
+        Authorization: `Bearer ${foreignClinicToken}`,
+        "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
+        "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
+      },
     },
-  })
+  )
   expect(foreignQueue.ok()).toBe(true)
   const foreignQueueBody = (await foreignQueue.json()) as { items: Array<{ id: string }> }
   expect(foreignQueueBody.items.some((item) => item.id === inquiryId)).toBe(false)

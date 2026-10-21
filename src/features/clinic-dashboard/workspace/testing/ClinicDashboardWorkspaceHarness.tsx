@@ -6,6 +6,7 @@ import {
   evaluateClinicProfileCompleteness,
   evaluateClinicProfileDraftCompleteness,
   type ClinicProfileSnapshot,
+  type ClinicProfileSourceCommands,
 } from "@/features/clinic-dashboard/clinic-profile/public"
 import {
   clinicProfileFixture,
@@ -39,6 +40,7 @@ import {
   reviewSourceSnapshotFixture,
   reviewsFixture,
 } from "@/features/clinic-dashboard/reviews/testing/public"
+import type { ClinicDashboardSection } from "../model/workspace"
 import type { ClinicDashboardWorkspaceProps } from "../ClinicDashboardWorkspace"
 import {
   ClinicDashboardWorkspaceComposition,
@@ -55,6 +57,8 @@ import {
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
   Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
+    onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
+    profileSourceCommands?: ClinicProfileSourceCommands
     reviewCommands?: ReviewSourceCommands
     inquiryCommands?: InquiryWorkspaceCommands
     notificationCommands?: NotificationCommands
@@ -197,6 +201,10 @@ export const clinicDashboardWorkspaceFixture = {
 } satisfies ClinicDashboardWorkspaceInput
 
 export function ClinicDashboardWorkspaceHarness({
+  authorizedClinics,
+  selectionNotice,
+  initialSection,
+  onClinicChange,
   focusInquiryId,
   inquiryCommands,
   reviewCommands: suppliedReviewCommands,
@@ -205,6 +213,7 @@ export function ClinicDashboardWorkspaceHarness({
   profileProgress,
   reportingDemo,
   profileSourceSnapshot,
+  profileSourceCommands,
   loadReporting,
   prototypeMode,
   showPrototypeModeToggle = false,
@@ -221,8 +230,11 @@ export function ClinicDashboardWorkspaceHarness({
     <>
       <ClinicDashboardWorkspaceComposition
         authenticatedContext={authenticatedClinicContextFixture}
+        authorizedClinics={authorizedClinics}
+        selectionNotice={selectionNotice}
+        onClinicChange={onClinicChange}
         clinicGalleryCommands={clinicGalleryCommands}
-        clinicProfileSourceCommands={clinicProfileSourceCommands}
+        clinicProfileSourceCommands={profileSourceCommands ?? clinicProfileSourceCommands}
         clinicTreatmentCommands={clinicTreatmentCommands}
         doctorProfileCommands={doctorProfileCommands}
         focusInquiryId={focusInquiryId}
@@ -244,7 +256,7 @@ export function ClinicDashboardWorkspaceHarness({
         reportingDemo={reportingDemo}
         reviewCommands={suppliedReviewCommands ?? reviewCommands}
         showPrototypeModeToggle={showPrototypeModeToggle}
-        start={start}
+        start={start ?? { section: initialSection }}
         workspaceInput={{
           ...clinicDashboardWorkspaceFixture,
           profileProgress:

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   handleDoctorCreate,
   handleDoctorImageReplace,
+  handleDoctorImageRead,
   handleDoctorSpecialtyCreate,
   handleDoctorUpdate,
 } from "@/features/clinic-dashboard/clinic-profile/server/public"
@@ -14,6 +15,7 @@ const providerMocks = vi.hoisted(() => ({
   createDoctor: vi.fn(),
   createSpecialty: vi.fn(),
   loadDirectory: vi.fn(),
+  loadImage: vi.fn(),
   replaceImage: vi.fn(),
   updateDoctor: vi.fn(),
   updateSpecialty: vi.fn(),
@@ -63,7 +65,7 @@ function pngBytes(size = 8) {
 }
 
 function imageRequest(mimeType = "image/png", bytes = pngBytes()) {
-  const url = "http://localhost:3000/api/dashboard/doctors/doctor-1/image"
+  const url = "http://localhost:3000/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/image"
   const base = new NextRequest(url, {
     body: new FormData(),
     headers: { origin: "http://localhost:3000" },
@@ -91,6 +93,32 @@ function expectPrivate(response: Response) {
 }
 
 describe("Doctor profile mutations", () => {
+  it("serves exact doctor image bytes through a versioned private scoped read", async () => {
+    providerMocks.loadImage.mockResolvedValue({
+      ok: true,
+      value: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png" },
+    })
+    const request = new NextRequest(
+      "http://localhost:3000/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/image?revision=media-new",
+      { headers: { cookie: "clinic_dashboard_controlled_session=controlled-clinic-staff" } },
+    )
+    const response = await handleDoctorImageRead(request, "doctor-1", createProvider)
+    expect(response.status).toBe(200)
+    expectPrivate(response)
+    expect(response.headers.get("content-type")).toBe("image/png")
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]))
+    expect(providerMocks.loadImage).toHaveBeenCalledWith("doctor-1")
+    expect(providerMocks.loadImage.mock.calls[0]).toEqual(["doctor-1"])
+
+    for (const search of ["?other=media-new", "?revision=a&revision=b", "?revision=", "?revision=a%2Fb"]) {
+      const invalid = new NextRequest(
+        `http://localhost:3000/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/image${search}`,
+      )
+      expect((await handleDoctorImageRead(invalid, "doctor-1", createProvider)).status).toBe(400)
+    }
+    expect(providerMocks.loadImage).toHaveBeenCalledOnce()
+  })
+
   beforeEach(() => {
     vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
     vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password")
@@ -135,7 +163,7 @@ describe("Doctor profile mutations", () => {
 
   it("creates a doctor through the request-scoped clinic provider", async () => {
     const response = await handleDoctorCreate(
-      jsonRequest("/api/dashboard/doctors", {
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors", {
         biography: "Doctor biography.",
         experienceYears: 8,
         firstName: "Amelia",
@@ -165,7 +193,7 @@ describe("Doctor profile mutations", () => {
 
   it("updates active state and an existing specialty without exposing clinic identity", async () => {
     const updateResponse = await handleDoctorUpdate(
-      jsonRequest("/api/dashboard/doctors/doctor-1", { active: true }, "PATCH"),
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors/doctor-1", { active: true }, "PATCH"),
       "doctor-1",
       createProvider,
     )
@@ -173,7 +201,7 @@ describe("Doctor profile mutations", () => {
     expect(providerMocks.updateDoctor).toHaveBeenCalledWith("doctor-1", { active: true })
 
     const specialtyResponse = await handleDoctorSpecialtyCreate(
-      jsonRequest("/api/dashboard/doctors/doctor-1/specialties", {
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors/doctor-1/specialties", {
         medicalSpecialtyId: "specialty-1",
         specializationLevel: "specialist",
       }),
@@ -235,7 +263,7 @@ describe("Doctor profile mutations", () => {
 
   it("rejects invalid data before provider composition and maps conflicts", async () => {
     const invalid = await handleDoctorCreate(
-      jsonRequest("/api/dashboard/doctors", {
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors", {
         experienceYears: -1,
         firstName: "Amelia",
         gender: "female",
@@ -250,7 +278,7 @@ describe("Doctor profile mutations", () => {
 
     providerMocks.updateDoctor.mockResolvedValueOnce({ error: "conflict", ok: false })
     const conflict = await handleDoctorUpdate(
-      jsonRequest("/api/dashboard/doctors/doctor-1", { active: true }, "PATCH"),
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors/doctor-1", { active: true }, "PATCH"),
       "doctor-1",
       createProvider,
     )
@@ -259,7 +287,7 @@ describe("Doctor profile mutations", () => {
 
     providerMocks.updateDoctor.mockResolvedValueOnce({ error: "invalid-input", ok: false })
     const invalidUpstreamInput = await handleDoctorUpdate(
-      jsonRequest("/api/dashboard/doctors/doctor-1", { active: true }, "PATCH"),
+      jsonRequest("/api/dashboard/clinics/controlled-clinic/doctors/doctor-1", { active: true }, "PATCH"),
       "doctor-1",
       createProvider,
     )

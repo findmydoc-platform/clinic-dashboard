@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type ReactNode } from "react"
 import { AlertTriangle, FilePenLine } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -81,6 +81,10 @@ export type ClinicProfileScreenActions = Readonly<{
 type ClinicProfileScreenProps = Readonly<{
   actions: ClinicProfileScreenActions
   navigationNotice?: string
+  doctorContextNavigation?: ReactNode
+  onDoctorNavigationRequestChange?: (
+    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
+  ) => void
   onDoctorEditorPresenceChange?: (isOpen: boolean) => void
   model: ClinicProfileScreenModel
 }>
@@ -89,7 +93,9 @@ export function ClinicProfileScreen({
   actions,
   model,
   navigationNotice,
+  doctorContextNavigation,
   onDoctorEditorPresenceChange,
+  onDoctorNavigationRequestChange,
 }: ClinicProfileScreenProps) {
   const basicsRef = useRef<HTMLDivElement>(null)
   const conflictRef = useRef<HTMLDivElement>(null)
@@ -301,11 +307,13 @@ export function ClinicProfileScreen({
             </Card>
           )}
           <DoctorDirectory
+            contextNavigation={doctorContextNavigation}
             canManage={canManageDoctors}
             commands={model.doctorCommands}
             onDoctorsChange={actions.onDoctorsChange}
             navigationNotice={navigationNotice}
             onEditorPresenceChange={onDoctorEditorPresenceChange}
+            onNavigationRequestChange={onDoctorNavigationRequestChange}
             snapshot={model.doctorDirectory}
           />
           {isClinicProfileManagementVisible(model.treatmentManagement) ? (

@@ -12,11 +12,11 @@ import type { NotificationProvider } from "./notification-provider"
 
 export function createPayloadNotificationProvider(
   accessToken: string,
-  clinicId: string,
+  principalId: string,
   fetcher: typeof fetch = fetch,
   environment: Record<string, string | undefined> = process.env,
 ): NotificationProvider {
-  if (!accessToken.trim() || !clinicId.trim()) throw new Error("Verified clinic session required")
+  if (!accessToken.trim() || !principalId.trim()) throw new Error("Verified personal clinic session required")
   const validated = validateEnvironment(environment)
   return {
     async markRead(input, signal) {
@@ -61,6 +61,7 @@ export function createPayloadNotificationProvider(
           !cache.includes("private") ||
           !cache.includes("no-store") ||
           !vary.includes("authorization") ||
+          !vary.includes("x-findmydoc-clinic-scope-contract") ||
           !vary.includes(CLINIC_NOTIFICATIONS_CONTRACT_HEADER.toLowerCase())
         )
           return { ok: false, error: "CONTRACT_INCOMPATIBLE", writeOutcome: "unknown" }
@@ -105,6 +106,7 @@ export function createPayloadNotificationProvider(
           !cache.includes("private") ||
           !cache.includes("no-store") ||
           !vary.includes("authorization") ||
+          !vary.includes("x-findmydoc-clinic-scope-contract") ||
           !vary.includes(CLINIC_NOTIFICATIONS_CONTRACT_HEADER.toLowerCase())
         )
           return { ok: false, error: "CONTRACT_INCOMPATIBLE" }

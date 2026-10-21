@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest"
 import {
+  formatReportingObservationTimestamp,
   createCountMetricDisplay,
   createMetricValueDisplay,
   createSessionConversionDisplay,
 } from "@/features/clinic-dashboard/dashboard/model/clinic-dashboard-reporting-display"
 
 describe("clinic dashboard reporting display", () => {
+  it("formats the observation in the reporting timezone across the date boundary", () => {
+    expect(formatReportingObservationTimestamp("2026-12-31T23:07:00Z", "Europe/Berlin")).toBe(
+      "1 Jan 2027, 00:07",
+    )
+  })
   it("describes conversion comparisons as percentage points rather than relative change", () => {
     const display = createSessionConversionDisplay({
       source: "posthog",

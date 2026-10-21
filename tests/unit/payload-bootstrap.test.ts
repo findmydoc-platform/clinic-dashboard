@@ -1,14 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fetchClinicDashboardBootstrap } from "@/features/clinic-dashboard/auth/server/payload-bootstrap"
 
-const bootstrap = {
+const clinic = {
+  id: "clinic-1",
+  name: "Clinic One",
   capabilities: [
     "clinic-profile:view",
     "clinic-profile:edit",
     "clinic-treatments:view",
     "clinic-treatments:edit",
   ],
-  clinic: { id: "clinic-1", name: "Clinic One" },
+} as const
+const bootstrap = {
+  schemaVersion: "clinic-scope-v1",
+  clinics: [clinic],
   principal: { displayName: "Alex Morgan", email: "alex@example.com", id: "staff-1" },
   status: "approved",
 } as const
@@ -18,7 +23,7 @@ function jsonResponse(body: unknown, status = 200, headers: Record<string, strin
     headers: {
       "cache-control": "private, no-store",
       "content-type": "application/json",
-      vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+      vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract, X-Findmydoc-Clinic-Scope-Contract",
       ...headers,
     },
     status,
@@ -36,6 +41,59 @@ describe("Payload clinic bootstrap", () => {
   })
 
   afterEach(() => vi.unstubAllEnvs())
+
+  it("accepts the current person's versioned authorized clinic set, including an empty set", async () => {
+    const context = {
+      schemaVersion: "clinic-scope-v1",
+      principal: bootstrap.principal,
+      status: "approved",
+      clinics: [],
+    }
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse(context, 200, {
+        vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract, X-Findmydoc-Clinic-Scope-Contract",
+      }),
+    )
+    await expect(fetchClinicDashboardBootstrap("access-token", fetcher)).resolves.toEqual({
+      context,
+      status: "approved",
+    })
+  })
+
+  it("retains controlled clinic choices and denial independently of the profile scenario", async () => {
+    vi.stubEnv("CLINIC_DASHBOARD_AUTH_TEST_MODE", "controlled")
+    vi.stubEnv("CLINIC_DASHBOARD_TEST_PASSWORD", "test-password") // pragma: allowlist secret
+    const fetcher = vi.fn<typeof fetch>()
+    await expect(
+      fetchClinicDashboardBootstrap("controlled-many:profile:scenario-one", fetcher),
+    ).resolves.toMatchObject({
+      status: "approved",
+      context: { clinics: [{ id: "controlled-clinic" }, { id: "controlled-second-clinic" }] },
+    })
+    await expect(
+      fetchClinicDashboardBootstrap("controlled-empty:profile:scenario-one", fetcher),
+    ).resolves.toMatchObject({
+      status: "approved",
+      context: { clinics: [] },
+    })
+    await expect(
+      fetchClinicDashboardBootstrap("controlled-denied:profile:scenario-one", fetcher),
+    ).resolves.toEqual({ status: "denied" })
+    await expect(
+      fetchClinicDashboardBootstrap("controlled-outage:profile:scenario-one", fetcher),
+    ).resolves.toEqual({ status: "temporarily-unavailable" })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it("does not interpret a controlled profile scenario in normal Payload authorization", async () => {
+    const token = "controlled-many:profile:scenario-one"
+    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(bootstrap))
+    await expect(fetchClinicDashboardBootstrap(token, fetcher)).resolves.toEqual({
+      context: bootstrap,
+      status: "approved",
+    })
+    expect(new Headers(fetcher.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(`Bearer ${token}`)
+  })
 
   it("opts into the inquiry contract at the configured HTTPS bootstrap endpoint", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(bootstrap))
@@ -70,7 +128,7 @@ describe("Payload clinic bootstrap", () => {
 
     await expect(fetchClinicDashboardBootstrap("synthetic-clinic-token", fetcher)).resolves.toMatchObject({
       context: {
-        clinic: { id: "clinic-acceptance", name: "Synthetic Acceptance Clinic" },
+        clinics: [{ id: "clinic-acceptance", name: "Synthetic Acceptance Clinic" }],
       },
       status: "approved",
     })
@@ -80,7 +138,7 @@ describe("Payload clinic bootstrap", () => {
   it("does not infer treatment access from profile capabilities", async () => {
     const profileOnlyBootstrap = {
       ...bootstrap,
-      capabilities: ["clinic-profile:view", "clinic-profile:edit"],
+      clinics: [{ ...clinic, capabilities: ["clinic-profile:view", "clinic-profile:edit"] }],
     }
 
     await expect(
@@ -97,7 +155,9 @@ describe("Payload clinic bootstrap", () => {
   it("preserves an explicit read-only treatment capability", async () => {
     const readOnlyTreatmentsBootstrap = {
       ...bootstrap,
-      capabilities: ["clinic-profile:view", "clinic-profile:edit", "clinic-treatments:view"],
+      clinics: [
+        { ...clinic, capabilities: ["clinic-profile:view", "clinic-profile:edit", "clinic-treatments:view"] },
+      ],
     }
 
     await expect(
@@ -135,7 +195,10 @@ describe("Payload clinic bootstrap", () => {
   })
 
   it("fails closed for malformed DTOs, cache headers, and network errors", async () => {
-    const malformed = { ...bootstrap, capabilities: ["clinic-profile:view", "clinic-profile:view"] }
+    const malformed = {
+      ...bootstrap,
+      clinics: [{ ...clinic, capabilities: ["clinic-profile:view", "clinic-profile:view"] }],
+    }
     await expect(
       fetchClinicDashboardBootstrap("token", vi.fn(async () => jsonResponse(malformed)) as typeof fetch),
     ).resolves.toEqual({ status: "temporarily-unavailable" })
@@ -175,7 +238,7 @@ describe("Payload clinic bootstrap", () => {
       ],
     },
   ] as const)("accepts the independent capability subset %#", async ({ capabilities }) => {
-    const context = { ...bootstrap, capabilities }
+    const context = { ...bootstrap, clinics: [{ ...clinic, capabilities }] }
     await expect(
       fetchClinicDashboardBootstrap("token", vi.fn(async () => jsonResponse(context)) as typeof fetch),
     ).resolves.toEqual({ context, status: "approved" })

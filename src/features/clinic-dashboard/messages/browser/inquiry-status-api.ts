@@ -149,11 +149,13 @@ const createDraftSchema = z.object({
   }),
 })
 const safeUploadHeaderNames = new Set(["content-type", "x-amz-checksum-sha256"])
-const controlledAttachmentUploadPath = "/api/dashboard/inquiries/attachments/drafts/upload"
+const inquiryBasePath = (clinicId: string) =>
+  `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/inquiries`
 
 function sanitizeUploadDescriptor(
   upload: z.infer<typeof createDraftSchema>["upload"],
   expectedMimeType: string,
+  clinicId: string,
 ) {
   const relativeControlledUpload = upload.url.startsWith("/") && !upload.url.startsWith("//")
   let url: URL
@@ -165,7 +167,7 @@ function sanitizeUploadDescriptor(
   const controlledUpload =
     relativeControlledUpload &&
     url.origin === window.location.origin &&
-    url.pathname === controlledAttachmentUploadPath &&
+    url.pathname === `${inquiryBasePath(clinicId)}/attachments/drafts/upload` &&
     url.searchParams.getAll("draftId").length === 1 &&
     (url.searchParams.get("draftId")?.length ?? 0) > 0 &&
     (url.searchParams.get("draftId")?.length ?? 0) <= 100 &&
@@ -273,9 +275,12 @@ async function jsonMutation<TSchema extends z.ZodTypeAny>(
   return request.ok ? parseResult(request.response, schema) : safeFetchError(request.error)
 }
 
-async function discardCreatedAttachmentDraft(input: { draftId: string; inquiryId: string }) {
+async function discardCreatedAttachmentDraft(
+  clinicId: string,
+  input: { draftId: string; inquiryId: string },
+) {
   return jsonMutation(
-    "/api/dashboard/inquiries/attachments/drafts/discard",
+    `${inquiryBasePath(clinicId)}/attachments/drafts/discard`,
     "POST",
     input,
     z.object({ discarded: z.boolean() }),
@@ -297,26 +302,31 @@ function preferDefinitiveCleanupFailure<TValue>(
   return primary
 }
 
-export function createInquiryWorkspaceApiCommands(): InquiryWorkspaceCommands {
+export function createInquiryWorkspaceApiCommands(clinicId: string): InquiryWorkspaceCommands {
   return {
-    addInternalNote: (input) => jsonMutation("/api/dashboard/inquiries/notes", "POST", input, mutationSchema),
+    addInternalNote: (input) =>
+      jsonMutation(`${inquiryBasePath(clinicId)}/notes`, "POST", input, mutationSchema),
     changeReadPosition: (input) =>
-      jsonMutation("/api/dashboard/inquiries/read-position", "PUT", input, readSchema),
-    changeState: (input) => jsonMutation("/api/dashboard/inquiries/state", "PATCH", input, mutationSchema),
+      jsonMutation(`${inquiryBasePath(clinicId)}/read-position`, "PUT", input, readSchema),
+    changeState: (input) =>
+      jsonMutation(`${inquiryBasePath(clinicId)}/state`, "PATCH", input, mutationSchema),
     revealContact: (input) =>
-      jsonMutation("/api/dashboard/inquiries/contact/reveal", "POST", input, mutationSchema),
+      jsonMutation(`${inquiryBasePath(clinicId)}/contact/reveal`, "POST", input, mutationSchema),
     async createAttachmentDraft({ file, inquiryId }) {
       const created = await jsonMutation(
-        "/api/dashboard/inquiries/attachments/drafts",
+        `${inquiryBasePath(clinicId)}/attachments/drafts`,
         "POST",
         { fileName: file.name, inquiryId, mimeType: file.type, sizeBytes: file.size },
         createDraftSchema,
       )
       if (!created.ok) return created
-      const safeUpload = sanitizeUploadDescriptor(created.value.upload, file.type)
+      const safeUpload = sanitizeUploadDescriptor(created.value.upload, file.type, clinicId)
       if (!safeUpload) {
         const failure = { error: { code: "service-unavailable" as const }, ok: false as const }
-        const cleanup = await discardCreatedAttachmentDraft({ draftId: created.value.draftId, inquiryId })
+        const cleanup = await discardCreatedAttachmentDraft(clinicId, {
+          draftId: created.value.draftId,
+          inquiryId,
+        })
         return preferDefinitiveCleanupFailure(failure, cleanup)
       }
 
@@ -325,7 +335,10 @@ export function createInquiryWorkspaceApiCommands(): InquiryWorkspaceCommands {
         : undefined
       if (safeUpload.controlledUpload && !controlledUploadHeaders) {
         const failure = { error: { code: "unauthorized" as const }, ok: false as const }
-        const cleanup = await discardCreatedAttachmentDraft({ draftId: created.value.draftId, inquiryId })
+        const cleanup = await discardCreatedAttachmentDraft(clinicId, {
+          draftId: created.value.draftId,
+          inquiryId,
+        })
         return preferDefinitiveCleanupFailure(failure, cleanup)
       }
 
@@ -339,23 +352,32 @@ export function createInquiryWorkspaceApiCommands(): InquiryWorkspaceCommands {
       })
       if (!uploadRequest.ok) {
         const failure = safeFetchError(uploadRequest.error)
-        const cleanup = await discardCreatedAttachmentDraft({ draftId: created.value.draftId, inquiryId })
+        const cleanup = await discardCreatedAttachmentDraft(clinicId, {
+          draftId: created.value.draftId,
+          inquiryId,
+        })
         return preferDefinitiveCleanupFailure(failure, cleanup)
       }
       if (!uploadRequest.response.ok) {
         const failure = { error: { code: "service-unavailable" as const }, ok: false as const }
-        const cleanup = await discardCreatedAttachmentDraft({ draftId: created.value.draftId, inquiryId })
+        const cleanup = await discardCreatedAttachmentDraft(clinicId, {
+          draftId: created.value.draftId,
+          inquiryId,
+        })
         return preferDefinitiveCleanupFailure(failure, cleanup)
       }
 
       const finalized = await jsonMutation(
-        "/api/dashboard/inquiries/attachments/drafts/finalize",
+        `${inquiryBasePath(clinicId)}/attachments/drafts/finalize`,
         "POST",
         { draftId: created.value.draftId, inquiryId },
         z.object({ finalized: z.literal(true) }),
       )
       if (!finalized.ok) {
-        const cleanup = await discardCreatedAttachmentDraft({ draftId: created.value.draftId, inquiryId })
+        const cleanup = await discardCreatedAttachmentDraft(clinicId, {
+          draftId: created.value.draftId,
+          inquiryId,
+        })
         return preferDefinitiveCleanupFailure(finalized, cleanup)
       }
       return {
@@ -372,7 +394,7 @@ export function createInquiryWorkspaceApiCommands(): InquiryWorkspaceCommands {
     },
     discardAttachmentDraft: (input) =>
       jsonMutation(
-        "/api/dashboard/inquiries/attachments/drafts/discard",
+        `${inquiryBasePath(clinicId)}/attachments/drafts/discard`,
         "POST",
         input,
         z.object({ discarded: z.boolean() }),
@@ -383,7 +405,7 @@ export function createInquiryWorkspaceApiCommands(): InquiryWorkspaceCommands {
         query.set("knownChangeCursor", input.knownChangeCursor)
       }
       if (input.knownRevision !== undefined) query.set("knownRevision", String(input.knownRevision))
-      const request = await fetchWithSafeFailure(`/api/dashboard/inquiries/detail?${query}`, {
+      const request = await fetchWithSafeFailure(`${inquiryBasePath(clinicId)}/detail?${query}`, {
         cache: "no-store",
         credentials: "same-origin",
         redirect: "error",
@@ -400,7 +422,7 @@ export function createInquiryWorkspaceApiCommands(): InquiryWorkspaceCommands {
       if (input.knownChangeCursor) query.set("knownChangeCursor", input.knownChangeCursor)
       if (input.handlingStatus?.length) query.set("handlingStatus", input.handlingStatus.join(","))
       if (input.query) query.set("query", input.query)
-      const request = await fetchWithSafeFailure(`/api/dashboard/inquiries?${query}`, {
+      const request = await fetchWithSafeFailure(`${inquiryBasePath(clinicId)}?${query}`, {
         cache: "no-store",
         credentials: "same-origin",
         redirect: "error",
@@ -409,7 +431,7 @@ export function createInquiryWorkspaceApiCommands(): InquiryWorkspaceCommands {
       return request.ok ? parseResult(request.response, queueSchema) : safeFetchError(request.error)
     },
     sendExternalMessage: (input) =>
-      jsonMutation("/api/dashboard/inquiries/messages", "POST", input, mutationSchema),
+      jsonMutation(`${inquiryBasePath(clinicId)}/messages`, "POST", input, mutationSchema),
   }
 }
 

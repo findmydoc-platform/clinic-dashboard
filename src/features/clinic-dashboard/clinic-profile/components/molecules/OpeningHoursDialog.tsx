@@ -1,6 +1,8 @@
 "use client"
 
 import { useId, useState } from "react"
+import type { EditorDepartureRequest } from "@/lib/editor-departure"
+import { useEditorProtection } from "@/lib/use-editor-protection"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Modal } from "@/components/ui/modal"
@@ -16,6 +18,7 @@ type OpeningHoursDialogProps = Readonly<{
   entries?: ClinicProfileOpeningHours
   errors: ClinicProfileValidationErrors
   navigationNotice?: string
+  onNavigationRequestChange?: (request: EditorDepartureRequest | null) => void
   onOpenChange: (open: boolean) => void
   onSave: (entries: ClinicProfileOpeningHours | undefined) => void
   open: boolean
@@ -25,6 +28,7 @@ export function OpeningHoursDialog({
   entries,
   errors,
   navigationNotice,
+  onNavigationRequestChange,
   onOpenChange,
   onSave,
   open,
@@ -34,6 +38,16 @@ export function OpeningHoursDialog({
   const [draft, setDraft] = useState<ClinicProfileOpeningHours>(
     entries ?? createEmptyClinicProfileOpeningHours(),
   )
+
+  useEditorProtection({
+    open,
+    dirty:
+      isConfigured !== Boolean(entries) ||
+      (isConfigured && JSON.stringify(draft) !== JSON.stringify(entries)),
+    draft: { draft, isConfigured },
+    discard: () => onOpenChange(false),
+    register: onNavigationRequestChange,
+  })
 
   return (
     <Modal

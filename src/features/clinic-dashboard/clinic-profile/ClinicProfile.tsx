@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useRef, useEffect, useState, type ReactNode } from "react"
+import type { EditorDepartureRequest, ProtectedEditorWork } from "@/lib/editor-departure"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -37,6 +38,7 @@ export type ClinicProfileProps = Readonly<{
   galleryManagement: ClinicProfileManagementAccess
   galleryStatus: ClinicGalleryLoadStatus
   gallerySnapshot?: ClinicGallerySnapshot
+  doctorContextNavigation?: ReactNode
   doctorCommands: DoctorProfileCommands
   doctorDirectory: DoctorDirectorySnapshot
   doctorManagement: ClinicProfileManagementAccess
@@ -44,9 +46,7 @@ export type ClinicProfileProps = Readonly<{
   initialDialog?: "treatment"
   onFocusHandled: () => void
   onGallerySaved?: (snapshot: ClinicGallerySnapshot) => void
-  onNavigationRequestChange?: (
-    request: ((continuation: () => void, onCancel?: () => void) => void) | null,
-  ) => void
+  onNavigationRequestChange?: (request: EditorDepartureRequest | null) => void
   onGalleryNavigationRequestChange?: (request?: (continuation: () => void) => void) => void
   onDoctorsChange?: (doctors: readonly DoctorProfile[]) => void
   onSourceProfileChanged?: (snapshot: ClinicProfileSnapshot) => void
@@ -55,6 +55,7 @@ export type ClinicProfileProps = Readonly<{
   sourceProfileManagement: ClinicProfileManagementAccess
   sourceCommands: ClinicProfileSourceCommands
   sourceSnapshot?: ClinicProfileSnapshot
+  treatmentContextNavigation?: ReactNode
   treatmentCommands: ClinicTreatmentCommands
   treatmentManagement: ClinicProfileManagementAccess
   treatmentSnapshot: ClinicTreatmentsSnapshot
@@ -65,6 +66,7 @@ export function ClinicProfile({
   galleryManagement,
   galleryStatus,
   gallerySnapshot,
+  doctorContextNavigation,
   doctorCommands,
   doctorDirectory,
   doctorManagement,
@@ -82,9 +84,18 @@ export function ClinicProfile({
   sourceCommands,
   sourceSnapshot,
   treatmentCommands,
+  treatmentContextNavigation,
   treatmentManagement,
   treatmentSnapshot,
 }: ClinicProfileProps) {
+  const doctorNavigation = useRef<EditorDepartureRequest | null>(null)
+  const dialogNavigation = useRef<EditorDepartureRequest | null>(null)
+  const setDialogNavigation = useCallback((request: EditorDepartureRequest | null) => {
+    dialogNavigation.current = request
+  }, [])
+  const setDoctorNavigation = useCallback((request: EditorDepartureRequest | null) => {
+    doctorNavigation.current = request
+  }, [])
   const [isDoctorEditorOpen, setIsDoctorEditorOpen] = useState(false)
   const [navigationNotice, setNavigationNotice] = useState("")
   const handleDoctorEditorPresenceChange = useCallback((isOpen: boolean) => {
@@ -128,32 +139,51 @@ export function ClinicProfile({
   })
   const { actions: sourceActions, model: sourceModel } = source
   const requestSourceNavigation = sourceActions.requestNavigation
-  const requestGalleryNavigation = galleryController.actions.requestNavigation
-  const isGalleryOpen = galleryController.model.open
   const hasBlockingDialog =
-    isDoctorEditorOpen ||
-    treatmentController.model.dialogOpen ||
-    treatmentController.model.isBusy ||
-    Boolean(sourceModel.dialog)
+    treatmentController.model.dialogOpen || treatmentController.model.isBusy || Boolean(sourceModel.dialog)
   const requestNavigation = useCallback(
-    (continuation: () => void, onCancel?: () => void) => {
+    (continuation: () => void, onCancel?: () => void, intent?: Parameters<EditorDepartureRequest>[2]) => {
+      if (intent === "access-loss") {
+        const work: ProtectedEditorWork[] = []
+        for (const request of [requestSourceNavigation, doctorNavigation.current, dialogNavigation.current]) {
+          const captured = request?.(() => {}, undefined, intent)
+          if (captured) work.push(captured)
+        }
+        if (!work.length) return
+        return {
+          draft: work.map(({ draft }) => draft),
+          discard: async () => {
+            for (const item of work) await item.discard()
+          },
+        }
+      }
+      const continueAfterSource = () => {
+        const doctor = doctorNavigation.current
+        if (doctor) doctor(continuation, onCancel)
+        else continuation()
+      }
+      if (treatmentController.model.dialogOpen && dialogNavigation.current) {
+        dialogNavigation.current(
+          () => requestSourceNavigation(continueAfterSource, onCancel),
+          onCancel,
+          intent,
+        )
+        return
+      }
       if (hasBlockingDialog) {
-        setNavigationNotice("Save or close the current editor before opening a notification.")
+        setNavigationNotice("Save or close the current editor before continuing.")
         onCancel?.()
         return
       }
       setNavigationNotice("")
-      const continueAfterSource = () => {
-        if (isGalleryOpen) requestGalleryNavigation(continuation, onCancel)
-        else continuation()
-      }
       requestSourceNavigation(continueAfterSource, onCancel)
     },
-    [hasBlockingDialog, isGalleryOpen, requestGalleryNavigation, requestSourceNavigation],
+    [hasBlockingDialog, requestSourceNavigation, treatmentController.model.dialogOpen],
   )
   useEffect(() => {
     const hasEditor =
       hasBlockingDialog ||
+      isDoctorEditorOpen ||
       sourceModel.mode !== "view" ||
       sourceModel.operation !== "idle" ||
       galleryController.model.open
@@ -161,6 +191,7 @@ export function ClinicProfile({
     return () => onNavigationRequestChange?.(null)
   }, [
     hasBlockingDialog,
+    isDoctorEditorOpen,
     galleryController.model.open,
     onNavigationRequestChange,
     requestNavigation,
@@ -289,9 +320,11 @@ export function ClinicProfile({
     <>
       {!galleryController.model.open ? (
         <ClinicProfileScreen
+          doctorContextNavigation={doctorContextNavigation}
           actions={screenActions}
           navigationNotice={navigationNotice}
           onDoctorEditorPresenceChange={handleDoctorEditorPresenceChange}
+          onDoctorNavigationRequestChange={setDoctorNavigation}
           model={{
             doctorCommands,
             doctorDirectory,
@@ -329,6 +362,7 @@ export function ClinicProfile({
 
       {sourceModel.dialog === "address" && sourceModel.workingDraft && sourceModel.snapshot ? (
         <AddressDialog
+          onNavigationRequestChange={setDialogNavigation}
           navigationNotice={navigationNotice}
           address={sourceModel.workingDraft.address}
           cities={sourceModel.snapshot.availableCities}
@@ -343,6 +377,7 @@ export function ClinicProfile({
       ) : null}
       {sourceModel.dialog === "hours" && sourceModel.workingDraft ? (
         <OpeningHoursDialog
+          onNavigationRequestChange={setDialogNavigation}
           navigationNotice={navigationNotice}
           entries={sourceModel.workingDraft.openingHours}
           errors={sourceModel.validationErrors}
@@ -360,6 +395,7 @@ export function ClinicProfile({
       isClinicProfileManagementVisible(treatmentManagement) &&
       (treatments.selectedOffering || isClinicProfileManagementInteractive(treatmentManagement)) ? (
         <TreatmentDialog
+          onNavigationRequestChange={setDialogNavigation}
           availableTreatments={treatments.availableTreatments}
           initialTreatment={treatments.selectedOffering}
           isBusy={treatments.isBusy}
@@ -370,7 +406,8 @@ export function ClinicProfile({
             if (!open) setNavigationNotice("")
             treatmentController.actions.setDialogOpen(open)
           }}
-          onSave={treatmentController.actions.save}
+          contextNavigation={treatmentContextNavigation}
+          onSave={(input) => treatmentController.actions.save(input, false)}
           onTreatmentMissing={onTreatmentMissing}
           open
         />

@@ -1,5 +1,6 @@
 import "server-only"
 
+import { readControlledProfileScenario } from "./controlled-profile-scenario"
 import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
 import { createControlledClinicDashboardReportingProvider } from "./dashboard/server/controlled-reporting"
 import { createPayloadClinicDashboardReportingProvider } from "./dashboard/server/payload-reporting"
@@ -36,7 +37,6 @@ import type { NotificationProvider } from "./notifications/server/notification-p
 export type ClinicDashboardDataProviders = Readonly<{
   doctors: DoctorProfileProvider
   gallery: ClinicGalleryProvider
-  notifications: NotificationProvider
   inquiries: PatientInquiryProvider
   inquiryAttachmentDraftUpload?: PatientInquiryAttachmentDraftUpload
   profile: ClinicProfileProvider
@@ -62,34 +62,58 @@ export function composeClinicDashboardDataProviders(
   const localInquiryAcceptance = isLocalInquiryAcceptanceMode(validatedEnvironment)
   return {
     doctors: controlled
-      ? createControlledDoctorProfileProvider()
+      ? createControlledDoctorProfileProvider(clinicId)
       : createPayloadDoctorProfileProvider(accessToken, clinicId),
     gallery: controlled
-      ? createControlledClinicGalleryProvider(clinicId)
+      ? createControlledClinicGalleryProvider(
+          clinicId,
+          localInquiryAcceptance ? undefined : readControlledProfileScenario(accessToken).scenario,
+        )
       : createPayloadClinicGalleryProvider(accessToken, clinicId),
-    notifications:
-      controlled && !localInquiryAcceptance
-        ? createControlledNotificationProvider(accessToken, clinicId)
-        : createPayloadNotificationProvider(accessToken, clinicId, fetch, validatedEnvironment),
     inquiries:
       controlled && !localInquiryAcceptance
-        ? createControlledPatientInquiryProvider(clinicId)
+        ? createControlledPatientInquiryProvider(
+            clinicId,
+            readControlledProfileScenario(accessToken).scenario,
+          )
         : createPayloadPatientInquiryProvider(accessToken, clinicId, fetch, validatedEnvironment),
     ...(controlled && !localInquiryAcceptance
-      ? { inquiryAttachmentDraftUpload: createControlledPatientInquiryAttachmentDraftUpload(clinicId) }
+      ? {
+          inquiryAttachmentDraftUpload: createControlledPatientInquiryAttachmentDraftUpload(
+            clinicId,
+            readControlledProfileScenario(accessToken).scenario,
+          ),
+        }
       : {}),
     profile: controlled
-      ? createControlledClinicProfileProvider()
+      ? createControlledClinicProfileProvider(
+          clinicId,
+          localInquiryAcceptance ? undefined : readControlledProfileScenario(accessToken).scenario,
+        )
       : createPayloadClinicProfileProvider(accessToken, clinicId),
     reporting: controlled
-      ? createControlledClinicDashboardReportingProvider()
-      : createPayloadClinicDashboardReportingProvider(accessToken),
+      ? createControlledClinicDashboardReportingProvider(clinicId)
+      : createPayloadClinicDashboardReportingProvider(accessToken, clinicId),
     reviews:
       controlled && !localInquiryAcceptance
-        ? createControlledReviewProvider()
+        ? createControlledReviewProvider(clinicId)
         : createPayloadReviewProvider(accessToken, clinicId),
     treatments: controlled
       ? createControlledClinicTreatmentProvider(clinicId)
       : createPayloadClinicTreatmentProvider(accessToken, clinicId),
   }
+}
+
+export function composeClinicDashboardPersonalNotifications(
+  accessToken: string,
+  principalId: string,
+  clinicIds: readonly string[],
+  environment: Record<string, string | undefined> = process.env,
+): NotificationProvider {
+  if (!accessToken.trim() || !principalId.trim())
+    throw new Error("A verified personal clinic session is required")
+  const validated = validateEnvironment(environment)
+  return isControlledAuthTestMode(validated) && !isLocalInquiryAcceptanceMode(validated)
+    ? createControlledNotificationProvider(accessToken, principalId, clinicIds)
+    : createPayloadNotificationProvider(accessToken, principalId, fetch, validated)
 }

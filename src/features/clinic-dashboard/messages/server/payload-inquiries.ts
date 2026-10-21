@@ -575,8 +575,15 @@ export function createPayloadPatientInquiryProvider(
   fetcher: typeof fetch = fetch,
   environment: Record<string, string | undefined> = process.env,
 ): PatientInquiryProvider {
-  void clinicId
   const runtimeEnvironment = validateEnvironment(environment)
+  const targetEndpoint = (pathname: string, runtime: typeof runtimeEnvironment) =>
+    endpointFor(
+      pathname.replace(
+        "/api/clinic-dashboard/inquiries",
+        `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/inquiries`,
+      ),
+      runtime,
+    )
 
   const requestJson = async <TValue>(
     pathname: string,
@@ -586,7 +593,7 @@ export function createPayloadPatientInquiryProvider(
     responseContract?: Readonly<{ mapFailure: typeof mapError; status: number }>,
   ): Promise<InquiryResult<TValue>> => {
     const response = await requestPayload(
-      endpointFor(pathname, runtimeEnvironment),
+      targetEndpoint(pathname, runtimeEnvironment),
       {
         body: JSON.stringify(input),
         cache: "no-store",
@@ -610,7 +617,7 @@ export function createPayloadPatientInquiryProvider(
   const loadDetail = async (
     input: Readonly<{ inquiryId: string; knownChangeCursor?: string; knownRevision?: number }>,
   ) => {
-    const endpoint = endpointFor("/api/clinic-dashboard/inquiries/detail", runtimeEnvironment)
+    const endpoint = targetEndpoint("/api/clinic-dashboard/inquiries/detail", runtimeEnvironment)
     endpoint.searchParams.set("inquiryId", input.inquiryId)
     if (input.knownChangeCursor !== undefined) {
       endpoint.searchParams.set("knownChangeCursor", input.knownChangeCursor)
@@ -656,7 +663,7 @@ export function createPayloadPatientInquiryProvider(
   }
 
   const loadAttachmentAccess = async (kind: "download" | "preview", attachmentId: string) => {
-    const endpoint = endpointFor(`/api/clinic-dashboard/inquiries/attachments/${kind}`, runtimeEnvironment)
+    const endpoint = targetEndpoint(`/api/clinic-dashboard/inquiries/attachments/${kind}`, runtimeEnvironment)
     endpoint.searchParams.set("attachmentId", attachmentId)
     let response: Response
     try {
@@ -742,7 +749,7 @@ export function createPayloadPatientInquiryProvider(
       ),
     loadDetail,
     async loadQueue(input) {
-      const endpoint = endpointFor("/api/clinic-dashboard/inquiries", runtimeEnvironment)
+      const endpoint = targetEndpoint("/api/clinic-dashboard/inquiries", runtimeEnvironment)
       endpoint.searchParams.set("lifecycle", input.lifecycle)
       endpoint.searchParams.set("limit", "25")
       endpoint.searchParams.set("unreadOnly", String(input.unreadOnly))

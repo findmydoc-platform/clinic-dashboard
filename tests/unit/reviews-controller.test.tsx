@@ -40,6 +40,33 @@ describe("reviews source controller", () => {
     expect(hook.result.current.model.summary?.rating).toBe(4.7)
   })
 
+  it.each(["unauthorized", "forbidden"] as const)(
+    "clears retained list and editor state when a fresh read is %s",
+    async (kind) => {
+      const commands = {
+        ...createReviewSourceCommandsFixture(),
+        loadReviews: vi.fn(async () => {
+          throw new ReviewSourceCommandError(kind, "Current access lost")
+        }),
+      }
+      const lost = vi.fn()
+      const hook = renderHook(() =>
+        useReviewsController({
+          commands,
+          onSessionLost: lost,
+          showManagement: true,
+          snapshot: reviewSourceSnapshotFixture,
+        }),
+      )
+      act(() => hook.result.current.actions.openReviewResponse(reviewSourceRecordsFixture[0].id))
+      act(() => hook.result.current.actions.refreshReviews())
+      await waitFor(() => expect(hook.result.current.model.list).toBeUndefined())
+      expect(hook.result.current.model.summary).toBeUndefined()
+      expect(hook.result.current.model.dialog.kind).toBe("closed")
+      expect(lost).toHaveBeenCalledTimes(1)
+    },
+  )
+
   it("applies server-backed filters", async () => {
     const hook = renderHook(() =>
       useReviewsController({
@@ -236,4 +263,33 @@ describe("reviews source controller", () => {
       expect(hook.result.current.model.dialog.review.id).toBe(reviewSourceRecordsFixture[1].id)
     }
   })
+})
+
+it("ignores a late old-clinic action denial after its workspace unmounts", async () => {
+  const pending = deferred<(typeof reviewSourceRecordsFixture)[0]>()
+  const lost = vi.fn()
+  const commands = { ...createReviewSourceCommandsFixture(), submitResponse: vi.fn(() => pending.promise) }
+  const hook = renderHook(() =>
+    useReviewsController({
+      commands,
+      onSessionLost: lost,
+      showManagement: true,
+      snapshot: reviewSourceSnapshotFixture,
+    }),
+  )
+  act(() => hook.result.current.actions.openReviewResponse(reviewSourceRecordsFixture[1].id))
+  let result!: Promise<"applied" | "discarded">
+  act(() => {
+    result = hook.result.current.actions.submitReviewResponse(
+      "A private original-clinic response remains isolated.",
+    )
+  })
+  expect(commands.submitResponse).toHaveBeenCalledTimes(1)
+  hook.unmount()
+  await act(async () => {
+    pending.reject(new ReviewSourceCommandError("unauthorized", "Late session denial"))
+    await result
+  })
+  expect(lost).not.toHaveBeenCalled()
+  await expect(result).resolves.toBe("discarded")
 })

@@ -103,6 +103,7 @@ test("marks only loaded unread entries once and leaves later activity and anothe
     headers: {
       Authorization: `Bearer ${secondToken}`,
       "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
+      "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
     },
   })
   expect(otherReader.ok()).toBe(true)

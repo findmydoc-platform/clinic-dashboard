@@ -1623,26 +1623,26 @@ describe("architecture policy checker process fixtures", () => {
 
   it("allows native inquiry BFF routes to use the private server entry", () => {
     const fixtureRoot = createFixture({
-      "src/app/api/dashboard/inquiries/appeal/route.ts": `
-        import { handleInquiryAppealSubmit } from "../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/inquiries/appeal/route.ts": `
+        import { handleInquiryAppealSubmit } from "@/features/clinic-dashboard/server"
         export function POST(request: Request) {
           return handleInquiryAppealSubmit(request)
         }
       `,
-      "src/app/api/dashboard/inquiries/route.ts": `
-        import { handleInquiryQueueLoad } from "../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/inquiries/route.ts": `
+        import { handleInquiryQueueLoad } from "@/features/clinic-dashboard/server"
         export function GET(request: Request) {
           return handleInquiryQueueLoad(request)
         }
       `,
-      "src/app/api/dashboard/inquiries/attachments/drafts/finalize/route.ts": `
-        import { handleInquiryAttachmentDraftFinalize } from "../../../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/inquiries/attachments/drafts/finalize/route.ts": `
+        import { handleInquiryAttachmentDraftFinalize } from "@/features/clinic-dashboard/server"
         export function POST(request: Request) {
           return handleInquiryAttachmentDraftFinalize(request)
         }
       `,
-      "src/app/api/dashboard/inquiries/attachments/drafts/upload/route.ts": `
-        import { handleInquiryAttachmentDraftUpload } from "../../../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/inquiries/attachments/drafts/upload/route.ts": `
+        import { handleInquiryAttachmentDraftUpload } from "@/features/clinic-dashboard/server"
         export function PUT(request: Request) {
           return handleInquiryAttachmentDraftUpload(request)
         }
@@ -1663,32 +1663,32 @@ describe("architecture policy checker process fixtures", () => {
 
   it("allows exact doctor BFF routes to use the private server entry", () => {
     const fixtureRoot = createFixture({
-      "src/app/api/dashboard/doctors/[doctorId]/image/route.ts": `
-        import { handleDoctorImageReplace } from "../../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/doctors/[doctorId]/image/route.ts": `
+        import { handleDoctorImageReplace } from "@/features/clinic-dashboard/server"
         export function POST(request: Request) {
           return handleDoctorImageReplace(request, "doctor-1")
         }
       `,
-      "src/app/api/dashboard/doctors/[doctorId]/route.ts": `
-        import { handleDoctorUpdate } from "../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/doctors/[doctorId]/route.ts": `
+        import { handleDoctorUpdate } from "@/features/clinic-dashboard/server"
         export function PATCH(request: Request) {
           return handleDoctorUpdate(request, "doctor-1")
         }
       `,
-      "src/app/api/dashboard/doctors/[doctorId]/specialties/[assignmentId]/route.ts": `
-        import { handleDoctorSpecialtyUpdate } from "../../../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/doctors/[doctorId]/specialties/[assignmentId]/route.ts": `
+        import { handleDoctorSpecialtyUpdate } from "@/features/clinic-dashboard/server"
         export function PATCH(request: Request) {
           return handleDoctorSpecialtyUpdate(request, "doctor-1", "assignment-1")
         }
       `,
-      "src/app/api/dashboard/doctors/[doctorId]/specialties/route.ts": `
-        import { handleDoctorSpecialtyCreate } from "../../../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/doctors/[doctorId]/specialties/route.ts": `
+        import { handleDoctorSpecialtyCreate } from "@/features/clinic-dashboard/server"
         export function POST(request: Request) {
           return handleDoctorSpecialtyCreate(request, "doctor-1")
         }
       `,
-      "src/app/api/dashboard/doctors/route.ts": `
-        import { handleDoctorCreate } from "../../../../features/clinic-dashboard/server"
+      "src/app/api/dashboard/clinics/[clinicId]/doctors/route.ts": `
+        import { handleDoctorCreate } from "@/features/clinic-dashboard/server"
         export function POST(request: Request) {
           return handleDoctorCreate(request)
         }

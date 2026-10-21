@@ -36,3 +36,5 @@ export type {
   ClinicDashboardReportingSource,
   ClinicDashboardReportingSourceState,
 } from "./model/clinic-dashboard-reporting"
+
+export { loadClinicDashboardReportingFromBrowser } from "./browser/reporting-api"

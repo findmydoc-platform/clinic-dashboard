@@ -8,7 +8,11 @@ const controlOrigin = required("INQUIRY_ACCEPTANCE_CONTROL_ORIGIN")
 const websiteOrigin = required("INQUIRY_ACCEPTANCE_WEBSITE_ORIGIN")
 const controlToken = required("INQUIRY_ACCEPTANCE_CONTROL_TOKEN")
 const secondToken = required("INQUIRY_ACCEPTANCE_SECOND_CLINIC_TOKEN")
+const clinicId = required("INQUIRY_ACCEPTANCE_CLINIC_ID")
 const inquiryId = required("INQUIRY_ACCEPTANCE_INQUIRY_ID")
+const isSelectedInquiryDetail = (url: URL) =>
+  url.pathname === `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/inquiries/detail` &&
+  url.searchParams.get("inquiryId") === inquiryId
 test("groups real patient messages and acknowledges only the displayed selection across both applications", async ({
   page,
   request,
@@ -37,7 +41,7 @@ test("groups real patient messages and acknowledges only the displayed selection
   let detailReads = 0
   let later: Awaited<ReturnType<typeof createMessage>> | undefined
   await page.route(
-    "**/api/dashboard/inquiries/detail?**",
+    isSelectedInquiryDetail,
     async (route) => {
       detailReads += 1
       later = await createMessage()
@@ -46,9 +50,7 @@ test("groups real patient messages and acknowledges only the displayed selection
     { times: 1 },
   )
   const displayed = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === "/api/dashboard/inquiries/detail" &&
-      response.request().method() === "GET",
+    (response) => isSelectedInquiryDetail(new URL(response.url())) && response.request().method() === "GET",
   )
   const marked = page.waitForResponse(
     (response) =>
@@ -89,6 +91,7 @@ test("groups real patient messages and acknowledges only the displayed selection
     headers: {
       Authorization: `Bearer ${secondToken}`,
       "X-Findmydoc-Clinic-Notifications-Contract": "clinic-notifications-v1",
+      "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
     },
   })
   expect(other.ok()).toBe(true)
@@ -129,7 +132,7 @@ test("groups real patient messages and acknowledges only the displayed selection
   })
   expect(removed.ok()).toBe(true)
   await page.route(
-    "**/api/dashboard/inquiries/detail?**",
+    isSelectedInquiryDetail,
     async (route) => {
       detailReads += 1
       await route.continue()

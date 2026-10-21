@@ -5,7 +5,7 @@ function response(status: number, code: string) {
   return new Response(JSON.stringify({ error: { code } }), {
     headers: {
       "cache-control": "private, no-store",
-      vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+      vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract, X-Findmydoc-Clinic-Scope-Contract",
     },
     status,
   })
@@ -68,20 +68,25 @@ describe("bootstrap session refresh", () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            capabilities: [
-              "clinic-profile:view",
-              "clinic-profile:edit",
-              "clinic-treatments:view",
-              "clinic-treatments:edit",
+            schemaVersion: "clinic-scope-v1",
+            clinics: [
+              {
+                ...{ id: "clinic-1", name: "Clinic One" },
+                capabilities: [
+                  "clinic-profile:view",
+                  "clinic-profile:edit",
+                  "clinic-treatments:view",
+                  "clinic-treatments:edit",
+                ],
+              },
             ],
-            clinic: { id: "clinic-1", name: "Clinic One" },
             principal: { displayName: "Alex", email: "alex@example.com", id: "staff-1" },
             status: "approved",
           }),
           {
             headers: {
               "cache-control": "private, no-store",
-              vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract",
+              vary: "Authorization, X-Findmydoc-Clinic-Dashboard-Contract, X-Findmydoc-Clinic-Scope-Contract",
             },
           },
         ),

@@ -11,7 +11,7 @@ const productionArgs = {
 const meta = {
   args: productionArgs,
   component: ClinicDashboardWorkspaceHarness,
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "fullscreen", nextjs: { appDirectory: true } },
   tags: ["domain:workspace", "layer:page", "status:prototype"],
   title: "Clinic Dashboard/Workspace/Pages/Workspace Fixture Journeys",
 } satisfies Meta<typeof ClinicDashboardWorkspaceHarness>
@@ -71,8 +71,10 @@ export const VisualReferenceLocationSwitching: Story = {
       await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
     )
 
-    await expect(locationSelector).toHaveAccessibleName(
-      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
+    await waitFor(() =>
+      expect(locationSelector).toHaveAccessibleName(
+        /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
+      ),
     )
     await expect(canvas.getByText("Location changed to Berlin Health Clinic — Charlottenburg.")).toBeVisible()
 
@@ -103,8 +105,10 @@ export const PresentationLocationSwitching: Story = {
     await userEvent.click(
       await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
     )
-    await expect(locationSelector).toHaveAccessibleName(
-      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
+    await waitFor(() =>
+      expect(locationSelector).toHaveAccessibleName(
+        /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
+      ),
     )
   },
 }
@@ -125,8 +129,10 @@ export const LocationSwitchingAt320: Story = {
     await userEvent.click(
       await page.findByRole("menuitem", { name: /Berlin Health Clinic — Charlottenburg/ }),
     )
-    await expect(locationSelector).toHaveAccessibleName(
-      /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
+    await waitFor(() =>
+      expect(locationSelector).toHaveAccessibleName(
+        /Current location: Demo data · Berlin Health Clinic — Charlottenburg/,
+      ),
     )
     await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
   },

@@ -54,6 +54,95 @@ afterEach(() => {
 })
 
 describe("clinic gallery controller", () => {
+  it("protects browser departure while the first upload is pending", async () => {
+    stubImageDimensions()
+    const commands = createCommands(snapshot([]))
+    let resolveUpload!: (value: ClinicGalleryMedia) => void
+    commands.uploadMedia.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve
+        }),
+    )
+    const hook = renderHook(() =>
+      useClinicGalleryController({ commands, initialSnapshot: snapshot([]), management: "interactive" }),
+    )
+    let uploading!: Promise<void>
+    act(() => {
+      uploading = hook.result.current.actions.uploadFiles([imageFile("pending.jpg")])
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    const event = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    await act(async () => {
+      resolveUpload(media("pending", "draft"))
+      await uploading
+    })
+  })
+
+  it("cleans a late upload through its original clinic commands after departure", async () => {
+    stubImageDimensions()
+    const initial = snapshot([])
+    const commands = createCommands(initial)
+    let resolveUpload!: (value: ClinicGalleryMedia) => void
+    commands.uploadMedia.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve
+        }),
+    )
+    const hook = renderHook(() =>
+      useClinicGalleryController({ commands, initialSnapshot: initial, management: "interactive" }),
+    )
+    let uploading!: Promise<void>
+    act(() => {
+      uploading = hook.result.current.actions.uploadFiles([imageFile("delayed.jpg")])
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    hook.unmount()
+    await act(async () => {
+      resolveUpload(media("original-clinic-draft", "draft"))
+      await uploading
+    })
+    expect(commands.discardDrafts).toHaveBeenCalledWith(["original-clinic-draft"])
+    expect(commands.saveGallery).not.toHaveBeenCalled()
+  })
+
+  it("does not publish a late save into a departed clinic workspace", async () => {
+    const initial = snapshot()
+    const commands = createCommands(initial)
+    let resolveSave!: (value: ClinicGallerySnapshot) => void
+    commands.saveGallery.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        }),
+    )
+    const onSaved = vi.fn()
+    const hook = renderHook(() =>
+      useClinicGalleryController({ commands, initialSnapshot: initial, management: "interactive", onSaved }),
+    )
+    act(() => hook.result.current.actions.updateItem("one", { alt: "Changed description" }))
+    let saving!: Promise<void>
+    act(() => {
+      saving = hook.result.current.actions.save()
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    hook.unmount()
+    await act(async () => {
+      resolveSave({ ...initial, revision: 5 })
+      await saving
+    })
+    expect(onSaved).not.toHaveBeenCalled()
+  })
+
   it("adopts a refreshed authoritative gallery when no local changes are pending", () => {
     const initial = snapshot([media("initial")])
     const refreshed = { ...snapshot([media("refreshed")]), revision: initial.revision + 1 }
@@ -457,4 +546,69 @@ describe("clinic gallery controller", () => {
     expect(hook.result.current.model.items.map((item) => item.id)).toEqual(["latest"])
     expect(hook.result.current.model.conflict).toBe(false)
   })
+})
+
+it("protects actual gallery metadata and uploaded draft ownership until explicit restricted discard", async () => {
+  stubImageDimensions()
+  const initial = snapshot(),
+    commands = createCommands(initial)
+  const hook = renderHook(() =>
+    useClinicGalleryController({ commands, initialSnapshot: initial, management: "interactive" }),
+  )
+  act(() => hook.result.current.actions.openGallery())
+  await act(async () => {
+    await hook.result.current.actions.uploadFiles([imageFile("private.jpg")])
+  })
+  act(() =>
+    hook.result.current.actions.updateItem("draft-private.jpg", {
+      alt: "Private unsaved original clinic image",
+    }),
+  )
+  const captured = hook.result.current.actions.requestNavigation(undefined, undefined, "access-loss")
+  hook.unmount()
+  expect(captured?.draft).toMatchObject({
+    items: expect.arrayContaining([
+      expect.objectContaining({ alt: "Private unsaved original clinic image" }),
+    ]),
+  })
+  expect(commands.discardDrafts).not.toHaveBeenCalled()
+  await captured?.discard()
+  expect(commands.discardDrafts).toHaveBeenCalledWith(["draft-private.jpg"])
+})
+
+it("retains the actual pending File privately after access loss and cleans a late original upload", async () => {
+  stubImageDimensions()
+  const initial = snapshot([])
+  const commands = createCommands(initial)
+  let finish!: (value: ClinicGalleryMedia) => void
+  commands.uploadMedia.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+  )
+  const hook = renderHook(() =>
+    useClinicGalleryController({ commands, initialSnapshot: initial, management: "interactive" }),
+  )
+  const file = imageFile("pending-private.jpg")
+  let uploading!: Promise<void>
+  act(() => {
+    uploading = hook.result.current.actions.uploadFiles([file])
+  })
+  await act(async () => {
+    await Promise.resolve()
+  })
+  const work = hook.result.current.actions.requestNavigation(undefined, undefined, "access-loss")
+  const rows = work?.draft.uploadRows ?? []
+  expect(rows[0]?.file).toBe(file)
+  hook.unmount()
+  expect(rows[0]?.file).toBe(file)
+  expect(commands.discardDrafts).not.toHaveBeenCalled()
+  await work?.discard()
+  expect(commands.discardDrafts).not.toHaveBeenCalled()
+  await act(async () => {
+    finish(media("late-original-draft", "draft"))
+    await uploading
+  })
+  expect(commands.discardDrafts).toHaveBeenCalledExactlyOnceWith(["late-original-draft"])
 })

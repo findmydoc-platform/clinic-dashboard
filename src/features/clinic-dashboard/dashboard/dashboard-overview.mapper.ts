@@ -172,7 +172,10 @@ export function createDashboardOverview({
     metrics: [completion, ...journey.filter((stage) => stage.id !== "uniqueVisitors")],
     periodDays,
     profileProgress,
-    reportingStatus: loadState.status,
+    reportingStatus:
+      loadState.status === "access-denied" || loadState.status === "unauthorized"
+        ? "temporarily-unavailable"
+        : loadState.status,
     journey,
     selectedMetric: journey.find((stage) => stage.id === selectedMetricId) ?? journey[1],
     reviews: {

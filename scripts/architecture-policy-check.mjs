@@ -163,20 +163,25 @@ function isAllowedClinicDashboardServerImport(file) {
     file === "src/app/page.tsx" ||
     file === "src/app/api/notifications/route.ts" ||
     file === "src/app/api/notifications/read/route.ts" ||
-    file === "src/app/api/dashboard/inquiries/appeal/route.ts" ||
-    /^src\/app\/api\/dashboard\/inquiries(?:\/(?:detail|messages|notes|state|read-position|contact\/reveal|attachments\/(?:download|preview|drafts(?:\/(?:finalize|discard|upload))?)))?\/route\.ts$/u.test(
+    file === "src/app/api/dashboard/clinics/[clinicId]/inquiries/appeal/route.ts" ||
+    /^src\/app\/api\/dashboard\/clinics\/\[clinicId\]\/inquiries(?:\/(?:detail|messages|notes|state|read-position|contact\/reveal|attachments\/(?:download|preview|drafts(?:\/(?:finalize|discard|upload))?)))?\/route\.ts$/u.test(
       file,
     ) ||
-    file === "src/app/api/dashboard/clinic-treatments/route.ts" ||
-    /^src\/app\/api\/dashboard\/gallery(?:\/(?:discard|image|media))?\/route\.ts$/u.test(file) ||
-    /^src\/app\/api\/dashboard\/reviews(?:\/\[reviewId\](?:\/(?:appeal|history|response))?)?\/route\.ts$/u.test(
+    file === "src/app/api/dashboard/clinics/[clinicId]/clinic-treatments/route.ts" ||
+    /^src\/app\/api\/dashboard\/clinics\/\[clinicId\]\/gallery(?:\/(?:discard|image|media))?\/route\.ts$/u.test(
+      file,
+    ) ||
+    /^src\/app\/api\/dashboard\/(?:clinics\/\[clinicId\]\/)?reviews(?:\/\[reviewId\](?:\/(?:appeal|history|response))?)?\/route\.ts$/u.test(
       file,
     ) ||
     file === "src/app/api/dashboard/reporting/route.ts" ||
-    /^src\/app\/api\/dashboard\/doctors(?:\/\[doctorId\](?:\/image|\/specialties(?:\/\[assignmentId\])?)?)?\/route\.ts$/u.test(
+    file === "src/app/api/dashboard/clinics/[clinicId]/reporting/route.ts" ||
+    /^src\/app\/api\/dashboard\/clinics\/\[clinicId\]\/doctors(?:\/\[doctorId\](?:\/image|\/specialties(?:\/\[assignmentId\])?)?)?\/route\.ts$/u.test(
       file,
     ) ||
-    /^src\/app\/api\/dashboard\/profile(?:\/draft(?:\/discard)?|\/publish)?\/route\.ts$/u.test(file) ||
+    /^src\/app\/api\/dashboard\/(?:clinics\/\[clinicId\]\/)?profile(?:\/draft(?:\/discard)?|\/publish)?\/route\.ts$/u.test(
+      file,
+    ) ||
     file === "tests/unit/clinic-dashboard-demo-data.test.ts" ||
     file === "tests/integration/patient-inquiry-queue-loading.test.ts" ||
     file === "tests/integration/patient-inquiry-status-route.test.ts" ||

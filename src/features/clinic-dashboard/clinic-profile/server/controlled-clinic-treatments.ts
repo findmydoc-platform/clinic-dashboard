@@ -16,22 +16,29 @@ const catalogue = [
   },
 ] as const
 
-const initialOfferings = (): ClinicTreatmentOffering[] => [
+const initialOfferings = (clinicId: string): ClinicTreatmentOffering[] => [
   {
     active: true,
-    id: "controlled-offering-1",
-    price: 250,
+    id: clinicId === "controlled-clinic" ? "controlled-offering-1" : `${clinicId}-offering-1`,
+    price: clinicId === "controlled-second-clinic" ? 475 : 250,
     revision: "2026-01-01T00:00:00.000Z",
-    treatment: catalogue[0],
+    treatment: catalogue[clinicId === "controlled-second-clinic" ? 1 : 0],
   },
 ]
 
-const offeringsByClinic = new Map<string, ClinicTreatmentOffering[]>()
+function controlledOfferingsByClinic() {
+  const controlledGlobal = globalThis as typeof globalThis & {
+    __clinicDashboardTreatmentOfferingsByClinic?: Map<string, ClinicTreatmentOffering[]>
+  }
+  controlledGlobal.__clinicDashboardTreatmentOfferingsByClinic ??= new Map()
+  return controlledGlobal.__clinicDashboardTreatmentOfferingsByClinic
+}
 
 function offeringsForClinic(clinicId: string) {
+  const offeringsByClinic = controlledOfferingsByClinic()
   const current = offeringsByClinic.get(clinicId)
   if (current) return current
-  const seeded = initialOfferings()
+  const seeded = initialOfferings(clinicId)
   offeringsByClinic.set(clinicId, seeded)
   return seeded
 }
@@ -42,10 +49,11 @@ function nextRevision(previous?: string) {
 }
 
 export function resetControlledClinicTreatmentProviders() {
-  offeringsByClinic.clear()
+  controlledOfferingsByClinic().clear()
 }
 
 export function createControlledClinicTreatmentProvider(clinicId: string): ClinicTreatmentProvider {
+  const offeringsByClinic = controlledOfferingsByClinic()
   const snapshot = (): ClinicTreatmentsSnapshot => ({
     catalogue,
     offerings: offeringsForClinic(clinicId).map((offering) => ({
@@ -66,7 +74,7 @@ export function createControlledClinicTreatmentProvider(clinicId: string): Clini
 
       const offering = {
         active: false,
-        id: `controlled-offering-${offerings.length + 1}`,
+        id: `${clinicId}-offering-${offerings.length + 1}`,
         price: input.price,
         revision: nextRevision(),
         treatment,

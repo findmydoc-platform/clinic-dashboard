@@ -83,11 +83,38 @@ describe("review provider contract", () => {
     expect(secondPage.value.page.items.some(({ appeal }) => appeal?.status === "submitted")).toBe(true)
   })
 
+  it("isolates controlled review content, exact IDs, and accepted writes by clinic", async () => {
+    const first = createControlledReviewProvider("clinic-1")
+    const second = createControlledReviewProvider("second-clinic")
+    const result = await second.loadReviews(defaultReviewListFilters, 1)
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        page: {
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              id: "second-clinic-seed-review-01",
+              author: "Synthetic second-clinic",
+            }),
+          ]),
+        },
+      },
+    })
+    expect(await second.loadReview("seed-review-01")).toEqual({ ok: false, error: "not-found" })
+    expect(await first.loadReview("second-clinic-seed-review-01")).toEqual({ ok: false, error: "not-found" })
+    await first.submitResponse("seed-review-02", "A separate current clinic reply.")
+    expect(await second.loadReview("second-clinic-seed-review-02")).not.toMatchObject({
+      value: { response: { pending: { body: "A separate current clinic reply." } } },
+    })
+  })
+
   it("loads and minimizes Payload reviews through no-store requests", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviewResponses") return json({ docs: [pendingResponse] })
-      if (endpoint.pathname === "/api/reviewAppeals") return json({ docs: [] })
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses")
+        return json({ docs: [pendingResponse] })
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-appeals")
+        return json({ docs: [] })
       return json({
         docs: [rawReview],
         limit: Number(endpoint.searchParams.get("limit")),
@@ -136,12 +163,14 @@ describe("review provider contract", () => {
     async ({ relation, detail }) => {
       const fetcher = vi.fn<typeof fetch>(async (input) => {
         const endpoint = new URL(String(input))
-        if (endpoint.pathname === "/api/clinic-dashboard/reviews/review-1")
+        if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1")
           return json({
             data: { ...detail.data, id: "review-1", treatment: { id: "44", name: "Dentistry" } },
           })
-        if (endpoint.pathname === "/api/reviewResponses") return json({ docs: [pendingResponse] })
-        if (endpoint.pathname === "/api/reviewAppeals") return json({ docs: [] })
+        if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses")
+          return json({ docs: [pendingResponse] })
+        if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-appeals")
+          return json({ docs: [] })
         return json({
           docs: [{ ...rawReview, treatment: relation }],
           limit: Number(endpoint.searchParams.get("limit")),
@@ -172,7 +201,9 @@ describe("review provider contract", () => {
       expect(result.value.treatments).toEqual([{ id: "44", label: "Dentistry" }])
       expect(result.value.summary).toMatchObject({ rating: 5, total: 2 })
       const paths = fetcher.mock.calls.map(([input]) => new URL(String(input)).pathname)
-      expect(paths.filter((path) => path === "/api/clinic-dashboard/reviews/review-1")).toHaveLength(1)
+      expect(
+        paths.filter((path) => path === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1"),
+      ).toHaveLength(1)
       expect(paths.some((path) => path.startsWith("/api/treatments"))).toBe(false)
       const pageRead = fetcher.mock.calls.find(
         ([input]) => new URL(String(input)).searchParams.get("limit") === "10",
@@ -201,8 +232,9 @@ describe("review provider contract", () => {
   ])("fails the scalar list read closed on detail $status/$error", async ({ body, status, error }) => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname.startsWith("/api/clinic-dashboard/reviews/")) return json(body, status)
-      if (endpoint.pathname === "/api/reviews")
+      if (endpoint.pathname.startsWith("/api/clinic-dashboard/clinics/clinic-1/reviews/"))
+        return json(body, status)
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews")
         return json({
           docs: [{ ...rawReview, treatment: 44 }],
           limit: 10,
@@ -236,7 +268,7 @@ describe("review provider contract", () => {
             setTimeout(() => {
               const endpoint = new URL(String(input))
               resolve(
-                endpoint.pathname === "/api/reviews"
+                endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews"
                   ? json({
                       docs: [{ ...rawReview, treatment: 44 }],
                       limit: 10,
@@ -244,7 +276,7 @@ describe("review provider contract", () => {
                       totalDocs: 1,
                       totalPages: 1,
                     })
-                  : endpoint.pathname.startsWith("/api/clinic-dashboard/reviews/")
+                  : endpoint.pathname.startsWith("/api/clinic-dashboard/clinics/clinic-1/reviews/")
                     ? json({ data: { ...reviewDetailCases.accepted[0].data, id: "review-1" } })
                     : json({ docs: [] }),
               )
@@ -264,9 +296,13 @@ describe("review provider contract", () => {
   })
 
   it("removes every historical original text when the current review is removed", async () => {
-    const fetcher = vi.fn<typeof fetch>(async (input) => {
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const headers = new Headers(init?.headers)
+      expect(headers.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
+      expect(headers.get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe("inquiry-communication-v2")
+      expect(headers.get("Authorization")).toBe("Bearer access-token")
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviews/review-1") {
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/record") {
         return json({ ...rawReview, publicMeasure: "removed" })
       }
       if (endpoint.pathname.endsWith("/publication-history")) {
@@ -294,7 +330,7 @@ describe("review provider contract", () => {
           },
         })
       }
-      if (endpoint.pathname === "/api/reviewResponses/versions") {
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses/versions") {
         return json({
           docs: [
             {
@@ -311,7 +347,7 @@ describe("review provider contract", () => {
           ],
         })
       }
-      if (endpoint.pathname === "/api/reviewAppeals/versions") {
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-appeals/versions") {
         return json({
           docs: [
             {
@@ -359,10 +395,10 @@ describe("review provider contract", () => {
     )
     expect(new URL(String(publicationCall?.[0])).searchParams.get("cursor")).toBe("opaque cursor/value")
     expect(fetcher.mock.calls.map(([input]) => new URL(String(input)).pathname)).toEqual([
-      "/api/reviews/review-1",
-      "/api/reviews/review-1/publication-history",
-      "/api/reviewResponses/versions",
-      "/api/reviewAppeals/versions",
+      "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/record",
+      "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/publication-history",
+      "/api/clinic-dashboard/clinics/clinic-1/review-responses/versions",
+      "/api/clinic-dashboard/clinics/clinic-1/review-appeals/versions",
     ])
   })
 
@@ -371,9 +407,14 @@ describe("review provider contract", () => {
     const numericAppeal = { ...submittedAppeal, id: 41, review: 20 }
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviews/20") return json(numericReview)
-      if (endpoint.pathname === "/api/reviewResponses") return json({ docs: [] })
-      if (endpoint.pathname === "/api/reviewAppeals" && init?.method === "POST") {
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/20/record")
+        return json(numericReview)
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses")
+        return json({ docs: [] })
+      if (
+        endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-appeals" &&
+        init?.method === "POST"
+      ) {
         return json({ doc: numericAppeal })
       }
       return json({ docs: [] })
@@ -388,10 +429,16 @@ describe("review provider contract", () => {
     expect(fetcher).toHaveBeenCalledTimes(4)
     const write = fetcher.mock.calls.at(-1)
     const writeEndpoint = new URL(String(write?.[0]))
-    expect(writeEndpoint.pathname).toBe("/api/reviewAppeals")
+    expect(writeEndpoint.pathname).toBe("/api/clinic-dashboard/clinics/clinic-1/review-appeals")
     expect(writeEndpoint.searchParams.get("depth")).toBe("0")
     expect(write?.[1]).toMatchObject({ method: "POST" })
     expect(write?.[1]?.headers).toMatchObject({ Authorization: "Bearer access-token" })
+    const writeHeaders = new Headers(write?.[1]?.headers)
+    expect(writeHeaders.get("Authorization")).toBe("Bearer access-token")
+    expect(writeHeaders.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
+    expect(writeHeaders.get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe("inquiry-communication-v2")
+    expect(writeHeaders.get("Content-Type")).toBe("application/json")
+    expect(writeHeaders.get("Origin")).toBe("http://localhost:3000")
     expect(JSON.parse(String(write?.[1]?.body))).toEqual({
       details: submittedAppeal.details,
       reason: "incorrect_clinic",
@@ -402,9 +449,14 @@ describe("review provider contract", () => {
   it("preserves nonnumeric review relationship IDs on appeal creation", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviews/review-1") return json(rawReview)
-      if (endpoint.pathname === "/api/reviewResponses") return json({ docs: [] })
-      if (endpoint.pathname === "/api/reviewAppeals" && init?.method === "POST") {
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/record")
+        return json(rawReview)
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses")
+        return json({ docs: [] })
+      if (
+        endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-appeals" &&
+        init?.method === "POST"
+      ) {
         return json({ doc: submittedAppeal })
       }
       return json({ docs: [] })
@@ -434,8 +486,12 @@ describe("review provider contract", () => {
     }
     const firstFetcher = vi.fn<typeof fetch>(async (input, init) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviews/19") return json(numericReview)
-      if (endpoint.pathname === "/api/reviewResponses" && init?.method === "POST") {
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/19/record")
+        return json(numericReview)
+      if (
+        endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses" &&
+        init?.method === "POST"
+      ) {
         return json({ doc: numericResponse })
       }
       return json({ docs: [] })
@@ -446,7 +502,7 @@ describe("review provider contract", () => {
     )
     expect(first).toMatchObject({ ok: true, value: { response: { id: "31", status: "pending" } } })
     const firstWriteEndpoint = new URL(String(firstFetcher.mock.calls.at(-1)?.[0]))
-    expect(firstWriteEndpoint.pathname).toBe("/api/reviewResponses")
+    expect(firstWriteEndpoint.pathname).toBe("/api/clinic-dashboard/clinics/clinic-1/review-responses")
     expect(firstWriteEndpoint.searchParams.get("depth")).toBe("0")
     expect(firstFetcher.mock.calls.at(-1)?.[1]).toMatchObject({ method: "POST" })
     expect(JSON.parse(String(firstFetcher.mock.calls.at(-1)?.[1]?.body))).toEqual({
@@ -456,11 +512,15 @@ describe("review provider contract", () => {
 
     const pendingFetcher = vi.fn<typeof fetch>(async (input, init) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviews/review-1") return json(rawReview)
-      if (endpoint.pathname === "/api/reviewResponses" && !init?.method) {
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/record")
+        return json(rawReview)
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses" && !init?.method) {
         return json({ docs: [pendingResponse] })
       }
-      if (endpoint.pathname === "/api/reviewResponses/response-1" && init?.method === "PATCH") {
+      if (
+        endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses/response-1" &&
+        init?.method === "PATCH"
+      ) {
         return json(pendingResponse)
       }
       return json({ docs: [] })
@@ -472,7 +532,9 @@ describe("review provider contract", () => {
     ).submitResponse("review-1", pendingResponse.pendingResponse.body)
     expect(revised).toMatchObject({ ok: true, value: { response: { status: "pending" } } })
     const pendingWriteEndpoint = new URL(String(pendingFetcher.mock.calls.at(-1)?.[0]))
-    expect(pendingWriteEndpoint.pathname).toBe("/api/reviewResponses/response-1")
+    expect(pendingWriteEndpoint.pathname).toBe(
+      "/api/clinic-dashboard/clinics/clinic-1/review-responses/response-1",
+    )
     expect(pendingWriteEndpoint.searchParams.get("depth")).toBe("0")
     expect(pendingFetcher.mock.calls.at(-1)?.[1]).toMatchObject({ method: "PATCH" })
     expect(JSON.parse(String(pendingFetcher.mock.calls.at(-1)?.[1]?.body))).toEqual({
@@ -483,11 +545,13 @@ describe("review provider contract", () => {
   it("maps an upstream response conflict without a post-write reload", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviews/review-1") return json(rawReview)
-      if (endpoint.pathname === "/api/reviewResponses" && !init?.method) {
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/record")
+        return json(rawReview)
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses" && !init?.method) {
         return json({ docs: [pendingResponse] })
       }
-      if (endpoint.pathname === "/api/reviewResponses/response-1") return json({}, 409)
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses/response-1")
+        return json({}, 409)
       return json({ docs: [] })
     })
 
@@ -514,8 +578,10 @@ describe("review provider contract", () => {
     }
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const endpoint = new URL(String(input))
-      if (endpoint.pathname === "/api/reviews/review-1") return json(rawReview)
-      if (endpoint.pathname === "/api/reviewResponses") return json({ docs: [approvedResponse] })
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/record")
+        return json(rawReview)
+      if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/review-responses")
+        return json({ docs: [approvedResponse] })
       return json({ docs: [] })
     })
 
@@ -565,7 +631,9 @@ describe("ordinary exact review detail contract", () => {
     async (body) => {
       const fetcher = vi.fn(async (input: RequestInfo | URL) => {
         const url = new URL(String(input))
-        return Response.json(url.pathname.startsWith("/api/clinic-dashboard/reviews/") ? body : { docs: [] })
+        return Response.json(
+          url.pathname.startsWith("/api/clinic-dashboard/clinics/clinic-1/reviews/") ? body : { docs: [] },
+        )
       })
       const result = await createPayloadReviewProvider("access-token", "clinic-1", fetcher).loadReview(
         "review-204",
@@ -583,7 +651,7 @@ describe("ordinary exact review detail contract", () => {
         )
       }
       expect(fetcher.mock.calls[0][0].toString()).toBe(
-        "https://preview.findmydoc.eu/api/clinic-dashboard/reviews/review-204",
+        "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/reviews/review-204",
       )
     },
   )
@@ -658,7 +726,9 @@ describe("exact review read failure boundaries", () => {
               () =>
                 resolve(
                   Response.json(
-                    new URL(String(input)).pathname.startsWith("/api/clinic-dashboard/reviews/")
+                    new URL(String(input)).pathname.startsWith(
+                      "/api/clinic-dashboard/clinics/clinic-1/reviews/",
+                    )
                       ? reviewDetailCases.accepted[0]
                       : { docs: [] },
                   ),

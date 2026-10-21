@@ -316,6 +316,7 @@ export async function saveDoctorProfileDraft(
   }
 
   const results = await Promise.allSettled(operations.map(({ request }) => request))
+  let changed = !draft.doctorId
   const failedSteps: DoctorProfileSaveFailure[] = []
   let updatedDraft = nextDraft
 
@@ -325,6 +326,7 @@ export async function saveDoctorProfileDraft(
       if (operation) failedSteps.push(operation.failure)
       continue
     }
+    changed = true
     if (result.value.kind === "profile") {
       doctor = {
         ...result.value.profile,
@@ -360,6 +362,7 @@ export async function saveDoctorProfileDraft(
   } else if (updatedDraft.activationPending && updatedDraft.active && !hasBlockingFollowUpFailure) {
     try {
       const activatedDoctor = await commands.updateDoctor(doctorId, { active: true })
+      changed = true
       doctor = {
         ...activatedDoctor,
         image: doctor.image,
@@ -372,7 +375,7 @@ export async function saveDoctorProfileDraft(
   }
 
   if (failedSteps.length > 0) {
-    return { doctor, draft: updatedDraft, failedSteps, status: "partial" }
+    return { doctor, draft: updatedDraft, failedSteps, status: changed ? "partial" : "failed" }
   }
   return { doctor, draft: updatedDraft, failedSteps: [], status: "saved" }
 }

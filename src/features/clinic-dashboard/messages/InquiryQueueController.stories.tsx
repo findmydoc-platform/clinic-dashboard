@@ -11,6 +11,7 @@ import { InquiryQueue } from "./InquiryQueueController"
 
 const meta = {
   args: {
+    clinicId: "controlled-clinic",
     commands,
     isActive: true,
     snapshot: inquiryQueueFixture,
