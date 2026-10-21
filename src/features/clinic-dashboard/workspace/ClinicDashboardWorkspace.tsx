@@ -212,7 +212,12 @@ function ClinicDashboardWorkspaceContent({
       />
     )
   return (
-    <div data-clinic-workspace onClick={openExactLink}>
+    <div
+      data-clinic-workspace
+      aria-busy={lifetime.registeredContext !== authenticatedContext}
+      inert={lifetime.registeredContext !== authenticatedContext}
+      onClick={openExactLink}
+    >
       <ClinicDashboardWorkspaceComposition
         key={`${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`}
         authenticatedContext={authenticatedContext}
