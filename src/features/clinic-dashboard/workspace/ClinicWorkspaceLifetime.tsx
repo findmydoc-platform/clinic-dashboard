@@ -77,7 +77,7 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
     cancelExactOpening()
     cancelNotificationOpening()
   }, [cancelExactOpening, cancelNotificationOpening])
-  const { clearProtection, hasProtectedWork } = departureGuard
+  const { clearProtection } = departureGuard
   useEffect(() => () => clearProtection(), [clearProtection])
   const recoverSession = useCallback(() => {
     onNavigationAway()
@@ -99,9 +99,8 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
     guard: departureGuard,
     onChoose: chooseClinic,
     onSessionLost: recoverSession,
-    protectionOwnedBySession: true,
   })
-  const isRestricted = recovery.isRestricted
+  const isRestricted = useCallback(() => recovery.model.restricted, [recovery.model.restricted])
   const restrictCurrentScope = recovery.restrict
   const restrict = useCallback(() => {
     // Capture the original editor commands before invalidating an exact opening.
@@ -147,7 +146,6 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
         recoveryTarget.current = undefined
       } else if (
         protectionCount ||
-        hasProtectedWork() ||
         (isRestricted() &&
           (recoveryTarget.current?.clinicId !== next.authenticatedContext.clinic.id ||
             recoveryTarget.current.section !== (next.initialSection ?? "dashboard")))
@@ -169,7 +167,7 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
       isolated,
       onNavigationAway,
       clearProtection,
-      hasProtectedWork,
+      setSection,
       registration?.authenticatedContext.clinic.id,
       protectionCount,
       isRestricted,
@@ -179,6 +177,7 @@ function useLifetime(isolated: boolean, commands?: NotificationCommands) {
     registeredContext: historyReady ? registration?.authenticatedContext : undefined,
     recovery: { ...recovery, restrict },
     recoverSession,
+    section,
     setSection,
     departureGuard,
     exactOpening,

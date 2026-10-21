@@ -1,6 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type MouseEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type MouseEvent,
+} from "react"
 import { useRouter } from "next/navigation"
 import type { AuthenticatedClinicContext, AuthorizedClinic } from "@/features/clinic-dashboard/auth/public"
 import {
@@ -30,8 +39,6 @@ import {
 import { rememberAuthorizedClinic } from "./browser/clinic-preference"
 import type { ClinicDashboardSection } from "./model/workspace"
 import type { ClinicDashboardWorkspaceInput } from "./model/workspace-input"
-import { useEditorDepartureGuard } from "./useEditorDepartureGuard"
-import { useClinicAccessRecovery } from "./useClinicAccessRecovery"
 import { ClinicAccessRecoveryScreen } from "./components/organisms/ClinicAccessRecoveryScreen"
 
 export type ClinicDashboardWorkspaceProps = Readonly<{
@@ -76,6 +83,9 @@ function ClinicDashboardWorkspaceContent({
   useSessionRecoveryCompletion()
   const router = useRouter()
   const {
+    recovery,
+    recoverSession,
+    setSection,
     departureGuard,
     exactOpening,
     notificationCommands,
@@ -87,28 +97,11 @@ function ClinicDashboardWorkspaceContent({
   } = lifetime
   useEffect(() => {
     const lease = new AbortController()
-    register({ authenticatedContext, authorizedClinics, initialNotifications }, lease.signal)
+    register({ authenticatedContext, authorizedClinics, initialNotifications, initialSection }, lease.signal)
     return () => lease.abort()
-  }, [authenticatedContext, authorizedClinics, initialNotifications, register])
+  }, [authenticatedContext, authorizedClinics, initialNotifications, initialSection, register])
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
   const activeScope = useRef<string | undefined>(scope)
-  const departureGuard = useEditorDepartureGuard()
-  const [section, setSection] = useState<ClinicDashboardSection>(initialSection ?? "dashboard")
-  const changeClinic = (clinicId: string, nextSection: ClinicDashboardSection) =>
-    router.push(`/clinics/${encodeURIComponent(clinicId)}?section=${nextSection}`)
-  const clearProtection = departureGuard.clearProtection
-  const recoverSession = useCallback(() => {
-    clearProtection()
-    router.replace("/auth/session/recover?mode=refresh&attempt=")
-  }, [clearProtection, router])
-  const recovery = useClinicAccessRecovery({
-    principalId: authenticatedContext.principal.id,
-    clinicId: authenticatedContext.clinic.id,
-    section,
-    guard: departureGuard,
-    onChoose: changeClinic,
-    onSessionLost: recoverSession,
-  })
   useLayoutEffect(() => {
     activeScope.current = scope
     return () => {
@@ -138,17 +131,21 @@ function ClinicDashboardWorkspaceContent({
       rememberAuthorizedClinic(authenticatedContext.principal.id, authenticatedContext.clinic.id)
   }, [authorizedClinics, authenticatedContext.principal.id, authenticatedContext.clinic.id])
   const [isSourceRefreshPending, startSourceRefresh] = useTransition()
-  const doctorProfileCommands = useMemo(
-    () => createDoctorProfileApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure),
-    [authenticatedContext.clinic.id, handleDomainAccessFailure],
-  )
+  const doctorProfileCommands = useMemo(() => {
+    // The command factory stores the callback; asynchronous commands invoke it later.
+    // eslint-disable-next-line react-hooks/refs
+    return createDoctorProfileApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const clinicProfileSourceCommands = useMemo(() => {
     // The factory stores the scope-bound callback; asynchronous source failures invoke it.
     // eslint-disable-next-line react-hooks/refs
     return createClinicProfileSourceApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
   }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
-  const clinicGalleryCommands = useMemo(() => createClinicGalleryApiCommands(), [])
-  const notificationCommands = lifetime.notificationCommands
+  const clinicGalleryCommands = useMemo(() => {
+    // Gallery commands keep the current clinic and recovery callback in their private owner.
+    // eslint-disable-next-line react-hooks/refs
+    return createClinicGalleryApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
   const cancelNotificationOpening = notifications.actions.cancelOpening
   const openExactDestination = exactOpening.open
   const openExactLink = useCallback(

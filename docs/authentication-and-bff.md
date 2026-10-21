@@ -159,7 +159,6 @@ The Dashboard owns these same-origin contracts:
 | `/api/dashboard/clinics/:clinicId/gallery/image`     | `GET`                    | Stream an authorized clinic-media file through the same-origin private BFF without exposing Payload credentials or draft URLs to the browser.                                                                                                 |
 | `/api/dashboard/clinics/{clinicId}/inquiries/appeal` | `POST`                   | Submit only `{ caseId, text }` through the current clinic session, shared mutation guard, and `clinic-inquiries:view` capability. No browser-supplied actor, clinic, revision, or replay key is accepted.                                     |
 
-
 Refresh is primarily a server-session utility used before authenticated Payload calls. A separate public refresh route
 is unnecessary unless a later UI flow demonstrates the need. Callback and login failures return sanitized error codes;
 they never return Supabase response bodies, token hashes, or provider details to application UI.
@@ -363,12 +362,10 @@ and run original cleanup; obsolete choice reads, domain reads and actions cannot
 scope. Existing unmounted-domain cleanup owns late upload completion. No new revocation channel or age policy is added.
 
 `workspace/model/clinic-scope-conversions.ts` enables profile, gallery, doctors, treatments, inquiries, reviews and
-notifications through explicit clinic-target operations. The server does not load their source records, and
+notifications through explicit clinic-target operations. The server does not load their source records. The live
+workspace does not display another clinic's demo data, and targetless legacy domain routes deny access. This gate records
+implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
 
-<<<<<<< HEAD
-the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. This gate
-records implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
-=======
 The personal notification controller survives the authorized clinic-page transition only for its captured intentional
 opening, bound to the current principal and navigation generation. Other feed, count and action responses are invalidated.
 An ordinary authorized exact inquiry or review detail must actually render and receive semantic focus before the existing
@@ -378,10 +375,9 @@ conditions. A failed or unknown acknowledgment does not reverse a successful dis
 loaded projection without fetching extra history.
 
 `workspace/model/clinic-scope-conversions.ts` records independent domain target-route conversions.
-Gallery is enabled only in this experimental composition pending qualified source acceptance. Closed domains do not load source records, and
-the live workspace does not display another clinic's demo data. Targetless legacy domain routes deny access. Conversion gates
-record implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
->>>>>>> 46639cd4 (fix: preserve gallery editor composition across clinic navigation)
+Gallery remains enabled only in this experimental composition; its paired source protocol was qualified separately.
+Closed domains do not load source records, and the live workspace does not display another clinic's demo data. Conversion
+gates record implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
 available for local behavior verification.
 
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,

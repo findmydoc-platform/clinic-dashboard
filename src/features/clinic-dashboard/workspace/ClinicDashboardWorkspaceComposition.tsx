@@ -114,7 +114,6 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
   focusReviewId?: string
-  departureGuard?: ReturnType<typeof useEditorDepartureGuard>
   notificationController?: NotificationCenterController
   notificationsOpen?: boolean
   onNotificationsOpenChange?: (open: boolean) => void
@@ -154,7 +153,6 @@ export function ClinicDashboardWorkspaceComposition({
   doctorProfileCommands,
   focusInquiryId,
   focusReviewId,
-  departureGuard,
   notificationController,
   notificationsOpen,
   onNotificationsOpenChange,
