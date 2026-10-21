@@ -73,6 +73,55 @@ describe("notification count expiry scheduling", () => {
 })
 
 describe("personal notification navigation ownership", () => {
+  it("finishes the current feed when its selected view is clicked during a clinic refresh", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true)
+    let finish: ((value: Awaited<ReturnType<NotificationCommands["load"]>>) => void) | undefined
+    let defer = false
+    const load = vi.fn<NotificationCommands["load"]>((query) => {
+      if (defer) {
+        return new Promise((resolve) => {
+          finish = resolve
+        })
+      }
+      return notificationCommandsFixture.load(query)
+    })
+    const api = { ...notificationCommandsFixture, load }
+    const { result, rerender } = renderHook(
+      ({ clinicId }) =>
+        useNotificationCenterController(api, { status: "loading" }, true, undefined, {
+          principalId: "person-1",
+          clinicId,
+        }),
+      { initialProps: { clinicId: "clinic-1" } },
+    )
+    await act(async () => {})
+    act(() => result.current.actions.selectView("all"))
+    await act(async () => {})
+    expect(result.current.model.view).toBe("all")
+
+    defer = true
+    load.mockClear()
+    rerender({ clinicId: "clinic-2" })
+    await act(async () => {})
+    expect(result.current.model.state.status).toBe("loading")
+    act(() => result.current.actions.selectView("all"))
+    await act(async () => {
+      finish!({ ok: true, value: { ...notificationPageFixture, view: "all" } })
+    })
+
+    expect(result.current.model.state).toMatchObject({
+      status: "ready",
+      response: { view: "all", items: expect.arrayContaining(notificationPageFixture.items) },
+    })
+    expect(result.current.model.refreshState).toBe("idle")
+    expect(load).toHaveBeenCalledTimes(1)
+    defer = false
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
   it("reloads the personal loaded extent with fresh cursors after a clinic switch", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true)
     const first = notificationPageFixture.items[0]!
