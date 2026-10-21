@@ -174,13 +174,7 @@ describe("patient inquiry BFF integration", () => {
     const uploadResponse = requireResponse(
       await handleInquiryAttachmentDraftUpload(
         signedBinaryRequest(
-          new URL(
-            draft.upload.url.replace(
-              "/api/dashboard/clinics/controlled-clinic/inquiries",
-              "/api/dashboard/clinics/controlled-clinic/inquiries",
-            ),
-            "http://localhost:3000",
-          ).toString(),
+          new URL(draft.upload.url, "http://localhost:3000").toString(),
           bytes,
           "application/pdf",
         ),
