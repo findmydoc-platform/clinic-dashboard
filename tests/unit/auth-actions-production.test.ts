@@ -11,10 +11,14 @@ vi.mock("@/features/clinic-dashboard/auth/server/supabase-client", async (import
   return {
     ...actual,
     createRouteSupabaseClient: createRouteSupabaseClientMock,
+    createReadOnlySupabaseClient: () => createRouteSupabaseClientMock().client,
   }
 })
 
+import { GET as openEmailCallback } from "@/app/auth/callback/route"
 import {
+  decodePendingEmailCallback,
+  decodeCompletionGrant,
   encodeCompletionGrant,
   encodePendingEmailCallback,
   handleClinicDashboardEmailCallback,
@@ -420,6 +424,87 @@ describe("production authentication actions", () => {
     await expect(response.json()).resolves.toEqual({ code: "REQUEST_REJECTED" })
     expect(createRouteSupabaseClientMock).not.toHaveBeenCalled()
     expectPrivate(response)
+  })
+
+  it("reopens the original invitation link with the verified identity after the old browser grant expires", async () => {
+    const { client } = installRouteClient()
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: URL) =>
+        url.pathname.endsWith("validateAction")
+          ? Response.json({ version: 1, ok: false, code: "INVALID_OR_EXPIRED_ACTION" }, { status: 400 })
+          : Response.json({ version: 1, ok: true, outcome: "confirmed" }),
+      ),
+    )
+    const response = await openEmailCallback(
+      new NextRequest(
+        "http://localhost:3000/auth/callback?token_hash=consumed&type=invite&actionRef=opaque-reference",
+      ),
+    )
+    expect(response.headers.get("location")).toBe("http://localhost:3000/auth/confirm?type=invite")
+    const pending = response.cookies.get("clinic_dashboard_pending_email")!.value
+    expect(decodePendingEmailCallback(pending)).toMatchObject({ resumeSubject: "staff-1" })
+    const confirmed = await handleClinicDashboardEmailCallback(
+      mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
+    )
+    expect(confirmed.status).toBe(200)
+    const grant = confirmed.cookies.get("clinic_dashboard_completion_grant")!.value
+    expect(decodeCompletionGrant(grant)).toMatchObject({
+      flow: "invite",
+      subject: "staff-1",
+      state: "confirmed",
+    })
+    expect(client.auth.verifyOtp).not.toHaveBeenCalled()
+  })
+
+  it("rejects a resumed invitation if the current identity differs", async () => {
+    const { client } = installRouteClient()
+    vi.stubGlobal("fetch", vi.fn())
+    const pending = encodePendingEmailCallback(
+      { actionRef: "opaque-reference", next: "/auth/invite/complete", tokenHash: "consumed", type: "invite" },
+      Date.now(),
+      "other-staff",
+    )
+    const response = await handleClinicDashboardEmailCallback(
+      mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
+    )
+    expect(response.status).toBe(400)
+    expect(client.auth.verifyOtp).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it("resumes a confirmed invitation using fresh authority without replaying its consumed OTP", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ version: 1, ok: true, outcome: "confirmed" })),
+    )
+    const { client } = installRouteClient()
+    const pending = encodePendingEmailCallback(
+      {
+        actionRef: "opaque-reference",
+        next: "/auth/invite/complete",
+        tokenHash: "consumed-invite-token-hash",
+        type: "invite",
+      },
+      Date.now(),
+      "staff-1",
+    )
+    const response = await handleClinicDashboardEmailCallback(
+      mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
+    )
+    expect(response.status).toBe(200)
+    expect(client.auth.verifyOtp).not.toHaveBeenCalled()
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({
+        body: JSON.stringify({
+          actionRef: "opaque-reference",
+          flow: "clinic-invitation",
+          accessToken: "server-access-token",
+          resumeConfirmedInvitation: true,
+        }),
+      }),
+    )
   })
 
   it("verifies TokenHash and issues a flow-and-subject-bound completion grant", async () => {

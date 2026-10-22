@@ -209,7 +209,17 @@ The next POST uses the retained session and calls `confirmAction` without anothe
 error during this continuation returns unavailable and preserves the grant and session; a missing or mismatched
 verified session still fails closed. Once Website confirms,
 the grant becomes `confirmed`. Signatures bind purpose, environment and configured origin. Pending and completion
-contexts expire server-side ten minutes after the original GET; retries do not extend that deadline. A callback that
+contexts expire server-side ten minutes after the original GET; retries do not extend that deadline.
+A still-valid, already confirmed invitation can be resumed by reopening its original email link in the same
+verified clinic session. Callback GET uses the existing private `confirmAction` with
+`resumeConfirmedInvitation: true`; Website requires the invitation to be already confirmed and rechecks its
+expiry, current subject and eligible principal without advancing state. The new signed pending context binds that
+subject. The CSRF-protected confirmation POST checks the same authority again, does not replay the consumed OTP,
+and only then creates a fresh ten-minute completion grant. Recovery and unconfirmed invitations keep their
+existing flow. A different or missing session, completed action, or expired invitation cannot resume this way.
+Existing durable password-execution claims and uncertain-outcome fences still apply. An already expired initial
+invitation requires a separate supported operational renewal; password recovery does not fabricate initial
+completion evidence. A callback that
 fails structurally or receives the Website's closed rejection shows the same invalid-or-expired public state.
 
 The approved update-before-lifecycle-completion requirement uses the Website's existing password-completion boundary.

@@ -1,6 +1,6 @@
 import "server-only"
 
-export { validateWebsiteAction } from "./auth-action-protocol"
+export { confirmWebsiteAction, validateWebsiteAction } from "./auth-action-protocol"
 
 export {
   getClinicDashboardSessionRecoveryCsrfToken,
@@ -26,7 +26,11 @@ export {
   setPendingEmailCallbackCookie,
   validateEmailCallbackRequest,
 } from "./callback"
-export { hasControlledSession, isControlledContactReauthenticationRequired } from "./session"
+export {
+  getClinicDashboardSession,
+  hasControlledSession,
+  isControlledContactReauthenticationRequired,
+} from "./session"
 export {
   resolveClinicDashboardPersonalRouteAccess,
   resolveClinicDashboardMutationAccess,

@@ -337,7 +337,7 @@ export async function handleClinicDashboardEmailCallback(request: NextRequest) {
   }
 
   const routeClient = createRouteSupabaseClient(request)
-  if (callback) {
+  if (callback && !callback.resumeSubject) {
     try {
       const { error } = await routeClient.client.auth.verifyOtp({
         token_hash: callback.tokenHash,
@@ -355,7 +355,11 @@ export async function handleClinicDashboardEmailCallback(request: NextRequest) {
   } catch {
     return applyEmailClient(errorResponse("AUTH_TEMPORARILY_UNAVAILABLE", 503), routeClient, request)
   }
-  if (!session?.isClinicAccount || (!callback && grant?.subject !== session.subject)) {
+  if (
+    !session?.isClinicAccount ||
+    (!callback && grant?.subject !== session.subject) ||
+    (callback?.resumeSubject && (callback.type !== "invite" || callback.resumeSubject !== session.subject))
+  ) {
     await routeClient.client.auth.signOut({ scope: "local" }).catch(() => undefined)
     return applyClientAndClear(invalid(), routeClient, request)
   }
@@ -363,13 +367,18 @@ export async function handleClinicDashboardEmailCallback(request: NextRequest) {
     grant = {
       actionRef: callback.actionRef,
       flow: callback.type,
-      issuedAt: callback.issuedAt,
+      issuedAt: callback.resumeSubject ? Math.floor(Date.now() / 1000) : callback.issuedAt,
       state: "confirming",
       subject: session.subject,
     }
   }
   if (!grant) return applyClient(invalid(), routeClient)
-  const outcome = await confirmWebsiteAction(grant.actionRef, grant.flow, session.accessToken)
+  const outcome = await confirmWebsiteAction(
+    grant.actionRef,
+    grant.flow,
+    session.accessToken,
+    Boolean(callback?.resumeSubject),
+  )
   if (outcome === "invalid") return applyClient(invalid(), routeClient)
   const response =
     outcome === "confirmed"
