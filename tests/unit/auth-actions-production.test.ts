@@ -559,6 +559,84 @@ describe("production authentication actions", () => {
     expectPrivate(response)
   })
 
+  it("verifies a renewed recovery token while preserving validated invitation completion", async () => {
+    const fetcher = vi.fn(async (url: URL, _init?: RequestInit) =>
+      Response.json({
+        version: 1,
+        ok: true,
+        outcome: url.pathname.endsWith("validateAction") ? "valid" : "confirmed",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    const { client } = installRouteClient()
+    const opened = await openEmailCallback(
+      new NextRequest(
+        "http://localhost:3000/auth/callback?token_hash=fresh&type=invite&token_type=recovery&actionRef=opaque-reference",
+      ),
+    )
+    const pending = opened.cookies.get("clinic_dashboard_pending_email")?.value
+    expect(pending).toBeTruthy()
+    expect(JSON.parse(fetcher.mock.calls[0]![1]!.body as string)).toEqual({
+      actionRef: "opaque-reference",
+      flow: "clinic-invitation",
+      tokenType: "recovery",
+    })
+    const response = await handleClinicDashboardEmailCallback(
+      mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
+    )
+    expect(client.auth.verifyOtp).toHaveBeenCalledWith({ token_hash: "fresh", type: "recovery" })
+    expect(await response.json()).toEqual({ redirectTo: "/auth/invite/complete" })
+    expect(
+      decodeCompletionGrant(response.cookies.get("clinic_dashboard_completion_grant")?.value),
+    ).toMatchObject({ flow: "invite", state: "confirmed" })
+  })
+
+  it("rejects a changed renewal transport before consuming OTP or using invitation resume", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ version: 1, ok: false, code: "INVALID_OR_EXPIRED_ACTION" }, { status: 400 }),
+      ),
+    )
+    const { client } = installRouteClient()
+    const response = await openEmailCallback(
+      new NextRequest(
+        "http://localhost:3000/auth/callback?token_hash=fresh&type=invite&token_type=recovery&actionRef=foreign-reference",
+      ),
+    )
+    expect(response.headers.get("location")).toContain("invalid-or-expired-link")
+    expect(response.cookies.get("clinic_dashboard_pending_email")).toBeUndefined()
+    expect(client.auth.verifyOtp).not.toHaveBeenCalled()
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it("resumes a renewed invitation only after Website revalidates its transport and current subject", async () => {
+    const fetcher = vi.fn(async (url: URL, _init?: RequestInit) =>
+      url.pathname.endsWith("validateAction")
+        ? Response.json({ version: 1, ok: false, code: "INVALID_OR_EXPIRED_ACTION" }, { status: 400 })
+        : Response.json({ version: 1, ok: true, outcome: "confirmed" }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    const { client } = installRouteClient()
+    const opened = await openEmailCallback(
+      new NextRequest(
+        "http://localhost:3000/auth/callback?token_hash=consumed&type=invite&token_type=recovery&actionRef=opaque-reference",
+      ),
+    )
+    const pending = opened.cookies.get("clinic_dashboard_pending_email")?.value
+    expect(pending).toBeTruthy()
+    expect(JSON.parse(fetcher.mock.calls[1]![1]!.body as string)).toMatchObject({
+      flow: "clinic-invitation",
+      tokenType: "recovery",
+      resumeConfirmedInvitation: true,
+    })
+    const response = await handleClinicDashboardEmailCallback(
+      mutationRequest("/api/auth/callback", {}, [`clinic_dashboard_pending_email=${pending}`]),
+    )
+    expect(await response.json()).toEqual({ redirectTo: "/auth/invite/complete" })
+    expect(client.auth.verifyOtp).not.toHaveBeenCalled()
+  })
+
   it.each([
     ["invite", "clinic-invitation", "/auth/invite/complete"],
     ["recovery", "clinic-recovery", "/auth/password/reset/complete"],

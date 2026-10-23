@@ -202,6 +202,15 @@ cannot replace the opaque `actionRef`. The existing Website invitation URL omits
 invitation completion route from `type`. Recovery URLs may carry the matching fixed `next`. The legacy `authActionId`
 query field is ignored and never grants authority. Duplicate or unrelated query parameters are rejected.
 
+An operator-renewed local initial invitation can carry `type=invite&token_type=recovery`: Supabase cannot invite an
+already confirmed identity again. `token_type` is an untrusted transport hint, never business authority. Callback GET
+sends it to Website `validateAction`, which checks the persisted action's transport and signed invitation reference.
+Only a valid response authorizes the signed pending context. POST verifies the fresh recovery OTP but retains the
+invitation business flow and fixed initial-password route. Altered transport is rejected before OTP consumption;
+confirmed renewal links can resume only when Website also checks their persisted transport and current same subject.
+Existing links omit `token_type` and keep
+their wire contract. Deploy the additive Website support first, then this Dashboard support, before executing renewal.
+
 Callback GET calls `validateAction` and neither consumes a Supabase token nor advances action state. An unavailable
 validation redirects to login with instructions to reopen the original invitation or recovery email link later.
 A valid result

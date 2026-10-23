@@ -341,7 +341,7 @@ export async function handleClinicDashboardEmailCallback(request: NextRequest) {
     try {
       const { error } = await routeClient.client.auth.verifyOtp({
         token_hash: callback.tokenHash,
-        type: callback.type,
+        type: callback.tokenType ?? callback.type,
       })
       if (error) return applyClientAndClear(invalid(), routeClient, request)
     } catch {
@@ -378,6 +378,7 @@ export async function handleClinicDashboardEmailCallback(request: NextRequest) {
     grant.flow,
     session.accessToken,
     Boolean(callback?.resumeSubject),
+    callback?.tokenType,
   )
   if (outcome === "invalid") return applyClient(invalid(), routeClient)
   const response =

@@ -16,9 +16,14 @@ const callbackSchema = z
     next: z.enum(["/auth/invite/complete", "/auth/password/reset/complete"]),
     tokenHash: z.string().min(1).max(256),
     type: z.enum(["invite", "recovery"]),
+    tokenType: z.enum(["invite", "recovery"]).optional(),
   })
   .strict()
-  .refine((value) => value.next === clinicDashboardEmailDestinations[value.type])
+  .refine(
+    (value) =>
+      value.next === clinicDashboardEmailDestinations[value.type] &&
+      (value.tokenType !== "invite" || value.type === "invite"),
+  )
 const pendingSchema = callbackSchema.safeExtend({
   issuedAt: z.number().int().nonnegative(),
   resumeSubject: z.string().min(1).max(100).optional(),
@@ -49,7 +54,7 @@ export type CompletionAttempt = Readonly<z.infer<typeof attemptSchema>>
 
 export function validateEmailCallbackRequest(request: NextRequest): ValidatedEmailCallback | undefined {
   const params = request.nextUrl.searchParams
-  const allowed = new Set(["token_hash", "type", "next", "actionRef", "authActionId"])
+  const allowed = new Set(["token_hash", "token_type", "type", "next", "actionRef", "authActionId"])
   if ([...params.keys()].some((key) => !allowed.has(key) || params.getAll(key).length !== 1)) return undefined
   const type = params.get("type")
   if (type !== "invite" && type !== "recovery") return undefined
@@ -60,6 +65,7 @@ export function validateEmailCallbackRequest(request: NextRequest): ValidatedEma
     next,
     tokenHash: params.get("token_hash"),
     type,
+    ...(params.has("token_type") ? { tokenType: params.get("token_type") } : {}),
   })
   return parsed.success ? parsed.data : undefined
 }

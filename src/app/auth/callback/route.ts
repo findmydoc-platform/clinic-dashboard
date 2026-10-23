@@ -16,7 +16,9 @@ export async function GET(request: NextRequest) {
   const environment = validateEnvironment()
   const requestOrigin = getTrustedRequestDashboardOrigin(request, environment)
   const candidate = requestOrigin ? validateEmailCallbackRequest(request) : undefined
-  let outcome = candidate ? await validateWebsiteAction(candidate.actionRef, candidate.type) : "invalid"
+  let outcome = candidate
+    ? await validateWebsiteAction(candidate.actionRef, candidate.type, candidate.tokenType)
+    : "invalid"
   let resumeSubject: string | undefined
   if (candidate?.type === "invite" && outcome === "invalid") {
     let session: Awaited<ReturnType<typeof getClinicDashboardSession>>
@@ -26,7 +28,13 @@ export async function GET(request: NextRequest) {
       outcome = "unavailable"
     }
     if (session?.isClinicAccount) {
-      const resumed = await confirmWebsiteAction(candidate.actionRef, "invite", session.accessToken, true)
+      const resumed = await confirmWebsiteAction(
+        candidate.actionRef,
+        "invite",
+        session.accessToken,
+        true,
+        candidate.tokenType,
+      )
       if (resumed === "confirmed") {
         outcome = "valid"
         resumeSubject = session.subject

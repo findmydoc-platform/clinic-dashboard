@@ -182,9 +182,17 @@ export async function requestWebsiteRecovery(request: NextRequest, email: string
   await send("requestRecovery", { email, clientIP })
 }
 
-export async function validateWebsiteAction(actionRef: string, flow: ClinicDashboardEmailFlow) {
+export async function validateWebsiteAction(
+  actionRef: string,
+  flow: ClinicDashboardEmailFlow,
+  tokenType?: ClinicDashboardEmailFlow,
+) {
   if (isControlledAuthTestMode()) return actionRef === `controlled-${flow}-reference` ? "valid" : "invalid"
-  return send("validateAction", { actionRef, flow: websiteAuthFlow(flow) })
+  return send("validateAction", {
+    actionRef,
+    flow: websiteAuthFlow(flow),
+    ...(tokenType ? { tokenType } : {}),
+  })
 }
 
 export async function confirmWebsiteAction(
@@ -192,12 +200,14 @@ export async function confirmWebsiteAction(
   flow: ClinicDashboardEmailFlow,
   accessToken: string,
   resumeConfirmedInvitation = false,
+  tokenType?: ClinicDashboardEmailFlow,
 ) {
   return send("confirmAction", {
     actionRef,
     flow: websiteAuthFlow(flow),
     accessToken,
     ...(resumeConfirmedInvitation ? { resumeConfirmedInvitation: true } : {}),
+    ...(tokenType ? { tokenType } : {}),
   })
 }
 
