@@ -8,6 +8,7 @@ vi.mock("@supabase/ssr", () => ({
 }))
 
 import { createRouteSupabaseClient } from "@/features/clinic-dashboard/auth/server/supabase-client"
+import { clearCsrfCookie, createCsrfToken, validateMutationRequest } from "@/lib/security/csrf"
 
 describe("Supabase cookie adapter", () => {
   beforeEach(() => {
@@ -69,4 +70,31 @@ describe("Supabase cookie adapter", () => {
     expect(response.headers.get("x-supabase-auth")).toBe("preserved")
     expect(response.headers.get("cache-control")).toBe("private, no-store")
   })
+
+  it.each([false, true])(
+    "keeps the next mutation verifiable while honoring explicit CSRF clear %s",
+    (clear) => {
+      const origin = "https://clinics.preview.findmydoc.eu"
+      const request = new NextRequest(`${origin}/api/dashboard/profile/draft`, {
+        method: "POST",
+        headers: { origin, "content-type": "application/json", cookie: "clinic-dashboard-auth=old-session" },
+      })
+      request.cookies.set("clinic_dashboard_csrf", createCsrfToken(request))
+      const routeClient = createRouteSupabaseClient(request)
+      const options = createServerClientMock.mock.calls.at(-1)![2]
+      options.cookies.setAll([{ name: "clinic-dashboard-auth", value: "renewed-session", options: {} }], {})
+      const response = NextResponse.json({ ok: true })
+      if (clear) clearCsrfCookie(response)
+      routeClient.applyToResponse(response)
+      const browser = new NextRequest(request.url, { method: "POST", headers: request.headers })
+      for (const cookie of response.cookies.getAll()) {
+        if (cookie.maxAge === 0) browser.cookies.delete(cookie.name)
+        else browser.cookies.set(cookie.name, cookie.value)
+      }
+      const token = browser.cookies.get("clinic_dashboard_csrf")?.value
+      if (token) browser.headers.set("x-csrf-token", token)
+      expect(validateMutationRequest(browser)).toBe(!clear)
+      expect(request.cookies.get("clinic-dashboard-auth")?.value).toBe("old-session")
+    },
+  )
 })
