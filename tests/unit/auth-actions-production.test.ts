@@ -426,6 +426,31 @@ describe("production authentication actions", () => {
     expectPrivate(response)
   })
 
+  it.each([
+    ["throws", "temporarily-unavailable"],
+    ["missing", "invalid-or-expired-link"],
+  ] as const)("keeps a session read that %s distinct during invitation reopening", async (state, error) => {
+    const { client } = installRouteClient()
+    if (state === "throws") client.auth.getClaims.mockRejectedValueOnce(new Error("Synthetic session outage"))
+    else
+      client.auth.getSession.mockResolvedValueOnce({ data: { session: { access_token: "" } }, error: null })
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ version: 1, ok: false, code: "INVALID_OR_EXPIRED_ACTION" }, { status: 400 }),
+      ),
+    )
+    const response = await openEmailCallback(
+      new NextRequest(
+        "http://localhost:3000/auth/callback?token_hash=consumed&type=invite&actionRef=opaque-reference",
+      ),
+    )
+    expect(response.headers.get("location")).toBe(`http://localhost:3000/login?error=${error}`)
+    expect(response.cookies.get("clinic_dashboard_pending_email")).toBeUndefined()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expectPrivate(response)
+  })
+
   it("reopens the original invitation link with the verified identity after the old browser grant expires", async () => {
     const { client } = installRouteClient()
     vi.stubGlobal(

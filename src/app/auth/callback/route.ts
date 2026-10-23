@@ -19,7 +19,12 @@ export async function GET(request: NextRequest) {
   let outcome = candidate ? await validateWebsiteAction(candidate.actionRef, candidate.type) : "invalid"
   let resumeSubject: string | undefined
   if (candidate?.type === "invite" && outcome === "invalid") {
-    const session = await getClinicDashboardSession(request.cookies).catch(() => undefined)
+    let session: Awaited<ReturnType<typeof getClinicDashboardSession>>
+    try {
+      session = await getClinicDashboardSession(request.cookies)
+    } catch {
+      outcome = "unavailable"
+    }
     if (session?.isClinicAccount) {
       const resumed = await confirmWebsiteAction(candidate.actionRef, "invite", session.accessToken, true)
       if (resumed === "confirmed") {
