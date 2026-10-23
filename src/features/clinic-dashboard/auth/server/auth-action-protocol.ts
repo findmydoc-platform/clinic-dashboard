@@ -72,7 +72,11 @@ function configuration() {
   return { keys, origin }
 }
 
-function prepare(operation: Operation, input: Record<string, string>, envelope?: Envelope): PreparedRequest {
+function prepare(
+  operation: Operation,
+  input: Record<string, string | boolean>,
+  envelope?: Envelope,
+): PreparedRequest {
   const { keys } = configuration()
   const body = JSON.stringify(input)
   if (Buffer.byteLength(body, "utf8") > 16_384) throw new Error("Auth-action protocol unavailable")
@@ -163,7 +167,7 @@ async function sendPrepared(request: PreparedRequest) {
   }
 }
 
-async function send(operation: Operation, input: Record<string, string>) {
+async function send(operation: Operation, input: Record<string, string | boolean>) {
   try {
     return await sendPrepared(prepare(operation, input))
   } catch {
@@ -187,8 +191,14 @@ export async function confirmWebsiteAction(
   actionRef: string,
   flow: ClinicDashboardEmailFlow,
   accessToken: string,
+  resumeConfirmedInvitation = false,
 ) {
-  return send("confirmAction", { actionRef, flow: websiteAuthFlow(flow), accessToken })
+  return send("confirmAction", {
+    actionRef,
+    flow: websiteAuthFlow(flow),
+    accessToken,
+    ...(resumeConfirmedInvitation ? { resumeConfirmedInvitation: true } : {}),
+  })
 }
 
 function completionBinding(request: PreparedRequest) {

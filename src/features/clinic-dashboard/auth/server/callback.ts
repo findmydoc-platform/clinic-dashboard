@@ -19,7 +19,10 @@ const callbackSchema = z
   })
   .strict()
   .refine((value) => value.next === clinicDashboardEmailDestinations[value.type])
-const pendingSchema = callbackSchema.safeExtend({ issuedAt: z.number().int().nonnegative() })
+const pendingSchema = callbackSchema.safeExtend({
+  issuedAt: z.number().int().nonnegative(),
+  resumeSubject: z.string().min(1).max(100).optional(),
+})
 const attemptSchema = z
   .object({
     requestId: z.uuid(),
@@ -102,8 +105,16 @@ function fresh(issuedAt: number, now: number) {
   return age >= 0 && age < CONTEXT_MAX_AGE_SECONDS
 }
 
-export function encodePendingEmailCallback(callback: ValidatedEmailCallback, now = Date.now()) {
-  return encode("pending", { ...callback, issuedAt: Math.floor(now / 1000) })
+export function encodePendingEmailCallback(
+  callback: ValidatedEmailCallback,
+  now = Date.now(),
+  resumeSubject?: string,
+) {
+  return encode("pending", {
+    ...callback,
+    issuedAt: Math.floor(now / 1000),
+    ...(resumeSubject ? { resumeSubject } : {}),
+  })
 }
 
 export function decodePendingEmailCallback(
@@ -157,11 +168,15 @@ export function clearCompletionGrantCookie(response: NextResponse) {
   setContextCookie(response, clinicDashboardCompletionGrantCookie, "", "/", 0)
 }
 
-export function setPendingEmailCallbackCookie(response: NextResponse, callback: ValidatedEmailCallback) {
+export function setPendingEmailCallbackCookie(
+  response: NextResponse,
+  callback: ValidatedEmailCallback,
+  resumeSubject?: string,
+) {
   setContextCookie(
     response,
     clinicDashboardPendingEmailCookie,
-    encodePendingEmailCallback(callback),
+    encodePendingEmailCallback(callback, Date.now(), resumeSubject),
     "/api/auth/callback",
     CONTEXT_MAX_AGE_SECONDS,
   )
