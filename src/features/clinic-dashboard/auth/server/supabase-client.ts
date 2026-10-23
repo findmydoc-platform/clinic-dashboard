@@ -2,8 +2,10 @@ import "server-only"
 
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { NextResponse, type NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { isSecureCookieEnvironment, validateEnvironment } from "@/lib/env"
+import { createCsrfToken, setCsrfCookie } from "@/lib/security/csrf"
+import { CLINIC_DASHBOARD_CSRF_COOKIE } from "@/lib/security/csrf-contract"
 import { applyPrivateResponseHeaders } from "@/lib/security/private-response"
 
 const AUTH_COOKIE_NAME = "clinic-dashboard-auth"
@@ -80,6 +82,23 @@ export function createRouteSupabaseClient(request: NextRequest): RouteSupabaseCl
     applyToResponse(response) {
       for (const { name, options, value } of cookieMutations) {
         response.cookies.set({ name, value, ...options })
+      }
+      if (
+        !response.cookies.has(CLINIC_DASHBOARD_CSRF_COOKIE) &&
+        cookieMutations.some(
+          ({ name, value, options }) =>
+            (name === AUTH_COOKIE_NAME || name.startsWith(`${AUTH_COOKIE_NAME}.`)) &&
+            value &&
+            options.maxAge !== 0,
+        )
+      ) {
+        const renewed = new NextRequest(request.url, { headers: request.headers })
+        for (const cookie of response.cookies.getAll()) {
+          if (cookie.name !== AUTH_COOKIE_NAME && !cookie.name.startsWith(`${AUTH_COOKIE_NAME}.`)) continue
+          if (cookie.maxAge === 0) renewed.cookies.delete(cookie.name)
+          else renewed.cookies.set(cookie.name, cookie.value)
+        }
+        setCsrfCookie(response, createCsrfToken(renewed))
       }
       responseHeaders.forEach((value, name) => response.headers.set(name, value))
       applyPrivateResponseHeaders(response.headers)

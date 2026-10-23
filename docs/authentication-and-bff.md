@@ -125,6 +125,9 @@ Storybook.
 
 The Proxy verifies the Supabase session before a protected page renders. Supabase may renew an expired session during
 that verification; this is separate from the explicit recovery triggered by a Payload bootstrap `401`.
+For API `POST`, `PUT`, `PATCH`, and `DELETE`, the Proxy preserves the incoming auth cookies. The owning Route Handler
+checks submitted origin and session-bound CSRF before verifying or refreshing the current session and authorizing
+the command. A session refresh therefore cannot invalidate that same request's already submitted CSRF proof.
 
 The initial React Server Component reads Payload directly through the server-only data layer. A missing verified session
 goes to login. A valid clinic session rejected by Payload returns the internal `recovery-required` state and redirects to
@@ -319,6 +322,9 @@ code so the value can be sent in the header; session cookies remain `HttpOnly`. 
 an anonymous pre-session token before login, reset, or email-link confirmation. After a session is established, the
 token is reissued against the session cookie fingerprint. Login, callback confirmation, logout, password completion,
 and every later authenticated capability mutation use the shared guard.
+When a Route Handler returns renewed auth cookies, its cookie adapter also returns CSRF bound to the resulting
+browser cookie state, unless that response explicitly sets or clears CSRF. It leaves the incoming request unchanged;
+the next request still requires the normal origin, CSRF, session and capability checks.
 
 A contract test inventories state-changing Route Handlers and fails when an authenticated mutation is not wrapped by
 the central guard. Fetch Metadata headers may provide defense in depth but do not replace explicit origin and CSRF
@@ -592,7 +598,7 @@ Normal-mode notification reads use the authorized Website contract through the p
 
 The additive `X-Findmydoc-Clinic-Notifications-Contract: clinic-notifications-v1` request header is negotiated together with `X-Findmydoc-Clinic-Scope-Contract: clinic-scope-v1`; it leaves the inquiry domain protocol unchanged. Support negotiation is distinct from capture activation. The complete approved source catalogue, authorized reads, personal message groups, exact inquiry and review opening, individual and displayed-entry marking, cursor history, and local refresh recovery are implemented. POST `/api/notifications/read` forwards a fixed complete selection through the guarded BFF; the Website owns atomic receipts and first read timestamps. A fixed selection may span clinics. The source rechecks current eligibility under the authorization barriers and preserves personal receipts across reassignment and return. Receipt decision time, first read timestamps and unknown write outcomes retain their existing semantics. The UI distinguishes confirmed marking, proven non-commit, unknown write outcome and failed refresh after confirmation.
 
-Preview capture has remained active since `2026-10-20T12:18:38.493Z`; the 2026-10-21 checks did not change its controls. The paired Preview produced all ten event types across seven source families through ordinary source workflows. The personal history returned pages of 25 and 7 entries, and the center rendered 32 rows without duplicates. First read timestamps remained stable, and the same signed continuation remained valid after a clinic switch. A bounded synthetic Preview retention check excluded expired occurrences from the feed and count, and an expired read acknowledgment created no receipt. The regular five-minute Preview scheduler physically deleted two expired test occurrences and their receipt at `2026-10-21T09:55:36Z`, while retaining a live control occurrence. The test fixtures were cleaned up. The center also opened an inquiry notification from another authorized clinic, switched to its attributed clinic, and displayed the exact closed inquiry. These are dated Preview observations; the remaining criteria stay tracked in #210 and #239. Production capture and availability remain unverified.
+Preview capture has remained active since `2026-10-20T12:18:38.493Z`; the 2026-10-21 checks did not change its controls. The paired Preview produced all ten event types across seven source families through ordinary source workflows. The personal history returned pages of 25 and 7 entries, and the center rendered 32 rows without duplicates. First read timestamps remained stable, and the same signed continuation remained valid after a clinic switch. A bounded synthetic Preview retention check excluded expired occurrences from the feed and count, and an expired read acknowledgment created no receipt. The regular five-minute Preview scheduler physically deleted two expired test occurrences and their receipt at `2026-10-21T09:55:36Z`, while retaining a live control occurrence. The test fixtures were cleaned up. The center also opened an inquiry notification from another authorized clinic, switched to its attributed clinic, and displayed the exact closed inquiry. These are dated Preview observations; the remaining criteria stay tracked in #210 and #239. Production capture was verified active at `2026-10-22T19:09:12.975Z`. The v0.50.2 observations on 2026-10-23 include negative authorization checks and original-link invitation resumption through the password form. Full Production notification-feed and group-access acceptance remains open in #211 and #240.
 
 ## Clinic-scoped review management
 

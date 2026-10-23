@@ -43,10 +43,14 @@ export async function proxy(request: NextRequest) {
   validateEnvironment()
 
   const controlledSession = hasControlledSession(request.cookies)
+  const routeOwnsMutationSession =
+    request.nextUrl.pathname.startsWith("/api/") &&
+    ["POST", "PUT", "PATCH", "DELETE"].includes(request.method)
   let hasSession = controlledSession
   let response: NextResponse
 
-  if (controlledSession) {
+  // Mutation handlers verify incoming session-bound CSRF before refreshing auth cookies.
+  if (controlledSession || routeOwnsMutationSession) {
     response = NextResponse.next({ request })
   } else {
     const proxyClient = createProxySupabaseClient(request)
