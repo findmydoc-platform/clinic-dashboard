@@ -632,3 +632,43 @@ The Payload provider uses `/api/clinic-dashboard/clinics/:clinicId/doctors`, `/d
 The doctor dialog receives an optional Workspace-owned clinic control. It uses the same current selection and departure guard as the workspace selector. Stay and failed saves retain the source clinic and actual draft; save or explicit discard continues the pending transition. Late save results from an unmounted doctor context cannot update the next clinic directory. The access-loss departure port returns the actual draft, pending file, persisted doctor and save state privately in memory, with the original discard cleanup. It creates no storage, URL or authorization grant.
 
 Website source checks apply to ordinary collection requests as well as these BFF requests. Doctor, specialty and media ownership is checked against the current principal, local or group assignment, participation and exact target. No hosted provider activation or Preview/Production qualification follows from controlled browser evidence.
+
+## Clinic support mail boundary
+
+Authenticated clinic staff submit subject (5–160 characters, one line) and message
+(20–5,000 characters) through `POST /api/dashboard/clinics/[clinicId]/support`.
+The route applies the existing same-origin, session-bound CSRF, verified session,
+current bootstrap clinic membership, strict input schema, and 24 KiB body limit.
+These guards do not provide a distributed rate limit. The authorized bootstrap
+supplies clinic identity and the principal reply email; client address and clinic
+overrides are rejected.
+
+The server-only adapter uses `smtp.gmail.com:587` with required verified STARTTLS,
+`info@findmydoc.eu` as sender and only `support@findmydoc.eu` as recipient.
+`SUPPORT_SMTP_APP_PASSWORD` is the sole additional server environment secret.
+It belongs in the approved Keeper-backed environment profile and deployment secret
+configuration, never browser bundles or source. Missing configuration fails closed.
+Other product and authentication email paths are unchanged.
+
+The SMTP attempt has a 20-second total deadline; the browser bounds its response
+wait at 25 seconds. The synthetic Vercel infrastructure sample on 2026-10-24
+measured SMTP acceptance in 1.188–2.824 seconds and HTTP completion in
+1.404–4.158 seconds. These observations are not a delivery or response-time SLA.
+The route reports success only after the final SMTP response accepts the sole
+recipient. SMTP rejection or pre-submission failure is a confirmed failure;
+connection loss or timeout after submission is unknown. HTTP loss also remains
+unknown. Text survives either failure in the open dialog; a manual retry can
+duplicate an already accepted request. Closing the dialog while sending retains
+the active attempt, its inputs and eventual result in the current workspace.
+Reopening cannot start a second attempt while the first is pending. Reloading
+or leaving the workspace clears this local state. There are no automatic retries, durable
+queues, persisted drafts, or mail content logs. Google Groups owns shared history,
+assignment, replies and completion; SMTP acceptance does not prove group or
+member-mailbox arrival.
+
+For the initial release, the product owner explicitly accepted the shared Workspace
+SMTP quota risk. There is no distributed per-account or per-clinic send quota in
+this application. Authorized users share the existing sender account's sending
+allowance, so exhausting that allowance can also affect other mail from that
+account. A distributed limiter remains deferred; this release adds no limiter,
+service, database, or paid feature.

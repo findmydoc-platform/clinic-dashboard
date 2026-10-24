@@ -30,6 +30,7 @@ import {
   type ClinicDashboardReportingLoadState,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { type NotificationLoadState } from "@/features/clinic-dashboard/notifications/public"
+import { createSupportApiCommand } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardWorkspaceComposition } from "./ClinicDashboardWorkspaceComposition"
 import {
   ClinicWorkspaceLifetimeProvider,
@@ -199,6 +200,12 @@ function ClinicDashboardWorkspaceContent({
     return createClinicTreatmentApiCommands(authenticatedContext.clinic.id, handleDomainAccessFailure)
   }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
 
+  const supportCommand = useMemo(() => {
+    // The command stores the scope callback for later asynchronous failures.
+    // eslint-disable-next-line react-hooks/refs
+    return createSupportApiCommand(authenticatedContext.clinic.id, handleDomainAccessFailure)
+  }, [authenticatedContext.clinic.id, handleDomainAccessFailure])
+
   const refreshSources = () => startSourceRefresh(() => router.refresh())
 
   if (recovery.model.restricted)
@@ -237,6 +244,7 @@ function ClinicDashboardWorkspaceContent({
         onClinicChange={(clinicId, section) =>
           startSourceRefresh(() => router.push(`/clinics/${encodeURIComponent(clinicId)}?section=${section}`))
         }
+        supportCommand={supportCommand}
         clinicGalleryCommands={clinicGalleryCommands}
         clinicProfileSourceCommands={clinicProfileSourceCommands}
         clinicTreatmentCommands={clinicTreatmentCommands}

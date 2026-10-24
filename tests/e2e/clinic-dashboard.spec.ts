@@ -945,7 +945,17 @@ test("persists doctor creation and editing through the authenticated BFF", async
   await expect(createdDoctorRow.getByText("Dermatology · specialist", { exact: true })).toBeVisible()
 })
 
-test("opens the honest local support prototype from a missing treatment", async ({ page }) => {
+test("sends a support request from a missing treatment with controlled transport", async ({ page }) => {
+  let complete!: () => void
+  const completion = new Promise<void>((resolve) => {
+    complete = resolve
+  })
+  let submissions = 0
+  await page.route("**/api/dashboard/clinics/*/support", async (route) => {
+    submissions += 1
+    await completion
+    await route.fulfill({ json: { status: "accepted" } })
+  })
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
@@ -956,19 +966,55 @@ test("opens the honest local support prototype from a missing treatment", async 
   await treatmentDialog.getByRole("button", { name: "Treatment missing?" }).click()
 
   const supportDialog = page.getByRole("dialog", { name: "Contact support" })
-  await expect(supportDialog.getByText("Complete this local demo form. Nothing will be sent.")).toBeVisible()
-  await supportDialog.getByRole("combobox", { name: "Category" }).selectOption("Other")
+  await expect(
+    supportDialog.getByText(
+      "Send a support request for your active clinic. Replies go to your account email.",
+    ),
+  ).toBeVisible()
+  await page.emulateMedia({ colorScheme: "light" })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-desktop-light.png" })
+  await page.setViewportSize({ height: 740, width: 375 })
+  await page.screenshot({ path: "output/playwright/271/support-mobile-light.png" })
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-mobile-dark.png" })
   await supportDialog.getByRole("textbox", { name: "Subject" }).fill("Treatment missing")
   await supportDialog
     .getByRole("textbox", { name: "Message" })
     .fill("Please add this treatment to the platform catalogue.")
-  await supportDialog.getByRole("button", { name: "Submit demo request" }).click()
+  await supportDialog.getByRole("button", { name: "Send support request" }).click()
+  await expect(supportDialog.getByRole("button", { name: "Sending…" })).toBeDisabled()
+  await page.emulateMedia({ colorScheme: "light" })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-pending-mobile-light.png" })
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-pending-mobile-dark.png" })
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await page.emulateMedia({ colorScheme: "light" })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-pending-desktop-light.png" })
+  await supportDialog.getByRole("button", { name: "Close", exact: true }).click()
+  await expect(supportDialog).not.toBeVisible()
+  const reopen = page.getByRole("button", { name: "Contact support", exact: true })
+  await reopen.click()
+  await expect(supportDialog.getByRole("textbox", { name: "Subject" })).toHaveValue("Treatment missing")
+  await expect(supportDialog.getByRole("button", { name: "Sending…" })).toBeDisabled()
+  expect(submissions).toBe(1)
+  await page.keyboard.press("Escape")
+  await expect(supportDialog).not.toBeVisible()
+  await expect(reopen).toBeFocused()
+  complete()
+  await expect(reopen).toBeFocused()
+  await reopen.click()
 
   await expect(
     supportDialog.getByRole("status", {
-      name: "Demo complete — no support request was sent or saved.",
+      name: "Request accepted",
     }),
   ).toBeVisible()
+  expect(submissions).toBe(1)
 })
 
 test("shows authenticated identity and signs out", async ({ page }) => {

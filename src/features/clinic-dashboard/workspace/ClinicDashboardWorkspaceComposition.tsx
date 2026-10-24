@@ -54,7 +54,7 @@ import {
   type ReviewOpeningResult,
   type ReviewSourceCommands,
 } from "@/features/clinic-dashboard/reviews/public"
-import { SupportRequestDialog } from "@/features/clinic-dashboard/support/public"
+import { SupportRequestDialog, type SupportCommand } from "@/features/clinic-dashboard/support/public"
 import { ClinicDashboardShell } from "./ClinicDashboardShell"
 import { AccountMenu } from "./components/molecules/AccountMenu"
 import { ClinicLocationSelector } from "./components/molecules/ClinicLocationSelector"
@@ -102,6 +102,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   departureGuard?: ReturnType<typeof useEditorDepartureGuard>
   onSectionChange?: (section: ClinicDashboardSection) => void
   onAccessLost?: () => void
+  supportCommand: SupportCommand
   clinicGalleryCommands: ClinicGalleryCommands
   clinicProfileSourceCommands: ClinicProfileSourceCommands
   clinicTreatmentCommands: ClinicTreatmentCommands
@@ -147,6 +148,7 @@ export function ClinicDashboardWorkspaceComposition({
   departureGuard,
   onSectionChange,
   onAccessLost,
+  supportCommand,
   clinicGalleryCommands,
   clinicProfileSourceCommands,
   clinicTreatmentCommands,
@@ -873,8 +875,13 @@ export function ClinicDashboardWorkspaceComposition({
           task={model.selectedProfileTask}
         />
       ) : null}
-      {capabilities.showSupport && model.supportOpen ? (
-        <SupportRequestDialog onOpenChange={actions.setSupportOpen} open />
+      {capabilities.showSupport ? (
+        <SupportRequestDialog
+          key={scope}
+          onOpenChange={actions.setSupportOpen}
+          open={model.supportOpen}
+          send={supportCommand}
+        />
       ) : null}
     </ClinicDashboardShell>
   )

@@ -53,6 +53,22 @@ export const PresentationSupportFlowIsAvailable: Story = {
   },
 }
 
+export const DesktopSupportRequest: Story = {
+  args: { prototypeMode: "presentation" },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement)
+    await userEvent.click(c.getByRole("button", { name: "Contact support" }))
+    const dialog = within(await c.findByRole("dialog", { name: "Contact support" }))
+    await userEvent.type(dialog.getByRole("textbox", { name: "Subject" }), "Profile update failed")
+    await userEvent.type(
+      dialog.getByRole("textbox", { name: "Message" }),
+      "The clinic profile fails to save the changes.",
+    )
+    await userEvent.click(dialog.getByRole("button", { name: "Send support request" }))
+    await expect(await dialog.findByRole("status", { name: "Request accepted" })).toBeVisible()
+  },
+}
+
 export const NotificationsKeepWorkspaceUntilOpening: Story = {
   args: { prototypeMode: "presentation" },
   play: async ({ canvasElement }) => {
@@ -67,7 +83,7 @@ export const NotificationsKeepWorkspaceUntilOpening: Story = {
   },
 }
 
-export const MissingTreatmentOpensLocalSupport: Story = {
+export const MissingTreatmentOpensSupport: Story = {
   args: { prototypeMode: "presentation", start: { section: "profile" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -80,7 +96,9 @@ export const MissingTreatmentOpensLocalSupport: Story = {
     )
     const supportDialog = await canvas.findByRole("dialog", { name: "Contact support" })
     await expect(
-      within(supportDialog).getByText("Complete this local demo form. Nothing will be sent."),
+      within(supportDialog).getByText(
+        "Send a support request for your active clinic. Replies go to your account email.",
+      ),
     ).toBeInTheDocument()
   },
 }

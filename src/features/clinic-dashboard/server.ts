@@ -457,3 +457,5 @@ export async function loadClinicDashboardWorkspaceInput(
     treatmentSnapshot,
   }
 }
+
+export { handleSupportSubmit } from "./support/server/actions"
