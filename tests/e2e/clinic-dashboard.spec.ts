@@ -946,9 +946,16 @@ test("persists doctor creation and editing through the authenticated BFF", async
 })
 
 test("sends a support request from a missing treatment with controlled transport", async ({ page }) => {
-  await page.route("**/api/dashboard/clinics/*/support", (route) =>
-    route.fulfill({ json: { status: "accepted" } }),
-  )
+  let complete!: () => void
+  const completion = new Promise<void>((resolve) => {
+    complete = resolve
+  })
+  let submissions = 0
+  await page.route("**/api/dashboard/clinics/*/support", async (route) => {
+    submissions += 1
+    await completion
+    await route.fulfill({ json: { status: "accepted" } })
+  })
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
@@ -977,12 +984,37 @@ test("sends a support request from a missing treatment with controlled transport
     .getByRole("textbox", { name: "Message" })
     .fill("Please add this treatment to the platform catalogue.")
   await supportDialog.getByRole("button", { name: "Send support request" }).click()
+  await expect(supportDialog.getByRole("button", { name: "Sending…" })).toBeDisabled()
+  await page.emulateMedia({ colorScheme: "light" })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-pending-mobile-light.png" })
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-pending-mobile-dark.png" })
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await page.emulateMedia({ colorScheme: "light" })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-pending-desktop-light.png" })
+  await supportDialog.getByRole("button", { name: "Close", exact: true }).click()
+  await expect(supportDialog).not.toBeVisible()
+  const reopen = page.getByRole("button", { name: "Contact support", exact: true })
+  await reopen.click()
+  await expect(supportDialog.getByRole("textbox", { name: "Subject" })).toHaveValue("Treatment missing")
+  await expect(supportDialog.getByRole("button", { name: "Sending…" })).toBeDisabled()
+  expect(submissions).toBe(1)
+  await page.keyboard.press("Escape")
+  await expect(supportDialog).not.toBeVisible()
+  await expect(reopen).toBeFocused()
+  complete()
+  await expect(reopen).toBeFocused()
+  await reopen.click()
 
   await expect(
     supportDialog.getByRole("status", {
       name: "Request accepted",
     }),
   ).toBeVisible()
+  expect(submissions).toBe(1)
 })
 
 test("shows authenticated identity and signs out", async ({ page }) => {

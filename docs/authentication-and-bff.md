@@ -658,7 +658,17 @@ The route reports success only after the final SMTP response accepts the sole
 recipient. SMTP rejection or pre-submission failure is a confirmed failure;
 connection loss or timeout after submission is unknown. HTTP loss also remains
 unknown. Text survives either failure in the open dialog; a manual retry can
-duplicate an already accepted request. There are no automatic retries, durable
+duplicate an already accepted request. Closing the dialog while sending retains
+the active attempt, its inputs and eventual result in the current workspace.
+Reopening cannot start a second attempt while the first is pending. Reloading
+or leaving the workspace clears this local state. There are no automatic retries, durable
 queues, persisted drafts, or mail content logs. Google Groups owns shared history,
 assignment, replies and completion; SMTP acceptance does not prove group or
 member-mailbox arrival.
+
+For the initial release, the product owner explicitly accepted the shared Workspace
+SMTP quota risk. There is no distributed per-account or per-clinic send quota in
+this application. Authorized users share the existing sender account's sending
+allowance, so exhausting that allowance can also affect other mail from that
+account. A distributed limiter remains deferred; this release adds no limiter,
+service, database, or paid feature.

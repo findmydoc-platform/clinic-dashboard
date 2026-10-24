@@ -3,7 +3,7 @@ import { useState } from "react"
 import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { Button } from "@/components/ui/button"
 import { SupportRequestDialog } from "./SupportRequestDialog"
-import type { SupportCommand } from "../../model/support-request"
+import type { SupportCommand, SupportRequestResult } from "../../model/support-request"
 const accepted: SupportCommand = async () => ({ status: "accepted" })
 const meta = {
   args: { onOpenChange: fn(), open: true, send: accepted },
@@ -94,12 +94,12 @@ export const Mobile320ShortForm: Story = {
 }
 export const DarkForm: Story = { ...Empty, globals: { theme: "dark" } }
 export const DarkUnknownOutcome: Story = { ...UnknownOutcome, globals: { theme: "dark" } }
-function FocusHarness() {
+function FocusHarness({ send = accepted }: Readonly<{ send?: SupportCommand }>) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <Button onClick={() => setOpen(true)}>Open support</Button>
-      <SupportRequestDialog onOpenChange={setOpen} open={open} send={accepted} />
+      <SupportRequestDialog onOpenChange={setOpen} open={open} send={send} />
     </>
   )
 }
@@ -115,5 +115,42 @@ export const KeyboardAndFocusReturn: Story = {
     await expect(c.getByRole("textbox", { name: "Message" })).toHaveFocus()
     await userEvent.keyboard("{Escape}")
     await waitFor(() => expect(trigger).toHaveFocus())
+  },
+}
+
+export const CloseAndReopenPending: Story = {
+  args: { send: fn<SupportCommand>() },
+  render: ({ send }) => <FocusHarness send={send} />,
+  play: async ({ args, canvasElement }) => {
+    const c = within(canvasElement)
+    const send = args.send as ReturnType<typeof fn<SupportCommand>>
+    let complete!: (value: SupportRequestResult) => void
+    send.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve
+        }),
+    )
+    const trigger = c.getByRole("button", { name: "Open support" })
+    await userEvent.click(trigger)
+    await fill(canvasElement)
+    await userEvent.click(c.getByRole("button", { name: "Close" }))
+    await waitFor(() => expect(trigger).toHaveFocus())
+    await expect(c.queryByRole("dialog")).not.toBeInTheDocument()
+    await userEvent.click(trigger)
+    await expect(c.getByRole("textbox", { name: "Subject" })).toHaveValue("Profile update failed")
+    await expect(c.getByRole("button", { name: "Sending…" })).toBeDisabled()
+    await userEvent.click(c.getByRole("button", { name: "Sending…" }))
+    await expect(send).toHaveBeenCalledTimes(1)
+    c.getByRole("button", { name: "Close" }).focus()
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(trigger).toHaveFocus())
+    complete({ status: "accepted" })
+    await waitFor(() => expect(c.queryByRole("dialog")).not.toBeInTheDocument())
+    await expect(trigger).toHaveFocus()
+    await userEvent.click(trigger)
+    await expect(await c.findByRole("status", { name: "Request accepted" })).toBeVisible()
+    await waitFor(() => expect(c.getByRole("button", { name: "Done" })).toHaveFocus())
+    await expect(send).toHaveBeenCalledTimes(1)
   },
 }

@@ -20,11 +20,10 @@ export function SupportRequestDialog({ onOpenChange, open, send }: SupportReques
   const doneRef = useRef<HTMLButtonElement>(null)
   const accepted = result?.status === "accepted"
   useEffect(() => {
-    if (accepted) doneRef.current?.focus()
-  }, [accepted])
+    if (accepted && open) doneRef.current?.focus()
+  }, [accepted, open])
   const close = () => {
-    if (isSubmitting) return
-    actions.reset()
+    if (!isSubmitting) actions.reset()
     onOpenChange(false)
   }
   return (
@@ -43,8 +42,8 @@ export function SupportRequestDialog({ onOpenChange, open, send }: SupportReques
           </Button>
         ) : (
           <div className="flex flex-wrap justify-end gap-2">
-            <Button disabled={isSubmitting} onClick={close} variant="outline">
-              Cancel
+            <Button onClick={close} variant="outline">
+              {isSubmitting ? "Close dialog" : "Cancel"}
             </Button>
             <Button aria-busy={isSubmitting} disabled={isSubmitting} onClick={() => void actions.submit()}>
               {isSubmitting ? "Sending…" : "Send support request"}

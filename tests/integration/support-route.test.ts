@@ -5,6 +5,7 @@ import { createCsrfToken } from "@/lib/security/csrf"
 import { CLINIC_DASHBOARD_CSRF_HEADER } from "@/lib/security/csrf-contract"
 
 const smtp = vi.hoisted(() => ({
+  options: undefined as unknown,
   outcome: "accepted",
   messages: [] as unknown[],
   complete: undefined as (() => void) | undefined,
@@ -12,6 +13,9 @@ const smtp = vi.hoisted(() => ({
 }))
 vi.mock("nodemailer/lib/smtp-connection", () => ({
   default: class {
+    constructor(options: unknown) {
+      smtp.options = options
+    }
     secure = smtp.outcome !== "insecure"
     on() {}
     connect(done: (error?: Error) => void) {
@@ -79,6 +83,7 @@ describe("protected clinic support command", () => {
   let capabilities = ["clinic-inquiries:view"]
 
   beforeEach(() => {
+    smtp.options = undefined
     smtp.complete = undefined
     smtp.authenticate = undefined
     smtp.messages = []
@@ -229,6 +234,16 @@ describe("protected clinic support command", () => {
     await expect((await pending).json()).resolves.toEqual({ status: "failed" })
     smtp.authenticate!()
     expect(smtp.messages).toHaveLength(0)
+  })
+  it("requires verified STARTTLS for the fixed Workspace SMTP server", async () => {
+    await submit(signedRequest())
+    expect(smtp.options).toMatchObject({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      tls: { servername: "smtp.gmail.com", rejectUnauthorized: true, minVersion: "TLSv1.2" },
+    })
   })
   it("requires an encrypted SMTP connection", async () => {
     smtp.outcome = "insecure"

@@ -875,8 +875,13 @@ export function ClinicDashboardWorkspaceComposition({
           task={model.selectedProfileTask}
         />
       ) : null}
-      {capabilities.showSupport && model.supportOpen ? (
-        <SupportRequestDialog key={scope} onOpenChange={actions.setSupportOpen} open send={supportCommand} />
+      {capabilities.showSupport ? (
+        <SupportRequestDialog
+          key={scope}
+          onOpenChange={actions.setSupportOpen}
+          open={model.supportOpen}
+          send={supportCommand}
+        />
       ) : null}
     </ClinicDashboardShell>
   )
