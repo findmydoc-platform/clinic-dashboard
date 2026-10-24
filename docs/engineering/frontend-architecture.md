@@ -402,12 +402,14 @@ Global Storybook configuration owns accessibility (`test: "error"`), providers, 
 
 ## Test Ownership
 
-| Layer             | Owns                                                                                                  |
-| ----------------- | ----------------------------------------------------------------------------------------------------- |
-| Unit              | reducers, selectors, policies, serializers, mappers, validation, reporting, geometry                  |
-| Storybook browser | component states, controlled behavior, keyboard/focus, dialogs, responsive screens, accessibility     |
-| Playwright E2E    | temporary auth and a few real route/shell/cross-feature journeys                                      |
-| Integration       | approved BFF authentication and inquiry-status route contracts when an external boundary is exercised |
+| Layer             | Owns                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| Unit              | reducers, selectors, policies, serializers, mappers, validation, reporting, geometry                 |
+| Storybook browser | component states, controlled behavior, keyboard/focus, dialogs, responsive screens, accessibility    |
+| Playwright E2E    | session authentication and a few real route/shell/cross-feature journeys                             |
+| Integration       | approved authentication, BFF route, and domain-provider contracts exercised across a system boundary |
+
+Select integration tests according to the affected approved system boundary and its risk. Persistent storage is not a prerequisite. Database-free tests use controlled sessions, synthetic data, and resettable provider state. Passing controlled tests does not verify real services in Preview or Production.
 
 Do not keep component interaction coverage in E2E when the isolated Storybook component can prove it. Do not replace behavior tests with snapshots alone.
 
