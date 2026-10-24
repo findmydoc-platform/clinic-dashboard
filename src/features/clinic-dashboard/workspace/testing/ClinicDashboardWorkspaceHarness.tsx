@@ -229,6 +229,7 @@ export function ClinicDashboardWorkspaceHarness({
   return (
     <>
       <ClinicDashboardWorkspaceComposition
+        supportCommand={async () => ({ status: "accepted" })}
         authenticatedContext={authenticatedClinicContextFixture}
         authorizedClinics={authorizedClinics}
         selectionNotice={selectionNotice}

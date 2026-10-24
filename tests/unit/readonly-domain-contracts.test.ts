@@ -23,10 +23,8 @@ function assertReadonlyDomainContracts(
   profile.team[0]!.name = "Changed outside the reducer"
   // @ts-expect-error Support requests are readonly command inputs.
   request.subject = "Changed outside the controller"
-  // @ts-expect-error Nested support request objects are readonly.
-  request.screenshot!.name = "replacement.png"
   // @ts-expect-error Support result state is readonly.
-  result.message = "Changed outside the controller"
+  result.status = "Changed outside the controller"
   // @ts-expect-error Validation errors are readonly controller inputs.
   errors.subject = "Replaced outside the controller"
 }
@@ -36,14 +34,12 @@ void assertReadonlyDomainContracts
 describe("readonly domain contracts", () => {
   it("validates a frozen support request without mutating it", () => {
     const request = Object.freeze({
-      category: "Technical issue",
       message: "The clinic dashboard does not load the profile overview.",
       subject: "Dashboard profile issue",
     }) satisfies SupportRequest
 
     expect(validateSupportRequest(request)).toEqual({})
     expect(request).toEqual({
-      category: "Technical issue",
       message: "The clinic dashboard does not load the profile overview.",
       subject: "Dashboard profile issue",
     })

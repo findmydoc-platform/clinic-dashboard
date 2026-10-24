@@ -12,6 +12,8 @@ type ClinicDashboardRouteAccess =
       accessToken: string
       applyToResponse: (response: NextResponse) => NextResponse
       capabilities: readonly ClinicDashboardCapability[]
+      clinicName: string
+      replyEmail: string
       clinicId: string
       status: "approved"
     }>
@@ -44,6 +46,8 @@ export async function resolveClinicDashboardRouteAccess(
             applyToResponse,
             capabilities: clinic.capabilities,
             clinicId: clinic.id,
+            clinicName: clinic.name,
+            replyEmail: access.context.principal.email,
             status: "approved",
           }
         : { applyToResponse, status: "unauthenticated" }
@@ -69,6 +73,8 @@ export async function resolveClinicDashboardRouteAccess(
         applyToResponse: routeClient.applyToResponse,
         capabilities: clinic.capabilities,
         clinicId: clinic.id,
+        clinicName: clinic.name,
+        replyEmail: access.context.principal.email,
         status: "approved",
       }
     : { applyToResponse: routeClient.applyToResponse, status: "unauthenticated" }

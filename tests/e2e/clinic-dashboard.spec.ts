@@ -945,7 +945,10 @@ test("persists doctor creation and editing through the authenticated BFF", async
   await expect(createdDoctorRow.getByText("Dermatology · specialist", { exact: true })).toBeVisible()
 })
 
-test("opens the honest local support prototype from a missing treatment", async ({ page }) => {
+test("sends a support request from a missing treatment with controlled transport", async ({ page }) => {
+  await page.route("**/api/dashboard/clinics/*/support", (route) =>
+    route.fulfill({ json: { status: "accepted" } }),
+  )
   await page.setViewportSize({ height: 900, width: 1280 })
   await signIn(page)
 
@@ -956,17 +959,28 @@ test("opens the honest local support prototype from a missing treatment", async 
   await treatmentDialog.getByRole("button", { name: "Treatment missing?" }).click()
 
   const supportDialog = page.getByRole("dialog", { name: "Contact support" })
-  await expect(supportDialog.getByText("Complete this local demo form. Nothing will be sent.")).toBeVisible()
-  await supportDialog.getByRole("combobox", { name: "Category" }).selectOption("Other")
+  await expect(
+    supportDialog.getByText(
+      "Send a support request for your active clinic. Replies go to your account email.",
+    ),
+  ).toBeVisible()
+  await page.emulateMedia({ colorScheme: "light" })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-desktop-light.png" })
+  await page.setViewportSize({ height: 740, width: 375 })
+  await page.screenshot({ path: "output/playwright/271/support-mobile-light.png" })
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.screenshot({ path: "output/playwright/271/support-mobile-dark.png" })
   await supportDialog.getByRole("textbox", { name: "Subject" }).fill("Treatment missing")
   await supportDialog
     .getByRole("textbox", { name: "Message" })
     .fill("Please add this treatment to the platform catalogue.")
-  await supportDialog.getByRole("button", { name: "Submit demo request" }).click()
+  await supportDialog.getByRole("button", { name: "Send support request" }).click()
 
   await expect(
     supportDialog.getByRole("status", {
-      name: "Demo complete — no support request was sent or saved.",
+      name: "Request accepted",
     }),
   ).toBeVisible()
 })
