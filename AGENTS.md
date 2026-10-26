@@ -13,7 +13,7 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 - Use the canonical company logo assets from `public/brand` through `BrandMark`.
 - Keep clinic business reads and changes behind the authorized domain-specific BFF providers. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
 - Write code, code comments, repository documentation, and user-facing UI copy in English.
-- Use package scripts for validation and run format, checks, relevant tests, Storybook, and build after code changes.
+- Before handoff, follow `README.md#validation`. The pre-commit hook formats staged files; do not run `pnpm format` manually.
 - Treat GitHub checks as advisory while the repository remains private on the current Free plan.
 - Never place Vercel tokens, real auth secrets, clinic data, or private endpoints in repository content or logs. Configurable passwords belong in environment variables.
 - Follow `docs/engineering/frontend-architecture.md` for frontend ownership, terminology, imports, props, Storybook, and test boundaries.
