@@ -20,8 +20,6 @@ Use the deterministic router and the project reviewer definitions. Do not substi
 9. After explicit fix approval, validate fixes deterministically. Do not routinely rerun reviewers. A material scope expansion starts a new approved review cycle.
 10. Record only the compact gate status and decisions in the pull request. Do not persist route output, reviewer transcripts, or normalized finding files.
 
-Run `pnpm review:verify` to validate the repository-side reviewer contracts.
-
 ## Repository audits
 
 A repository audit requires an explicit user request. Select one method reviewer per audit: `test_reviewer`, `architecture_reviewer`, or `ui_reviewer`. Define the repository paths and evidence in scope, require the reviewer to state coverage and exclusions, and keep the normal approval and finding-handling rules. Do not turn repository audits into the default delivery gate.

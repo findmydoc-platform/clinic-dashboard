@@ -37,7 +37,7 @@ their generated temporary URL. Every merge to `main` creates a separate Preview 
 
 ## Validation
 
-Run `pnpm check` for code, scripts, dependencies, hooks, or technical configuration changes. For instruction-only changes, run `pnpm ai:slop-check`.
+Run `pnpm check` for code, scripts, dependencies, hooks, or technical configuration changes.
 
 Select additional tests according to the affected behavior and risk, following the [test-strategy skill](.codex/skills/test-strategy/SKILL.md) and the frontend architecture's [Test Ownership section](docs/engineering/frontend-architecture.md#test-ownership).
 

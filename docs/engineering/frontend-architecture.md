@@ -417,12 +417,11 @@ Do not keep component interaction coverage in E2E when the isolated Storybook co
 
 - `pnpm architecture:check` owns import direction, source ownership, public-contract boundaries, and runtime-data separation.
 - `pnpm stories:governance:check` owns story path, title, tags, metadata, and direct coverage.
-- `pnpm ai:slop-check` owns instruction-source clarity and conflicts.
 - `pnpm deadcode:check` owns unused source and exports.
 
 The governance checks are strict: every finding fails, with no baseline or category for pre-existing findings. `tests/unit/architecture-policy-check.test.ts` creates temporary repository fixtures, executes the real architecture checker process, and asserts both accepted and rejected dependency graphs.
 
-`pnpm check` combines linting, type checking, both governance checks, AI instruction checks, and dead-code checks. The pull-request `Quality` workflow runs formatting, `pnpm check`, unit tests, Storybook browser tests, Storybook and application builds, and the E2E smoke suite. A failure in any step fails that workflow; branch-protection policy is outside this architecture contract.
+`pnpm check` combines linting, type checking, both governance checks, reviewer configuration verification, and dead-code checks. The pull-request `Quality` workflow runs formatting, `pnpm check`, unit tests, Storybook browser tests, Storybook and application builds, and the E2E smoke suite. A failure in any step fails that workflow; branch-protection policy is outside this architecture contract.
 
 ## Notification foundation
 

@@ -24,8 +24,3 @@ command = "pnpm format:check && pnpm check"
 name = "Run unit tests"
 icon = "test"
 command = "pnpm test:unit"
-
-[[actions]]
-name = "AI slop check"
-icon = "test"
-command = "pnpm ai:slop-check"
