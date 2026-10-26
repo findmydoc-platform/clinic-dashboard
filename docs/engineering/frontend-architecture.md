@@ -2,6 +2,13 @@
 
 This document is the implementation authority for Clinic Dashboard frontend structure. [ADR 0002](../adr/0002-feature-first-atomic-architecture.md) owns feature-first UI structure, [ADR 0003](../adr/0003-domain-data-provider-composition.md) owns live-domain provider composition, and their implementation plans own migration order.
 
+## Domain contracts
+
+| Affected work                                                                  | Contract                                                              |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Dashboard reporting, period/journey selection, or download/export capabilities | [Reporting frontend contract](./reporting-frontend-contract.md)       |
+| Notifications, including Workspace and destination-feature integration         | [Notification frontend contract](./notification-frontend-contract.md) |
+
 ## Core Rules
 
 1. Business ownership comes before Atomic classification.
@@ -227,18 +234,6 @@ A controller is a named React hook or a thin component that connects state, comm
 
 Controllers may use React state, reducers where related transitions need one, effects, and named command contracts. They return semantic models and actions. They do not render large JSX trees.
 
-The dashboard overview controller owns reporting requests, period and journey selection. Journey stages are presentation
-models, separate from supported reporting metric IDs. Selecting an unsupported stage never changes the wire contract or
-requests data. The workspace connects its public
-controller, screen and period control to the shell's existing header slot. Reporting state survives section navigation and
-resets with the workspace's authenticated principal/clinic scope. Published profile progress remains the server's atomic
-projection; the presentation mapper uses it for both the KPI and task card. Notification refresh and failure are independent
-of reporting. The V1 runtime does not consume historical demo reporting snapshots or fabricate time series. The separate
-Workspace VisualReference story explicitly supplies a reporting-demo snapshot through the controlled harness. The normal
-workspace entry never supplies this input. The demo uses the existing dashboard controller, screen, period control and
-profile-views download adapter. Its synthetic location picker is confined to that explicit demo; normal mode lists only the
-authorized clinic.
-
 ### Shell
 
 `ClinicDashboardShell` renders app chrome, navigation, header utilities, responsive layout, and content slots.
@@ -361,7 +356,7 @@ The only private cross-area exceptions are: `server.ts` importing the central da
 
 Screens receive view models. Controllers receive the smallest command contract they need. The production page starts directly in the polished `presentation` mode and does not render a mode switch. `visual-reference` and the switch remain internal Storybook/QA tools. Notification identities and personal read state are Website-owned. The Dashboard does not store read IDs in browser storage. Profile, gallery, treatment, inquiry-status, and review workflows use website-owned Payload contracts in normal mode; Controlled providers keep synthetic mutations in process-local state and reset on server restart. Timeline system events are intentionally session-local. Message demo changes and unsent support inputs reset on reload or clinic change. Further Payload integrations and Dashboard-owned persistence remain out of scope until separately planned.
 
-Browser effects use narrow named adapters. Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
+Browser effects use narrow named adapters.
 
 ## Storybook Contract
 
@@ -422,21 +417,3 @@ Do not keep component interaction coverage in E2E when the isolated Storybook co
 The governance checks are strict: every finding fails, with no baseline or category for pre-existing findings. `tests/unit/architecture-policy-check.test.ts` creates temporary repository fixtures, executes the real architecture checker process, and asserts both accepted and rejected dependency graphs.
 
 `pnpm check` combines linting, type checking, both governance checks, reviewer configuration verification, and dead-code checks. The pull-request `Quality` workflow runs formatting, `pnpm check`, unit tests, Storybook browser tests, Storybook and application builds, and the E2E smoke suite. A failure in any step fails that workflow; branch-protection policy is outside this architecture contract.
-
-## Notification foundation
-
-The `notifications` domain owns its serializable `clinic-notifications-v1` models, browser commands, controller, panel and private provider. Central composition selects Controlled or Payload reads and personal marking using the verified session and personal principal independently of the active clinic. Its separate central composition entry receives the current authorized clinic IDs only for the synthetic Controlled source; the Website source derives its own current actor and authorization. The local cross-app lane uses Payload notifications while unrelated presentation sources remain Controlled.
-
-Every presentation entry carries the stable source clinic ID and current clinic name. Website applies current authorization and expiry before grouping by clinic and inquiry, sorting, pagination and counting. Signed feed cursors bind to principal, view and version independently of the active clinic.
-
-GET `/api/notifications` accepts only a summary or a selected Unread/All page request. It preserves private response headers and session-cookie updates. Website authorizes the individual catalogue members. The BFF does not gate the full catalogue on inquiry permission. Payload and browser transports reject unknown shapes, request/response mismatches, expired entries and oversized bodies. Initial pages carry complete count fields; continuations carry neither. Independent Website-owned examples are exercised through BFF and provider tests.
-
-POST `/api/notifications/read` accepts only the complete `notificationIds` selection. It validates exact origin, CSRF and session, then enforces the 4 MiB UTF-8 body limit before calling the Website command. It sends one atomic request regardless of member count. The Website derives the reader and timestamp, rechecks current access and expiry, and preserves each first personal receipt. Controlled providers retain synthetic receipts by principal across clinic switching, session token rotation and request composition and expose a test reset.
-
-The entry menu fixes its complete member IDs when marking starts. Confirmed marking requests a current feed and complete count. A failed following refresh preserves confirmed marking and labels retained data as outdated. Proven non-commit and unknown submitted-write outcomes have separate feedback. Checking status repeats a read; manually repeating a write retains the original IDs and honors Retry-After. Writes never retry automatically. The shared dropdown accepts a local portal container so row menus remain inside the mobile modal dialog.
-
-The workspace mounts the notification facade with a principal-and-clinic key so a scope change discards previous data and cancels requests before reloading the authorized personal feed. This reset does not bind the feed cursor or personal receipts to that selected clinic. Cross-clinic exact opening belongs to Dashboard #238; until it lands the workspace reports those targets unavailable, allowing explicit marking without loading a different clinic through the active clinic route. Reads never create receipts. Entry-level personal marking, displayed-entry bulk marking, and exact inquiry and review opening are implemented. Each notification opening freezes its represented IDs and passes a unique request identity through Workspace. Workspace owns cross-feature routing and obtains inquiry, review and profile editor continuations before changing context. Messages owns the normal authorized exact detail load and reports display only after the current detail DOM commits and semantic focus succeeds. Reopening the same inquiry performs another authorized read. Cached details, headings, failed loads and superseded requests never confirm display. Notifications then invokes its separate personal marking command with the original selection; subsequent marking uncertainty does not undo destination display. Optional message anchors resolve only against the ordinary detail timeline, with exact-detail heading fallback. Principal/clinic changes, navigation away and replaced requests invalidate outstanding completion. Reviews loads an ordinary authorized exact record independently of its list filters and pagination. Its current detail and normal response/appeal IDs supply the available anchors; unavailable anchors fall back to the exact-detail heading without another read. A shared eight-second deadline bounds the detail and current workflow reads. The detail controller discards cancelled or superseded results and reports successful opening only after the exact current record is visible and focused. The previous demo panel and session-storage acknowledgements have been removed from the live workspace.
-
-Each visible, online authenticated tab starts an independent notification read every 30 seconds. A closed center reads the full summary; an open center reloads its selected view through the previously loaded oldest item within one eight-second cycle. The controller publishes the replacement only after all requested pages succeed. It keeps the current view and scroll position while updating, coalesces overlapping triggers, and drops superseded generations and pagination responses. Opening, switching views, visibility and connectivity recovery, and confirmed personal marking request an immediate read. Transient failures retain visibly stale, unexpired permitted rows and retry after 5, 10, 20, then 30 seconds, subject to a longer Retry-After. Authorization loss clears the affected rows and count; incompatible responses stop automatic reads. A failed read after confirmed marking preserves that confirmed outcome. No read failure retries a write.
-
-The browser hides each loaded member at its individual `expiresAt`, updates message-group membership and ordering, and requests a complete count at `nextUnreadCountChangeAt`. It hides a count whose deadline has passed until a successful authoritative read supplies a current count. Long waits use browser-safe timer chunks while preserving the absolute expiry. These client timers complement Website authorization and expiry enforcement; a browser refresh cannot extend retention or restore inaccessible content. The notification BFF logs a classified, identifier-free read failure and duration even when its upstream transport fails; Website records successful and failed source reads in its existing structured diagnostics.
