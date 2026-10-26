@@ -37,17 +37,11 @@ their generated temporary URL. Every merge to `main` creates a separate Preview 
 
 ## Validation
 
-Run:
+Run `pnpm check` for code, scripts, dependencies, hooks, or technical configuration changes. For instruction-only changes, run `pnpm ai:slop-check`.
 
-    pnpm format:check
-    pnpm check
-    pnpm ai:slop-check
-    pnpm test:unit
-    pnpm test:integration
-    pnpm test:storybook
-    pnpm build-storybook
-    pnpm test:e2e:smoke
-    pnpm build
+Select additional tests according to the affected behavior and risk, following the [test-strategy skill](.codex/skills/test-strategy/SKILL.md) and the frontend architecture's [Test Ownership section](docs/engineering/frontend-architecture.md#test-ownership).
+
+Changes to rendered UI, component interaction, or Storybook behavior require relevant Storybook browser checks and a Storybook build. Run `pnpm build` when a change can affect application output.
 
 ## Delivery
 

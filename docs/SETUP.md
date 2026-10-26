@@ -132,7 +132,7 @@ Production aliasing and DNS remain intentionally pending. Create the externally 
 
 Before handoff:
 
-1. Run formatting, static checks, unit tests, Storybook tests and build, Playwright smoke tests, and the Next.js build.
+1. Follow the [repository validation policy](../README.md#validation).
 2. Confirm every advisory pull-request check appears.
 3. Confirm the Vercel preview URL is public and data-less.
 4. Confirm pull requests retain generated temporary Preview URLs.

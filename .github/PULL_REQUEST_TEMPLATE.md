@@ -62,7 +62,6 @@ If the gate was not run, state why.
 
 <!-- Check every relevant item. If an item was not run or is not applicable, leave it unchecked and explain why after the colon. -->
 
-- [ ] `pnpm format`:
 - [ ] `pnpm check`:
 - [ ] `pnpm build`:
 - [ ] Focused tests:
