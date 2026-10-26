@@ -45,8 +45,7 @@ Repository variables:
 
 The pull-request Preview workflow accepts only non-draft, same-repository, non-Dependabot pull requests and publishes
 only the generated temporary deployment URL. Production runs only through the central platform release, which invokes
-the repository's `platform-release-deploy` workflow with a frozen target SHA and shared version. Neither workflow uses
-GitHub Environments.
+the repository's `platform-release-deploy` workflow with a frozen target SHA and shared version.
 
 ## Vercel
 
@@ -59,6 +58,8 @@ GitHub Environments.
 - Pull-request Preview deployments: enabled through GitHub Actions with generated temporary URLs
 - Main Preview deployments: enabled through GitHub Actions with the stable `clinics.preview.findmydoc.eu` alias
 - Production deployments: enabled only through the central platform release
+
+Creating, linking, or deploying to another Vercel project requires explicit user approval.
 
 The application requires `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`,
 `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and `CSRF_SIGNING_SECRET` in Vercel preview and production. Preview uses Staging

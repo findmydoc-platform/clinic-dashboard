@@ -14,6 +14,7 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 - Keep clinic business reads and changes behind the authorized domain-specific BFF providers. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
 - Write code, code comments, repository documentation, and user-facing UI copy in English.
 - Before handoff, follow `README.md#validation`. The pre-commit hook formats staged files; do not run `pnpm format` manually.
+- For deployment, follow [Delivery](README.md#delivery).
 - Treat GitHub checks as advisory while the repository remains private on the current Free plan.
 - Never place Vercel tokens, real auth secrets, clinic data, or private endpoints in repository content or logs. Configurable passwords belong in environment variables.
 - Follow `docs/engineering/frontend-architecture.md` for frontend ownership, terminology, imports, props, Storybook, and test boundaries.
@@ -56,10 +57,3 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - Use `.github/PULL_REQUEST_TEMPLATE.md` as the authoritative PR-body contract and keep every section complete. Use a conventional title accepted by `.github/workflows/pr-gates.yml`; keep its summary imperative and <= 72 characters.
 - Build PR descriptions in a temporary Markdown file or heredoc, pass them with `gh pr create --body-file` or `gh pr edit --body-file`, never inline multiline bodies through shell quoting, and verify the rendered body with `gh pr view --json body`.
-
-## Vercel Production Delivery
-
-- The canonical existing Vercel project for this repository is `clinic-dashboard` in the `findmydoc` team.
-- Before every deployment, confirm that `.vercel/project.json` resolves to `clinic-dashboard` and that `vercel project inspect clinic-dashboard --scope findmydoc` succeeds.
-- Production deployments must use a clean checkout of the latest `origin/main` and target only this existing project.
-- Never create, link, or deploy to an alternative Vercel project unless the user explicitly approves it.
