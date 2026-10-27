@@ -52,6 +52,10 @@ the required check names. Required workflows do not use workflow-wide path filte
 required and skipped work with a reason. A failed scope job cannot turn a relevant deployment or CodeQL analysis into
 a successful skip.
 
+CI, Workflow Security, and Advanced CodeQL use a separate concurrency group for each non-PR run. A later `main` push
+cannot cancel an earlier run, including one that is still queued. Runs for the same PR share a group so that a new PR
+revision cancels its obsolete predecessor.
+
 `docs:check` uses the exact Prettier version from `package.json` in an isolated invocation, without installing the app.
 It checks links in changed Markdown and incoming links to removed Markdown. Ordinary app changes retain the full
 repository formatting check. The secret scanner examines existing changed files; scanner or baseline changes,
@@ -64,8 +68,9 @@ The repository uses GitHub Default Setup. GitHub disabled the Advanced Setup wor
 and severity thresholds.
 
 The first Advanced Setup rollout was rolled back because the code-scanning merge rule required a CodeQL result for
-a documentation-only pull request, even when both analysis jobs skipped. Keep Default Setup until a compatible
-configuration passes the Markdown-only merge check below.
+a documentation-only pull request, even when both analysis jobs skipped. The staged workflow now runs both analyses
+on every PR so the merge rule can evaluate them, while documentation-only pushes to `main` can skip both analyses.
+Keep Default Setup until this configuration passes the Markdown-only merge and push checks below.
 
 To switch from Default Setup to Advanced Setup:
 
@@ -73,14 +78,15 @@ To switch from Default Setup to Advanced Setup:
 2. Disable Default Setup, re-enable `.github/workflows/codeql.yml` if GitHub disabled it, set
    `CODEQL_ADVANCED_ENABLED=true`, and manually run the CodeQL workflow on `main`.
 3. Confirm both `javascript-typescript` and `actions` analyses succeed and upload results.
-4. Validate a Markdown-only PR, including every required status and the separate code-scanning merge rule. Both
-   analysis jobs must skip. Then verify that merging documentation skips Main Preview and application work.
+4. Validate a Markdown-only PR: both analyses must succeed, and every required status and the separate code-scanning
+   merge rule must allow the merge. Then verify that the documentation-only `main` push skips both analyses, Main
+   Preview, and application work.
 5. If analysis upload or merge-rule compatibility fails, disable the advanced workflow variable and restore Default
    Setup with its recorded configuration. Keep the existing protection thresholds.
 
-The weekly Monday scan and manual CodeQL runs analyze both languages fully. JavaScript/TypeScript changes and
-dependency changes select JavaScript analysis; workflow and local-action changes select Actions analysis. Unknown
-inputs select both. Default Setup must be disabled before advanced results can be uploaded.
+All PRs, the weekly Monday scan, and manual CodeQL runs analyze both languages fully. On pushes, JavaScript/TypeScript
+changes and dependency changes select JavaScript analysis; workflow and local-action changes select Actions analysis.
+Unknown inputs select both. Default Setup must be disabled before advanced results can be uploaded.
 
 ## Validation and timing
 

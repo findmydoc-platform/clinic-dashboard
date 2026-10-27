@@ -23,6 +23,17 @@ const workflow = (file: string): Workflow =>
   parse(readFileSync(path.join(root, ".github/workflows", file), "utf8"))
 
 describe("CI routing workflow contracts", () => {
+  it.each(["ci.yml", "workflow-security.yml", "codeql.yml"])(
+    "isolates non-PR runs while retaining cancellation for the same PR in %s",
+    (file) => {
+      const concurrency = workflow(file).concurrency
+      expect(concurrency?.group).toBe(
+        "${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}",
+      )
+      expect(concurrency?.["cancel-in-progress"]).toBe(true)
+    },
+  )
+
   it.each([
     ["ci.yml", "quality", "Quality"],
     ["dependency-review.yml", "dependency-review", "Dependency Review"],
@@ -137,11 +148,14 @@ describe("CI routing workflow contracts", () => {
     expect(config.jobs.scope.if).toBe("vars.CODEQL_ADVANCED_ENABLED == 'true'")
     expect(config.on).toHaveProperty("schedule")
     expect(config.on).toHaveProperty("workflow_dispatch")
-    for (const [job, language] of [
-      ["javascript", "javascript-typescript"],
-      ["actions", "actions"],
+    for (const [job, language, output] of [
+      ["javascript", "javascript-typescript", "javascript"],
+      ["actions", "actions", "actions"],
     ]) {
-      expect(config.jobs[job].if).toContain("needs.scope.result != 'success'")
+      expect(config.jobs[job].if).toBe(
+        "!cancelled() && vars.CODEQL_ADVANCED_ENABLED == 'true' && " +
+          `(github.event_name == 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.${output} != 'false')`,
+      )
       expect(
         config.jobs[job].steps?.find((step) => step.uses?.startsWith("github/codeql-action/init@"))?.with
           ?.languages,
