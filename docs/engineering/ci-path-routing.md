@@ -59,10 +59,10 @@ scheduled runs, manual runs, and detection failures scan all tracked files. Dele
 
 ## CodeQL cutover
 
-The repository currently uses GitHub Default Setup. The new workflow is gated by `CODEQL_ADVANCED_ENABLED=true` so it
-can merge while Default Setup still protects the repository. Keep the CodeQL ruleset tool and severity thresholds.
+The repository uses GitHub Advanced Setup through `.github/workflows/codeql.yml`. The repository variable
+`CODEQL_ADVANCED_ENABLED=true` enables the workflow. Keep the CodeQL ruleset tool and severity thresholds.
 
-After the workflow reaches `main`:
+To switch from Default Setup to Advanced Setup:
 
 1. Read and retain the current Default Setup configuration for rollback. Confirm the new workflow is available.
 2. Disable Default Setup, set `CODEQL_ADVANCED_ENABLED=true`, and manually run the CodeQL workflow on `main`.
