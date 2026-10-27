@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -12,6 +13,7 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 env:
   NODE_VERSION: 24.14.0
@@ -27,43 +29,79 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - name: Classify changed paths
+        id: scope
+        # actionlint 1.7.12 does not yet support the self-repository prefix.
+        uses: ./.github/actions/change-scope # zizmor: ignore[self-repository]
+
+      - name: Documentation
+        if: steps.scope.outputs.docs != 'false'
+        env:
+          SCOPE_MANIFEST: ${{ steps.scope.outputs.manifest }}
+        run: node scripts/ci/docs-check.mjs "$SCOPE_MANIFEST"
+
+      - name: Repository review contracts
+        if: steps.scope.outputs.docs == 'true' && steps.scope.outputs.check == 'false'
+        run: node .codex/skills/review-gate/scripts/verify-review-system.mjs
+
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.scope.outputs.check != 'false'
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.scope.outputs.check != 'false'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.scope.outputs.check != 'false'
         run: pnpm install --frozen-lockfile
 
       - name: Format
+        if: steps.scope.outputs.check != 'false'
         run: pnpm format:check
 
       - name: Static checks, AI drift, and dead code
+        if: steps.scope.outputs.check != 'false'
         run: pnpm check
 
       - name: Unit tests
-        run: pnpm test:unit
+        if: steps.scope.outputs.unit != 'false'
+        env:
+          SCOPE_MANIFEST: ${{ steps.scope.outputs.manifest }}
+        run: node scripts/ci/run-tests.mjs unit "$SCOPE_MANIFEST"
 
       - name: Integration tests
-        run: pnpm test:integration
+        if: steps.scope.outputs.integration != 'false'
+        env:
+          SCOPE_MANIFEST: ${{ steps.scope.outputs.manifest }}
+        run: node scripts/ci/run-tests.mjs integration "$SCOPE_MANIFEST"
 
       - name: Install Chromium
+        if: steps.scope.outputs.storybook != 'false' || steps.scope.outputs.e2e != 'false'
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Storybook browser tests
-        run: pnpm test:storybook
+        if: steps.scope.outputs.storybook != 'false'
+        env:
+          SCOPE_MANIFEST: ${{ steps.scope.outputs.manifest }}
+        run: node scripts/ci/run-tests.mjs storybook "$SCOPE_MANIFEST"
 
       - name: Storybook build
+        if: steps.scope.outputs.storybook_build != 'false'
         run: pnpm build-storybook
 
       - name: Application build
+        if: steps.scope.outputs.build != 'false'
         run: pnpm build
 
       - name: End-to-end smoke test
-        run: pnpm test:e2e:smoke
+        if: steps.scope.outputs.e2e != 'false'
+        env:
+          SCOPE_MANIFEST: ${{ steps.scope.outputs.manifest }}
+        run: node scripts/ci/run-tests.mjs e2e "$SCOPE_MANIFEST"

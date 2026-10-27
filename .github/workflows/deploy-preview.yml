@@ -11,7 +11,6 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
 
 env:
   NODE_VERSION: 24.14.0
@@ -21,9 +20,32 @@ env:
   STORYBOOK_DISABLE_TELEMETRY: 1
 
 jobs:
+  scope:
+    name: Preview scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      preview: ${{ steps.scope.outputs.preview }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: scope
+        # actionlint 1.7.12 does not yet support the self-repository prefix.
+        uses: ./.github/actions/change-scope # zizmor: ignore[self-repository]
+
   deploy-preview:
     name: Vercel Preview
+    needs: scope
+    permissions:
+      contents: read
+      pull-requests: write
     if: >-
+      !cancelled() &&
+      (needs.scope.result != 'success' || needs.scope.outputs.preview != 'false') &&
       vars.VERCEL_DEPLOYMENTS_ENABLED == 'true' &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -106,6 +128,32 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PREVIEW_URL: ${{ steps.deploy.outputs.url }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: |
-          gh pr comment "$PR_URL" --edit-last --create-if-none --body "Vercel preview: $PREVIEW_URL"
+          DEPLOYMENT_COMMIT_SHA: ${{ steps.deployment_metadata.outputs.commit_sha }}
+        run: node scripts/ci/preview-comment.mjs publish
+
+  stale-preview:
+    name: Mark outdated Preview link
+    needs: scope
+    if: >-
+      !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.preview == 'false' &&
+      vars.VERCEL_DEPLOYMENTS_ENABLED == 'true' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - name: Mark previous Preview links as outdated
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/ci/preview-comment.mjs stale

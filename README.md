@@ -11,7 +11,7 @@ The source at revision `919f28e2` implements server-side Supabase sessions and t
 - Next.js App Router, React, TypeScript, Node 24, pnpm 10, and Tailwind CSS 4
 - Atomic Design, shadcn/ui primitives, DM Sans, and Storybook
 - Vitest, Storybook browser tests, Playwright smoke coverage, and production builds
-- Advisory GitHub Actions checks and Vercel preview deployments
+- Required GitHub Actions checks and Vercel preview deployments
 - `noindex` metadata, `robots.txt`, and Vercel `X-Robots-Tag` headers
 - Host-bound, `HttpOnly` Supabase session cookies with server-only login, refresh, callback, and logout
 - Real staff and clinic identity from `GET /api/clinic-dashboard/bootstrap`
@@ -31,7 +31,7 @@ Required server-only variables are `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_RE
 
 Vercel Preview deployments additionally use the automatically provided server-only `VERCEL_URL`. The application
 accepts it only when it identifies the current `clinic-dashboard-*-findmydoc.vercel.app` deployment. Pull requests keep
-their generated temporary URL. Every merge to `main` creates a separate Preview deployment and points
+their generated temporary URL when deploy-relevant paths change. A deploy-relevant merge to `main` creates a separate Preview deployment and points
 `https://clinics.preview.findmydoc.eu` to it. Supabase Staging must allow both Preview host forms as documented in
 `docs/SETUP.md`; Production remains exact-origin only.
 
@@ -43,8 +43,18 @@ Select additional tests according to the affected behavior and risk, following t
 
 Changes to rendered UI, component interaction, or Storybook behavior require relevant Storybook browser checks and a Storybook build. Run `pnpm build` when a change can affect application output.
 
+CI selects work before installing application dependencies. Documentation changes run `pnpm docs:check`, PR metadata
+checks, and a changed-file secret scan. Existing test-case changes run static checks and selected tests. Shared test
+support, structural test changes, and unknown paths receive full validation. See [CI path routing](docs/engineering/ci-path-routing.md)
+for the routing matrix, failure policy, and CodeQL cutover.
+
 ## Delivery
 
-Pull-request checks are advisory on the current private GitHub Free repository: failures are visible but do not technically block a merge. Pull requests receive temporary Preview deployments, each merge to `main` updates the stable Main Preview, and Production deployments run only through the central platform release. The component deployment workflow accepts only the platform release GitHub App as both dispatcher and rerun actor.
+The public repository requires `Quality`, `Workflow Security`, `Semantic PR title`, `Linked issue`, `Dependency Review`,
+and `Vercel Preview`, plus the configured code-scanning and code-quality rules. Required checks retain their names and
+report valid skip results when work is unnecessary. Documentation and test-only changes do not deploy a Preview.
+Deploy-relevant PRs receive temporary Preview deployments, and deploy-relevant merges update the stable Main Preview.
+Manual Main Preview runs force a deployment. Production deployments run only through the central platform release.
+The component deployment workflow accepts only the platform release GitHub App as both dispatcher and rerun actor.
 
 See `docs/SETUP.md` for the verified GitHub/Vercel setup and the pending `clinics.findmydoc.eu` DNS step.

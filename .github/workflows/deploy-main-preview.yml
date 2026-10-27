@@ -5,10 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: main-preview-deploy
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
@@ -22,6 +18,22 @@ env:
   VERCEL_SCOPE: findmydoc
 
 jobs:
+  scope:
+    name: Main Preview scope
+    if: vars.VERCEL_DEPLOYMENTS_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      preview: ${{ steps.scope.outputs.preview }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: scope
+        # actionlint 1.7.12 does not yet support the self-repository prefix.
+        uses: ./.github/actions/change-scope # zizmor: ignore[self-repository]
+
   deployment-disabled:
     name: Main preview disabled
     if: vars.VERCEL_DEPLOYMENTS_ENABLED != 'true'
@@ -40,7 +52,14 @@ jobs:
 
   deploy-main-preview:
     name: Vercel Main Preview
-    if: vars.VERCEL_DEPLOYMENTS_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    needs: scope
+    concurrency:
+      group: main-preview-deploy
+      cancel-in-progress: false
+    if: >-
+      !cancelled() &&
+      (needs.scope.result != 'success' || needs.scope.outputs.preview != 'false') &&
+      vars.VERCEL_DEPLOYMENTS_ENABLED == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -50,6 +69,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # A queued deployment must not restore an older main revision.
+          ref: main
           persist-credentials: false
 
       - name: Resolve main preview deployment metadata

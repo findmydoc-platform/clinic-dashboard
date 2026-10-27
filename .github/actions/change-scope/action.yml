@@ -1,0 +1,60 @@
+name: Classify changed paths
+description: Select validation before installing application dependencies; unknown changes require full validation.
+outputs:
+  check:
+    description: Run static checks and install application dependencies.
+    value: ${{ steps.scope.outputs.check }}
+  docs:
+    description: Run documentation checks.
+    value: ${{ steps.scope.outputs.docs }}
+  unit:
+    description: Run unit tests.
+    value: ${{ steps.scope.outputs.unit }}
+  integration:
+    description: Run integration tests.
+    value: ${{ steps.scope.outputs.integration }}
+  storybook:
+    description: Run browser Storybook tests.
+    value: ${{ steps.scope.outputs.storybook }}
+  storybook_build:
+    description: Build Storybook.
+    value: ${{ steps.scope.outputs.storybook_build }}
+  build:
+    description: Build the application.
+    value: ${{ steps.scope.outputs.build }}
+  e2e:
+    description: Run controlled browser tests.
+    value: ${{ steps.scope.outputs.e2e }}
+  preview:
+    description: Build and deploy Preview.
+    value: ${{ steps.scope.outputs.preview }}
+  dependency:
+    description: Review dependency changes.
+    value: ${{ steps.scope.outputs.dependency }}
+  workflow_security:
+    description: Run actionlint and zizmor.
+    value: ${{ steps.scope.outputs.workflow_security }}
+  codeql_js:
+    description: Analyze JavaScript and TypeScript.
+    value: ${{ steps.scope.outputs.codeql_js }}
+  codeql_actions:
+    description: Analyze GitHub Actions.
+    value: ${{ steps.scope.outputs.codeql_actions }}
+  full_secret_scan:
+    description: Scan every tracked file for secrets.
+    value: ${{ steps.scope.outputs.full_secret_scan }}
+  manifest:
+    description: Runner-local JSON manifest with changed paths and selected tests.
+    value: ${{ steps.scope.outputs.manifest }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 24.14.0
+        package-manager-cache: false
+    - id: scope
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: node scripts/ci/change-scope.mjs
