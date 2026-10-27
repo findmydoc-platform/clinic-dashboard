@@ -26,6 +26,7 @@ const toolingTests = [
   "tests/unit/ci-change-scope.test.ts",
   "tests/unit/ci-workflows.test.ts",
   "tests/unit/ci-docs.test.ts",
+  "tests/unit/ci-preview-comment.test.ts",
   "tests/unit/deployment-workflow.test.ts",
   "tests/unit/deployment-command.test.ts",
   "tests/unit/platform-release-dispatcher.test.ts",
@@ -83,10 +84,13 @@ function testProject(file) {
 
 function isSharedTest(file) {
   return (
-    /(?:^|\/)(?:setup|fixtures?|helpers?|support|testing|__fixtures__|__helpers__|__mocks__|mocks)(?:\/|\.)/i.test(
-      file,
-    ) ||
-    /(?:^|[/.-])(?:setup|fixture|helper|support)\.(?:test|spec)\.tsx?$/i.test(file) ||
+    (file.startsWith("tests/") &&
+      (/(?:^|\/)(?:setup|fixtures?|helpers?|support|testing|__fixtures__|__helpers__|__mocks__|mocks)(?:\/|\.)/i.test(
+        file,
+      ) ||
+        /(?:^|[/.-])(?:setup|fixture|helper|support)\.(?:test|spec)\.tsx?$/i.test(file))) ||
+    /^src\/(?:.*\/)?(?:testing|fixtures?|__fixtures__|__helpers__|__mocks__|mocks)\//i.test(file) ||
+    /^src\/.+\.fixtures?\.[cm]?[jt]sx?$/i.test(file) ||
     file.startsWith(".storybook/") ||
     /^playwright(?:\.[^/]+)?\.config\./.test(file) ||
     file.startsWith("vitest.config.") ||

@@ -70,6 +70,10 @@ describe("CI change classification", () => {
     ["tests/unit/auth-actions.test.ts", "unit"],
     ["tests/integration/support-route.test.ts", "integration"],
     ["src/components/ui/button.stories.tsx", "storybook"],
+    [
+      "src/features/clinic-dashboard/support/components/organisms/SupportRequestDialog.stories.tsx",
+      "storybook",
+    ],
     ["tests/e2e/clinic-dashboard.spec.ts", "e2e"],
   ])("selects existing case %s", (filename, project) => {
     const scope = classifyChanges([modified(filename)])
@@ -100,9 +104,11 @@ describe("CI change classification", () => {
 
   it.each([
     "tests/setup/vitest.ts",
+    "tests/support/provider.ts",
     "tests/fixtures/data.json",
     "tests/unit/helper.test.ts",
     "src/features/clinic-dashboard/reviews/testing/reviews.fixtures.ts",
+    "src/features/clinic-dashboard/support/testing/support.fixtures.ts",
     ".storybook/preview.ts",
     "vitest.config.ts",
     "playwright.config.ts",
@@ -113,6 +119,10 @@ describe("CI change classification", () => {
 
   it.each([
     "src/app/page.tsx",
+    "src/features/clinic-dashboard/support/server/actions.ts",
+    "src/features/clinic-dashboard/support/components/organisms/SupportRequestDialog.tsx",
+    "src/features/clinic-dashboard/support/hooks/useSupportRequestController.ts",
+    "src/app/api/dashboard/clinics/[clinicId]/support/route.ts",
     "src/lib/security/csrf.ts",
     "public/brand/logo.svg",
     "next.config.ts",

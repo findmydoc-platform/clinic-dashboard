@@ -11,8 +11,10 @@ type Step = {
   run?: string
   with?: Record<string, unknown>
 }
-type Job = { name?: string; if?: string; needs?: string; steps?: Step[] }
+type Concurrency = { group: string; "cancel-in-progress": boolean }
+type Job = { name?: string; if?: string; needs?: string; steps?: Step[]; concurrency?: Concurrency }
 type Workflow = {
+  concurrency?: Concurrency
   on: Record<string, { paths?: string[]; "paths-ignore"?: string[] }>
   jobs: Record<string, Job>
 }
@@ -95,6 +97,39 @@ describe("CI routing workflow contracts", () => {
     )
     expect(steps.find((step) => step.name === "Detect secrets in selected files")?.if).toBeUndefined()
     expect(workflow("workflow-security.yml").on.push.paths).toBeUndefined()
+  })
+
+  it("keeps documentation pushes out of the Main Preview deployment queue", () => {
+    const config = workflow("deploy-main-preview.yml")
+    expect(config.concurrency).toBeUndefined()
+    expect(config.jobs.scope.concurrency).toBeUndefined()
+    expect(config.jobs["deploy-main-preview"].concurrency).toEqual({
+      group: "main-preview-deploy",
+      "cancel-in-progress": false,
+    })
+    expect(config.jobs["deploy-main-preview"].if).toContain("needs.scope.outputs.preview != 'false'")
+    expect(
+      config.jobs["deploy-main-preview"].steps?.find((step) => step.uses?.startsWith("actions/checkout@"))
+        ?.with?.ref,
+    ).toBe("main")
+  })
+
+  it("marks previous Preview links stale in the lightweight skip path", () => {
+    const config = workflow("deploy-preview.yml")
+    const cleanup = config.jobs["stale-preview"]
+    expect(cleanup).toBeDefined()
+    expect(cleanup.needs).toBe("scope")
+    expect(cleanup.if).toContain("needs.scope.result == 'success'")
+    expect(cleanup.if).toContain("needs.scope.outputs.preview == 'false'")
+    expect(cleanup.if).toContain("github.event.pull_request.head.repo.full_name == github.repository")
+    expect(cleanup.if).toContain("github.event.pull_request.draft == false")
+    expect(cleanup.if).toContain("dependabot[bot]")
+    expect(cleanup.steps?.find((step) => step.name === "Mark previous Preview links as outdated")?.run).toBe(
+      "node scripts/ci/preview-comment.mjs stale",
+    )
+    expect(
+      config.jobs["deploy-preview"].steps?.find((step) => step.name === "Publish preview link")?.run,
+    ).toBe("node scripts/ci/preview-comment.mjs publish")
   })
 
   it("stages CodeQL activation and preserves both languages and scheduled scans", () => {

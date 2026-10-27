@@ -23,6 +23,19 @@ manifests, and Dockerfiles. Public Markdown is deploy-relevant. Markdown referen
 as application input. An existing filename alone does not permit selected tests: the change must be a modification,
 and it must not belong to shared test support.
 
+Test support is identified within test directories and explicit source fixture/testing locations. Application domains
+such as `src/features/clinic-dashboard/support` remain runtime input. Existing stories in that domain still use the
+targeted Storybook lane.
+
+Only required Main Preview deployment jobs enter the deployment concurrency group, and an active deployment is not
+canceled by later runs. Documentation-only pushes do not enter that queue. Queued deployments check out current
+`main` when they start so that a delayed older event cannot restore an earlier application revision.
+
+If a PR no longer changes deployable files, the lightweight skip job marks existing own Preview comments as outdated
+and removes their active links. It recognizes the previous comment format, leaves human and unrelated bot comments
+alone, and creates no comment for a documentation-only PR that never had a Preview. A newer PR revision prevents an
+older run from updating its comment.
+
 Cross-application E2E files retain the existing separate lane. Changing them selects full normal validation, including
 controlled smoke tests, without starting the Website or a database. Their cross-application verification remains a
 separate explicit run.
