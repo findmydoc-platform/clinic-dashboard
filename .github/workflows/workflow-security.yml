@@ -5,15 +5,13 @@ on:
     branches: [main]
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/**"
-      - ".github/actions/**"
   schedule:
     - cron: "50 3 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -30,7 +28,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Classify changed paths
+        id: scope
+        # actionlint 1.7.12 does not yet support the self-repository prefix.
+        uses: ./.github/actions/change-scope # zizmor: ignore[self-repository]
+
       - name: Workflow lint
+        if: steps.scope.outputs.workflow_security != 'false'
         uses: reviewdog/action-actionlint@1758727be30241166609dad4c97588b6ad411f32 # v1.79.1
         with:
           reporter: github-check
@@ -38,6 +42,7 @@ jobs:
           fail_level: error
 
       - name: Workflow security audit
+        if: steps.scope.outputs.workflow_security != 'false'
         uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
         with:
           advanced-security: "false"
@@ -47,10 +52,13 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .github/requirements-secret-scan.txt
 
-      - name: Detect secrets
-        run: | # pragma: allowlist secret
-          python -m pip install --upgrade pip
-          python -m pip install detect-secrets==1.5.0
-          git ls-files -z |
-            xargs -0 detect-secrets-hook --baseline .secrets.baseline
+      - name: Install secret scanner
+        run: python -m pip install --requirement .github/requirements-secret-scan.txt
+
+      - name: Detect secrets in selected files
+        env:
+          SCOPE_MANIFEST: ${{ steps.scope.outputs.manifest }}
+        run: node scripts/ci/scan-secrets.mjs "$SCOPE_MANIFEST"

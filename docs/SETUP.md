@@ -42,9 +42,11 @@ Repository variables:
 - `VERCEL_DEPLOYMENTS_ENABLED=true`
 - `VERCEL_PRODUCTION_DEPLOYMENTS_ENABLED=true`
 - `DEPENDENCY_REVIEW_ENABLED=true`
+- `CODEQL_ADVANCED_ENABLED=true` only after the [controlled CodeQL cutover](engineering/ci-path-routing.md#codeql-cutover)
 
 The pull-request Preview workflow accepts only non-draft, same-repository, non-Dependabot pull requests and publishes
-only the generated temporary deployment URL. Production runs only through the central platform release, which invokes
+only the generated temporary deployment URL. Both PR and Main Preview deploy only for deploy-relevant changes;
+documentation and test-only changes skip deployment. A manual Main Preview run forces a deployment. Production runs only through the central platform release, which invokes
 the repository's `platform-release-deploy` workflow with a frozen target SHA and shared version.
 
 ## Vercel
@@ -134,7 +136,7 @@ Production aliasing and DNS remain intentionally pending. Create the externally 
 Before handoff:
 
 1. Follow the [repository validation policy](../README.md#validation).
-2. Confirm every advisory pull-request check appears.
+2. Confirm all six required pull-request checks have valid results, including skips, and code-scanning rules are satisfied.
 3. Confirm the Vercel preview URL is public and data-less.
 4. Confirm pull requests retain generated temporary Preview URLs.
 5. Confirm the Main Preview workflow deploys only `main` and moves `clinics.preview.findmydoc.eu` to that exact Preview.

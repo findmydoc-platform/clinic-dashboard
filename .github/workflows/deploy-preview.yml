@@ -11,7 +11,6 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
 
 env:
   NODE_VERSION: 24.14.0
@@ -21,9 +20,32 @@ env:
   STORYBOOK_DISABLE_TELEMETRY: 1
 
 jobs:
+  scope:
+    name: Preview scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      preview: ${{ steps.scope.outputs.preview }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: scope
+        # actionlint 1.7.12 does not yet support the self-repository prefix.
+        uses: ./.github/actions/change-scope # zizmor: ignore[self-repository]
+
   deploy-preview:
     name: Vercel Preview
+    needs: scope
+    permissions:
+      contents: read
+      pull-requests: write
     if: >-
+      !cancelled() &&
+      (needs.scope.result != 'success' || needs.scope.outputs.preview != 'false') &&
       vars.VERCEL_DEPLOYMENTS_ENABLED == 'true' &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&

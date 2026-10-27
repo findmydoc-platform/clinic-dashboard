@@ -30,6 +30,8 @@
     "build-storybook": "STORYBOOK_DISABLE_TELEMETRY=1 storybook build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "docs:check": "node scripts/ci/docs-check.mjs",
+    "ci:timings": "node scripts/ci/run-timings.mjs",
     "architecture:check": "node scripts/architecture-policy-check.mjs",
     "stories:governance:check": "node scripts/storybook-governance-check.mjs",
     "governance:check": "pnpm architecture:check && pnpm stories:governance:check",
