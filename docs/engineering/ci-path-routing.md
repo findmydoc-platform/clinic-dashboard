@@ -59,8 +59,9 @@ scheduled runs, manual runs, and detection failures scan all tracked files. Dele
 
 ## CodeQL cutover
 
-The repository uses GitHub Default Setup. The Advanced Setup workflow in `.github/workflows/codeql.yml` remains
-disabled through `CODEQL_ADVANCED_ENABLED=false`. Keep the CodeQL ruleset tool and severity thresholds.
+The repository uses GitHub Default Setup. GitHub disabled the Advanced Setup workflow in
+`.github/workflows/codeql.yml` during the rollback, and `CODEQL_ADVANCED_ENABLED=false`. Keep the CodeQL ruleset tool
+and severity thresholds.
 
 The first Advanced Setup rollout was rolled back because the code-scanning merge rule required a CodeQL result for
 a documentation-only pull request, even when both analysis jobs skipped. Keep Default Setup until a compatible
@@ -69,7 +70,8 @@ configuration passes the Markdown-only merge check below.
 To switch from Default Setup to Advanced Setup:
 
 1. Read and retain the current Default Setup configuration for rollback. Confirm the new workflow is available.
-2. Disable Default Setup, set `CODEQL_ADVANCED_ENABLED=true`, and manually run the CodeQL workflow on `main`.
+2. Disable Default Setup, re-enable `.github/workflows/codeql.yml` if GitHub disabled it, set
+   `CODEQL_ADVANCED_ENABLED=true`, and manually run the CodeQL workflow on `main`.
 3. Confirm both `javascript-typescript` and `actions` analyses succeed and upload results.
 4. Validate a Markdown-only PR, including every required status and the separate code-scanning merge rule. Both
    analysis jobs must skip. Then verify that merging documentation skips Main Preview and application work.
