@@ -59,8 +59,12 @@ scheduled runs, manual runs, and detection failures scan all tracked files. Dele
 
 ## CodeQL cutover
 
-The repository uses GitHub Advanced Setup through `.github/workflows/codeql.yml`. The repository variable
-`CODEQL_ADVANCED_ENABLED=true` enables the workflow. Keep the CodeQL ruleset tool and severity thresholds.
+The repository uses GitHub Default Setup. The Advanced Setup workflow in `.github/workflows/codeql.yml` remains
+disabled through `CODEQL_ADVANCED_ENABLED=false`. Keep the CodeQL ruleset tool and severity thresholds.
+
+The first Advanced Setup rollout was rolled back because the code-scanning merge rule required a CodeQL result for
+a documentation-only pull request, even when both analysis jobs skipped. Keep Default Setup until a compatible
+configuration passes the Markdown-only merge check below.
 
 To switch from Default Setup to Advanced Setup:
 
