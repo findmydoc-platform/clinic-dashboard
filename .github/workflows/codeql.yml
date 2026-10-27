@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
     needs: scope
     if: >-
       !cancelled() && vars.CODEQL_ADVANCED_ENABLED == 'true' &&
-      (needs.scope.result != 'success' || needs.scope.outputs.javascript != 'false')
+      (github.event_name == 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.javascript != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -65,7 +65,7 @@ jobs:
     needs: scope
     if: >-
       !cancelled() && vars.CODEQL_ADVANCED_ENABLED == 'true' &&
-      (needs.scope.result != 'success' || needs.scope.outputs.actions != 'false')
+      (github.event_name == 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.actions != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
