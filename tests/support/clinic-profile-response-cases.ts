@@ -676,3 +676,18 @@ for (const basePublishedRevision of [-1, 0.5, null, "0"]) {
     body: { ...minimalResponse(), draft: { ...minimalResponse().published, basePublishedRevision } },
   })
 }
+
+clinicProfileResponseCases.push({
+  name: "open draft rejects malformed time despite relaxed interval requirements",
+  body: {
+    ...minimalResponse(),
+    draft: {
+      ...minimalResponse().published,
+      basePublishedRevision: 0,
+      openingHours: {
+        ...responseWeek(),
+        monday: { isClosed: false, opensAt: "24:00", closesAt: "" },
+      },
+    },
+  },
+})

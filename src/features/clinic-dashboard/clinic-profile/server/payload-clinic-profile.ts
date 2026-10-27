@@ -9,7 +9,7 @@ import type {
   ClinicProfilePublishInput,
   ClinicProfileSnapshot,
 } from "../model/clinic-profile-source"
-import { clinicProfileSourceSnapshotSchema } from "./clinic-profile-dto"
+import { clinicProfileSourceSnapshotSchema } from "../model/clinic-profile-source-schema"
 import type {
   ClinicProfileChangeError,
   ClinicProfileProvider,

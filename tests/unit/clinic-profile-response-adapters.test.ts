@@ -6,10 +6,7 @@ import { createPayloadClinicProfileProvider } from "@/features/clinic-dashboard/
 import type { ClinicProfileSnapshot } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source"
 import { ClinicProfileSourceCommandError } from "@/features/clinic-dashboard/clinic-profile/model/clinic-profile-source-commands"
 import { CLINIC_DASHBOARD_CSRF_COOKIE } from "@/lib/security/csrf-contract"
-import {
-  clinicProfileResponseCases,
-  transformedClinicProfileResponseCase,
-} from "../support/clinic-profile-response-cases"
+import { transformedClinicProfileResponseCase } from "../support/clinic-profile-response-cases"
 
 function expectParsedSnapshot(actual: ClinicProfileSnapshot, expected: ClinicProfileSnapshot) {
   expect(actual).toStrictEqual(expected)
@@ -54,7 +51,7 @@ function privateResponse(body: string, status = 200) {
   })
 }
 
-describe("Clinic profile response characterization", () => {
+describe("Clinic profile response adapters", () => {
   beforeEach(() => {
     document.cookie = `${CLINIC_DASHBOARD_CSRF_COOKIE}=synthetic-csrf; path=/`
     vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef") // pragma: allowlist secret
@@ -70,39 +67,6 @@ describe("Clinic profile response characterization", () => {
     document.cookie = `${CLINIC_DASHBOARD_CSRF_COOKIE}=; max-age=0; path=/`
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
-  })
-
-  describe("browser command", () => {
-    it.each(clinicProfileResponseCases)("$name", async ({ body, expected }) => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => new Response(JSON.stringify(body))),
-      )
-      const result = createClinicProfileSourceApiCommands("synthetic-clinic").loadSnapshot()
-      if (expected) {
-        expectParsedSnapshot(await result, expected)
-      } else {
-        await expectInvalidBrowserResponse(result)
-      }
-    })
-  })
-
-  describe("Payload provider", () => {
-    it.each(clinicProfileResponseCases)("$name", async ({ body, expected }) => {
-      const fetcher: typeof fetch = async () => privateResponse(JSON.stringify(body))
-      const result = await createPayloadClinicProfileProvider(
-        "synthetic-token",
-        "synthetic-clinic",
-        fetcher,
-      ).loadSnapshot()
-      if (expected) {
-        expect(result.ok).toBe(true)
-        if (!result.ok) throw new Error("Expected a parsed Payload snapshot")
-        expectParsedSnapshot(result.value, expected)
-      } else {
-        expect(result).toStrictEqual({ error: "invalid-data", ok: false })
-      }
-    })
   })
 
   it("returns the complete independently parsed value from all five browser operations", async () => {
