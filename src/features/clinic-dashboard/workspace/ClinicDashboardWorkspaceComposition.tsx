@@ -130,6 +130,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   prototypeMode: ClinicDashboardPrototypeMode
   // Explicit Storybook/QA input. Normal workspace entry never supplies demo reporting.
   reportingDemo?: DashboardSnapshot
+  reportingPreferenceScope?: string
   reviewCommands: ReviewSourceCommands
   showPrototypeModeToggle: boolean
   start?: ClinicDashboardWorkspaceStartState
@@ -168,6 +169,7 @@ export function ClinicDashboardWorkspaceComposition({
   onSourceRefresh,
   prototypeMode,
   reportingDemo,
+  reportingPreferenceScope,
   reviewCommands,
   showPrototypeModeToggle,
   start = {},
@@ -368,6 +370,7 @@ export function ClinicDashboardWorkspaceComposition({
 
   const dashboard = useDashboardOverviewController({
     clinicId: authenticatedContext.clinic.id,
+    preferenceScope: reportingPreferenceScope,
     initialReporting: initialReporting ?? { status: "temporarily-unavailable" },
     loadReporting,
     profileProgress,
