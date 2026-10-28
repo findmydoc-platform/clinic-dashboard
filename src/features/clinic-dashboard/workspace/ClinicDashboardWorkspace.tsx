@@ -252,6 +252,7 @@ function ClinicDashboardWorkspaceContent({
         focusInquiryId={focusInquiryId}
         focusReviewId={focusReviewId}
         initialReporting={initialReporting}
+        reportingPreferenceScope={scope}
         loadReporting={loadReporting}
         isSourceRefreshPending={isSourceRefreshPending}
         onSourceRefresh={refreshSources}

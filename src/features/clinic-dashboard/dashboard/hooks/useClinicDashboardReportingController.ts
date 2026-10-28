@@ -20,6 +20,7 @@ export type ClinicDashboardReportingViewState =
 
 type UseClinicDashboardReportingControllerInput = Readonly<{
   initialReporting: ClinicDashboardReportingLoadState
+  selectedPeriodDays?: ClinicDashboardReportingPeriodDays
   loadReporting: (
     periodDays: ClinicDashboardReportingPeriodDays,
   ) => Promise<ClinicDashboardReporting | undefined>
@@ -40,6 +41,7 @@ function initialModel(
 export function useClinicDashboardReportingController({
   initialReporting,
   loadReporting,
+  selectedPeriodDays,
 }: UseClinicDashboardReportingControllerInput) {
   const snapshotKey = JSON.stringify(initialReporting)
   const serverPeriod = initialReporting.status === "ready" ? initialReporting.reporting.period.days : 30
@@ -48,12 +50,15 @@ export function useClinicDashboardReportingController({
     snapshotKey,
   }))
   const latestRequest = useRef(0)
+  const periodDays = selectedPeriodDays ?? state.model.periodDays
   const model: ClinicDashboardReportingViewState =
-    state.snapshotKey === snapshotKey
-      ? state.model
-      : state.model.periodDays === serverPeriod
-        ? initialModel(initialReporting)
-        : { periodDays: state.model.periodDays, status: "loading" }
+    state.model.periodDays !== periodDays
+      ? { periodDays, status: "loading" }
+      : state.snapshotKey === snapshotKey
+        ? state.model
+        : state.model.periodDays === serverPeriod
+          ? initialModel(initialReporting)
+          : { periodDays: state.model.periodDays, status: "loading" }
 
   const changePeriodDays = useCallback(
     async (periodDays: ClinicDashboardReportingPeriodDays) => {
@@ -75,8 +80,11 @@ export function useClinicDashboardReportingController({
   )
 
   useEffect(() => {
-    if (state.snapshotKey === snapshotKey || state.model.periodDays === serverPeriod) return
-    const periodDays = state.model.periodDays
+    if (
+      state.model.periodDays === periodDays &&
+      (state.snapshotKey === snapshotKey || state.model.periodDays === serverPeriod)
+    )
+      return
     const requestId = latestRequest.current + 1
     latestRequest.current = requestId
     let active = true
@@ -94,7 +102,7 @@ export function useClinicDashboardReportingController({
     return () => {
       active = false
     }
-  }, [loadReporting, serverPeriod, snapshotKey, state.model.periodDays, state.snapshotKey])
+  }, [loadReporting, periodDays, serverPeriod, snapshotKey, state.model.periodDays, state.snapshotKey])
 
   return { actions: { changePeriodDays }, model } as const
 }
