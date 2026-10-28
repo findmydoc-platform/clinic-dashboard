@@ -14,6 +14,77 @@ async function switchClinic(page: Page, name: string) {
   await page.getByRole("menuitem", { name: new RegExp(name) }).click()
 }
 
+test("keeps reporting selections through section navigation and document reload", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  const hydrationErrors: string[] = []
+  page.on("console", (message) => {
+    if (message.type() === "error" && /hydrat|server rendered/i.test(message.text()))
+      hydrationErrors.push(message.text())
+  })
+  await setClinicSet(context, baseURL!, "many")
+  await signIn(page)
+  const period = page.getByRole("group", { name: "Reporting period", exact: true })
+  const profileViews = page.locator('[data-funnel-stage="profileViews"]')
+  const inquiries = page.locator('[data-funnel-stage="inquiries"]')
+  await expect(period.getByRole("button", { name: "30 days", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect(profileViews).toHaveAttribute("aria-pressed", "true")
+  await period.getByRole("button", { name: "90 days", exact: true }).click()
+  await inquiries.click()
+  await page.getByRole("button", { name: "Reviews", exact: true }).click()
+  await page.getByRole("button", { name: "Dashboard", exact: true }).click()
+  await expect(inquiries).toHaveAttribute("aria-pressed", "true")
+  await expect(period.getByRole("button", { name: "90 days", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+
+  await expect(
+    page.getByRole("region", { name: "Dashboard metrics" }).getByText("902", { exact: true }),
+  ).toBeVisible()
+  let release!: () => void
+  const pending = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?periodDays=90", async (route) => {
+    await pending
+    await route.continue()
+  })
+  const restored = page.waitForResponse((response) =>
+    response.url().endsWith("/api/dashboard/clinics/controlled-clinic/reporting?periodDays=90"),
+  )
+  restored.catch(() => undefined)
+  await page.reload()
+  await expect(period.getByRole("button", { name: "90 days", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect(inquiries).toHaveAttribute("aria-pressed", "true")
+  await expect(profileViews).toContainText("Loading")
+  await expect(
+    page.getByRole("region", { name: "Dashboard metrics" }).getByText("284", { exact: true }),
+  ).toHaveCount(0)
+  release()
+  expect((await restored).status()).toBe(200)
+  await expect(
+    page.getByRole("region", { name: "Dashboard metrics" }).getByText("902", { exact: true }),
+  ).toBeVisible()
+  expect(hydrationErrors).toEqual([])
+  await page.screenshot({ path: "output/playwright/reporting-selection-reloaded.png", fullPage: true })
+
+  await switchClinic(page, "Second Controlled Clinic")
+  await expect(period.getByRole("button", { name: "30 days", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect(profileViews).toHaveAttribute("aria-pressed", "true")
+})
+
 test("fresh personal clinic list scopes reporting and keeps the selected section", async ({
   page,
   context,
