@@ -404,10 +404,10 @@ destination. Cleanup failure retains protection for an explicit retry. Principal
 and run original cleanup; obsolete choice reads, domain reads and actions cannot restore old content or navigate a new
 scope. Existing unmounted-domain cleanup owns late upload completion. No new revocation channel or age policy is added.
 
-`workspace/model/clinic-scope-conversions.ts` enables profile, gallery, doctors, treatments, inquiries, reviews and
-notifications through explicit clinic-target operations. The server does not load their source records. The live
-workspace does not display another clinic's demo data, and targetless legacy domain routes deny access. This gate records
-implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
+Profile, gallery, doctors, treatments, inquiries, reviews and reporting use explicit clinic-target operations. Personal
+notifications use the current principal's authorized clinics. The server loads source records through the existing domain
+providers and retains their capability checks and failure results. The live workspace does not display another clinic's
+demo data, and targetless legacy domain routes deny access.
 
 The personal notification controller survives the authorized clinic-page transition only for its captured intentional
 opening, bound to the current principal and navigation generation. Other feed, count and action responses are invalidated.
@@ -417,11 +417,10 @@ obsolete display creates no receipt. The source still rechecks current rights, r
 conditions. A failed or unknown acknowledgment does not reverse a successful display. Optional anchors use the ordinary
 loaded projection without fetching extra history.
 
-`workspace/model/clinic-scope-conversions.ts` records independent domain target-route conversions.
-Gallery remains enabled only in this experimental composition; its paired source protocol was qualified separately.
-Closed domains do not load source records, and the live workspace does not display another clinic's demo data. Conversion
-gates record implementation scope, not Preview or Production availability. Existing isolated editor and Storybook fixtures remain
-available for local behavior verification.
+The central server-only composition still selects Controlled or Payload sources under the existing environment
+restrictions. The remaining demo Workspace input stays separate from live-domain sources. Existing isolated editor and
+Storybook fixtures remain available for local behavior verification. These source choices and local checks do not establish
+Preview or Production availability.
 
 The bootstrap client rejects a response that does not match the expected DTO. It never forwards raw Payload documents,
 Supabase identifiers, tokens, internal roles, permission internals, or unapproved clinic fields to Client Components.
@@ -465,7 +464,7 @@ revisions and serializable update conflicts map to `409 CLINIC_TREATMENT_CONFLIC
 review and resubmit unsaved values. The adapter validates the focused DTO and never depends on generic Payload
 collection paths, query grammar, depth, relationship expansion, or collection response envelopes.
 
-Treatment editing stays under the existing Profile destination. Its independent conversion gate can show the treatment workspace while other profile domains remain closed. A native editor includes the existing clinic-switch intent so it works while the outer header is inert. The same shared departure guard offers keep editing, save for the original clinic and continue, or explicit discard. A failed save keeps the editor and destination unchanged. Deactivation remains an `active: false` update; no catalogue management or deletion operation is introduced.
+Treatment editing stays under the existing Profile destination. A native editor includes the existing clinic-switch intent so it works while the outer header is inert. The same shared departure guard offers keep editing, save for the original clinic and continue, or explicit discard. A failed save keeps the editor and destination unchanged. Deactivation remains an `active: false` update; no catalogue management or deletion operation is introduced.
 
 Before a source 401/403 can hide the editor, the treatment browser adapter invokes the existing scope-bound recovery callback. The editor supplies its actual private treatment, price and availability draft to the existing access-loss capsule. Unmounted or replaced controllers ignore delayed results and cannot refresh, mutate or navigate a different clinic. Principal/session cleanup and discard remain owned by the shared guard. These source and controlled-browser checks do not establish deployed Preview or Production availability.
 
@@ -516,8 +515,7 @@ Every upstream bootstrap response is private and carries `Cache-Control: private
 | Supabase unavailable during refresh                                | Return a temporary upstream error; preserve cookies unless proven invalid. | Temporary authentication-service error, not logout.             |
 | Origin or CSRF rejection                                           | Return `403` without an upstream call.                                     | Generic rejected-request state; no sensitive detail.            |
 
-All protected pages require explicit loading, empty, forbidden, expired-session, and upstream-unavailable states before
-their temporary prototype gate is removed.
+All protected pages require explicit loading, empty, forbidden, expired-session, and upstream-unavailable states.
 
 Patient-inquiry providers return only closed domain errors. Queue failures map to the existing
 `temporarily-unavailable` UI state. The status route maps `not-found` to `404 INQUIRY_NOT_FOUND`, `conflict` to
@@ -613,17 +611,17 @@ Preview capture has remained active since `2026-10-20T12:18:38.493Z`; the 2026-1
 
 The review browser commands bind list filters, pagination, exact detail, history, response and appeal submission to `/api/dashboard/clinics/:clinicId/reviews`. The BFF resolves the explicit target against fresh personal access and keeps session, origin and CSRF checks. Targetless legacy routes remain denied. The Payload provider uses only the dedicated Website review operations under the matching clinic prefix and negotiates `clinic-scope-v1`; mutation bodies cannot choose a clinic. No additional bootstrap capability names are introduced.
 
-The workspace enables the reviews conversion gate. A clinic switch preserves the reviews section, remounts clinic-owned state and creates new commands for the new target. Existing departure continuations preserve unfinished response and appeal drafts. Review confirmation and editor dialogs both use the native top layer so Keep editing, Escape and save/discard controls remain reachable and restore nested focus. Controlled acceptance uses distinguishable synthetic clinic records and cannot qualify real Preview or Production source behavior.
+A clinic switch preserves the reviews section, remounts clinic-owned state and creates new commands for the new target. Existing departure continuations preserve unfinished response and appeal drafts. Review confirmation and editor dialogs both use the native top layer so Keep editing, Escape and save/discard controls remain reachable and restore nested focus. Controlled acceptance uses distinguishable synthetic clinic records and cannot qualify real Preview or Production source behavior.
 
 ## Explicit clinic profile operations
 
 Profile snapshot, draft create/save/discard and publication use `/api/dashboard/clinics/:clinicId/profile` and its draft/publish children. The BFF repeats current target access and operation capability checks and binds its private provider to that authorized target. Browser and source providers retain this target for pending actions and reconciliation reads. Payload requests include one literal `clinic-scope-v1` header. Editable bodies cannot choose clinic, country, coordinates or unrelated controlled fields. Türkiye city options come from the authorized profile snapshot.
 
-Controlled profile state is separate per clinic. The profile controller drops responses after its editor unmounts and does not issue a second save after a late create. Source 401/403 invokes the Workspace recovery callback before command rejection. The shared departure guard can retain the actual private draft, saved baseline and unresolved publication attempt before the editor disappears. Failed saves block departure; only explicit discard releases protected work. The profile conversion gate leaves treatments, doctors and gallery under their independent gates.
+Controlled profile state is separate per clinic. The profile controller drops responses after its editor unmounts and does not issue a second save after a late create. Source 401/403 invokes the Workspace recovery callback before command rejection. The shared departure guard can retain the actual private draft, saved baseline and unresolved publication attempt before the editor disappears. Failed saves block departure; only explicit discard releases protected work.
 
 ## Doctor profiles in the selected clinic
 
-The existing Profile navigation can show the doctor directory independently from the profile, treatment and gallery conversion gates. Doctor management retains its existing operation availability and does not add a bootstrap capability. Controlled doctor state is isolated by clinic; Payload remains the authority in normal mode.
+The existing Profile navigation includes the doctor directory. Doctor management retains its existing operation availability and does not add a bootstrap capability. Controlled doctor state is isolated by clinic; Payload remains the authority in normal mode.
 
 Doctor commands use `/api/dashboard/clinics/:clinicId/doctors`, `/:doctorId`, `/:doctorId/image`, `/:doctorId/specialties` and `/:doctorId/specialties/:assignmentId`. Image reads use the same explicit doctor image path. The server resolves the current person and requested clinic before constructing the request-local provider. Directory and update-detail source reads also carry that clinic in their Website path. The global medical-specialty catalogue remains a reference catalogue.
 
