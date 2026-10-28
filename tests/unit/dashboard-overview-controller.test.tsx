@@ -1,12 +1,118 @@
 // @vitest-environment jsdom
-import { act, cleanup, renderHook } from "@testing-library/react"
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest"
 import { useDashboardOverviewController } from "@/features/clinic-dashboard/dashboard/hooks/useDashboardOverviewController"
 import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/clinic-dashboard-reporting.fixtures"
 import { dashboardProfileProgressReady } from "@/features/clinic-dashboard/dashboard/testing/dashboard.fixtures"
-import type { ClinicDashboardReportingLoadState } from "@/features/clinic-dashboard/dashboard/model/clinic-dashboard-reporting"
+import type {
+  ClinicDashboardReporting,
+  ClinicDashboardReportingLoadState,
+} from "@/features/clinic-dashboard/dashboard/model/clinic-dashboard-reporting"
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+  window.sessionStorage.clear()
+})
+
+const useScopedReporting = (
+  scope: string,
+  loadReporting?: (days: 7 | 30 | 90) => Promise<ClinicDashboardReporting>,
+) =>
+  useDashboardOverviewController({
+    preferenceScope: scope,
+    initialReporting: { status: "ready", reporting: clinicDashboardReportingFixture },
+    profileProgress: dashboardProfileProgressReady,
+    clinicPreview: { status: "unavailable", name: "Controlled clinic" },
+    loadReporting,
+  })
+
+it("restores the tab's selection with fresh matching-period data after remount", async () => {
+  const loadReporting = vi.fn(async (days: 7 | 30 | 90) => ({
+    ...clinicDashboardReportingFixture,
+    period: { ...clinicDashboardReportingFixture.period, days },
+  }))
+  const first = renderHook(() => useScopedReporting("principal:clinic", loadReporting))
+  act(() => first.result.current.actions.selectMetric("inquiries"))
+  await act(async () => first.result.current.actions.changePeriodDays(90))
+  first.unmount()
+
+  let resolve!: (value: ClinicDashboardReporting) => void
+  const freshLoad = vi.fn(
+    () =>
+      new Promise<ClinicDashboardReporting>((done) => {
+        resolve = done
+      }),
+  )
+  const restored = renderHook(() => useScopedReporting("principal:clinic", freshLoad))
+  expect(restored.result.current.model.periodDays).toBe(90)
+  expect(restored.result.current.model.selectedMetric.id).toBe("inquiries")
+  expect(restored.result.current.model.reportingStatus).toBe("loading")
+  expect(restored.result.current.model.metrics.find((metric) => metric.id === "profileViews")?.value).toBe(
+    "Loading",
+  )
+  expect(freshLoad).toHaveBeenCalledExactlyOnceWith(90)
+  await act(async () =>
+    resolve({
+      ...clinicDashboardReportingFixture,
+      period: { ...clinicDashboardReportingFixture.period, days: 90 },
+    }),
+  )
+  expect(restored.result.current.model.reportingStatus).toBe("ready")
+  expect(restored.result.current.model.periodDays).toBe(90)
+})
+
+it.each(["other-principal:clinic", "principal:other-clinic"])(
+  "does not restore another authenticated scope's selection in %s",
+  async (scope) => {
+    const loadReporting = vi.fn(async (days: 7 | 30 | 90) => ({
+      ...clinicDashboardReportingFixture,
+      period: { ...clinicDashboardReportingFixture.period, days },
+    }))
+    const first = renderHook(() => useScopedReporting("principal:clinic", loadReporting))
+    act(() => first.result.current.actions.selectMetric("inquiries"))
+    await act(async () => first.result.current.actions.changePeriodDays(90))
+    first.unmount()
+    loadReporting.mockClear()
+
+    const next = renderHook(() => useScopedReporting(scope, loadReporting))
+    expect(next.result.current.model.periodDays).toBe(30)
+    expect(next.result.current.model.selectedMetric.id).toBe("profileViews")
+    expect(loadReporting).not.toHaveBeenCalled()
+  },
+)
+
+it.each([
+  "{",
+  "null",
+  JSON.stringify({ scope: "principal:clinic", periodDays: 365, metricId: "inquiries" }),
+  JSON.stringify({ scope: "principal:clinic", periodDays: 90, metricId: "unknown" }),
+])("ignores invalid stored reporting preferences: %s", (value) => {
+  window.sessionStorage.setItem("fmd-dashboard-reporting-selection", value)
+  const hook = renderHook(() => useScopedReporting("principal:clinic"))
+  expect(hook.result.current.model.periodDays).toBe(30)
+  expect(hook.result.current.model.selectedMetric.id).toBe("profileViews")
+})
+
+it("keeps reporting usable when browser preference reads and writes are denied", async () => {
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("Storage denied")
+  })
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("Storage denied")
+  })
+  const loadReporting = vi.fn(async (days: 7 | 30 | 90) => ({
+    ...clinicDashboardReportingFixture,
+    period: { ...clinicDashboardReportingFixture.period, days },
+  }))
+  const hook = renderHook(() => useScopedReporting("principal:clinic", loadReporting))
+  act(() => hook.result.current.actions.selectMetric("inquiries"))
+  await act(async () => hook.result.current.actions.changePeriodDays(90))
+  await waitFor(() => expect(hook.result.current.model.reportingStatus).toBe("ready"))
+  expect(hook.result.current.model.periodDays).toBe(90)
+  expect(hook.result.current.model.selectedMetric.id).toBe("inquiries")
+  expect(loadReporting).toHaveBeenCalledExactlyOnceWith(90)
+})
 
 it("retains the selected measurement across a reporting period change", async () => {
   const loadReporting = vi.fn(async (days: 7 | 30 | 90) => ({
