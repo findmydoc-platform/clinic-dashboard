@@ -60,7 +60,6 @@ import {
   type PatientInquiryAttachmentDraftUploadFactory,
 } from "./messages/server/public"
 import type { ClinicDashboardWorkspaceInput } from "./workspace/model/workspace-input"
-import { clinicScopeConversions } from "./workspace/model/clinic-scope-conversions"
 import { defaultReviewListFilters } from "./reviews/model/review-source"
 import {
   handleReviewAppealSubmit as handleReviewAppealSubmitWithProvider,
@@ -88,8 +87,6 @@ export function handleNotificationsMarkRead(request: NextRequest) {
 }
 
 export async function loadClinicDashboardInitialNotifications() {
-  if (!clinicScopeConversions.notifications)
-    return { status: "unavailable", error: "SERVICE_UNAVAILABLE" } as const
   const [token, access] = await Promise.all([getClinicDashboardAccessToken(), getClinicDashboardAccess()])
   return token && access.status === "approved"
     ? loadInitialNotifications(
@@ -349,30 +346,25 @@ export async function loadClinicDashboardWorkspaceInput(
 
   const clinic = access.context.clinics.find(({ id }) => id === targetClinicId)
   if (!clinic) throw new Error("An authorized target clinic is required.")
-  // Domain conversions have independent delivery tickets. A new person bootstrap
-  // must not turn the legacy domain routes or demo snapshots into group access.
-  const converted = clinicScopeConversions
   const providers = composeClinicDashboardDataProviders(accessToken, clinic.id)
-  const canViewProfile = converted.profile && clinic.capabilities.includes("clinic-profile:view")
-  const canViewGallery = converted.gallery && clinic.capabilities.includes("clinic-gallery:view")
-  const canViewTreatments = converted.treatments && clinic.capabilities.includes("clinic-treatments:view")
-  const canViewInquiries = converted.inquiries && clinic.capabilities.includes("clinic-inquiries:view")
+  const canViewProfile = clinic.capabilities.includes("clinic-profile:view")
+  const canViewGallery = clinic.capabilities.includes("clinic-gallery:view")
+  const canViewTreatments = clinic.capabilities.includes("clinic-treatments:view")
+  const canViewInquiries = clinic.capabilities.includes("clinic-inquiries:view")
   const taskActionability = {
-    canEditGallery: converted.gallery && clinic.capabilities.includes("clinic-gallery:edit"),
-    canEditProfile: converted.profile && clinic.capabilities.includes("clinic-profile:edit"),
-    canEditTreatments: converted.treatments && clinic.capabilities.includes("clinic-treatments:edit"),
+    canEditGallery: clinic.capabilities.includes("clinic-gallery:edit"),
+    canEditProfile: clinic.capabilities.includes("clinic-profile:edit"),
+    canEditTreatments: clinic.capabilities.includes("clinic-treatments:edit"),
   }
   const [doctorResult, galleryResult, inquiryResult, profileResult, reviewResult, treatmentResult] =
     await Promise.allSettled([
-      converted.doctors ? providers.doctors.loadDirectory() : Promise.resolve({ ok: false } as const),
+      providers.doctors.loadDirectory(),
       canViewGallery ? providers.gallery.loadGallery() : Promise.resolve(undefined),
       canViewInquiries
         ? providers.inquiries.loadQueue({ lifecycle: "open", unreadOnly: false })
         : Promise.resolve(undefined),
       canViewProfile ? providers.profile.loadSnapshot() : Promise.resolve(undefined),
-      converted.reviews
-        ? providers.reviews.loadReviews(defaultReviewListFilters, 1)
-        : Promise.resolve({ ok: false } as const),
+      providers.reviews.loadReviews(defaultReviewListFilters, 1),
       canViewTreatments
         ? providers.treatments.loadTreatments()
         : Promise.resolve({ error: "forbidden", ok: false } as const),

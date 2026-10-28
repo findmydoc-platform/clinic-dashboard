@@ -31,20 +31,6 @@ vi.mock("@/features/clinic-dashboard/clinic-profile/server/clinic-gallery-dto", 
   toDashboardClinicGallerySnapshot: vi.fn((snapshot) => snapshot),
 }))
 
-// Preserve converted-domain composition cases for the follow-up domain tickets.
-vi.mock("@/features/clinic-dashboard/workspace/model/clinic-scope-conversions", () => ({
-  clinicScopeConversions: {
-    reporting: true,
-    profile: true,
-    gallery: true,
-    treatments: true,
-    doctors: true,
-    inquiries: true,
-    reviews: true,
-    notifications: true,
-  },
-}))
-
 import { loadClinicDashboardWorkspaceInput } from "@/features/clinic-dashboard/server"
 
 const workspace = {

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto"
 import { expect, test, type Page } from "../fixtures/controlled-profile-scenario"
-import { clinicScopeConversions } from "@/features/clinic-dashboard/workspace/model/clinic-scope-conversions"
 import { controlledEmailCallbackPath } from "../fixtures/controlled-email-callback"
 
 const testDashboardPassword = "clinic-dashboard-test"
@@ -184,28 +183,11 @@ test("keeps published profile information usable when reporting and notification
   )
   await page.getByRole("button", { name: "Close notifications" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
-  if (clinicScopeConversions.gallery && clinicScopeConversions.treatments) {
-    // Retain the full progress acceptance for the #232/#233 domain composition.
-    await expect(
-      page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
-    ).toBeVisible()
-    await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
-    await page.getByRole("button", { name: "View reviews" }).click()
-  } else {
-    await expect(
-      page.getByRole("heading", { name: "Profile progress unavailable", exact: true }),
-    ).toBeVisible()
-    await expect(page.getByRole("list", { name: "Profile tasks" })).toHaveCount(0)
-    await expect(
-      page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
-    ).toHaveCount(0)
-    await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
-    await expect(page.getByText("Controlled Bosphorus Clinic", { exact: true })).toBeVisible()
-    await expect(page.getByRole("region", { name: "Profile basics" })).toContainText(
-      "A multidisciplinary clinic supporting international patients with coordinated treatment planning.",
-    )
-    await page.getByRole("button", { name: "Reviews", exact: true }).click()
-  }
+  await expect(
+    page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
+  await page.getByRole("button", { name: "View reviews" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
 })
 
