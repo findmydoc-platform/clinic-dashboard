@@ -43,6 +43,8 @@ Select additional tests according to the affected behavior and risk, following t
 
 Run `pnpm test:mutation:clinic-access` for the [focused clinic access mutation check](docs/testing/clinic-access-mutation-testing.md). Its production-code range and test selection are defined in `package.json`.
 
+The proposed [shared mutation testing decision](https://github.com/findmydoc-platform/platform-architecture/blob/97158b9f978609840418d33a2e7a7a2900762145/decisions/037-adr-focused-mutation-testing.md) records the platform-wide criteria and remains Draft (GitHub access required).
+
 Changes to rendered UI, component interaction, or Storybook behavior require relevant Storybook browser checks and a Storybook build. Run `pnpm build` when a change can affect application output.
 
 CI selects work before installing application dependencies. Documentation changes run `pnpm docs:check`, PR metadata
