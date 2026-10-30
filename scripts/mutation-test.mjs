@@ -6,6 +6,11 @@ const usage =
   "Usage: pnpm test:mutation --mutate <src-file[:start-end]> --testFiles <test-file> [--testFiles <test-file>] [--dryRunOnly]"
 const root = process.cwd()
 
+function literalFilePattern(file) {
+  // Stryker normalizes backslashes, so use literal single-character classes.
+  return file.replace(/[[\]()*?+!@]/gu, (character) => `[${character}]`)
+}
+
 async function selectedFile(value, kind) {
   if (path.isAbsolute(value)) throw new Error(`${kind} must be a repository-relative file.`)
   const absolute = await realpath(path.resolve(root, value)).catch(() => undefined)
@@ -49,10 +54,11 @@ try {
         throw new Error("The mutation line range must be ordered and within the selected file.")
       }
     }
-    const mutate = match[2] ? `${file}:${match[2]}-${match[3]}` : file
+    const pattern = literalFilePattern(file)
+    const mutate = match[2] ? `${pattern}:${match[2]}-${match[3]}` : pattern
     const testFiles = [
       ...new Set(await Promise.all(values.testFiles.map((test) => selectedFile(test, "Test")))),
-    ]
+    ].map(literalFilePattern)
     const { Stryker } = await import("@stryker-mutator/core")
     const mutants = await new Stryker({
       configFile: false,

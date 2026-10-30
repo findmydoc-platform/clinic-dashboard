@@ -12,6 +12,8 @@ StrykerJS core and its Vitest runner are pinned to `10.1.1` as development depen
 The command requires one explicit production file, optionally restricted to a positive inclusive line range,
 and at least one explicit unit or integration test file. Paths must be relative to the repository root.
 Glob selection, missing files, test files as mutation targets, and unknown options are rejected.
+Pass literal filenames, including Next.js dynamic segments and route groups. Quote paths containing shell
+metacharacters. The command encodes the selected filenames for Stryker while preserving the line range.
 
 Run the setup check first:
 
@@ -108,3 +110,25 @@ The observed benefit is one additional negative-path scenario, exercised in two 
 normal-server and integration coverage. No production bug reduction or broad authorization guarantee can
 be inferred from the 100% score. It applies only to these 58 generated mutations in this function. Session
 refresh policy, CSRF, personal notifications, and Website authorization require their own checks.
+
+## Literal filename validation
+
+On 2026-10-29, CLI regression tests verified dynamic `[clinicId]` segments, `(workspace)` route groups,
+optional catch-all segments, ordinary source paths, line ranges, and literal test filenames. The tests execute
+the actual CLI with an engine stub and check the resulting selection using the pinned Stryker file matcher.
+Five cases failed before the correction; all six pass with literal filename encoding.
+
+An actual Stryker setup-only run selected the existing dynamic route below and its specified range, then
+completed its six baseline tests:
+
+```sh
+pnpm test:mutation \
+  --mutate 'src/app/api/dashboard/clinics/[clinicId]/profile/route.ts:1-8' \
+  --testFiles tests/integration/clinic-route-access.test.ts \
+  --dryRunOnly
+```
+
+This setup check validates filename and range handling. It does not establish mutation coverage of that
+route wrapper. The original clinic-access mutation command remains the completed behavioral pilot.
+After the filename correction, that original command was also repeated successfully: 39 baseline tests,
+58 killed mutants, zero survivors, uncovered mutants, timeouts, or mutant errors, in 6 seconds.
