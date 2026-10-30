@@ -1,6 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
+    "vitest.mutation.config.ts",
     "playwright.cross-app.config.ts",
     "scripts/pre-commit-format.mjs",
     "src/lib/security/public-routes.ts",

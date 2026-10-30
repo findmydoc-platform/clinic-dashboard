@@ -97,7 +97,13 @@ const modelGlobalThisRestrictions = [
 
 export default defineConfig([
   ...nextVitals,
-  globalIgnores([".next/**", "coverage/**", "playwright-report/**", "storybook-static/**"]),
+  globalIgnores([
+    ".next/**",
+    ".stryker-tmp/**",
+    "coverage/**",
+    "playwright-report/**",
+    "storybook-static/**",
+  ]),
   {
     files: ["src/components/ui/**/*.{ts,tsx}"],
     rules: {
