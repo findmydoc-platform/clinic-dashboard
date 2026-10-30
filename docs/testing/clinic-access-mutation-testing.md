@@ -9,25 +9,30 @@ in `resolveClinicDashboardRouteAccess`.
 Use Node 24 and pnpm 10. Run `pnpm install --frozen-lockfile` after checking out this branch.
 StrykerJS core and its Vitest runner are pinned to `10.1.1` as development dependencies.
 
-The command requires one explicit production file, optionally restricted to a positive inclusive line range,
-and at least one explicit unit or integration test file. Paths must be relative to the repository root.
-Glob selection, missing files, test files as mutation targets, and unknown options are rejected.
-Pass literal filenames, including Next.js dynamic segments and route groups. Quote paths containing shell
-metacharacters. The command encodes the selected filenames for Stryker while preserving the line range.
+The repeatable clinic-access check is defined as `test:mutation:clinic-access` in `package.json`.
+That script fixes the production-code range and both test files. Running it does not require selecting files
+or copying arguments from this document.
 
 Run the setup check first:
 
 ```sh
-pnpm test:mutation \
-  --mutate src/features/clinic-dashboard/auth/server/route-access.ts:25-81 \
-  --testFiles tests/unit/clinic-dashboard-route-access.test.ts \
-  --testFiles tests/integration/clinic-route-access.test.ts \
-  --dryRunOnly
+pnpm test:mutation:clinic-access --dryRunOnly
 ```
 
-Remove `--dryRunOnly` to run the mutations. A full run first executes the original behavior with mutations
-inactive. Failing initial tests stop the run before mutant execution. A full run that generates no mutants
-fails rather than reporting a successful pilot.
+Run the saved selection with mutation execution:
+
+```sh
+pnpm test:mutation:clinic-access
+```
+
+A full run first executes the original behavior with mutations inactive. Failing initial tests stop the run
+before mutant execution. A full run that generates no mutants fails rather than reporting a successful pilot.
+
+For other focused investigations, the general `pnpm test:mutation` command still requires an explicit
+`--mutate <src-file[:start-end]>` selection and one or more `--testFiles <test-file>` arguments. Paths must be
+relative to the repository root. Glob selection, missing files, test files as mutation targets, and unknown
+options are rejected. Pass literal filenames and quote paths containing shell metacharacters. The command
+encodes dynamic segments and route groups for Stryker while preserving the line range.
 
 The dedicated Node Vitest configuration uses the application's existing aliases and test setup. It does not
 load Storybook or browser projects. The runner is registered explicitly so pnpm's dependency layout does not
@@ -69,7 +74,8 @@ The pilot ran on 2026-10-28 on local branch `feature/105-clinic-access-mutation-
 tests and command are recorded in the same commit as this report.
 
 Environment: Node `24.22.1`, pnpm `10.28.2`, Vitest `4.1.12`, StrykerJS `10.1.1`, TypeScript `5.9.3`.
-Both completed mutation runs used the exact file range and test selections shown above.
+Both completed mutation runs used the exact file range and test selections now recorded in the checked-in
+`test:mutation:clinic-access` script.
 
 | Run                                     | Baseline tests | Mutants | Killed | Survived | No coverage | Timeouts | Mutant errors | Score  | Duration |
 | --------------------------------------- | -------------- | ------- | ------ | -------- | ----------- | -------- | ------------- | ------ | -------- |

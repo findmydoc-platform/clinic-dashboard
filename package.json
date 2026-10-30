@@ -22,6 +22,7 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:mutation": "node scripts/mutation-test.mjs",
+    "test:mutation:clinic-access": "pnpm test:mutation --mutate src/features/clinic-dashboard/auth/server/route-access.ts:25-81 --testFiles tests/unit/clinic-dashboard-route-access.test.ts --testFiles tests/integration/clinic-route-access.test.ts",
     "test:storybook": "STORYBOOK_DISABLE_TELEMETRY=1 vitest run --project storybook --bail=1",
     "test:e2e": "playwright test",
     "test:e2e:cross-app": "node scripts/inquiry-cross-app-lane.mjs",
