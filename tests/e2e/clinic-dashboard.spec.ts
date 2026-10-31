@@ -195,8 +195,8 @@ test.describe("touch reporting explanations", () => {
 
   test("keeps an explanation open after a tap until it is dismissed", async ({ page }) => {
     await signIn(page)
-    await page.getByRole("button", { name: "About Profile views", exact: true }).tap()
-    const explanation = page.getByRole("dialog", { name: "About Profile views", exact: true })
+    await page.getByRole("button", { name: "About Profile views details", exact: true }).tap()
+    const explanation = page.getByRole("dialog", { name: "About Profile views details", exact: true })
     await expect(explanation).toBeVisible()
     await expect(explanation).toContainText("Analytics include only sessions with consent.")
     await page.getByRole("button", { name: "Close explanation" }).tap()
