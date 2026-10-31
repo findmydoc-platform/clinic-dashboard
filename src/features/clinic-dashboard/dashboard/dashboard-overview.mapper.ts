@@ -5,7 +5,6 @@ import type {
 import {
   createCountMetricDisplay,
   createMetricValueDisplay,
-  createSessionConversionDisplay,
 } from "./model/clinic-dashboard-reporting-display"
 import type {
   DashboardClinicPreview,
@@ -22,9 +21,7 @@ import type {
 } from "@/features/clinic-dashboard/clinic-profile/public"
 
 const consentInformation =
-  "Analytics include only sessions with consent. Repeated profile-view events count separately. Sessions are not unique people or patients."
-const sessionInformation =
-  "Consent-limited sessions with a profile view followed by a successfully stored inquiry for the same clinic. Each session counts at most once. CTA interactions are not a required conversion step."
+  "Analytics include only visitors with consent. Repeated profile-view events count separately."
 type DashboardOverviewInput = Readonly<{
   reporting: ClinicDashboardReportingLoadState | Readonly<{ status: "loading" }>
   periodDays: ClinicDashboardReportingPeriodDays
@@ -92,14 +89,15 @@ export function createDashboardOverview({
           ? profileProgress.message
           : "Loading public profile",
   }
-  const supportedStage = (id: "profileViews" | "inquiries"): DashboardJourneyStage => {
+  const supportedStage = (id: "profileViews" | "uniqueVisitors" | "inquiries"): DashboardJourneyStage => {
     const display = reporting
       ? createCountMetricDisplay(reporting.metrics[id])
       : { value: missingValue, detail: missingDetail }
     return {
       ...display,
       id,
-      label: id === "profileViews" ? "Profile views" : "Inquiries",
+      label:
+        id === "profileViews" ? "Profile views" : id === "uniqueVisitors" ? "Unique visitors" : "Inquiries",
       availability:
         reporting?.metrics[id].current.state === "available"
           ? "available"
@@ -109,18 +107,15 @@ export function createDashboardOverview({
       information: [
         id === "inquiries"
           ? "Stored inquiries created in the selected period, excluding spam. This is not an inventory of open work."
-          : consentInformation,
+          : id === "uniqueVisitors"
+            ? "Distinct recognized browser visitors among profile views, once per clinic and period, using the same consent-based browser recognition as Inquiry starters. Browser or device changes and cleared storage can count a visitor again. Visitors without analytics consent are not measured. Patient, inquiry and session identifiers are not used."
+            : consentInformation,
         display.information,
       ]
         .filter(Boolean)
         .join(" "),
     }
   }
-  const conversion = reporting?.metrics.sessionConversion.current
-  const conversionDisplay = reporting
-    ? createSessionConversionDisplay(reporting.metrics.sessionConversion)
-    : undefined
-  const sessionState = conversion?.state === "zero_denominator" ? "available" : conversion?.state
   const reviewCount = reporting
     ? createMetricValueDisplay(reporting.metrics.reviews.count).value
     : missingValue
@@ -146,13 +141,7 @@ export function createDashboardOverview({
       information: "Search impressions are not measured by the current reporting capability.",
     },
     supportedStage("profileViews"),
-    {
-      id: "uniqueVisitors",
-      label: "Unique visitors",
-      availability: "unsupported",
-      value: "Not supported yet",
-      information: "Unique visitors are not measured. Session counts are not unique-visitor counts.",
-    },
+    supportedStage("uniqueVisitors"),
     {
       id: "contacts",
       label: "Contacts",
@@ -183,23 +172,6 @@ export function createDashboardOverview({
       count: reviewCount,
       rating,
       detail: reviewDisplay.detail ?? "Current public reviews",
-    },
-    sessionConversionSummary: {
-      profileSessions: sessionState
-        ? createMetricValueDisplay({ state: sessionState, value: conversion?.denominatorSessions ?? null })
-            .value
-        : missingValue,
-      convertedSessions: sessionState
-        ? createMetricValueDisplay({ state: sessionState, value: conversion?.numeratorSessions ?? null })
-            .value
-        : missingValue,
-      conversion:
-        conversion?.state === "available" && conversion.ratePercent !== null
-          ? conversionDisplay?.value
-          : undefined,
-      comparison: conversionDisplay?.comparison,
-      detail: conversionDisplay?.detail ?? (!reporting ? missingDetail : undefined),
-      information: [sessionInformation, conversionDisplay?.information].filter(Boolean).join(" "),
     },
     timezone: "Europe/Istanbul",
     asOf: reporting?.asOf,

@@ -198,9 +198,20 @@ test.describe("touch reporting explanations", () => {
     await page.getByRole("button", { name: "About Profile views details", exact: true }).tap()
     const explanation = page.getByRole("dialog", { name: "About Profile views details", exact: true })
     await expect(explanation).toBeVisible()
-    await expect(explanation).toContainText("Analytics include only sessions with consent.")
+    await expect(explanation).toContainText("Analytics include only visitors with consent.")
     await page.getByRole("button", { name: "Close explanation" }).tap()
     await expect(explanation).not.toBeVisible()
+    await page.getByRole("button", { name: "Unique visitors 200", exact: true }).tap()
+    await expect(page.getByRole("heading", { level: 2, name: "Unique visitors", exact: true })).toBeVisible()
+    await page.getByRole("button", { name: "About Unique visitors details", exact: true }).tap()
+    const visitorsExplanation = page.getByRole("dialog", {
+      name: "About Unique visitors details",
+      exact: true,
+    })
+    await expect(visitorsExplanation).toContainText("Browser or device changes and cleared storage")
+    await page.screenshot({ path: "output/playwright/301-unique-visitors-touch-320.png", fullPage: true })
+    await page.getByRole("button", { name: "Close explanation" }).tap()
+    await expect(visitorsExplanation).not.toBeVisible()
   })
 })
 

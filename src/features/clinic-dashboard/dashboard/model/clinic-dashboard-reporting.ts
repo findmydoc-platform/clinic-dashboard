@@ -1,6 +1,6 @@
 export const clinicDashboardReportingPeriodDays = [7, 30, 90] as const
 
-export const clinicDashboardReportingSchemaVersion = "clinic-dashboard-reporting-v1" as const
+export const clinicDashboardReportingSchemaVersion = "clinic-dashboard-reporting-v2" as const
 
 export type ClinicDashboardReportingPeriodDays = (typeof clinicDashboardReportingPeriodDays)[number]
 
@@ -48,24 +48,7 @@ export type ClinicDashboardReporting = Readonly<{
     to: string
   }>
   metrics: Readonly<{
-    ctaInteractions: Readonly<{
-      byCtaId: Readonly<{
-        choose_treatment: ClinicDashboardReportingCountMetric<"posthog">
-        contact: ClinicDashboardReportingCountMetric<"posthog">
-        contact_doctor: ClinicDashboardReportingCountMetric<"posthog">
-      }>
-      source: "posthog"
-      total: ClinicDashboardReportingCountMetric<"posthog">
-    }>
     inquiries: ClinicDashboardReportingCountMetric<"payload">
-    profileCompleteness: Readonly<{
-      comparison: null
-      completedAreas: number | null
-      percent: number | null
-      source: "payload"
-      state: ClinicDashboardReportingSourceState
-      totalAreas: 6
-    }>
     profileViews: ClinicDashboardReportingCountMetric<"posthog">
     reviews: Readonly<{
       average: Readonly<{
@@ -82,7 +65,9 @@ export type ClinicDashboardReporting = Readonly<{
       }>
       source: "payload"
     }>
-    sessionConversion: ClinicDashboardReportingSessionConversion
+    uniqueVisitors: ClinicDashboardReportingCountMetric<"posthog">
+    impressions: ClinicDashboardReportingCountMetric<"posthog">
+    inquiryStarters: ClinicDashboardReportingCountMetric<"posthog">
   }>
   period: Readonly<{
     days: ClinicDashboardReportingPeriodDays

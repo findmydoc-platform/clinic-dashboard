@@ -59,13 +59,7 @@ These observations do not qualify every operation in each domain. Complete crite
 successful build does not prove a deployed, reachable, authorized workflow. Production availability remains unverified;
 these Preview observations establish no Production activation. Live time-series and CSV exports remain unavailable.
 
-The restored dashboard presentation consumes the existing V1 reporting contract through the same providers. Published
-profile progress and tasks remain independent of reporting failures. Five journey cards retain separate metric populations;
-only Profile Views and Inquiries have matching V1 values. The other three explain unsupported measurement capabilities.
-A supplementary session summary uses the returned session counts and rate. Live time-series charts and CSV downloads
-remain unavailable. Notification polling does not refresh reporting. See the
-[restoration plan](./plans/dashboard-visual-reference-restoration.md) for the source mapping and contract gaps. This UI
-validation does not change the environment availability recorded above.
+The Dashboard selects `clinic-dashboard-reporting-v2` through `X-Findmydoc-Reporting-Contract`, independently of `clinic-scope-v1`. The Website's [ADR 038](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/038-adr-clinic-reporting-five-count-contract.md) defines the five-count contract and temporary V1 compatibility. The producer must ship its compatible V2 checkpoint before this consumer; source validation does not prove the deployed switch. Public profile progress and tasks remain independent of reporting failures. Profile Views, Unique Visitors and stored Inquiries have selectable values/details; Impressions and Inquiry starters have contract slots with metric-specific coverage until their separate instrumentation is evidenced. The legacy Contacts presentation is replaced in #302. Reviews remain current independent Payload snapshots. Session conversion, CTA counts and duplicate profile completeness are absent from V2. Live time-series charts and CSV downloads remain unavailable. Notification polling does not refresh reporting. This source change does not change the environment availability recorded above.
 
 This document records the durable authentication and Backend for Frontend architecture of the stateless Next.js
 application. It is not an execution plan. The Dashboard owns no database, durable business cache, Supabase service-role

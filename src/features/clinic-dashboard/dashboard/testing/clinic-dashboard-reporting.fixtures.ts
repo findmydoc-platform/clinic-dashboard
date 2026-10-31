@@ -10,7 +10,7 @@ function countMetric<Source extends "payload" | "posthog">(
   return {
     comparison: {
       absoluteDelta: 2,
-      relativeDeltaPercent: 12.5,
+      relativeDeltaPercent: (2 / (value - 2)) * 100,
       state: "available",
       value: value - 2,
     },
@@ -27,45 +27,23 @@ export const clinicDashboardReportingFixture = {
     to: "2026-08-18T12:00:00.000Z",
   },
   metrics: {
-    ctaInteractions: {
-      byCtaId: {
-        choose_treatment: countMetric("posthog", 8),
-        contact: countMetric("posthog", 12),
-        contact_doctor: countMetric("posthog", 3),
-      },
-      source: "posthog",
-      total: countMetric("posthog", 23),
-    },
     inquiries: countMetric("payload", 7),
-    profileCompleteness: {
-      comparison: null,
-      completedAreas: 5,
-      percent: 83.3,
-      source: "payload",
-      state: "available",
-      totalAreas: 6,
-    },
     profileViews: countMetric("posthog", 284),
+    uniqueVisitors: countMetric("posthog", 200),
+    impressions: {
+      source: "posthog",
+      current: { state: "partial_coverage", value: null },
+      comparison: { state: "partial_coverage", value: null, absoluteDelta: null, relativeDeltaPercent: null },
+    },
+    inquiryStarters: {
+      source: "posthog",
+      current: { state: "partial_coverage", value: null },
+      comparison: { state: "partial_coverage", value: null, absoluteDelta: null, relativeDeltaPercent: null },
+    },
     reviews: {
       average: { comparison: null, source: "payload", state: "available", value: 4.8 },
       count: { comparison: null, source: "payload", state: "available", value: 25 },
       source: "payload",
-    },
-    sessionConversion: {
-      comparison: {
-        denominatorSessions: 180,
-        numeratorSessions: 6,
-        percentagePointDelta: 1.2,
-        ratePercent: 3.3,
-        state: "available",
-      },
-      current: {
-        denominatorSessions: 200,
-        numeratorSessions: 9,
-        ratePercent: 4.5,
-        state: "available",
-      },
-      source: "posthog",
     },
   },
   period: {
@@ -73,7 +51,7 @@ export const clinicDashboardReportingFixture = {
     from: "2026-08-18T12:00:00.000Z",
     to: "2026-09-17T12:00:00.000Z",
   },
-  schemaVersion: "clinic-dashboard-reporting-v1",
+  schemaVersion: "clinic-dashboard-reporting-v2",
   timezone: "Europe/Istanbul",
 } as const satisfies ClinicDashboardReporting
 
@@ -81,6 +59,16 @@ export const clinicDashboardReportingWithSourceUnavailable = {
   ...clinicDashboardReportingFixture,
   metrics: {
     ...clinicDashboardReportingFixture.metrics,
+    uniqueVisitors: {
+      ...clinicDashboardReportingFixture.metrics.uniqueVisitors,
+      current: { state: "source_unavailable", value: null },
+      comparison: {
+        state: "source_unavailable",
+        value: null,
+        absoluteDelta: null,
+        relativeDeltaPercent: null,
+      },
+    },
     profileViews: {
       ...clinicDashboardReportingFixture.metrics.profileViews,
       comparison: {
@@ -98,6 +86,11 @@ export const clinicDashboardReportingWithPartialCoverage = {
   ...clinicDashboardReportingFixture,
   metrics: {
     ...clinicDashboardReportingFixture.metrics,
+    uniqueVisitors: {
+      ...clinicDashboardReportingFixture.metrics.uniqueVisitors,
+      current: { state: "partial_coverage", value: null },
+      comparison: { state: "partial_coverage", value: null, absoluteDelta: null, relativeDeltaPercent: null },
+    },
     profileViews: {
       ...clinicDashboardReportingFixture.metrics.profileViews,
       comparison: { absoluteDelta: null, relativeDeltaPercent: null, state: "partial_coverage", value: null },

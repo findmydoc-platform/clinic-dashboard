@@ -266,7 +266,7 @@ export const FunnelControlsChart: Story = {
     await userEvent.click(funnel.getByRole("button", { name: "Unique visitors 543" }))
     await expect(args.actions.onMetricSelect).toHaveBeenLastCalledWith("uniqueVisitors")
     await expect(canvas.getByRole("heading", { level: 2, name: "Unique visitors over time" })).toBeVisible()
-    await expect(canvas.getAllByText("64.0% of profile views")).toHaveLength(1)
+    await expect(canvas.getByText("Recognized browser visitors in the selected period")).toBeVisible()
 
     await userEvent.hover(
       funnel.getByRole("button", {
@@ -274,7 +274,7 @@ export const FunnelControlsChart: Story = {
       }),
     )
     await expect(canvas.getByRole("tooltip")).toHaveTextContent("64.0% of profile views")
-    await expect(canvas.getAllByText("64.0% of profile views")).toHaveLength(2)
+    await expect(canvas.getAllByText("64.0% of profile views")).toHaveLength(1)
 
     const contactsButton = funnel.getByRole("button", { name: "Contacts 12" })
     contactsButton.focus()

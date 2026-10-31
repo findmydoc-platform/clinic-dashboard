@@ -65,10 +65,11 @@ describe("dashboard metric selection", () => {
     }
   })
 
-  it("uses the funnel conversion as context for unique visitors", () => {
+  it("explains recognized browser visitors for the selected period", () => {
     const selection = createDashboardMetricSelection(dashboardFixture.reporting["30 days"], "uniqueVisitors")
 
     expect(selection.title).toBe("Unique visitors over time")
-    expect(selection.comparison).toBe("64.1% of profile views")
+    expect(selection.comparison).toBe("Recognized browser visitors in the selected period")
+    expect(selection.description).toContain("once per clinic and period")
   })
 })

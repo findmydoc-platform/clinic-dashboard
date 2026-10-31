@@ -19,45 +19,15 @@ const reportingFixture = {
     to: "2026-08-18T12:00:00.000Z",
   },
   metrics: {
-    ctaInteractions: {
-      byCtaId: {
-        choose_treatment: countMetric("posthog", 8),
-        contact: countMetric("posthog", 12),
-        contact_doctor: countMetric("posthog", 3),
-      },
-      source: "posthog",
-      total: countMetric("posthog", 23),
-    },
     inquiries: countMetric("payload", 7),
-    profileCompleteness: {
-      comparison: null,
-      completedAreas: 5,
-      percent: 83.3,
-      source: "payload",
-      state: "available",
-      totalAreas: 6,
-    },
     profileViews: countMetric("posthog", 284),
+    uniqueVisitors: countMetric("posthog", 200),
+    impressions: countMetric("posthog", 500),
+    inquiryStarters: countMetric("posthog", 9),
     reviews: {
       average: { comparison: null, source: "payload", state: "available", value: 4.8 },
       count: { comparison: null, source: "payload", state: "available", value: 25 },
       source: "payload",
-    },
-    sessionConversion: {
-      comparison: {
-        denominatorSessions: 180,
-        numeratorSessions: 6,
-        percentagePointDelta: 1.2,
-        ratePercent: 3.3,
-        state: "available",
-      },
-      current: {
-        denominatorSessions: 200,
-        numeratorSessions: 9,
-        ratePercent: 4.5,
-        state: "available",
-      },
-      source: "posthog",
     },
   },
   period: {
@@ -65,7 +35,7 @@ const reportingFixture = {
     from: "2026-08-18T12:00:00.000Z",
     to: "2026-09-17T12:00:00.000Z",
   },
-  schemaVersion: "clinic-dashboard-reporting-v1",
+  schemaVersion: "clinic-dashboard-reporting-v2",
   timezone: "Europe/Istanbul",
 } as const
 
@@ -73,7 +43,7 @@ function countMetric(source: "payload" | "posthog", value: number) {
   return {
     comparison: {
       absoluteDelta: 2,
-      relativeDeltaPercent: 12.5,
+      relativeDeltaPercent: (2 / (value - 2)) * 100,
       state: "available",
       value: value - 2,
     },
@@ -89,7 +59,7 @@ function privateReportingResponse(body: unknown, status = 200) {
       "content-type": "application/json",
       expires: "0",
       pragma: "no-cache",
-      vary: "Authorization, X-Findmydoc-Clinic-Scope-Contract",
+      vary: "Authorization, X-Findmydoc-Clinic-Scope-Contract, X-Findmydoc-Reporting-Contract",
     },
     status,
   })
@@ -147,7 +117,11 @@ describe("clinic dashboard reporting BFF", () => {
     const [, upstreamInit] = fetcher.mock.calls[0] ?? []
     expect(upstreamInit).toMatchObject({
       cache: "no-store",
-      headers: { Accept: "application/json", Authorization: "Bearer session-access-token" },
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer session-access-token",
+        "X-Findmydoc-Reporting-Contract": "clinic-dashboard-reporting-v2",
+      },
       redirect: "error",
     })
     expect(JSON.stringify(upstreamInit)).not.toContain("server-derived-clinic")
@@ -184,18 +158,15 @@ describe("clinic dashboard reporting BFF", () => {
       ...reportingFixture,
       metrics: {
         ...reportingFixture.metrics,
-        ctaInteractions: {
-          ...reportingFixture.metrics.ctaInteractions,
-          total: {
-            ...reportingFixture.metrics.ctaInteractions.total,
-            comparison: {
-              absoluteDelta: null,
-              relativeDeltaPercent: null,
-              state: "partial_coverage",
-              value: null,
-            },
-            current: { state: "source_unavailable", value: null },
+        uniqueVisitors: {
+          ...reportingFixture.metrics.uniqueVisitors,
+          comparison: {
+            absoluteDelta: null,
+            relativeDeltaPercent: null,
+            state: "partial_coverage",
+            value: null,
           },
+          current: { state: "source_unavailable", value: null },
         },
       },
     }
@@ -212,7 +183,7 @@ describe("clinic dashboard reporting BFF", () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
-      metrics: { ctaInteractions: { total: { current: { state: "source_unavailable", value: null } } } },
+      metrics: { uniqueVisitors: { current: { state: "source_unavailable", value: null } } },
     })
     expectPrivate(response)
   })
@@ -243,6 +214,19 @@ describe("clinic dashboard reporting BFF", () => {
         const { profileViews: _profileViews, ...metrics } = reportingFixture.metrics
         return { ...reportingFixture, metrics }
       })(),
+    ],
+    [
+      "claims an available visitor count without a value",
+      {
+        ...reportingFixture,
+        metrics: {
+          ...reportingFixture.metrics,
+          uniqueVisitors: {
+            ...reportingFixture.metrics.uniqueVisitors,
+            current: { state: "available", value: null },
+          },
+        },
+      },
     ],
     [
       "changes a nested metric value type",

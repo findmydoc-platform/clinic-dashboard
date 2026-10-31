@@ -7,9 +7,9 @@ export type DashboardJourneyStageId =
 
 // Presentation-only capabilities. Unsupported journey stages never enter the reporting contract.
 export type DashboardJourneyStage =
-  | (Omit<DashboardOverviewMetric, "id"> & Readonly<{ id: "profileViews" | "inquiries" }>)
+  | (Omit<DashboardOverviewMetric, "id"> & Readonly<{ id: "profileViews" | "uniqueVisitors" | "inquiries" }>)
   | Readonly<{
-      id: "impressions" | "uniqueVisitors" | "contacts"
+      id: "impressions" | "contacts"
       label: string
       availability: "unsupported"
       value: "Not supported yet"
@@ -19,7 +19,7 @@ export type DashboardJourneyStage =
     }>
 
 export type DashboardOverviewMetric = Readonly<{
-  id: "profileViews" | "inquiries" | "completion"
+  id: "profileViews" | "uniqueVisitors" | "inquiries" | "completion"
   label: string
   value: string
   availability: "available" | "loading" | "unavailable"
@@ -48,15 +48,6 @@ export type DashboardReviewSummary = Readonly<{
   detail: string
 }>
 
-export type DashboardSessionConversionSummary = Readonly<{
-  profileSessions: string
-  convertedSessions: string
-  conversion?: string
-  comparison?: string
-  detail?: string
-  information: string
-}>
-
 export type DashboardOverviewModel = Readonly<{
   clinicPreview: DashboardClinicPreview
   metrics: readonly (
@@ -68,7 +59,6 @@ export type DashboardOverviewModel = Readonly<{
   journey: readonly DashboardJourneyStage[]
   selectedMetric: DashboardJourneyStage
   reviews: DashboardReviewSummary
-  sessionConversionSummary: DashboardSessionConversionSummary
   timezone: "Europe/Istanbul"
   asOf?: string
 }>

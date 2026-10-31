@@ -186,12 +186,53 @@ export const MetricSelection: Story = {
   },
 }
 
+export const UniqueVisitors: Story = {
+  render: (args) => <SelectionHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const visitors = canvas.getByRole("button", { name: /Unique visitors 200/ })
+    visitors.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(visitors).toHaveAttribute("aria-pressed", "true")
+    await expect(canvas.getByRole("heading", { level: 2, name: "Unique visitors" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "About Unique visitors details" }))
+    const dialog = within(document.body).getByRole("dialog", { name: "About Unique visitors details" })
+    await expect(dialog).toHaveTextContent("Browser or device changes and cleared storage")
+    await expect(dialog).toHaveTextContent("same consent-based browser recognition as Inquiry starters")
+    await expect(dialog.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
+    await userEvent.keyboard("{Escape}")
+    await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
+    await expect(canvas.getByRole("button", { name: /Unique visitors 200/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+  },
+}
+export const UniqueVisitors390: Story = {
+  ...UniqueVisitors,
+  globals: { viewport: { value: "mobile390Tall" } },
+}
+export const UniqueVisitors320: Story = {
+  ...UniqueVisitors,
+  globals: { viewport: { value: "mobile320Short" } },
+}
+export const UniqueVisitorsDark: Story = { ...UniqueVisitors, globals: { theme: "dark" } }
+export const UniqueVisitorsDark390: Story = {
+  ...UniqueVisitors,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const UniqueVisitorsDark320: Story = {
+  ...UniqueVisitors,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+
 export const DetailInformationWithoutSelection: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole("button", { name: "About Profile views details" }))
     const dialog = within(document.body).getByRole("dialog", { name: "About Profile views details" })
-    await expect(dialog).toHaveTextContent("Analytics include only sessions with consent")
+    await expect(dialog).toHaveTextContent("Analytics include only visitors with consent")
     await expect(args.onMetricSelect).not.toHaveBeenCalled()
     await expect(canvas.getByRole("heading", { level: 2, name: "Profile views" })).toBeVisible()
   },
