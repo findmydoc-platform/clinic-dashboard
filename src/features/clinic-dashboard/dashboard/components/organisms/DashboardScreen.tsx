@@ -2,6 +2,7 @@
 
 import { useId } from "react"
 import { PageHeading } from "@/components/ui/page-heading"
+import { Card } from "@/components/ui/card"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
 import { createDashboardProfileCompletionMetric } from "../../model/profile-progress"
 import { MetricCard } from "../molecules/MetricCard"
@@ -30,8 +31,14 @@ export function DashboardScreen({ actions, canDownloadProfileViews, model }: Das
       </PageHeading>
 
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {[profileCompletionMetric, ...model.reporting.metrics].map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
+        <MetricCard metric={profileCompletionMetric} />
+        {[1, 2, 3, 4].map((position) => (
+          <Card
+            className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
+            key={position}
+          >
+            Content to be defined
+          </Card>
         ))}
       </section>
 

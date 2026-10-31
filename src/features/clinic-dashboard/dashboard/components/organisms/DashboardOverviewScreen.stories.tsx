@@ -56,8 +56,7 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   const canvas = within(canvasElement)
   await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
-  await expect(metrics.getByText("284", { exact: true })).toBeVisible()
-  await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
+  await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
   await expect(metrics.queryByText("CTA interactions")).not.toBeInTheDocument()
   await expect(metrics.queryByText("Session conversion")).not.toBeInTheDocument()
 
@@ -78,6 +77,35 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
 }
 
 export const Available: Story = { play: exerciseAvailable }
+
+export const TopKpiScope: Story = {
+  globals: { viewport: { value: "desktop1440" } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const region = canvas.getByRole("region", { name: "Dashboard metrics" })
+    const metrics = within(region)
+    await expect(region.children).toHaveLength(5)
+    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+    await expect(metrics.getByText("Public profile completion")).toBeVisible()
+    await expect(metrics.getByText("67%", { exact: true })).toBeVisible()
+    await expect(metrics.queryAllByRole("button")).toHaveLength(0)
+    for (const placeholder of Array.from(region.children).slice(1)) {
+      await expect(placeholder).toHaveTextContent(/^Content to be defined$/)
+    }
+    await expect(args.onMetricSelect).not.toHaveBeenCalled()
+    await expect(canvas.getByRole("button", { name: /Profile views 284/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    const firstStage = canvas.getByRole("button", { name: /Impressions Not supported yet/ })
+    firstStage.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(firstStage).toHaveFocus()
+    await expect(getComputedStyle(firstStage).outlineWidth).toBe("2px")
+    await expect(args.onMetricSelect).toHaveBeenCalledWith("impressions")
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+  },
+}
 
 export const PartialComparisonExplanation: Story = {
   args: {
@@ -107,12 +135,11 @@ export const PartialComparisonExplanation: Story = {
     }),
   },
   play: async ({ canvasElement }) => {
-    const metrics = within(canvasElement).getByRole("region", { name: "Dashboard metrics" })
-    const canvas = within(metrics)
+    const canvas = within(canvasElement)
     const page = within(document.body)
-    await expect(canvas.getByText("284", { exact: true })).toBeVisible()
-    await userEvent.click(canvas.getByRole("button", { name: "About Profile views" }))
-    await expect(page.getByRole("dialog", { name: "About Profile views" })).toHaveTextContent(
+    await expect(canvas.getByRole("button", { name: /Profile views 284/ })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "About Profile views details" }))
+    await expect(page.getByRole("dialog", { name: "About Profile views details" })).toHaveTextContent(
       "The preceding period does not have complete measurement coverage.",
     )
   },
@@ -159,12 +186,12 @@ export const MetricSelection: Story = {
   },
 }
 
-export const KpiInformationWithoutSelection: Story = {
+export const DetailInformationWithoutSelection: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: "About Contacts" }))
-    const dialog = within(document.body).getByRole("dialog", { name: "About Contacts" })
-    await expect(dialog).toHaveTextContent("Chat conversations are not measured")
+    await userEvent.click(canvas.getByRole("button", { name: "About Profile views details" }))
+    const dialog = within(document.body).getByRole("dialog", { name: "About Profile views details" })
+    await expect(dialog).toHaveTextContent("Analytics include only sessions with consent")
     await expect(args.onMetricSelect).not.toHaveBeenCalled()
     await expect(canvas.getByRole("heading", { level: 2, name: "Profile views" })).toBeVisible()
   },
@@ -209,6 +236,7 @@ export const ReportingUnavailable: Story = {
 }
 
 export const ProfileUnavailable: Story = {
+  globals: { viewport: { value: "desktop1440" } },
   args: {
     model: createDashboardOverview({
       reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
@@ -223,8 +251,12 @@ export const ProfileUnavailable: Story = {
     await expect(canvas.queryByRole("list", { name: "Profile tasks" })).not.toBeInTheDocument()
     await expect(canvas.getByRole("heading", { name: "Profile progress unavailable" })).toBeVisible()
     await expect(canvas.getAllByText("284").length).toBeGreaterThan(0)
+    const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
+    await expect(metrics.getByText("Not available", { exact: true })).toBeVisible()
+    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
     await userEvent.click(canvas.getByRole("button", { name: "Retry" }))
     await expect(args.onProfileProgressRetry).toHaveBeenCalledOnce()
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
   },
 }
 
@@ -285,10 +317,10 @@ export const PartialCoverage: Story = {
     }),
   },
   play: async ({ canvasElement }) => {
-    const metrics = within(within(canvasElement).getByRole("region", { name: "Dashboard metrics" }))
-    await expect(metrics.getByText("Incomplete data coverage")).toBeVisible()
-    await expect(metrics.queryByText("284", { exact: true })).not.toBeInTheDocument()
-    await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Incomplete data coverage")).toBeVisible()
+    await expect(canvas.queryByText("284", { exact: true })).not.toBeInTheDocument()
+    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
   },
 }
 export const AnalyticsUnavailable: Story = {
@@ -302,9 +334,44 @@ export const AnalyticsUnavailable: Story = {
     }),
   },
   play: async ({ canvasElement }) => {
-    const metrics = within(within(canvasElement).getByRole("region", { name: "Dashboard metrics" }))
-    await expect(metrics.getByText("Data source unavailable")).toBeVisible()
-    await expect(metrics.getByText("7", { exact: true })).toBeVisible()
-    await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Data source unavailable")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: /Inquiries 7/ })).toBeVisible()
+    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
   },
+}
+
+export const TopKpiDark1440: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "desktop1440" } },
+}
+export const TopKpi390: Story = { ...TopKpiScope, globals: { viewport: { value: "mobile390Tall" } } }
+export const TopKpiDark390: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const TopKpi320: Story = { ...TopKpiScope, globals: { viewport: { value: "mobile320Short" } } }
+export const TopKpiDark320: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+export const ProfileUnavailableDark1440: Story = {
+  ...ProfileUnavailable,
+  globals: { theme: "dark", viewport: { value: "desktop1440" } },
+}
+export const ProfileUnavailable390: Story = {
+  ...ProfileUnavailable,
+  globals: { viewport: { value: "mobile390Tall" } },
+}
+export const ProfileUnavailableDark390: Story = {
+  ...ProfileUnavailable,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const ProfileUnavailable320: Story = {
+  ...ProfileUnavailable,
+  globals: { viewport: { value: "mobile320Short" } },
+}
+export const ProfileUnavailableDark320: Story = {
+  ...ProfileUnavailable,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
 }

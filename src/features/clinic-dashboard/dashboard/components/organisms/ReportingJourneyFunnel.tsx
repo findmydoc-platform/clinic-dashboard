@@ -9,11 +9,7 @@ import {
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import type {
-  DashboardJourneyStage,
-  DashboardJourneyStageId,
-  DashboardSessionConversionSummary,
-} from "../../model/dashboard-overview"
+import type { DashboardJourneyStage, DashboardJourneyStageId } from "../../model/dashboard-overview"
 import { ReportingInformation } from "../molecules/ReportingInformation"
 
 const icons = {
@@ -30,7 +26,6 @@ type ReportingJourneyFunnelProps = Readonly<{
   selectedId: DashboardJourneyStageId
   onSelect: (id: DashboardJourneyStageId) => void
   periodDays: number
-  session: DashboardSessionConversionSummary
 }>
 
 export function ReportingJourneyFunnel({
@@ -39,7 +34,6 @@ export function ReportingJourneyFunnel({
   selectedId,
   onSelect,
   periodDays,
-  session,
 }: ReportingJourneyFunnelProps) {
   return (
     <Card>
@@ -49,7 +43,7 @@ export function ReportingJourneyFunnel({
         </h2>
         <ReportingInformation label="Journey measurements">
           The cards show separate measurements. Arrows indicate journey order, not measured conversion between
-          stages. Session conversion uses its own consent-limited population.
+          stages.
         </ReportingInformation>
       </div>
       <ol
@@ -112,27 +106,6 @@ export function ReportingJourneyFunnel({
           )
         })}
       </ol>
-      <div
-        className="border-t border-[var(--border)] px-5 py-3"
-        aria-label="Session conversion summary"
-        role="region"
-      >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span className="font-bold text-[var(--secondary)]">Consent-limited session conversion</span>
-          <span>
-            Profile-view sessions: <strong>{session.profileSessions}</strong>
-          </span>
-          <span>
-            Converted sessions: <strong>{session.convertedSessions}</strong>
-          </span>
-          {session.conversion ? <strong>{session.conversion}</strong> : null}
-          {session.comparison ? <span>{session.comparison}</span> : null}
-          <ReportingInformation label="Session conversion summary">
-            {session.information}
-          </ReportingInformation>
-        </div>
-        {session.detail ? <p className="mt-1 text-xs">{session.detail}</p> : null}
-      </div>
     </Card>
   )
 }

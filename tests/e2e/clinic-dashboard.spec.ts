@@ -101,14 +101,13 @@ test("loads controlled reporting through the request-bound BFF when the selected
   await signIn(page)
 
   await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
-  const reportingMetrics = page.getByRole("region", { name: "Dashboard metrics" })
-  await expect(reportingMetrics.getByText("Profile views")).toBeVisible()
-  await expect(reportingMetrics.getByText("284", { exact: true })).toBeVisible()
+  const reportingStages = page.getByRole("list", { name: "Conversion stages" })
+  await expect(reportingStages.getByRole("button", { name: "Profile views 284" })).toBeVisible()
   await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true")
   expect(reportingRequests).toEqual([])
 
   await page.getByRole("button", { name: "90 days" }).click()
-  await expect(reportingMetrics.getByText("902", { exact: true })).toBeVisible()
+  await expect(reportingStages.getByRole("button", { name: "Profile views 902" })).toBeVisible()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
   await expect
     .poll(() => reportingRequests)
@@ -218,8 +217,8 @@ test("captures the restored dashboard without overflow in both themes and viewpo
   await page.setViewportSize({ height: 760, width: 320 })
   await signIn(page)
 
-  const reportingMetrics = page.getByRole("region", { name: "Dashboard metrics" })
-  await expect(reportingMetrics.getByText("284", { exact: true })).toBeVisible()
+  const reportingStages = page.getByRole("list", { name: "Conversion stages" })
+  await expect(reportingStages.getByRole("button", { name: "Profile views 284" })).toBeVisible()
   await expect(page.locator("html")).not.toHaveClass(/dark/)
   await page.locator("nextjs-portal").evaluateAll((portals) => portals.forEach((portal) => portal.remove()))
   await page.screenshot({

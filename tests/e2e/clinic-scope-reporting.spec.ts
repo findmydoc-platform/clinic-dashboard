@@ -44,9 +44,7 @@ test("keeps reporting selections through section navigation and document reload"
     "true",
   )
 
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("902", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 902" })).toBeVisible()
   let release!: () => void
   const pending = new Promise<void>((resolve) => {
     release = resolve
@@ -66,14 +64,10 @@ test("keeps reporting selections through section navigation and document reload"
   )
   await expect(inquiries).toHaveAttribute("aria-pressed", "true")
   await expect(profileViews).toContainText("Loading")
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("284", { exact: true }),
-  ).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Profile views 284" })).toHaveCount(0)
   release()
   expect((await restored).status()).toBe(200)
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("902", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 902" })).toBeVisible()
   expect(hydrationErrors).toEqual([])
   await page.screenshot({ path: "output/playwright/reporting-selection-reloaded.png", fullPage: true })
 
@@ -99,9 +93,7 @@ test("fresh personal clinic list scopes reporting and keeps the selected section
     schemaVersion: "clinic-scope-v1",
     clinics: [{ id: "controlled-clinic" }, { id: "controlled-second-clinic" }],
   })
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("284", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 284" })).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
   await expect(page.getByRole("heading", { name: "Clinic profile", exact: true })).toBeVisible()
   await expect(page.getByRole("region", { name: "Clinic image gallery" })).toBeVisible()
@@ -112,9 +104,7 @@ test("fresh personal clinic list scopes reporting and keeps the selected section
     "page",
   )
   await page.getByRole("button", { name: "Dashboard", exact: true }).click()
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("109", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 109" })).toBeVisible()
   const forbidden = await page.request.get("/api/dashboard/clinics/foreign-clinic/reporting?periodDays=30")
   expect(forbidden.status()).toBe(403)
   expect(forbidden.headers()["cache-control"]).toContain("private")
@@ -226,9 +216,7 @@ test("replaces old reporting state and rejects a delayed old-clinic response", a
   await expect.poll(() => oldRequested).toBe(true)
   await switchClinic(page, "Second Controlled Clinic")
   await expect(page).toHaveURL(/\/clinics\/controlled-second-clinic/)
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("109", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 109" })).toBeVisible()
   release()
   await expect.poll(() => oldResponded).toBe(true)
   await expect(page.getByText("99999", { exact: true })).toHaveCount(0)

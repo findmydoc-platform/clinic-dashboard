@@ -65,9 +65,7 @@ export const NotificationFailureLeavesReportingAndTasksUsable: Story = {
     await expect(args.notificationCommands!.load).toHaveBeenCalled()
     await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
     await expect(canvas.getByRole("list", { name: "Profile tasks" })).toBeVisible()
-    await expect(
-      within(canvas.getByRole("region", { name: "Dashboard metrics" })).getByText("284"),
-    ).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Profile views 284" })).toBeVisible()
     await expect(args.loadReporting).toHaveBeenCalledTimes(1)
     await userEvent.click(canvas.getByRole("button", { name: "View details for Complete address" }))
     await expect(

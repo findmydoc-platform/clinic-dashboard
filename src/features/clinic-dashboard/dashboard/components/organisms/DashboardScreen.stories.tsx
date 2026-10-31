@@ -145,6 +145,37 @@ export const PresentationCapabilities: Story = {
   },
 }
 
+export const TopKpiScope: Story = {
+  args: FullCapabilities.args,
+  globals: { viewport: { value: "desktop1440" } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const region = canvas.getByRole("region", { name: "Dashboard metrics" })
+    const metrics = within(region)
+    await expect(region.children).toHaveLength(5)
+    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+    await expect(metrics.getByText("Public profile completion")).toBeVisible()
+    await expect(metrics.getByText("67%", { exact: true })).toBeVisible()
+    await expect(metrics.queryAllByRole("button")).toHaveLength(0)
+    for (const placeholder of Array.from(region.children).slice(1)) {
+      await expect(placeholder).toHaveTextContent(/^Content to be defined$/)
+    }
+    await expect(canvas.queryByRole("region", { name: "Session conversion summary" })).not.toBeInTheDocument()
+    await expect(args.actions.onMetricSelect).not.toHaveBeenCalled()
+    await expect(canvas.getByRole("button", { name: "Profile views 848" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    const profileViews = canvas.getByRole("button", { name: "Profile views 848" })
+    profileViews.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(profileViews).toHaveFocus()
+    await expect(getComputedStyle(profileViews).outlineWidth).toBe("2px")
+    await expect(args.actions.onMetricSelect).toHaveBeenCalledWith("views")
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+  },
+}
+
 export const Desktop1440Layout: Story = {
   args: FullCapabilities.args,
   globals: { viewport: { value: "desktop1440" } },
@@ -221,7 +252,7 @@ export const FunnelControlsChart: Story = {
 
     await expect(metricCards.queryAllByRole("button")).toHaveLength(0)
     await expect(metricCards.getByText("Public profile completion").closest("button")).toBeNull()
-    await expect(metricCards.getByText("Profile views").closest("button")).toBeNull()
+    await expect(metricCards.queryByText("Profile views")).not.toBeInTheDocument()
     await expect(profileViewsButton).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByRole("heading", { level: 2, name: "Profile views over time" })).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Download profile views" })).toBeVisible()
@@ -308,9 +339,49 @@ export const ProfileProgressError: Story = {
 
     await expect(canvas.getByText("Public profile completion")).toBeVisible()
     await expect(canvas.getAllByText("—")).toHaveLength(2)
-    await expect(metricCards.getByText("Impressions")).toBeVisible()
+    await expect(metricCards.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
     await expect(canvas.getByRole("button", { name: "Profile views 848" })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Retry" }))
     await expect(args.actions.onProfileProgressRetry).toHaveBeenCalledOnce()
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
   },
+}
+
+export const TopKpiDark1440: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "desktop1440" } },
+}
+export const TopKpi390: Story = { ...TopKpiScope, globals: { viewport: { value: "mobile390Tall" } } }
+export const TopKpiDark390: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const TopKpi320: Story = { ...TopKpiScope, globals: { viewport: { value: "mobile320Short" } } }
+export const TopKpiDark320: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+export const ProfileError1440: Story = {
+  ...ProfileProgressError,
+  globals: { viewport: { value: "desktop1440" } },
+}
+export const ProfileErrorDark1440: Story = {
+  ...ProfileProgressError,
+  globals: { theme: "dark", viewport: { value: "desktop1440" } },
+}
+export const ProfileError390: Story = {
+  ...ProfileProgressError,
+  globals: { viewport: { value: "mobile390Tall" } },
+}
+export const ProfileErrorDark390: Story = {
+  ...ProfileProgressError,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const ProfileError320: Story = {
+  ...ProfileProgressError,
+  globals: { viewport: { value: "mobile320Short" } },
+}
+export const ProfileErrorDark320: Story = {
+  ...ProfileProgressError,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
 }
