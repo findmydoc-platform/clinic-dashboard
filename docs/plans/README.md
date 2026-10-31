@@ -22,6 +22,8 @@ Read .codex/project-profile.toml before creating the document. Do not repeat com
 
 Planning records preserve the decision at implementation time. A record that is no longer fully current keeps its original body and carries a dated supersession note near the title.
 
+- [Five-metric clinic reporting](./five-metric-clinic-reporting.md)
+
 - [Dashboard Domain Provider Composition Plan](./dashboard-domain-provider-composition.md)
 - [Clinic Dashboard Demo Experience And Transient Flows](./clinic-dashboard-demo-experience-and-transient-flows.md) — partially superseded for profile projection and client profile commands
 - [Clinic Dashboard Demo Mode and Multi-Location Data](./clinic-dashboard-demo-mode-and-multi-location-data.md)
