@@ -312,6 +312,76 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
   ).toBe(true)
 })
 
+test("keeps the five-card flow and independent Payload facts through an analytics outage", async ({
+  page,
+}) => {
+  await signIn(page)
+  const stages = page.getByRole("list", { name: "Conversion stages" })
+  await expect(stages.locator("[data-funnel-stage]")).toHaveCount(5)
+  expect(
+    await stages
+      .locator("[data-funnel-stage]")
+      .evaluateAll((cards) => cards.map((card) => card.getAttribute("data-funnel-stage"))),
+  ).toEqual(["impressions", "profileViews", "uniqueVisitors", "inquiryStarters", "inquiries"])
+  const metrics = page.getByRole("region", { name: "Dashboard metrics" })
+  await expect(metrics.getByText("Public profile completion", { exact: true })).toBeVisible()
+  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(4)
+  await expect(stages.locator('[data-funnel-stage="profileViews"]')).toHaveAttribute("aria-pressed", "true")
+
+  for (const [id, label] of [
+    ["impressions", "Impressions"],
+    ["profileViews", "Profile views"],
+    ["uniqueVisitors", "Unique visitors"],
+    ["inquiryStarters", "Inquiry starters"],
+    ["inquiries", "Inquiries"],
+  ]) {
+    const card = stages.locator(`[data-funnel-stage="${id}"]`)
+    await card.focus()
+    await page.keyboard.press("Enter")
+    await expect(card).toBeFocused()
+    await expect(card).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByRole("heading", { level: 2, name: label, exact: true })).toBeVisible()
+    if (id === "impressions")
+      await expect(page.getByText("Incomplete data coverage", { exact: true })).toBeVisible()
+  }
+
+  const reporting = await (
+    await page.request.get("/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7")
+  ).json()
+  const unavailable = {
+    current: { state: "source_unavailable", value: null },
+    comparison: { state: "source_unavailable", value: null, absoluteDelta: null, relativeDeltaPercent: null },
+    source: "posthog",
+  }
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...reporting,
+        metrics: {
+          ...reporting.metrics,
+          impressions: unavailable,
+          profileViews: unavailable,
+          uniqueVisitors: unavailable,
+          inquiryStarters: unavailable,
+        },
+      }),
+    }),
+  )
+  await page.getByRole("button", { name: "7 days", exact: true }).click()
+  await expect(stages.getByRole("button", { name: "Profile views Not available", exact: true })).toBeVisible()
+  await expect(stages.locator('[data-funnel-stage="inquiries"]')).toHaveAttribute("aria-pressed", "true")
+  await expect(stages.getByRole("button", { name: "Inquiries 7", exact: true })).toBeVisible()
+  await stages.locator('[data-funnel-stage="profileViews"]').click()
+  await expect(page.getByText("Data source unavailable", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 71", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Public profile progress", exact: true })).toBeVisible()
+  await expect(page.getByText("4.8 / 5", { exact: true })).toBeVisible()
+  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(4)
+  await page.screenshot({ path: "output/playwright/305-five-card-analytics-outage.png", fullPage: true })
+})
+
 test("inquiry starters restores legacy preferences and stays usable with keyboard, touch and both themes", async ({
   page,
 }) => {

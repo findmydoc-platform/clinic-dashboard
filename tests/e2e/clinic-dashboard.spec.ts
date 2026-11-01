@@ -284,7 +284,7 @@ test("captures the restored dashboard without overflow in both themes and viewpo
   )
   await page.getByRole("button", { name: "90 days" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
-  await page.getByRole("button", { name: /Unique visitors Not supported yet/ }).click()
+  await page.getByRole("button", { name: "Unique visitors Not available", exact: true }).click()
   for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ height: 900, width })
     for (const theme of ["light", "dark"] as const) {
