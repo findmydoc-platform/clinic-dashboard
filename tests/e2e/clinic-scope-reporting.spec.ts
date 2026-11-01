@@ -336,8 +336,8 @@ test("keeps the five-card flow and independent Payload facts through an analytic
     ["inquiries", "Inquiries"],
   ]) {
     const card = stages.locator(`[data-funnel-stage="${id}"]`)
-    await card.focus()
-    await page.keyboard.press("Enter")
+    await card.scrollIntoViewIfNeeded()
+    await card.press("Enter")
     await expect(card).toBeFocused()
     await expect(card).toHaveAttribute("aria-pressed", "true")
     await expect(page.getByRole("heading", { level: 2, name: label, exact: true })).toBeVisible()
