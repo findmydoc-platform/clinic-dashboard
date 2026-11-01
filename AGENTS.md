@@ -19,6 +19,11 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 - Never place Vercel tokens, real auth secrets, clinic data, or private endpoints in repository content or logs. Configurable passwords belong in environment variables.
 - Follow `docs/engineering/frontend-architecture.md` for frontend ownership, terminology, imports, props, Storybook, and test boundaries.
 
+## Documentation scope
+
+- Document supported behavior and durable technical decisions in the repository. Keep task plans, investigation reports, execution chronology and cleanup evidence in the relevant issue or pull request; commit such documentation only when the user explicitly requests an exception.
+- This rule does not remove Git history, product audit data, reusable tooling or durable regression tests.
+
 ## Engineering Method Anchors
 
 - Semantic Anchors: Use [https://llm-coding.github.io/Semantic-Anchors/llms.txt](https://llm-coding.github.io/Semantic-Anchors/llms.txt) to identify established methods; name them without redefining them locally.
