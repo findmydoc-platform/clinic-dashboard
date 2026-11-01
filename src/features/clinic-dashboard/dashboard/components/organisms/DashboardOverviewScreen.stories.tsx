@@ -15,6 +15,7 @@ import {
 import { useDashboardOverviewController } from "../../hooks/useDashboardOverviewController"
 import { ReportingPeriodControl } from "../molecules/ReportingPeriodControl"
 import { DashboardOverviewScreen } from "./DashboardOverviewScreen"
+import type { ClinicDashboardReporting } from "../../model/clinic-dashboard-reporting"
 
 const previewFixture = {
   status: "available",
@@ -72,7 +73,7 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   await expect(
     within(canvas.getByRole("list", { name: "Conversion stages" })).getAllByRole("listitem"),
   ).toHaveLength(5)
-  await expect(canvas.getByRole("button", { name: /Impressions Not supported yet/ })).toBeVisible()
+  await expect(canvas.getByRole("button", { name: /Impressions Not available/ })).toBeVisible()
   await expect(canvas.queryByRole("button", { name: /Download/ })).not.toBeInTheDocument()
 }
 
@@ -97,7 +98,7 @@ export const TopKpiScope: Story = {
       "aria-pressed",
       "true",
     )
-    const firstStage = canvas.getByRole("button", { name: /Impressions Not supported yet/ })
+    const firstStage = canvas.getByRole("button", { name: /Impressions Not available/ })
     firstStage.focus()
     await userEvent.keyboard("{Enter}")
     await expect(firstStage).toHaveFocus()
@@ -145,14 +146,17 @@ export const PartialComparisonExplanation: Story = {
   },
 }
 
-function SelectionHarness(args: React.ComponentProps<typeof DashboardOverviewScreen>) {
+function SelectionHarness({
+  reporting = clinicDashboardReportingFixture,
+  ...args
+}: React.ComponentProps<typeof DashboardOverviewScreen> & { reporting?: ClinicDashboardReporting }) {
   const controller = useDashboardOverviewController({
-    initialReporting: { status: "ready", reporting: clinicDashboardReportingFixture },
+    initialReporting: { status: "ready", reporting },
     profileProgress: args.model.profileProgress,
     clinicPreview: args.model.clinicPreview,
     loadReporting: async (days) => ({
-      ...clinicDashboardReportingFixture,
-      period: { ...clinicDashboardReportingFixture.period, days },
+      ...reporting,
+      period: { ...reporting.period, days },
     }),
   })
   return (
@@ -225,6 +229,74 @@ export const UniqueVisitorsDark390: Story = {
 export const UniqueVisitorsDark320: Story = {
   ...UniqueVisitors,
   globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+
+const impressionsReporting: ClinicDashboardReporting = {
+  ...clinicDashboardReportingFixture,
+  metrics: {
+    ...clinicDashboardReportingFixture.metrics,
+    impressions: {
+      source: "posthog",
+      current: { state: "available", value: 600 },
+      comparison: { state: "available", value: 500, absoluteDelta: 100, relativeDeltaPercent: 20 },
+    },
+  },
+}
+
+export const Impressions: Story = {
+  render: (args) => <SelectionHarness {...args} reporting={impressionsReporting} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const impressions = canvas.getByRole("button", { name: "Impressions 600" })
+    impressions.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(impressions).toHaveAttribute("aria-pressed", "true")
+    await expect(canvas.getByRole("heading", { level: 2, name: "Impressions" })).toBeVisible()
+    await expect(canvas.getByText("+20% compared with the previous period")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "About Impressions details" }))
+    const dialog = within(document.body).getByRole("dialog", { name: "About Impressions details" })
+    await expect(dialog).toHaveTextContent("active browser window")
+    await expect(dialog).toHaveTextContent("once per result view")
+    await expect(dialog).toHaveTextContent("No minimum duration or percentage")
+    await expect(dialog).toHaveTextContent("Arrows show order, not conversion rates")
+    await expect(dialog.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
+    await userEvent.keyboard("{Escape}")
+    await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
+    await expect(impressions).toHaveAttribute("aria-pressed", "true")
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+  },
+}
+export const Impressions390: Story = { ...Impressions, globals: { viewport: { value: "mobile390Tall" } } }
+export const Impressions320: Story = { ...Impressions, globals: { viewport: { value: "mobile320Short" } } }
+export const ImpressionsDark: Story = { ...Impressions, globals: { theme: "dark" } }
+export const ImpressionsDark390: Story = {
+  ...Impressions,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const ImpressionsDark320: Story = {
+  ...Impressions,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+
+export const ImpressionsPartialCoverage: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "impressions",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("heading", { level: 2, name: "Impressions" })).toBeVisible()
+    await expect(canvas.getByText("Incomplete data coverage")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Impressions Not available" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+  },
 }
 
 export const DetailInformationWithoutSelection: Story = {

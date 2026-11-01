@@ -89,7 +89,9 @@ export function createDashboardOverview({
           ? profileProgress.message
           : "Loading public profile",
   }
-  const supportedStage = (id: "profileViews" | "uniqueVisitors" | "inquiries"): DashboardJourneyStage => {
+  const supportedStage = (
+    id: "impressions" | "profileViews" | "uniqueVisitors" | "inquiries",
+  ): DashboardJourneyStage => {
     const display = reporting
       ? createCountMetricDisplay(reporting.metrics[id])
       : { value: missingValue, detail: missingDetail }
@@ -97,7 +99,13 @@ export function createDashboardOverview({
       ...display,
       id,
       label:
-        id === "profileViews" ? "Profile views" : id === "uniqueVisitors" ? "Unique visitors" : "Inquiries",
+        id === "impressions"
+          ? "Impressions"
+          : id === "profileViews"
+            ? "Profile views"
+            : id === "uniqueVisitors"
+              ? "Unique visitors"
+              : "Inquiries",
       availability:
         reporting?.metrics[id].current.state === "available"
           ? "available"
@@ -105,11 +113,13 @@ export function createDashboardOverview({
             ? "loading"
             : "unavailable",
       information: [
-        id === "inquiries"
-          ? "Stored inquiries created in the selected period, excluding spam. This is not an inventory of open work."
-          : id === "uniqueVisitors"
-            ? "Distinct recognized browser visitors among profile views, once per clinic and period, using the same consent-based browser recognition as Inquiry starters. Browser or device changes and cleared storage can count a visitor again. Visitors without analytics consent are not measured. Patient, inquiry and session identifiers are not used."
-            : consentInformation,
+        id === "impressions"
+          ? "Clinic search results actually visible in the active browser window, once per result view and clinic, with analytics consent. Loading, prefetching, hidden tabs and results outside the viewport do not count. Scrolling out and back does not add a view; a new search or opened results page may count again when visible. No minimum duration or percentage of the card is required. Arrows show order, not conversion rates."
+          : id === "inquiries"
+            ? "Stored inquiries created in the selected period, excluding spam. This is not an inventory of open work."
+            : id === "uniqueVisitors"
+              ? "Distinct recognized browser visitors among profile views, once per clinic and period, using the same consent-based browser recognition as Inquiry starters. Browser or device changes and cleared storage can count a visitor again. Visitors without analytics consent are not measured. Patient, inquiry and session identifiers are not used."
+              : consentInformation,
         display.information,
       ]
         .filter(Boolean)
@@ -133,13 +143,7 @@ export function createDashboardOverview({
     : { value: missingValue, detail: missingDetail }
   const rating = reviewAverage?.state === "available" ? reviewAverage.value : null
   const journey: DashboardJourneyStage[] = [
-    {
-      id: "impressions",
-      label: "Impressions",
-      availability: "unsupported",
-      value: "Not supported yet",
-      information: "Search impressions are not measured by the current reporting capability.",
-    },
+    supportedStage("impressions"),
     supportedStage("profileViews"),
     supportedStage("uniqueVisitors"),
     {

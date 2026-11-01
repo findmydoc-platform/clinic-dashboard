@@ -7,9 +7,10 @@ export type DashboardJourneyStageId =
 
 // Presentation-only capabilities. Unsupported journey stages never enter the reporting contract.
 export type DashboardJourneyStage =
-  | (Omit<DashboardOverviewMetric, "id"> & Readonly<{ id: "profileViews" | "uniqueVisitors" | "inquiries" }>)
+  | (Omit<DashboardOverviewMetric, "id"> &
+      Readonly<{ id: "impressions" | "profileViews" | "uniqueVisitors" | "inquiries" }>)
   | Readonly<{
-      id: "impressions" | "contacts"
+      id: "contacts"
       label: string
       availability: "unsupported"
       value: "Not supported yet"
@@ -19,7 +20,7 @@ export type DashboardJourneyStage =
     }>
 
 export type DashboardOverviewMetric = Readonly<{
-  id: "profileViews" | "uniqueVisitors" | "inquiries" | "completion"
+  id: "impressions" | "profileViews" | "uniqueVisitors" | "inquiries" | "completion"
   label: string
   value: string
   availability: "available" | "loading" | "unavailable"
