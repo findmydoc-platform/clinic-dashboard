@@ -36,8 +36,9 @@ Website test links below use the same companion integration branch as the invent
 | Complete Dashboard page and interaction | [Clinic-scoped reporting E2E](../../tests/e2e/clinic-scope-reporting.spec.ts), especially `keeps the five-card flow and independent Payload facts through an analytics outage`, exercises all five selectable details and the final page under partial history/failure. The same file covers legacy preference migration, delayed clinic responses, section/reload/period selection and actual touch. [Workspace screenshots](../../tests/e2e/clinic-dashboard.spec.ts) and [overview browser stories](../../src/features/clinic-dashboard/dashboard/components/organisms/DashboardOverviewScreen.stories.tsx) cover both themes at 1440/390/320, bounded explanations, zero, missing comparison and independent profile/review/inquiry displays. [Demo stories](../../src/features/clinic-dashboard/dashboard/components/organisms/DashboardScreen.stories.tsx) retain explicitly synthetic charts/export.                                                                                                                                                                                                                     | Controlled sessions/providers and normalized source responses do not establish Preview or Production availability. Chromium mobile emulation does not establish every mobile engine or browser chrome. |
 
 The query fixtures distinguish visitors from sessions and inquiry IDs, repeat views/edits, separate clinics and apply
-current/comparison boundaries for 7/30/90 days. They cover capture start, retention, missing browser identity, zero and
-start-before/submit-inside behavior. The query keeps one three-second request without retry or stale fallback.
+current/comparison boundaries for 7/30/90 days. They cover capture start, retention, zero and
+start-before/submit-inside behavior. The approved specialist follow-up below adds the missing empty-browser-identity
+regression evidence. The query keeps one three-second request without retry or stale fallback.
 
 The private EU query host is fixed at `https://eu.posthog.com`; [PostHog's API documentation](https://posthog.com/docs/api)
 distinguishes it from public ingestion. A failing exact outbound-URL assertion preceded that correction in the canonical
@@ -68,6 +69,40 @@ The #305 branch starts at Dashboard `62f46d66a545f1e7de435b1719d50033acc058f8` a
   Five cases exceeded existing login/upload waits. One expected the retired reporting completeness value; it now
   checks that the published completion value stays unchanged through a source outage. No production code or timeout
   changed for the successful final run.
+
+### Approved specialist test-fix checkpoint
+
+Website commit `bff00ad02e61d6e063c16aff24beb4f6459c64e4`, based on `48ee5a17a6a756d5278aba37c1b4a5d7b012a1ba`,
+changes only two query test files and the `InquiryStarts` story assertions. Four new cases execute the exact emitted
+production SQL in isolated ClickHouse 25.8.33.6. Profile views and inquiry starts each have an empty `distinct_id`
+independently in the current and comparison windows, with valid session and inquiry IDs present. Expected results are
+literal values. Only the affected visitor metric and period become `partial_coverage`; its value and comparison
+deltas stay null. The other period, Profile Views, Impressions and the other visitor metric remain available.
+
+The following focused commands ran with Node 24:
+
+```text
+REPORTING_CLICKHOUSE_CONTAINER=fmd-reporting299-test-fixes-20261101 pnpm exec vitest run --project unit tests/unit/features/clinicDashboard/reporting/posthog-v2.test.ts tests/unit/features/clinicDashboard/reporting/inquiry-starters.query.test.ts
+STORYBOOK_DISABLE_TELEMETRY=1 pnpm exec vitest run --project storybook src/components/templates/ClinicDetailConcepts/ClinicDetail.stories.tsx --testNamePattern 'Inquiry Starts$'
+pnpm stories:governance:check -- --base-ref 48ee5a17a6a756d5278aba37c1b4a5d7b012a1ba
+pnpm check
+```
+
+Both query files passed all 15 tests without skips. Temporarily changing the source's missing-identity guard from
+`missing > 0` to `missing < 0` made all four new cases fail with available numbers instead of partial values. The
+unchanged production file was restored, its diff against the base was empty, and all 15 tests passed again. This is
+a controlled sensitivity check, not a broad reporting mutation score. The owned container had no network or
+published ports and was removed after validation. No real analytics project received events.
+
+The canonical Storybook Playwright Chromium project passed the selected `Inquiry Starts` case. Its clear action now
+must add exactly one callback before the existing payload assertion; 43 other cases were filtered out deliberately.
+Story governance passed for 113 story files and six MDX documents, including the changed-story base check.
+`pnpm check` passed. The initial sandboxed browser attempt could not start its local test server; the canonical
+browser command passed with sandbox escalation. No test configuration or setup changed.
+
+This checkpoint adds test evidence only. The earlier full suites and build checkpoints remain separate. The database
+HTTP cases, final native listing/SDK repetition, actual Next/Payload/RSC prefetch, deployed capture and #305's rollout
+and historical-deletion records remain open as described below.
 
 The native Website listing/SDK suite passed all 11 cases in an isolated run at Website checkpoint `133a6cc63`.
 The production listing adapter, URL state, impression hook, template and card files are unchanged through the
