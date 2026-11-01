@@ -89,7 +89,9 @@ export function createDashboardOverview({
           ? profileProgress.message
           : "Loading public profile",
   }
-  const supportedStage = (id: "profileViews" | "uniqueVisitors" | "inquiries"): DashboardJourneyStage => {
+  const supportedStage = (
+    id: "profileViews" | "uniqueVisitors" | "inquiryStarters" | "inquiries",
+  ): DashboardJourneyStage => {
     const display = reporting
       ? createCountMetricDisplay(reporting.metrics[id])
       : { value: missingValue, detail: missingDetail }
@@ -97,7 +99,13 @@ export function createDashboardOverview({
       ...display,
       id,
       label:
-        id === "profileViews" ? "Profile views" : id === "uniqueVisitors" ? "Unique visitors" : "Inquiries",
+        id === "profileViews"
+          ? "Profile views"
+          : id === "uniqueVisitors"
+            ? "Unique visitors"
+            : id === "inquiryStarters"
+              ? "Inquiry starters"
+              : "Inquiries",
       availability:
         reporting?.metrics[id].current.state === "available"
           ? "available"
@@ -107,9 +115,11 @@ export function createDashboardOverview({
       information: [
         id === "inquiries"
           ? "Stored inquiries created in the selected period, excluding spam. This is not an inventory of open work."
-          : id === "uniqueVisitors"
-            ? "Distinct recognized browser visitors among profile views, once per clinic and period, using the same consent-based browser recognition as Inquiry starters. Browser or device changes and cleared storage can count a visitor again. Visitors without analytics consent are not measured. Patient, inquiry and session identifiers are not used."
-            : consentInformation,
+          : id === "inquiryStarters"
+            ? "Distinct recognized browser visitors who make their own content edit in the inquiry form, once per clinic and period, including invalid, cleared and later submitted input. Opening, focus, scrolling, automatic or outside-form prefill and consent alone do not count. Uses the same consent-based browser recognition as Unique Visitors. Browser or device changes and cleared storage can count a visitor again. Visitors without analytics consent are not measured. Each edit belongs to its own activity period. A value requires complete measurement history; an unavailable comparison does not hide an available current value. No completion or abandonment rate is calculated."
+            : id === "uniqueVisitors"
+              ? "Distinct recognized browser visitors among profile views, once per clinic and period, using the same consent-based browser recognition as Inquiry starters. Browser or device changes and cleared storage can count a visitor again. Visitors without analytics consent are not measured. Patient, inquiry and session identifiers are not used."
+              : consentInformation,
         display.information,
       ]
         .filter(Boolean)
@@ -142,14 +152,7 @@ export function createDashboardOverview({
     },
     supportedStage("profileViews"),
     supportedStage("uniqueVisitors"),
-    {
-      id: "contacts",
-      label: "Contacts",
-      availability: "unsupported",
-      value: "Not supported yet",
-      information:
-        "Chat conversations are not measured. Contact-button clicks are a separate CTA measurement.",
-    },
+    supportedStage("inquiryStarters"),
     supportedStage("inquiries"),
   ]
 

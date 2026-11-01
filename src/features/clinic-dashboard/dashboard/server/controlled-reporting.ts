@@ -70,16 +70,7 @@ function createControlledReporting(periodDays: ClinicDashboardReportingPeriodDay
           relativeDeltaPercent: null,
         },
       },
-      inquiryStarters: {
-        source: "posthog",
-        current: { state: "partial_coverage", value: null },
-        comparison: {
-          state: "partial_coverage",
-          value: null,
-          absoluteDelta: null,
-          relativeDeltaPercent: null,
-        },
-      },
+      inquiryStarters: countMetric("posthog", 12),
       reviews: {
         average: { comparison: null, source: "payload", state: "available", value: 4.8 },
         count: { comparison: null, source: "payload", state: "available", value: 25 },

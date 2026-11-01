@@ -13,7 +13,7 @@ import type { DashboardMetric } from "../../model/reporting"
 
 const metricIcons = {
   completion: BadgeCheck,
-  contacts: MessageSquare,
+  inquiryStarters: MessageSquare,
   impressions: Eye,
   inquiries: FileCheck2,
   views: MousePointerClick,

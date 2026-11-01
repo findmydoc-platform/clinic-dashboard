@@ -10,6 +10,42 @@ import { clinicProfileSourceDraftFixture } from "@/features/clinic-dashboard/cli
 import { clinicGallerySnapshotFixture } from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile.fixtures"
 
 describe("dashboard overview presentation", () => {
+  it("shows consent-based inquiry starters and their own available current window", () => {
+    const model = createDashboardOverview({
+      reporting: {
+        status: "ready",
+        reporting: {
+          ...clinicDashboardReportingFixture,
+          metrics: {
+            ...clinicDashboardReportingFixture.metrics,
+            inquiryStarters: {
+              source: "posthog",
+              current: { state: "available", value: 12 },
+              comparison: {
+                state: "partial_coverage",
+                value: null,
+                absoluteDelta: null,
+                relativeDeltaPercent: null,
+              },
+            },
+          },
+        },
+      },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: { status: "unavailable", name: "Controlled clinic" },
+      selectedMetricId: "inquiryStarters",
+    })
+    expect(model.selectedMetric).toMatchObject({
+      id: "inquiryStarters",
+      label: "Inquiry starters",
+      value: "12",
+      availability: "available",
+    })
+    expect(model.selectedMetric.comparison).toBeUndefined()
+    expect(model.selectedMetric.information).toContain("once per clinic and period")
+    expect(model.selectedMetric.information).toContain("Unique Visitors")
+  })
   it("shows distinct browser visitors in the selected detail and preserves independent Payload facts", () => {
     const model = createDashboardOverview({
       reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
@@ -80,7 +116,7 @@ describe("dashboard overview presentation", () => {
         clinicPreview: { status: "unavailable", name: "Controlled clinic" },
         selectedMetricId: "profileViews",
       })
-      for (const id of ["impressions", "contacts"]) {
+      for (const id of ["impressions"]) {
         expect(model.metrics.find((metric) => metric.id === id)).toMatchObject({
           availability: "unsupported",
           value: "Not supported yet",

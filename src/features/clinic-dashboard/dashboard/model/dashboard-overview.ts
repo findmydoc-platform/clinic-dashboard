@@ -3,13 +3,14 @@ import type { ClinicDashboardReportingPeriodDays } from "./clinic-dashboard-repo
 import type { DashboardProfileProgressState } from "./profile-progress"
 
 export type DashboardJourneyStageId =
-  "impressions" | "profileViews" | "uniqueVisitors" | "contacts" | "inquiries"
+  "impressions" | "profileViews" | "uniqueVisitors" | "inquiryStarters" | "inquiries"
 
 // Presentation-only capabilities. Unsupported journey stages never enter the reporting contract.
 export type DashboardJourneyStage =
-  | (Omit<DashboardOverviewMetric, "id"> & Readonly<{ id: "profileViews" | "uniqueVisitors" | "inquiries" }>)
+  | (Omit<DashboardOverviewMetric, "id"> &
+      Readonly<{ id: "profileViews" | "uniqueVisitors" | "inquiryStarters" | "inquiries" }>)
   | Readonly<{
-      id: "impressions" | "contacts"
+      id: "impressions"
       label: string
       availability: "unsupported"
       value: "Not supported yet"
@@ -19,7 +20,7 @@ export type DashboardJourneyStage =
     }>
 
 export type DashboardOverviewMetric = Readonly<{
-  id: "profileViews" | "uniqueVisitors" | "inquiries" | "completion"
+  id: "profileViews" | "uniqueVisitors" | "inquiryStarters" | "inquiries" | "completion"
   label: string
   value: string
   availability: "available" | "loading" | "unavailable"

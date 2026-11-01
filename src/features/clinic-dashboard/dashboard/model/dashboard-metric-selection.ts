@@ -15,10 +15,10 @@ type DashboardMetricDefinition = Readonly<{
 }>
 
 export const dashboardMetricDefinitions = {
-  contacts: {
-    label: "Contacts",
-    totalKey: "contacts",
-    valueLabels: { plural: "contacts", singular: "contact" },
+  inquiryStarters: {
+    label: "Inquiry starters",
+    totalKey: "inquiryStarters",
+    valueLabels: { plural: "inquiry starters", singular: "inquiry starter" },
   },
   impressions: {
     label: "Impressions",
@@ -87,7 +87,7 @@ export function createDashboardMetricSelection(
 
   return {
     comparison: getMetricComparison(reporting, metricId),
-    description: `${metricId === "uniqueVisitors" ? "Recognized consent-eligible browser visitors, once per clinic and period, using the same recognition as Inquiry starters. Browser/device changes and cleared storage can count a visitor again. " : ""}${cadenceLabel} ${definition.valueLabels.plural} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic demo data; not live analytics.`,
+    description: `${metricId === "inquiryStarters" ? "Recognized consent-eligible browser visitors with their own content edit in the inquiry form, once per clinic and period, including invalid, cleared and submitted input. Opening, focus, scrolling, automatic or outside-form prefill and consent alone do not count. Uses the same browser recognition as Unique Visitors. Browser/device changes and cleared storage can count a visitor again. No completion or abandonment rate is calculated. " : ""}${metricId === "uniqueVisitors" ? "Recognized consent-eligible browser visitors, once per clinic and period, using the same recognition as Inquiry starters. Browser/device changes and cleared storage can count a visitor again. " : ""}${cadenceLabel} ${definition.valueLabels.plural} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic demo data; not live analytics.`,
     id: metricId,
     points: reporting.chart.series[metricId],
     summary: dashboardSelectableMetricIds.map((id) => {

@@ -270,26 +270,26 @@ export const FunnelControlsChart: Story = {
 
     await userEvent.hover(
       funnel.getByRole("button", {
-        name: "Show conversion from Profile views to Unique visitors",
+        name: "About Profile views to Unique visitors",
       }),
     )
-    await expect(canvas.getByRole("tooltip")).toHaveTextContent("64.0% of profile views")
-    await expect(canvas.getAllByText("64.0% of profile views")).toHaveLength(1)
+    await expect(canvas.getByRole("tooltip")).toHaveTextContent("not a measured conversion rate")
+    await expect(canvas.queryByText("64.0% of profile views")).not.toBeInTheDocument()
 
-    const contactsButton = funnel.getByRole("button", { name: "Contacts 12" })
-    contactsButton.focus()
-    await expect(contactsButton).toHaveFocus()
+    const inquiryStartersButton = funnel.getByRole("button", { name: "Inquiry starters 12" })
+    inquiryStartersButton.focus()
+    await expect(inquiryStartersButton).toHaveFocus()
     await userEvent.keyboard("{Enter}")
-    await expect(args.actions.onMetricSelect).toHaveBeenLastCalledWith("contacts")
-    await expect(canvas.getByRole("heading", { level: 2, name: "Contacts over time" })).toBeVisible()
+    await expect(args.actions.onMetricSelect).toHaveBeenLastCalledWith("inquiryStarters")
+    await expect(canvas.getByRole("heading", { level: 2, name: "Inquiry starters over time" })).toBeVisible()
 
     await userEvent.click(canvas.getByRole("button", { name: "30 days" }))
     await expect(canvas.getAllByText("67%")).toHaveLength(2)
-    await expect(contactsButton).toHaveAttribute("aria-pressed", "true")
+    await expect(inquiryStartersButton).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByText("-2.1% vs. previous 30 days")).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "90 days" }))
     await expect(canvas.getAllByText("67%")).toHaveLength(2)
-    await expect(contactsButton).toHaveAttribute("aria-pressed", "true")
+    await expect(inquiryStartersButton).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByText("+4.4% vs. previous 90 days")).toBeVisible()
   },
 }

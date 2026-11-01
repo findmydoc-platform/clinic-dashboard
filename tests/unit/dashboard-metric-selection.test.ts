@@ -20,7 +20,7 @@ describe("dashboard metric selection", () => {
       "impressions",
       "views",
       "uniqueVisitors",
-      "contacts",
+      "inquiryStarters",
       "inquiries",
     ])
     expect(dashboardSelectableMetricIds.every(isDashboardSelectableMetricId)).toBe(true)
