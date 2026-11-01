@@ -148,6 +148,12 @@ test("retains the selected period and metric through review and notification nav
 test("keeps published profile information usable when reporting and notifications fail", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await signIn(page)
+  const metrics = page.getByRole("region", { name: "Dashboard metrics" })
+  const completion = metrics.getByRole("progressbar", { name: /^Public profile completion:/ })
+  await expect(completion).toHaveAttribute("aria-valuenow", /^\d+$/)
+  const publishedCompletion = await completion.getAttribute("aria-valuenow")
+  if (publishedCompletion === null) throw new Error("Expected the published profile completion value")
+  await expect(metrics.getByText(`${publishedCompletion}%`, { exact: true })).toBeVisible()
   let failedNotificationRequests = 0
   await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?*", (route) =>
     route.fulfill({
@@ -182,9 +188,12 @@ test("keeps published profile information usable when reporting and notification
   )
   await page.getByRole("button", { name: "Close notifications" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
-  ).toBeVisible()
+  await expect(completion).toHaveAttribute("aria-valuenow", publishedCompletion)
+  await expect(metrics.getByText(`${publishedCompletion}%`, { exact: true })).toBeVisible()
+  await expect(page.getByRole("progressbar", { name: /^Public profile progress:/ })).toHaveAttribute(
+    "aria-valuenow",
+    publishedCompletion,
+  )
   await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
   await page.getByRole("button", { name: "View reviews" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
