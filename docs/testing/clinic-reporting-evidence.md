@@ -47,7 +47,7 @@ establish an authenticated runtime failure.
 ## Validation checkpoints
 
 The #305 branch starts at Dashboard `62f46d66a545f1e7de435b1719d50033acc058f8` and Website
-`56686dc1d0878afdb9df953365e42a593cea0fcb`. These include the integrated #300–#304 source.
+`56686dc1d0878afdb9df953365e42a593cea0fcb`. These include the integrated source for tickets #300 through #304.
 
 - On the #305 source, four Website query files passed all 16 tests with the isolated synthetic ClickHouse fixture.
   The production query's URL assertion failed before the host correction and passed afterward.
@@ -57,8 +57,17 @@ The #305 branch starts at Dashboard `62f46d66a545f1e7de435b1719d50033acc058f8` a
 - At the preceding integrated Dashboard checkpoint, the coordinator passed all 1,595 unit/integration tests in
   127 files, the application build and Storybook build. The focused route-access mutation run killed all 58 selected
   mutants after 39 passing initial tests. This is authorization evidence, not a reporting mutation score.
-- Final combined broad E2E, affected Storybook rerun, Storybook rebuild and both repository checks belong to the
-  coordinator's delivery record. Their completion must be recorded from actual results, not inferred from earlier runs.
+- The final Dashboard checkpoint `cba3e4172c4183ef5c94721b0632bd5222fe7972` passed all 100 controlled E2E tests
+  with two workers and no concurrent Website build. All 130 affected browser stories in 17 files passed, and the
+  Storybook rebuild passed. Both repositories passed their canonical checks after their implementation commits.
+  Dashboard production code is unchanged from the application-build and unit/integration checkpoint above.
+- The combined Website run passed 258 tests in 19 files with synthetic ClickHouse enabled. One existing headless
+  SDK transport case skipped itself because the SDK rejected its WebDriver browser. That skip supplies no capture
+  evidence. The native final-checkpoint prerequisite below remains open.
+- The initial 100-case Dashboard run, concurrent with Website compilation and other checks, passed 94 cases.
+  Five cases exceeded existing login/upload waits. One expected the retired reporting completeness value; it now
+  checks that the published completion value stays unchanged through a source outage. No production code or timeout
+  changed for the successful final run.
 
 The native Website listing/SDK suite passed all 11 cases in an isolated run at Website checkpoint `133a6cc63`.
 The production listing adapter, URL state, impression hook, template and card files are unchanged through the
@@ -66,7 +75,7 @@ Website base checkpoint above. Later integrated reruns failed the real active-do
 was locked. No new native capture proof resulted. A final-checkpoint repeat requires an unlocked desktop and must run
 alone with native focus/visibility, without focus emulation or competing foreground automation.
 
-The normal Website build previously compiled source and passed TypeScript, then failed static parameter collection
+The normal Website build at `8bdf69b73f70705efb14fd6d5667ab4386556a42` compiled source and passed TypeScript, then failed static parameter collection
 because the configured database was unreachable. The actual Next/Payload page and RSC prefetch path therefore remain
 unverified. Replacing navigation in the controlled browser composition does not close that gap.
 
