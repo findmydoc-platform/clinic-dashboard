@@ -316,6 +316,7 @@ test("keeps the five-card flow and independent Payload facts through an analytic
   page,
 }) => {
   await signIn(page)
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
   const stages = page.getByRole("list", { name: "Conversion stages" })
   await expect(stages.locator("[data-funnel-stage]")).toHaveCount(5)
   expect(
@@ -336,8 +337,8 @@ test("keeps the five-card flow and independent Payload facts through an analytic
     ["inquiries", "Inquiries"],
   ]) {
     const card = stages.locator(`[data-funnel-stage="${id}"]`)
-    await card.scrollIntoViewIfNeeded()
-    await card.press("Enter")
+    await card.focus()
+    await page.keyboard.press("Enter")
     await expect(card).toBeFocused()
     await expect(card).toHaveAttribute("aria-pressed", "true")
     await expect(page.getByRole("heading", { level: 2, name: label, exact: true })).toBeVisible()
