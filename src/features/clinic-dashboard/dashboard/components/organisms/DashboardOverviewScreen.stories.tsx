@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, userEvent, within } from "storybook/test"
+import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { createDashboardOverview } from "../../dashboard-overview.mapper"
 import {
   clinicDashboardReportingFixture,
@@ -186,6 +186,10 @@ export const MetricSelection: Story = {
     await expect(explanation).toHaveTextContent("Unique Visitors")
     await expect(explanation).toHaveTextContent("invalid, cleared and later submitted input")
     await expect(explanation.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
+    await waitFor(() => {
+      expect(explanation.getBoundingClientRect().top).toBeGreaterThanOrEqual(0)
+      expect(explanation.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    })
     await userEvent.keyboard("{Escape}")
     await expect(canvas.getByRole("button", { name: "About Inquiry starters details" })).toHaveFocus()
     await userEvent.click(canvas.getByRole("button", { name: "7 days" }))

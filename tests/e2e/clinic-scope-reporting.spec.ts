@@ -364,6 +364,8 @@ test("inquiry starters restores legacy preferences and stays usable with keyboar
       const bounds = await explanation.boundingBox()
       expect(bounds!.x).toBeGreaterThanOrEqual(0)
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+      expect(bounds!.y).toBeGreaterThanOrEqual(0)
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(width === 1440 ? 1000 : 760)
       await page.screenshot({ path: `output/playwright/302-inquiry-starters-info-${theme}-${width}.png` })
       await page.keyboard.press("Escape")
       await expect(explanation).not.toBeVisible()
@@ -374,13 +376,22 @@ test("inquiry starters restores legacy preferences and stays usable with keyboar
 })
 
 test.describe("inquiry starter touch explanation", () => {
-  test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 760 } })
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 500 } })
   test("selects inquiry starters and dismisses its explanation by touch", async ({ page }) => {
     await signIn(page)
     await page.locator('[data-funnel-stage="inquiryStarters"]').tap()
     await page.getByRole("button", { name: "About Inquiry starters details", exact: true }).tap()
     const explanation = page.getByRole("dialog", { name: "About Inquiry starters details", exact: true })
     await expect(explanation).toContainText("invalid, cleared and later submitted input")
+    const bounds = await explanation.boundingBox()
+    expect(bounds!.y).toBeGreaterThanOrEqual(0)
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(500)
+    expect(
+      await explanation.evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+        return element.scrollTop
+      }),
+    ).toBeGreaterThan(0)
     await page.screenshot({ path: "output/playwright/302-inquiry-starters-touch-320.png" })
     await page.getByRole("button", { name: "Close explanation" }).tap()
     await expect(explanation).not.toBeVisible()
