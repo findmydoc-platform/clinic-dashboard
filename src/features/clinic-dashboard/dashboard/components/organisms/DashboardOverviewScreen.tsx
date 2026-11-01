@@ -87,11 +87,7 @@ export function DashboardOverviewScreen({
             <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] p-5">
               <div>
                 <h2 className="text-xl font-bold text-[var(--secondary)]">{model.selectedMetric.label}</h2>
-                {model.selectedMetric.availability !== "unsupported" ? (
-                  <p className="mt-2 text-2xl font-bold text-[var(--primary)]">
-                    {model.selectedMetric.value}
-                  </p>
-                ) : null}
+                <p className="mt-2 text-2xl font-bold text-[var(--primary)]">{model.selectedMetric.value}</p>
                 {model.selectedMetric.comparison ? (
                   <p className="mt-1 text-xs">{model.selectedMetric.comparison}</p>
                 ) : null}
@@ -109,22 +105,13 @@ export function DashboardOverviewScreen({
               className="flex min-h-80 flex-1 flex-col items-center justify-center p-5 text-center"
               role="status"
             >
-              {model.selectedMetric.availability === "unsupported" ? (
-                <>
-                  <h3 className="font-bold text-[var(--secondary)]">Not supported yet</h3>
-                  <p className="mt-2 max-w-xs text-sm">{model.selectedMetric.information}</p>
-                </>
-              ) : (
-                <>
-                  <h3 className="font-bold text-[var(--secondary)]">Time series not available</h3>
-                  <p className="mt-2 max-w-xs text-sm">
-                    {model.selectedMetric.availability === "available"
-                      ? "The selected period's measurement is shown above. "
-                      : ""}
-                    Daily measurements and CSV downloads are not available yet.
-                  </p>
-                </>
-              )}
+              <h3 className="font-bold text-[var(--secondary)]">Time series not available</h3>
+              <p className="mt-2 max-w-xs text-sm">
+                {model.selectedMetric.availability === "available"
+                  ? "The selected period's measurement is shown above. "
+                  : ""}
+                Daily measurements and CSV downloads are not available yet.
+              </p>
             </div>
           </Card>
         </div>

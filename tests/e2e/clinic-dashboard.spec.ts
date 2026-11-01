@@ -125,7 +125,7 @@ test("retains the selected period and metric through review and notification nav
       reportingRequests.push(url.search)
   })
   await signIn(page)
-  await page.getByRole("button", { name: /Contacts Not supported yet/ }).click()
+  await page.getByRole("button", { name: /Inquiry starters 12/ }).click()
   expect(reportingRequests).toEqual([])
   await page.getByRole("button", { name: /Current clinic location/ }).click()
   await expect(page.getByRole("menuitem")).toHaveCount(1)
@@ -136,7 +136,7 @@ test("retains the selected period and metric through review and notification nav
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
   await page.getByRole("button", { name: "Dashboard", exact: true }).click()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("button", { name: /Contacts Not supported yet/ })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: /Inquiry starters 12/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   )

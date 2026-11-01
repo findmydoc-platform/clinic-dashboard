@@ -3,24 +3,13 @@ import type { ClinicDashboardReportingPeriodDays } from "./clinic-dashboard-repo
 import type { DashboardProfileProgressState } from "./profile-progress"
 
 export type DashboardJourneyStageId =
-  "impressions" | "profileViews" | "uniqueVisitors" | "contacts" | "inquiries"
+  "impressions" | "profileViews" | "uniqueVisitors" | "inquiryStarters" | "inquiries"
 
-// Presentation-only capabilities. Unsupported journey stages never enter the reporting contract.
-export type DashboardJourneyStage =
-  | (Omit<DashboardOverviewMetric, "id"> &
-      Readonly<{ id: "impressions" | "profileViews" | "uniqueVisitors" | "inquiries" }>)
-  | Readonly<{
-      id: "contacts"
-      label: string
-      availability: "unsupported"
-      value: "Not supported yet"
-      information: string
-      comparison?: never
-      detail?: never
-    }>
+export type DashboardJourneyStage = Omit<DashboardOverviewMetric, "id"> &
+  Readonly<{ id: DashboardJourneyStageId }>
 
 export type DashboardOverviewMetric = Readonly<{
-  id: "impressions" | "profileViews" | "uniqueVisitors" | "inquiries" | "completion"
+  id: DashboardJourneyStageId | "completion"
   label: string
   value: string
   availability: "available" | "loading" | "unavailable"
@@ -51,9 +40,7 @@ export type DashboardReviewSummary = Readonly<{
 
 export type DashboardOverviewModel = Readonly<{
   clinicPreview: DashboardClinicPreview
-  metrics: readonly (
-    DashboardOverviewMetric | Extract<DashboardJourneyStage, { availability: "unsupported" }>
-  )[]
+  metrics: readonly DashboardOverviewMetric[]
   periodDays: ClinicDashboardReportingPeriodDays
   profileProgress: DashboardProfileProgressState
   reportingStatus: "ready" | "loading" | "temporarily-unavailable"

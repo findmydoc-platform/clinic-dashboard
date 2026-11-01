@@ -46,7 +46,7 @@ export function ReportingInformation({ label, children }: ReportingInformationPr
       <Popover.Portal>
         <Popover.Positioner collisionPadding={16} sideOffset={8} className="z-50">
           <Popover.Popup
-            className="w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--foreground)] shadow-lg"
+            className="max-h-[var(--available-height)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--foreground)] shadow-lg"
             initialFocus={false}
           >
             <div className="flex items-start justify-between gap-2">

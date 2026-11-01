@@ -21,7 +21,7 @@ import type {
 } from "../../model/reporting"
 
 const funnelIcons = {
-  contacts: { component: MessageSquare, name: "message-square" },
+  inquiryStarters: { component: MessageSquare, name: "message-square" },
   impressions: { component: Eye, name: "eye" },
   inquiries: { component: FileCheck2, name: "file-check" },
   uniqueVisitors: { component: UserRound, name: "user-round" },
@@ -38,7 +38,6 @@ type ConversionFunnelProps = Readonly<{
 
 type FunnelConversionInfoProps = Readonly<{
   connectorId: DashboardSelectableMetricId
-  conversion: string
   fromLabel: string
   isOpen: boolean
   onOpenChange: (connectorId: DashboardSelectableMetricId, isOpen: boolean) => void
@@ -47,7 +46,6 @@ type FunnelConversionInfoProps = Readonly<{
 
 function FunnelConversionInfo({
   connectorId,
-  conversion,
   fromLabel,
   isOpen,
   onOpenChange,
@@ -84,7 +82,7 @@ function FunnelConversionInfo({
     >
       <button
         aria-describedby={isOpen ? tooltipId : undefined}
-        aria-label={`Show conversion from ${fromLabel} to ${toLabel}`}
+        aria-label={`About ${fromLabel} to ${toLabel}`}
         className="relative z-10 inline-flex size-11 items-center justify-center rounded-md text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         data-funnel-info-trigger
         onBlur={() => onOpenChange(connectorId, false)}
@@ -101,12 +99,12 @@ function FunnelConversionInfo({
       </button>
       {isOpen ? (
         <span
-          className="absolute bottom-[calc(50%+1.5rem)] left-1/2 z-20 w-max max-w-48 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs font-bold whitespace-nowrap text-[var(--foreground)] shadow-xs"
+          className="absolute bottom-[calc(50%+1.5rem)] left-1/2 z-20 w-max max-w-48 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs font-bold whitespace-normal text-[var(--foreground)] shadow-xs"
           data-funnel-tooltip
           id={tooltipId}
           role="tooltip"
         >
-          {conversion}
+          These are separate measurements. The arrow shows journey order, not a measured conversion rate.
         </span>
       ) : null}
       <ArrowRight
@@ -203,7 +201,6 @@ export function ConversionFunnel({
               {!isFinalStep ? (
                 <FunnelConversionInfo
                   connectorId={step.metricId}
-                  conversion={nextStep?.conversion ?? ""}
                   fromLabel={step.label}
                   isOpen={isConnectorOpen}
                   onOpenChange={handleConnectorOpenChange}

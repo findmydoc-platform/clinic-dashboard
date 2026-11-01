@@ -46,7 +46,7 @@ export const Available: Story = {
     )
     await expect(canvas.queryByRole("region", { name: "Session conversion summary" })).not.toBeInTheDocument()
     await expect(canvas.queryByText(/Profile-view sessions|Converted sessions/)).not.toBeInTheDocument()
-    await userEvent.click(stages.getByRole("button", { name: /Impressions Not supported yet/ }))
+    await userEvent.click(stages.getByRole("button", { name: /Impressions Not available/ }))
     await expect(args.onSelect).toHaveBeenCalledWith("impressions")
     await userEvent.click(canvas.getByRole("button", { name: "About Profile views to Unique visitors" }))
     const explanation = within(document.body).getByRole("dialog", {

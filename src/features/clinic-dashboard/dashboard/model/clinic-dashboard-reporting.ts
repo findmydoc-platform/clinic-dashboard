@@ -23,23 +23,6 @@ export type ClinicDashboardReportingCountMetric<Source extends ClinicDashboardRe
   source: Source
 }>
 
-export type ClinicDashboardReportingSessionConversion = Readonly<{
-  comparison: Readonly<{
-    denominatorSessions: number | null
-    numeratorSessions: number | null
-    percentagePointDelta: number | null
-    ratePercent: number | null
-    state: ClinicDashboardReportingSourceState | "zero_denominator"
-  }>
-  current: Readonly<{
-    denominatorSessions: number | null
-    numeratorSessions: number | null
-    ratePercent: number | null
-    state: ClinicDashboardReportingSourceState | "zero_denominator"
-  }>
-  source: "posthog"
-}>
-
 export type ClinicDashboardReporting = Readonly<{
   asOf: string
   comparisonPeriod: Readonly<{

@@ -188,6 +188,46 @@ describe("clinic dashboard reporting BFF", () => {
     expectPrivate(response)
   })
 
+  it.each(["partial_coverage", "source_unavailable"] as const)(
+    "preserves inquiry-starter %s without changing stored inquiries",
+    async (state) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>(async () =>
+          privateReportingResponse({
+            ...reportingFixture,
+            metrics: {
+              ...reportingFixture.metrics,
+              inquiryStarters: {
+                source: "posthog",
+                current: { state, value: null },
+                comparison: {
+                  state: "partial_coverage",
+                  value: null,
+                  absoluteDelta: null,
+                  relativeDeltaPercent: null,
+                },
+              },
+            },
+          }),
+        ),
+      )
+      const response = await handleClinicDashboardReportingLoad(
+        new NextRequest(
+          "http://localhost:3000/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=30",
+        ),
+      )
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({
+        metrics: {
+          inquiryStarters: { current: { state, value: null } },
+          inquiries: { current: { state: "available", value: 7 } },
+        },
+      })
+      expectPrivate(response)
+    },
+  )
+
   it("maps invalid or unavailable upstream results to a safe BFF error", async () => {
     vi.stubGlobal(
       "fetch",

@@ -35,11 +35,7 @@ export const clinicDashboardReportingFixture = {
       current: { state: "partial_coverage", value: null },
       comparison: { state: "partial_coverage", value: null, absoluteDelta: null, relativeDeltaPercent: null },
     },
-    inquiryStarters: {
-      source: "posthog",
-      current: { state: "partial_coverage", value: null },
-      comparison: { state: "partial_coverage", value: null, absoluteDelta: null, relativeDeltaPercent: null },
-    },
+    inquiryStarters: countMetric("posthog", 12),
     reviews: {
       average: { comparison: null, source: "payload", state: "available", value: 4.8 },
       count: { comparison: null, source: "payload", state: "available", value: 25 },
@@ -59,6 +55,16 @@ export const clinicDashboardReportingWithSourceUnavailable = {
   ...clinicDashboardReportingFixture,
   metrics: {
     ...clinicDashboardReportingFixture.metrics,
+    inquiryStarters: {
+      ...clinicDashboardReportingFixture.metrics.inquiryStarters,
+      current: { state: "source_unavailable", value: null },
+      comparison: {
+        state: "source_unavailable",
+        value: null,
+        absoluteDelta: null,
+        relativeDeltaPercent: null,
+      },
+    },
     uniqueVisitors: {
       ...clinicDashboardReportingFixture.metrics.uniqueVisitors,
       current: { state: "source_unavailable", value: null },
@@ -86,6 +92,11 @@ export const clinicDashboardReportingWithPartialCoverage = {
   ...clinicDashboardReportingFixture,
   metrics: {
     ...clinicDashboardReportingFixture.metrics,
+    inquiryStarters: {
+      ...clinicDashboardReportingFixture.metrics.inquiryStarters,
+      current: { state: "partial_coverage", value: null },
+      comparison: { state: "partial_coverage", value: null, absoluteDelta: null, relativeDeltaPercent: null },
+    },
     uniqueVisitors: {
       ...clinicDashboardReportingFixture.metrics.uniqueVisitors,
       current: { state: "partial_coverage", value: null },

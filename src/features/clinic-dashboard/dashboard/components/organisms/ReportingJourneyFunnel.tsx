@@ -16,7 +16,7 @@ const icons = {
   impressions: Eye,
   profileViews: MousePointerClick,
   uniqueVisitors: UserRound,
-  contacts: MessageSquare,
+  inquiryStarters: MessageSquare,
   inquiries: FileCheck2,
 }
 

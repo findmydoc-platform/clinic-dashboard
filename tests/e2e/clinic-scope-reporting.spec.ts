@@ -311,3 +311,89 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
     (await context.cookies()).some((cookie) => cookie.name === "clinic_dashboard_controlled_session"),
   ).toBe(true)
 })
+
+test("inquiry starters restores legacy preferences and stays usable with keyboard, touch and both themes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await signIn(page)
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard", exact: true })).toBeVisible()
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      "fmd-dashboard-reporting-selection",
+      JSON.stringify({
+        scope: "controlled-clinic-staff:controlled-clinic",
+        periodDays: 90,
+        metricId: "contacts",
+      }),
+    ),
+  )
+  await page.reload()
+  await expect(page.locator('[data-funnel-stage="profileViews"]')).toHaveAttribute("aria-pressed", "true")
+  await page.getByRole("button", { name: "7 days", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Profile views 71", exact: true })).toBeVisible()
+  const starters = page.locator('[data-funnel-stage="inquiryStarters"]')
+  await starters.focus()
+  await page.keyboard.press("Enter")
+  await expect(starters).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("heading", { level: 2, name: "Inquiry starters", exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "90 days", exact: true }).click()
+  await page.getByRole("button", { name: "Reviews", exact: true }).click()
+  await page.getByRole("button", { name: "Dashboard", exact: true }).click()
+  await page.reload()
+  await expect(starters).toHaveAttribute("aria-pressed", "true")
+  const errors: string[] = []
+  page.on("pageerror", (error) => errors.push(error.message))
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 760 })
+    for (const theme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: theme })
+      await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /light/)
+      await page.evaluate(() => {
+        ;(document.activeElement as HTMLElement | null)?.blur()
+        window.scrollTo(0, 0)
+      })
+      await page.screenshot({
+        path: `output/playwright/302-inquiry-starters-${theme}-${width}.png`,
+        fullPage: true,
+      })
+      await page.getByRole("button", { name: "About Inquiry starters details", exact: true }).click()
+      const explanation = page.getByRole("dialog", { name: "About Inquiry starters details", exact: true })
+      await expect(explanation).toContainText("once per clinic and period")
+      await expect(explanation).toContainText("Unique Visitors")
+      const bounds = await explanation.boundingBox()
+      expect(bounds!.x).toBeGreaterThanOrEqual(0)
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+      expect(bounds!.y).toBeGreaterThanOrEqual(0)
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(width === 1440 ? 1000 : 760)
+      await page.screenshot({ path: `output/playwright/302-inquiry-starters-info-${theme}-${width}.png` })
+      await page.keyboard.press("Escape")
+      await expect(explanation).not.toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+  }
+  expect(errors).toEqual([])
+})
+
+test.describe("inquiry starter touch explanation", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 500 } })
+  test("selects inquiry starters and dismisses its explanation by touch", async ({ page }) => {
+    await signIn(page)
+    await page.locator('[data-funnel-stage="inquiryStarters"]').tap()
+    await page.getByRole("button", { name: "About Inquiry starters details", exact: true }).tap()
+    const explanation = page.getByRole("dialog", { name: "About Inquiry starters details", exact: true })
+    await expect(explanation).toContainText("invalid, cleared and later submitted input")
+    const bounds = await explanation.boundingBox()
+    expect(bounds!.y).toBeGreaterThanOrEqual(0)
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(500)
+    expect(
+      await explanation.evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+        return element.scrollTop
+      }),
+    ).toBeGreaterThan(0)
+    await page.screenshot({ path: "output/playwright/302-inquiry-starters-touch-320.png" })
+    await page.getByRole("button", { name: "Close explanation" }).tap()
+    await expect(explanation).not.toBeVisible()
+  })
+})
