@@ -448,22 +448,62 @@ test("inquiry starters restores legacy preferences and stays usable with keyboar
 
 test.describe("inquiry starter touch explanation", () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 500 } })
-  test("selects inquiry starters and dismisses its explanation by touch", async ({ page }) => {
+  test("selects inquiry starters and dismisses its explanation by touch", async ({ page }, testInfo) => {
     await signIn(page)
-    await page.locator('[data-funnel-stage="inquiryStarters"]').tap()
+    const starters = page.locator('[data-funnel-stage="inquiryStarters"]')
+    await starters.tap()
+    await expect(starters).toHaveAttribute("aria-pressed", "true")
     await page.getByRole("button", { name: "About Inquiry starters details", exact: true }).tap()
     const explanation = page.getByRole("dialog", { name: "About Inquiry starters details", exact: true })
     await expect(explanation).toContainText("invalid, cleared and later submitted input")
+    const content = explanation.getByText(
+      "Values require complete history; comparison coverage is separate.",
+      {
+        exact: false,
+      },
+    )
+    await expect(content).toBeVisible()
+    await expect
+      .poll(() =>
+        explanation.evaluate((element) => {
+          const bounds = element.getBoundingClientRect()
+          const maxHeight = Number.parseFloat(getComputedStyle(element).maxHeight)
+          return (
+            maxHeight > 0 &&
+            element.clientHeight > 0 &&
+            bounds.width > 0 &&
+            bounds.height > 0 &&
+            bounds.x >= 0 &&
+            bounds.right <= window.innerWidth &&
+            bounds.y >= 0 &&
+            bounds.bottom <= window.innerHeight
+          )
+        }),
+      )
+      .toBe(true)
     const bounds = await explanation.boundingBox()
+    expect(bounds!.x).toBeGreaterThanOrEqual(0)
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320)
     expect(bounds!.y).toBeGreaterThanOrEqual(0)
     expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(500)
-    expect(
+    expect((await content.boundingBox())!.y).toBeGreaterThanOrEqual(bounds!.y)
+    const overflows = await explanation.evaluate((element) => element.scrollHeight > element.clientHeight)
+    if (overflows) {
       await explanation.evaluate((element) => {
         element.scrollTop = element.scrollHeight
-        return element.scrollTop
-      }),
-    ).toBeGreaterThan(0)
-    await page.screenshot({ path: "output/playwright/302-inquiry-starters-touch-320.png" })
+      })
+      await expect
+        .poll(() =>
+          explanation.evaluate((element) =>
+            Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop),
+          ),
+        )
+        .toBeLessThanOrEqual(1)
+      expect(await explanation.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    }
+    const contentBounds = await content.boundingBox()
+    expect(contentBounds!.y + contentBounds!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height)
+    await page.screenshot({ path: testInfo.outputPath("302-inquiry-starters-touch-320.png") })
     await page.getByRole("button", { name: "Close explanation" }).tap()
     await expect(explanation).not.toBeVisible()
   })
