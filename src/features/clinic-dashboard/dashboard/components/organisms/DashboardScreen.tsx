@@ -24,11 +24,7 @@ export function DashboardScreen({ actions, canDownloadProfileViews, model }: Das
 
   return (
     <div className="space-y-6">
-      <PageHeading
-        description={`Performance for ${model.clinicPreview.name}: visibility, enquiries, and profile health.`}
-      >
-        Dashboard
-      </PageHeading>
+      <PageHeading>Dashboard</PageHeading>
 
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard metric={profileCompletionMetric} />

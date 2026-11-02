@@ -34,11 +34,7 @@ export function DashboardOverviewScreen({
   const panelId = useId()
   return (
     <div className="space-y-6">
-      <PageHeading
-        description={`Performance for ${model.clinicPreview.name}: activity and public profile health.`}
-      >
-        Dashboard
-      </PageHeading>
+      <PageHeading>Dashboard</PageHeading>
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {model.metrics
           .filter((metric) => metric.id === "completion")
