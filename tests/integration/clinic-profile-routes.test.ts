@@ -77,6 +77,11 @@ function expectPrivate(response: Response) {
   expect(response.headers.get("vary")).toBe("Cookie")
 }
 
+function expectCompleted(response: Response) {
+  expectPrivate(response)
+  expect(response.headers.get("x-session-applied")).toBe("true")
+}
+
 const protectedRouteCases: ReadonlyArray<Readonly<{ invoke: () => Promise<Response>; routeName: string }>> = [
   {
     invoke: () =>
@@ -202,26 +207,24 @@ describe("Clinic profile BFF routes", () => {
     expect(String(fetcher.mock.calls[0]?.[0])).toBe(
       "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/server-derived-clinic/profile",
     )
-    expect(response.headers.get("x-session-applied")).toBe("true")
     expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(
       expect.any(NextRequest),
       "clinic-profile:view",
       "server-derived-clinic",
     )
-    expectPrivate(response)
+    expectCompleted(response)
   })
 
   it("saves a draft with server-derived scope and no clinic, country, or coordinates input", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () =>
-      privatePayloadResponse({
-        ...sourceSnapshot,
-        draft: {
-          ...sourceSnapshot.published,
-          basePublishedRevision: 4,
-          revision: 2,
-        },
-      }),
-    )
+    const savedSnapshot = {
+      ...sourceSnapshot,
+      draft: {
+        ...sourceSnapshot.published,
+        basePublishedRevision: 4,
+        revision: 2,
+      },
+    }
+    const fetcher = vi.fn<typeof fetch>(async () => privatePayloadResponse(savedSnapshot))
     vi.stubGlobal("fetch", fetcher)
     const input = {
       draft: {
@@ -244,6 +247,7 @@ describe("Clinic profile BFF routes", () => {
     )
 
     expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual(savedSnapshot)
     const [, upstreamInit] = fetcher.mock.calls[0] ?? []
     const upstreamBody = JSON.parse(String(upstreamInit?.body))
     expect(upstreamBody).toEqual(input)
@@ -254,20 +258,19 @@ describe("Clinic profile BFF routes", () => {
       "clinic-profile:edit",
       "server-derived-clinic",
     )
-    expectPrivate(response)
+    expectCompleted(response)
   })
 
   it("creates a draft from the published revision without accepting profile fields", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () =>
-      privatePayloadResponse({
-        ...sourceSnapshot,
-        draft: {
-          ...sourceSnapshot.published,
-          basePublishedRevision: 4,
-          revision: 1,
-        },
-      }),
-    )
+    const createdSnapshot = {
+      ...sourceSnapshot,
+      draft: {
+        ...sourceSnapshot.published,
+        basePublishedRevision: 4,
+        revision: 1,
+      },
+    }
+    const fetcher = vi.fn<typeof fetch>(async () => privatePayloadResponse(createdSnapshot))
     vi.stubGlobal("fetch", fetcher)
 
     const response = await handleClinicProfileDraftCreate(
@@ -277,6 +280,7 @@ describe("Clinic profile BFF routes", () => {
     )
 
     expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual(createdSnapshot)
     const [, upstreamInit] = fetcher.mock.calls[0] ?? []
     expect(upstreamInit).toMatchObject({ method: "POST" })
     expect(JSON.parse(String(upstreamInit?.body))).toEqual({ expectedPublishedRevision: 4 })
@@ -285,8 +289,45 @@ describe("Clinic profile BFF routes", () => {
       "clinic-profile:edit",
       "server-derived-clinic",
     )
-    expectPrivate(response)
+    expectCompleted(response)
   })
+
+  it.each([
+    {
+      handler: handleClinicProfileDraftDiscard,
+      input: { expectedDraftRevision: 1 },
+      operation: "discard",
+      snapshot: sourceSnapshot,
+      suffix: "/draft/discard",
+    },
+    {
+      handler: handleClinicProfilePublish,
+      input: { expectedDraftRevision: 1, expectedPublishedRevision: 4 },
+      operation: "publish",
+      snapshot: { ...sourceSnapshot, published: { ...sourceSnapshot.published, revision: 5 } },
+      suffix: "/publish",
+    },
+  ])(
+    "completes $operation through the authenticated provider",
+    async ({ handler, input, snapshot, suffix }) => {
+      const fetcher = vi.fn<typeof fetch>(async () => privatePayloadResponse(snapshot))
+      vi.stubGlobal("fetch", fetcher)
+
+      const response = await handler(
+        mutationRequest(`/api/dashboard/clinics/server-derived-clinic/profile${suffix}`, input),
+      )
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual(snapshot)
+      expect(String(fetcher.mock.calls[0]?.[0])).toBe(
+        `https://preview.findmydoc.eu/api/clinic-dashboard/clinics/server-derived-clinic/profile${suffix}`,
+      )
+      const [, upstreamInit] = fetcher.mock.calls[0] ?? []
+      expect(upstreamInit).toMatchObject({ method: "POST" })
+      expect(JSON.parse(String(upstreamInit?.body))).toEqual(input)
+      expectCompleted(response)
+    },
+  )
 
   it("rejects profile fields during draft creation before provider access", async () => {
     const fetcher = vi.fn()
@@ -302,7 +343,7 @@ describe("Clinic profile BFF routes", () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ code: "INVALID_INPUT" })
     expect(fetcher).not.toHaveBeenCalled()
-    expectPrivate(response)
+    expectCompleted(response)
   })
 
   it("maps an optimistic publication conflict without overwriting", async () => {
@@ -320,7 +361,7 @@ describe("Clinic profile BFF routes", () => {
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ code: "CLINIC_PROFILE_CONFLICT" })
-    expectPrivate(response)
+    expectCompleted(response)
   })
 
   it("requires CSRF verification before every mutation provider call", async () => {
@@ -379,7 +420,7 @@ describe("Clinic profile BFF routes", () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ code: "INVALID_INPUT" })
     expect(fetcher).not.toHaveBeenCalled()
-    expectPrivate(response)
+    expectCompleted(response)
   })
 
   it.each(routeAccessFailureCases)(
@@ -388,7 +429,10 @@ describe("Clinic profile BFF routes", () => {
       const fetcher = vi.fn()
       vi.stubGlobal("fetch", fetcher)
       accessMocks.resolveClinicDashboardRouteAccess.mockResolvedValue({
-        applyToResponse: (response: Response) => response,
+        applyToResponse: (response: Response) => {
+          response.headers.set("x-session-applied", "true")
+          return response
+        },
         status: accessStatus,
       })
 
@@ -397,7 +441,7 @@ describe("Clinic profile BFF routes", () => {
       expect(response.status).toBe(expectedStatus)
       await expect(response.json()).resolves.toEqual({ code: expectedCode })
       expect(fetcher).not.toHaveBeenCalled()
-      expectPrivate(response)
+      expectCompleted(response)
     },
   )
 
@@ -436,6 +480,6 @@ describe("Clinic profile BFF routes", () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ code: "INVALID_INPUT" })
     expect(fetcher).not.toHaveBeenCalled()
-    expectPrivate(response)
+    expectCompleted(response)
   })
 })
