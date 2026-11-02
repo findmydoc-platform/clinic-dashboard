@@ -19,9 +19,13 @@ import type {
   DashboardReportingPeriod,
   DashboardSelectableMetricId,
 } from "../../model/reporting"
+import {
+  reportingJourneyMeasurementDescription,
+  reportingJourneyTransitionDescriptions,
+} from "../../model/reporting-journey-information"
 
 const funnelIcons = {
-  contacts: { component: MessageSquare, name: "message-square" },
+  inquiryStarters: { component: MessageSquare, name: "message-square" },
   impressions: { component: Eye, name: "eye" },
   inquiries: { component: FileCheck2, name: "file-check" },
   uniqueVisitors: { component: UserRound, name: "user-round" },
@@ -38,7 +42,7 @@ type ConversionFunnelProps = Readonly<{
 
 type FunnelConversionInfoProps = Readonly<{
   connectorId: DashboardSelectableMetricId
-  conversion: string
+  description: string
   fromLabel: string
   isOpen: boolean
   onOpenChange: (connectorId: DashboardSelectableMetricId, isOpen: boolean) => void
@@ -47,7 +51,7 @@ type FunnelConversionInfoProps = Readonly<{
 
 function FunnelConversionInfo({
   connectorId,
-  conversion,
+  description,
   fromLabel,
   isOpen,
   onOpenChange,
@@ -84,7 +88,7 @@ function FunnelConversionInfo({
     >
       <button
         aria-describedby={isOpen ? tooltipId : undefined}
-        aria-label={`Show conversion from ${fromLabel} to ${toLabel}`}
+        aria-label={`About ${fromLabel} to ${toLabel}`}
         className="relative z-10 inline-flex size-11 items-center justify-center rounded-md text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         data-funnel-info-trigger
         onBlur={() => onOpenChange(connectorId, false)}
@@ -101,12 +105,12 @@ function FunnelConversionInfo({
       </button>
       {isOpen ? (
         <span
-          className="absolute bottom-[calc(50%+1.5rem)] left-1/2 z-20 w-max max-w-48 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs font-bold whitespace-nowrap text-[var(--foreground)] shadow-xs"
+          className="absolute bottom-[calc(50%+1.5rem)] left-1/2 z-20 w-max max-w-48 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs font-bold whitespace-normal text-[var(--foreground)] shadow-xs"
           data-funnel-tooltip
           id={tooltipId}
           role="tooltip"
         >
-          {conversion}
+          {description}
         </span>
       ) : null}
       <ArrowRight
@@ -200,10 +204,14 @@ export function ConversionFunnel({
                   <ChevronRight aria-hidden="true" className="absolute right-0 size-5" data-funnel-chevron />
                 </span>
               </button>
-              {!isFinalStep ? (
+              {!isFinalStep && step.metricId !== "inquiries" ? (
                 <FunnelConversionInfo
                   connectorId={step.metricId}
-                  conversion={nextStep?.conversion ?? ""}
+                  description={
+                    reportingJourneyTransitionDescriptions[
+                      step.metricId === "views" ? "profileViews" : step.metricId
+                    ]
+                  }
                   fromLabel={step.label}
                   isOpen={isConnectorOpen}
                   onOpenChange={handleConnectorOpenChange}
@@ -214,6 +222,9 @@ export function ConversionFunnel({
           )
         })}
       </ol>
+      <p className="border-t border-[var(--border)] px-5 py-3 text-xs">
+        {reportingJourneyMeasurementDescription}
+      </p>
       <p aria-live="polite" className="sr-only">
         {selectedStage ? `${selectedStage.label} funnel stage selected.` : null}
       </p>

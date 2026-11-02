@@ -15,7 +15,7 @@ const metricIds: readonly DashboardJourneyStageId[] = [
   "impressions",
   "profileViews",
   "uniqueVisitors",
-  "contacts",
+  "inquiryStarters",
   "inquiries",
 ]
 

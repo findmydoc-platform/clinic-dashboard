@@ -14,6 +14,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Password").fill("clinic-dashboard-test")
   await page.getByRole("button", { name: "Sign in" }).click()
   await expect(page).toHaveURL(/\/clinics\/controlled-clinic\?section=dashboard$/)
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
   const navigation = page.getByRole("button", { name: "Open navigation", exact: true })
   if (await navigation.isVisible()) await navigation.click()
   await page.getByRole("button", { name: "Clinic profile", exact: true }).click()

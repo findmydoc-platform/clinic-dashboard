@@ -28,6 +28,14 @@ describe("clinic dashboard reporting browser adapter", () => {
     expect(JSON.stringify(fetcher.mock.calls[0]?.[1])).not.toContain("Authorization")
   })
 
+  it("rejects a V2 response missing the visitor metric", async () => {
+    const { uniqueVisitors: _visitors, ...metrics } = clinicDashboardReportingFixture.metrics
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({ ...clinicDashboardReportingFixture, metrics }),
+    )
+    await expect(loadClinicDashboardReportingFromBrowser("clinic-1", 30, fetcher)).resolves.toBeUndefined()
+  })
+
   it("rejects malformed BFF data rather than producing a metric value", async () => {
     const fetcher = vi.fn<typeof fetch>(
       async () =>

@@ -44,7 +44,7 @@ async function expectSevenDayJourney(canvasElement: HTMLElement) {
   await expect(canvas.getByRole("list", { name: "Conversion stages" })).toBeInTheDocument()
   await expect(canvas.getAllByRole("listitem")).toHaveLength(5)
   await expect(canvasElement.querySelectorAll("[data-funnel-stage]")).toHaveLength(5)
-  await expect(canvas.getAllByRole("button", { name: /Show conversion from/ })).toHaveLength(4)
+  await expect(canvas.getAllByRole("button", { name: /About/ })).toHaveLength(4)
   await expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument()
 }
 
@@ -92,13 +92,13 @@ async function expectStackedFunnel(canvasElement: HTMLElement) {
 
 async function expectConversionInfoInteractions(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
-  const triggers = canvas.getAllByRole("button", { name: /Show conversion from/ })
+  const triggers = canvas.getAllByRole("button", { name: /About/ })
   const restingTriggerBackground = getComputedStyle(triggers[0]).backgroundColor
 
   await userEvent.hover(triggers[0])
   const tooltip = await canvas.findByRole("tooltip")
 
-  await expect(tooltip).toHaveTextContent("18.1% of impressions")
+  await expect(tooltip).toHaveTextContent("interest beyond seeing the listing")
   await expect(getComputedStyle(triggers[0]).backgroundColor).toBe(restingTriggerBackground)
   await expect(getComputedStyle(tooltip).backgroundColor).not.toBe("rgba(0, 0, 0, 0)")
   await expect(getComputedStyle(tooltip).backgroundColor).not.toBe("transparent")
@@ -108,13 +108,13 @@ async function expectConversionInfoInteractions(canvasElement: HTMLElement) {
   await waitFor(() => expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument())
 
   triggers[1].focus()
-  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("64.0% of profile views")
+  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("not another action")
   await userEvent.keyboard("{Escape}")
   await waitFor(() => expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument())
   await expect(triggers[1]).toHaveFocus()
 
   await userEvent.click(triggers[2])
-  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("2.2% of unique visitors")
+  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("starts editing the inquiry form")
   await expect(canvas.getAllByRole("tooltip")).toHaveLength(1)
 
   await userEvent.click(canvas.getByRole("heading", { name: "Conversion funnel (7 days)" }))
@@ -254,7 +254,7 @@ export const NarrowViewport: Story = {
     await expectStackedFunnel(canvasElement)
 
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getAllByRole("button", { name: /Show conversion from/ })[0])
+    await userEvent.click(canvas.getAllByRole("button", { name: /About/ })[0])
     const tooltipBounds = (await canvas.findByRole("tooltip")).getBoundingClientRect()
 
     await expect(tooltipBounds.left).toBeGreaterThanOrEqual(-0.5)

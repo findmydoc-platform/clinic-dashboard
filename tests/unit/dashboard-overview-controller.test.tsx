@@ -84,6 +84,7 @@ it.each(["other-principal:clinic", "principal:other-clinic"])(
 
 it.each([
   "{",
+  JSON.stringify({ scope: "principal:clinic", periodDays: 90, metricId: "contacts" }),
   "null",
   JSON.stringify({ scope: "principal:clinic", periodDays: 365, metricId: "inquiries" }),
   JSON.stringify({ scope: "principal:clinic", periodDays: 90, metricId: "unknown" }),
@@ -127,13 +128,13 @@ it("retains the selected measurement across a reporting period change", async ()
       loadReporting,
     }),
   )
-  act(() => result.current.actions.selectMetric("contacts"))
+  act(() => result.current.actions.selectMetric("inquiryStarters"))
   expect(loadReporting).not.toHaveBeenCalled()
   await act(async () => {
     await result.current.actions.changePeriodDays(7)
   })
   expect(result.current.model.periodDays).toBe(7)
-  expect(result.current.model.selectedMetric.id).toBe("contacts")
+  expect(result.current.model.selectedMetric.id).toBe("inquiryStarters")
   expect(result.current.model.profileProgress).toBe(dashboardProfileProgressReady)
   expect(loadReporting).toHaveBeenCalledExactlyOnceWith(7)
 })

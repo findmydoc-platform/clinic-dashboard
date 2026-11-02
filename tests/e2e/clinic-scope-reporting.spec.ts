@@ -44,9 +44,7 @@ test("keeps reporting selections through section navigation and document reload"
     "true",
   )
 
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("902", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 902" })).toBeVisible()
   let release!: () => void
   const pending = new Promise<void>((resolve) => {
     release = resolve
@@ -66,14 +64,10 @@ test("keeps reporting selections through section navigation and document reload"
   )
   await expect(inquiries).toHaveAttribute("aria-pressed", "true")
   await expect(profileViews).toContainText("Loading")
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("284", { exact: true }),
-  ).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Profile views 284" })).toHaveCount(0)
   release()
   expect((await restored).status()).toBe(200)
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("902", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 902" })).toBeVisible()
   expect(hydrationErrors).toEqual([])
   await page.screenshot({ path: "output/playwright/reporting-selection-reloaded.png", fullPage: true })
 
@@ -99,9 +93,7 @@ test("fresh personal clinic list scopes reporting and keeps the selected section
     schemaVersion: "clinic-scope-v1",
     clinics: [{ id: "controlled-clinic" }, { id: "controlled-second-clinic" }],
   })
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("284", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 284" })).toBeVisible()
   await page.getByRole("button", { name: "Clinic profile", exact: true }).click()
   await expect(page.getByRole("heading", { name: "Clinic profile", exact: true })).toBeVisible()
   await expect(page.getByRole("region", { name: "Clinic image gallery" })).toBeVisible()
@@ -112,9 +104,7 @@ test("fresh personal clinic list scopes reporting and keeps the selected section
     "page",
   )
   await page.getByRole("button", { name: "Dashboard", exact: true }).click()
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("109", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 109" })).toBeVisible()
   const forbidden = await page.request.get("/api/dashboard/clinics/foreign-clinic/reporting?periodDays=30")
   expect(forbidden.status()).toBe(403)
   expect(forbidden.headers()["cache-control"]).toContain("private")
@@ -226,9 +216,7 @@ test("replaces old reporting state and rejects a delayed old-clinic response", a
   await expect.poll(() => oldRequested).toBe(true)
   await switchClinic(page, "Second Controlled Clinic")
   await expect(page).toHaveURL(/\/clinics\/controlled-second-clinic/)
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("109", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 109" })).toBeVisible()
   release()
   await expect.poll(() => oldResponded).toBe(true)
   await expect(page.getByText("99999", { exact: true })).toHaveCount(0)
@@ -322,4 +310,161 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
   expect(
     (await context.cookies()).some((cookie) => cookie.name === "clinic_dashboard_controlled_session"),
   ).toBe(true)
+})
+
+test("keeps the five-card flow and independent Payload facts through an analytics outage", async ({
+  page,
+}) => {
+  await signIn(page)
+  await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
+  const stages = page.getByRole("list", { name: "Conversion stages" })
+  await expect(stages.locator("[data-funnel-stage]")).toHaveCount(5)
+  expect(
+    await stages
+      .locator("[data-funnel-stage]")
+      .evaluateAll((cards) => cards.map((card) => card.getAttribute("data-funnel-stage"))),
+  ).toEqual(["impressions", "profileViews", "uniqueVisitors", "inquiryStarters", "inquiries"])
+  const metrics = page.getByRole("region", { name: "Dashboard metrics" })
+  await expect(metrics.getByText("Public profile completion", { exact: true })).toBeVisible()
+  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(4)
+  await expect(stages.locator('[data-funnel-stage="profileViews"]')).toHaveAttribute("aria-pressed", "true")
+
+  for (const [id, label] of [
+    ["impressions", "Impressions"],
+    ["profileViews", "Profile views"],
+    ["uniqueVisitors", "Unique visitors"],
+    ["inquiryStarters", "Inquiry starters"],
+    ["inquiries", "Inquiries"],
+  ]) {
+    const card = stages.locator(`[data-funnel-stage="${id}"]`)
+    await card.focus()
+    await page.keyboard.press("Enter")
+    await expect(card).toBeFocused()
+    await expect(card).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByRole("heading", { level: 2, name: label, exact: true })).toBeVisible()
+    if (id === "impressions")
+      await expect(page.getByText("Incomplete data coverage", { exact: true })).toBeVisible()
+  }
+
+  const reporting = await (
+    await page.request.get("/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7")
+  ).json()
+  const unavailable = {
+    current: { state: "source_unavailable", value: null },
+    comparison: { state: "source_unavailable", value: null, absoluteDelta: null, relativeDeltaPercent: null },
+    source: "posthog",
+  }
+  await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?periodDays=7", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...reporting,
+        metrics: {
+          ...reporting.metrics,
+          impressions: unavailable,
+          profileViews: unavailable,
+          uniqueVisitors: unavailable,
+          inquiryStarters: unavailable,
+        },
+      }),
+    }),
+  )
+  await page.getByRole("button", { name: "7 days", exact: true }).click()
+  await expect(stages.getByRole("button", { name: "Profile views Not available", exact: true })).toBeVisible()
+  await expect(stages.locator('[data-funnel-stage="inquiries"]')).toHaveAttribute("aria-pressed", "true")
+  await expect(stages.getByRole("button", { name: "Inquiries 7", exact: true })).toBeVisible()
+  await stages.locator('[data-funnel-stage="profileViews"]').click()
+  await expect(page.getByText("Data source unavailable", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 71", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Public profile progress", exact: true })).toBeVisible()
+  await expect(page.getByText("4.8 / 5", { exact: true })).toBeVisible()
+  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(4)
+  await page.screenshot({ path: "output/playwright/305-five-card-analytics-outage.png", fullPage: true })
+})
+
+test("inquiry starters restores legacy preferences and stays usable with keyboard, touch and both themes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await signIn(page)
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard", exact: true })).toBeVisible()
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      "fmd-dashboard-reporting-selection",
+      JSON.stringify({
+        scope: "controlled-clinic-staff:controlled-clinic",
+        periodDays: 90,
+        metricId: "contacts",
+      }),
+    ),
+  )
+  await page.reload()
+  await expect(page.locator('[data-funnel-stage="profileViews"]')).toHaveAttribute("aria-pressed", "true")
+  await page.getByRole("button", { name: "7 days", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Profile views 71", exact: true })).toBeVisible()
+  const starters = page.locator('[data-funnel-stage="inquiryStarters"]')
+  await starters.focus()
+  await page.keyboard.press("Enter")
+  await expect(starters).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("heading", { level: 2, name: "Inquiry starters", exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "90 days", exact: true }).click()
+  await page.getByRole("button", { name: "Reviews", exact: true }).click()
+  await page.getByRole("button", { name: "Dashboard", exact: true }).click()
+  await page.reload()
+  await expect(starters).toHaveAttribute("aria-pressed", "true")
+  const errors: string[] = []
+  page.on("pageerror", (error) => errors.push(error.message))
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 760 })
+    for (const theme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: theme })
+      await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /light/)
+      await page.evaluate(() => {
+        ;(document.activeElement as HTMLElement | null)?.blur()
+        window.scrollTo(0, 0)
+      })
+      await page.screenshot({
+        path: `output/playwright/302-inquiry-starters-${theme}-${width}.png`,
+        fullPage: true,
+      })
+      await page.getByRole("button", { name: "About Inquiry starters details", exact: true }).click()
+      const explanation = page.getByRole("dialog", { name: "About Inquiry starters details", exact: true })
+      await expect(explanation).toContainText("once per clinic and period")
+      await expect(explanation).toContainText("Unique Visitors")
+      const bounds = await explanation.boundingBox()
+      expect(bounds!.x).toBeGreaterThanOrEqual(0)
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+      expect(bounds!.y).toBeGreaterThanOrEqual(0)
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(width === 1440 ? 1000 : 760)
+      await page.screenshot({ path: `output/playwright/302-inquiry-starters-info-${theme}-${width}.png` })
+      await page.keyboard.press("Escape")
+      await expect(explanation).not.toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+  }
+  expect(errors).toEqual([])
+})
+
+test.describe("inquiry starter touch explanation", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 500 } })
+  test("selects inquiry starters and dismisses its explanation by touch", async ({ page }) => {
+    await signIn(page)
+    await page.locator('[data-funnel-stage="inquiryStarters"]').tap()
+    await page.getByRole("button", { name: "About Inquiry starters details", exact: true }).tap()
+    const explanation = page.getByRole("dialog", { name: "About Inquiry starters details", exact: true })
+    await expect(explanation).toContainText("invalid, cleared and later submitted input")
+    const bounds = await explanation.boundingBox()
+    expect(bounds!.y).toBeGreaterThanOrEqual(0)
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(500)
+    expect(
+      await explanation.evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+        return element.scrollTop
+      }),
+    ).toBeGreaterThan(0)
+    await page.screenshot({ path: "output/playwright/302-inquiry-starters-touch-320.png" })
+    await page.getByRole("button", { name: "Close explanation" }).tap()
+    await expect(explanation).not.toBeVisible()
+  })
 })

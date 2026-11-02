@@ -15,10 +15,10 @@ type DashboardMetricDefinition = Readonly<{
 }>
 
 export const dashboardMetricDefinitions = {
-  contacts: {
-    label: "Contacts",
-    totalKey: "contacts",
-    valueLabels: { plural: "contacts", singular: "contact" },
+  inquiryStarters: {
+    label: "Inquiry starters",
+    totalKey: "inquiryStarters",
+    valueLabels: { plural: "inquiry starters", singular: "inquiry starter" },
   },
   impressions: {
     label: "Impressions",
@@ -71,7 +71,7 @@ function getMetricDelta(metrics: readonly DashboardMetric[], metricId: Dashboard
 
 function getMetricComparison(reporting: DashboardReportingSnapshot, metricId: DashboardSelectableMetricId) {
   if (metricId === "uniqueVisitors") {
-    return `${((reporting.totals.uniqueVisitors / reporting.totals.profileViews) * 100).toFixed(1)}% of profile views`
+    return "Recognized browser visitors in the selected period"
   }
 
   return `${getMetricDelta(reporting.metrics, metricId)} vs. previous ${reporting.period}`
@@ -87,7 +87,7 @@ export function createDashboardMetricSelection(
 
   return {
     comparison: getMetricComparison(reporting, metricId),
-    description: `${cadenceLabel} ${definition.valueLabels.plural} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic demo data; not live analytics.`,
+    description: `${metricId === "impressions" ? "Consent-eligible clinic search results actually visible in the active browser window, once per clinic and opened result view. Loading, prefetching, hidden tabs and results outside the viewport do not count. Scroll and tab returns do not add an impression. A new search or results page may count again when visible. No minimum duration or percentage threshold applies. Arrows show order, not conversion rates. " : ""}${metricId === "inquiryStarters" ? "Recognized consent-eligible browser visitors with their own content edit in the inquiry form, once per clinic and period, including invalid, cleared and submitted input. Opening, focus, scrolling, automatic or outside-form prefill and consent alone do not count. Uses the same browser recognition as Unique Visitors. Browser/device changes and cleared storage can count a visitor again. No completion or abandonment rate is calculated. " : ""}${metricId === "uniqueVisitors" ? "Recognized consent-eligible browser visitors, once per clinic and period, using the same recognition as Inquiry starters. Browser/device changes and cleared storage can count a visitor again. " : ""}${cadenceLabel} ${definition.valueLabels.plural} across the selected ${reporting.period} total ${formatCount(total)}. Deterministic demo data; not live analytics.`,
     id: metricId,
     points: reporting.chart.series[metricId],
     summary: dashboardSelectableMetricIds.map((id) => {

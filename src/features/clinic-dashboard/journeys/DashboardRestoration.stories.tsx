@@ -32,17 +32,17 @@ type Story = StoryObj<typeof meta>
 export const RetainsPeriodAndMetricThroughReviewNavigation: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: /Contacts Not supported yet/ }))
+    await userEvent.click(canvas.getByRole("button", { name: /Inquiry starters 12/ }))
     await userEvent.click(canvas.getByRole("button", { name: "90 days" }))
     await userEvent.click(canvas.getByRole("button", { name: "View reviews" }))
     await expect(canvas.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Dashboard" }))
     await expect(canvas.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-    await expect(canvas.getByRole("button", { name: /Contacts Not supported yet/ })).toHaveAttribute(
+    await expect(canvas.getByRole("button", { name: /Inquiry starters 12/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     )
-    await expect(canvas.getByRole("heading", { name: "Contacts" })).toBeVisible()
+    await expect(canvas.getByRole("heading", { name: "Inquiry starters" })).toBeVisible()
   },
 }
 
@@ -65,9 +65,7 @@ export const NotificationFailureLeavesReportingAndTasksUsable: Story = {
     await expect(args.notificationCommands!.load).toHaveBeenCalled()
     await userEvent.click(canvas.getByRole("button", { name: "Close notifications" }))
     await expect(canvas.getByRole("list", { name: "Profile tasks" })).toBeVisible()
-    await expect(
-      within(canvas.getByRole("region", { name: "Dashboard metrics" })).getByText("284"),
-    ).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Profile views 284" })).toBeVisible()
     await expect(args.loadReporting).toHaveBeenCalledTimes(1)
     await userEvent.click(canvas.getByRole("button", { name: "View details for Complete address" }))
     await expect(

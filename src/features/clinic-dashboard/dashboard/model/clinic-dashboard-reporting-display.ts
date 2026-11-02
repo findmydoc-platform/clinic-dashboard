@@ -2,7 +2,6 @@ import type {
   ClinicDashboardReportingCountMetric,
   ClinicDashboardReportingMetricValue,
   ClinicDashboardReportingSource,
-  ClinicDashboardReportingSessionConversion,
   ClinicDashboardReportingSourceState,
 } from "./clinic-dashboard-reporting"
 
@@ -21,13 +20,11 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value)
 }
 
-function comparisonInformation(state: ClinicDashboardReportingSourceState | "zero_denominator") {
+function comparisonInformation(state: ClinicDashboardReportingSourceState) {
   if (state === "partial_coverage")
     return "Comparison not yet available. The preceding period does not have complete measurement coverage."
   if (state === "source_unavailable")
     return "Comparison unavailable. The data source could not supply the preceding period."
-  if (state === "zero_denominator")
-    return "Comparison unavailable. No profile-view sessions were recorded in the preceding period."
   return undefined
 }
 
@@ -80,33 +77,6 @@ export function createCountMetricDisplay<Source extends ClinicDashboardReporting
   return {
     ...display,
     comparison: `${formatSignedNumber(comparison.absoluteDelta)} compared with the previous period`,
-  }
-}
-
-function formatReportingPercent(value: number | null) {
-  return value === null
-    ? "Not available"
-    : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value) + "%"
-}
-
-export function createSessionConversionDisplay(
-  metric: ClinicDashboardReportingSessionConversion,
-): CountMetricDisplay {
-  const current = metric.current
-  if (current.state === "zero_denominator") {
-    return { detail: "No profile-view sessions were recorded.", value: "Not available" }
-  }
-  const display = createMetricValueDisplay({ state: current.state, value: current.ratePercent })
-  return {
-    ...display,
-    comparison:
-      current.state === "available" &&
-      metric.comparison.state === "available" &&
-      metric.comparison.percentagePointDelta !== null
-        ? `${formatSignedNumber(metric.comparison.percentagePointDelta)} percentage points compared with the previous period`
-        : undefined,
-    information: current.state === "available" ? comparisonInformation(metric.comparison.state) : undefined,
-    value: current.state === "available" ? formatReportingPercent(current.ratePercent) : display.value,
   }
 }
 

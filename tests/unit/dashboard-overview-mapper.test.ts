@@ -10,70 +10,22 @@ import { clinicProfileSourceDraftFixture } from "@/features/clinic-dashboard/cli
 import { clinicGallerySnapshotFixture } from "@/features/clinic-dashboard/clinic-profile/testing/clinic-profile.fixtures"
 
 describe("dashboard overview presentation", () => {
-  it("maps five journey cards without substituting sessions or CTA clicks for unsupported measurements", () => {
+  it("shows consent-based inquiry starters and their own available current window", () => {
     const model = createDashboardOverview({
-      reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
-      periodDays: 30,
-      profileProgress: dashboardProfileProgressReady,
-      clinicPreview: { status: "unavailable", name: "Controlled clinic" },
-      selectedMetricId: "contacts",
-    })
-    expect(model.journey.map(({ id, value, availability }) => ({ id, value, availability }))).toEqual([
-      { id: "impressions", value: "Not supported yet", availability: "unsupported" },
-      { id: "profileViews", value: "284", availability: "available" },
-      { id: "uniqueVisitors", value: "Not supported yet", availability: "unsupported" },
-      { id: "contacts", value: "Not supported yet", availability: "unsupported" },
-      { id: "inquiries", value: "7", availability: "available" },
-    ])
-    expect(model.metrics.map(({ id }) => id)).toEqual([
-      "completion",
-      "impressions",
-      "profileViews",
-      "contacts",
-      "inquiries",
-    ])
-    for (const id of ["impressions", "profileViews", "contacts", "inquiries"]) {
-      expect(model.metrics.find((metric) => metric.id === id)).toEqual(
-        model.journey.find((stage) => stage.id === id),
-      )
-    }
-    expect(model.selectedMetric.id).toBe("contacts")
-    expect(model.selectedMetric.information).toContain("Chat conversations")
-    expect(model.selectedMetric.comparison).toBeUndefined()
-  })
-  it("keeps session counts separate and preserves independent Payload facts on an analytics outage", () => {
-    const ready = createDashboardOverview({
-      reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
-      periodDays: 30,
-      profileProgress: dashboardProfileProgressReady,
-      clinicPreview: { status: "unavailable", name: "Controlled clinic" },
-      selectedMetricId: "inquiries",
-    })
-    expect(ready.sessionConversionSummary).toMatchObject({
-      profileSessions: "200",
-      convertedSessions: "9",
-      conversion: "4.5%",
-    })
-    expect(ready.metrics.find((metric) => metric.id === "inquiries")?.value).toBe("7")
-    expect(ready.metrics.find((metric) => metric.id === "completion")?.value).toBe("67%")
-    const outage = createDashboardOverview({
       reporting: {
         status: "ready",
         reporting: {
           ...clinicDashboardReportingFixture,
           metrics: {
             ...clinicDashboardReportingFixture.metrics,
-            profileViews: {
-              ...clinicDashboardReportingFixture.metrics.profileViews,
-              current: { state: "source_unavailable", value: null },
-            },
-            sessionConversion: {
-              ...clinicDashboardReportingFixture.metrics.sessionConversion,
-              current: {
-                state: "source_unavailable",
-                denominatorSessions: null,
-                numeratorSessions: null,
-                ratePercent: null,
+            inquiryStarters: {
+              source: "posthog",
+              current: { state: "available", value: 12 },
+              comparison: {
+                state: "partial_coverage",
+                value: null,
+                absoluteDelta: null,
+                relativeDeltaPercent: null,
               },
             },
           },
@@ -82,15 +34,105 @@ describe("dashboard overview presentation", () => {
       periodDays: 30,
       profileProgress: dashboardProfileProgressReady,
       clinicPreview: { status: "unavailable", name: "Controlled clinic" },
-      selectedMetricId: "profileViews",
+      selectedMetricId: "inquiryStarters",
     })
-    expect(outage.selectedMetric.value).toBe("Not available")
-    expect(outage.sessionConversionSummary.conversion).toBeUndefined()
-    expect(outage.sessionConversionSummary.profileSessions).toBe("Not available")
-    expect(outage.metrics.find((metric) => metric.id === "inquiries")?.value).toBe("7")
-    expect(outage.reviews.average).toBe("4.8 / 5")
+    expect(model.selectedMetric).toMatchObject({
+      id: "inquiryStarters",
+      label: "Inquiry starters",
+      value: "12",
+      availability: "available",
+    })
+    expect(model.selectedMetric.comparison).toBeUndefined()
+    expect(model.selectedMetric.information).toContain("once per clinic and period")
+    expect(model.selectedMetric.information).toContain("Unique Visitors")
   })
 
+  it("shows accepted search impressions with their visibility and view counting boundaries", () => {
+    const model = createDashboardOverview({
+      reporting: {
+        status: "ready",
+        reporting: {
+          ...clinicDashboardReportingFixture,
+          metrics: {
+            ...clinicDashboardReportingFixture.metrics,
+            impressions: {
+              source: "posthog",
+              current: { state: "available", value: 600 },
+              comparison: { state: "available", value: 500, absoluteDelta: 100, relativeDeltaPercent: 20 },
+            },
+          },
+        },
+      },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: { status: "unavailable", name: "Controlled clinic" },
+      selectedMetricId: "impressions",
+    })
+    expect(model.selectedMetric).toMatchObject({ id: "impressions", availability: "available", value: "600" })
+    expect(model.selectedMetric.information).toContain("active browser window")
+    expect(model.selectedMetric.information).toContain("once per result view")
+    expect(model.selectedMetric.information).toContain("consent")
+  })
+  it("shows distinct browser visitors in the selected detail and preserves independent Payload facts", () => {
+    const model = createDashboardOverview({
+      reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: { status: "unavailable", name: "Controlled clinic" },
+      selectedMetricId: "uniqueVisitors",
+    })
+    expect(model.selectedMetric).toMatchObject({
+      id: "uniqueVisitors",
+      value: "200",
+      availability: "available",
+    })
+    expect(model.selectedMetric.information).toContain("Browser or device changes")
+    expect(model.journey.find((stage) => stage.id === "profileViews")?.value).toBe("284")
+    expect(model.journey.find((stage) => stage.id === "inquiries")?.value).toBe("7")
+    expect(model.reviews.average).toBe("4.8 / 5")
+    expect(model.metrics.find((metric) => metric.id === "completion")?.value).toBe("67%")
+  })
+  it.each([
+    ["available", 0, "0", "available", undefined],
+    ["partial_coverage", null, "Not available", "unavailable", "Incomplete data coverage"],
+    ["source_unavailable", null, "Not available", "unavailable", "Data source unavailable"],
+  ] as const)(
+    "keeps the impressions %s state distinct in its selected detail",
+    (state, value, expectedValue, availability, detail) => {
+      const model = createDashboardOverview({
+        reporting: {
+          status: "ready",
+          reporting: {
+            ...clinicDashboardReportingFixture,
+            metrics: {
+              ...clinicDashboardReportingFixture.metrics,
+              impressions: {
+                source: "posthog",
+                current: { state, value },
+                comparison: {
+                  state: "partial_coverage",
+                  value: null,
+                  absoluteDelta: null,
+                  relativeDeltaPercent: null,
+                },
+              },
+            },
+          },
+        },
+        periodDays: 30,
+        profileProgress: dashboardProfileProgressReady,
+        clinicPreview: { status: "unavailable", name: "Controlled clinic" },
+        selectedMetricId: "impressions",
+      })
+      expect(model.selectedMetric).toMatchObject({ id: "impressions", value: expectedValue, availability })
+      expect(model.selectedMetric.detail).toBe(detail)
+      expect(model.selectedMetric.comparison).toBeUndefined()
+      if (state === "available")
+        expect(model.selectedMetric.information).toContain(
+          "preceding period does not have complete measurement coverage",
+        )
+    },
+  )
   it("shows no rating and no period claim when there are no public reviews", () => {
     const model = createDashboardOverview({
       reporting: {
@@ -132,26 +174,7 @@ describe("dashboard overview presentation", () => {
     expect(model.reviews.rating).toBeNull()
     expect(model.profileProgress).toBe(dashboardProfileProgressReady)
   })
-  it.each(["loading", "temporarily-unavailable"] as const)(
-    "keeps unsupported KPIs distinct when reporting is %s",
-    (status) => {
-      const model = createDashboardOverview({
-        reporting: { status },
-        periodDays: 30,
-        profileProgress: dashboardProfileProgressReady,
-        clinicPreview: { status: "unavailable", name: "Controlled clinic" },
-        selectedMetricId: "profileViews",
-      })
-      for (const id of ["impressions", "contacts"]) {
-        expect(model.metrics.find((metric) => metric.id === id)).toMatchObject({
-          availability: "unsupported",
-          value: "Not supported yet",
-        })
-        expect(model.metrics.find((metric) => metric.id === id)?.comparison).toBeUndefined()
-      }
-    },
-  )
-  it("shows a measured zero without treating unsupported KPIs as zero", () => {
+  it("shows a measured zero while incomplete impressions remain unavailable", () => {
     const model = createDashboardOverview({
       reporting: {
         status: "ready",
@@ -173,7 +196,7 @@ describe("dashboard overview presentation", () => {
     })
     expect(model.metrics.find((metric) => metric.id === "profileViews")?.value).toBe("0")
     expect(model.selectedMetric.value).toBe("0")
-    expect(model.metrics.find((metric) => metric.id === "impressions")?.value).toBe("Not supported yet")
+    expect(model.metrics.find((metric) => metric.id === "impressions")?.value).toBe("Not available")
   })
   it("uses the published profile and first published gallery image, never the draft", () => {
     const clinic = createDashboardClinicPreview({
