@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process"
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
+import type { JSONReport, JSONReportSuite, JSONReportTest } from "@playwright/test/reporter"
 import { afterEach, describe, expect, it, vi } from "vitest"
 // @ts-expect-error Executable repository tooling has no declaration package.
 import * as changeScope from "../../scripts/ci/change-scope.mjs"
@@ -395,9 +396,26 @@ describe("selected execution and measurements", () => {
 
   it("escapes Playwright regular expression filters for exact changed filenames", () => {
     const file = "tests/e2e/flow (a).spec.ts"
-    expect(testCommand("e2e", classifyChanges([modified(file)])).at(-1)).toBe(
+    expect(testCommand("e2e", classifyChanges([modified(file)]))).toContain(
       "tests/e2e/flow \\(a\\)\\.spec\\.ts$",
     )
+  })
+
+  it("selects the changed E2E file in the installed Playwright chromium project", () => {
+    const file = "tests/e2e/clinic-scope-reporting.spec.ts"
+    const command = testCommand("e2e", classifyChanges([modified(file)]))
+    const report = JSON.parse(
+      execFileSync("pnpm", [...command, "--list", "--reporter=json"], { encoding: "utf8" }),
+    ) as JSONReport
+    const listedTests = (suite: JSONReportSuite): JSONReportTest[] => [
+      ...suite.specs.flatMap((spec) => spec.tests),
+      ...(suite.suites ?? []).flatMap(listedTests),
+    ]
+    const tests = report.suites.flatMap(listedTests)
+    expect(report.errors).toEqual([])
+    expect(report.suites.map((suite) => suite.file)).toEqual(["clinic-scope-reporting.spec.ts"])
+    expect(tests.length).toBeGreaterThan(0)
+    expect(new Set(tests.map((selected) => selected.projectName))).toEqual(new Set(["chromium"]))
   })
 
   it("scans changed existing files, skips deleted files, and supports a full scan", () => {
