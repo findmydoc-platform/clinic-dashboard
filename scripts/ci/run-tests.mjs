@@ -7,7 +7,7 @@ export function testCommand(project, scope) {
     unit: ["exec", "vitest", "run", "--project", "unit"],
     integration: ["exec", "vitest", "run", "--project", "integration"],
     storybook: ["exec", "vitest", "run", "--project", "storybook", "--bail=1"],
-    e2e: ["exec", "playwright", "test", "--project", "chromium"],
+    e2e: ["exec", "playwright", "test"],
   }
   const patterns = {
     unit: /^tests\/unit\/.+\.test\.tsx?$/,
@@ -29,7 +29,7 @@ export function testCommand(project, scope) {
   }
   const filters =
     project === "e2e" ? files.map((file) => `${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) : files
-  return [...commands[project], ...filters]
+  return [...commands[project], ...filters, ...(project === "e2e" ? ["--project", "chromium"] : [])]
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
