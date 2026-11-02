@@ -48,12 +48,23 @@ export const Available: Story = {
     await expect(canvas.queryByText(/Profile-view sessions|Converted sessions/)).not.toBeInTheDocument()
     await userEvent.click(stages.getByRole("button", { name: /Impressions Not available/ }))
     await expect(args.onSelect).toHaveBeenCalledWith("impressions")
-    await userEvent.click(canvas.getByRole("button", { name: "About Profile views to Unique visitors" }))
-    const explanation = within(document.body).getByRole("dialog", {
-      name: "About Profile views to Unique visitors",
-    })
-    await expect(explanation).toHaveTextContent("not a measured conversion rate")
+    for (const [transition, meaning] of [
+      ["Impressions to Profile views", "interest beyond seeing the listing"],
+      ["Profile views to Unique visitors", "not another action"],
+      ["Unique visitors to Inquiry starters", "starts editing the inquiry form"],
+      ["Inquiry starters to Inquiries", "successfully submitted and saved requests"],
+    ]) {
+      const trigger = canvas.getByRole("button", { name: `About ${transition}` })
+      await userEvent.click(trigger)
+      const explanation = within(document.body).getByRole("dialog", { name: `About ${transition}` })
+      await expect(explanation).toHaveTextContent(meaning)
+      await userEvent.keyboard("{Escape}")
+      await expect(trigger).toHaveFocus()
+    }
+    await userEvent.click(canvas.getByRole("button", { name: "About Journey measurements" }))
+    await expect(
+      within(document.body).getByRole("dialog", { name: "About Journey measurements" }),
+    ).toHaveTextContent("do not track one linked group of visitors")
     await userEvent.keyboard("{Escape}")
-    await expect(canvas.getByRole("button", { name: "About Profile views to Unique visitors" })).toHaveFocus()
   },
 }

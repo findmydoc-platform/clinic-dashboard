@@ -278,7 +278,7 @@ export const FunnelControlsChart: Story = {
         name: "About Profile views to Unique visitors",
       }),
     )
-    await expect(canvas.getByRole("tooltip")).toHaveTextContent("not a measured conversion rate")
+    await expect(canvas.getByRole("tooltip")).toHaveTextContent("not another action")
     await expect(canvas.queryByText("64.0% of profile views")).not.toBeInTheDocument()
 
     const inquiryStartersButton = funnel.getByRole("button", { name: "Inquiry starters 12" })

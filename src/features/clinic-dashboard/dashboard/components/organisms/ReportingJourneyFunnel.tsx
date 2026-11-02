@@ -10,6 +10,10 @@ import {
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { DashboardJourneyStage, DashboardJourneyStageId } from "../../model/dashboard-overview"
+import {
+  reportingJourneyMeasurementDescription,
+  reportingJourneyTransitionDescriptions,
+} from "../../model/reporting-journey-information"
 import { ReportingInformation } from "../molecules/ReportingInformation"
 
 const icons = {
@@ -42,8 +46,7 @@ export function ReportingJourneyFunnel({
           Conversion funnel ({periodDays} days)
         </h2>
         <ReportingInformation label="Journey measurements">
-          The cards show separate measurements. Arrows indicate journey order, not measured conversion between
-          stages.
+          {reportingJourneyMeasurementDescription}
         </ReportingInformation>
       </div>
       <ol
@@ -90,11 +93,10 @@ export function ReportingJourneyFunnel({
                   <ChevronRight aria-hidden="true" className="absolute right-0 size-5" />
                 </span>
               </button>
-              {nextStage ? (
+              {nextStage && stage.id !== "inquiries" ? (
                 <div className="flex min-h-20 w-full flex-col items-center justify-center px-1 py-1 text-center xl:absolute xl:top-1/2 xl:left-full xl:min-h-0 xl:w-20 xl:-translate-y-1/2 2xl:w-24">
                   <ReportingInformation label={`${stage.label} to ${nextStage.label}`}>
-                    These are separate measurements. The arrow shows journey order, not a measured conversion
-                    rate.
+                    {reportingJourneyTransitionDescriptions[stage.id]}
                   </ReportingInformation>
                   <ArrowRight
                     aria-hidden="true"

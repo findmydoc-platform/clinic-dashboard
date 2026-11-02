@@ -98,7 +98,7 @@ async function expectConversionInfoInteractions(canvasElement: HTMLElement) {
   await userEvent.hover(triggers[0])
   const tooltip = await canvas.findByRole("tooltip")
 
-  await expect(tooltip).toHaveTextContent("not a measured conversion rate")
+  await expect(tooltip).toHaveTextContent("interest beyond seeing the listing")
   await expect(getComputedStyle(triggers[0]).backgroundColor).toBe(restingTriggerBackground)
   await expect(getComputedStyle(tooltip).backgroundColor).not.toBe("rgba(0, 0, 0, 0)")
   await expect(getComputedStyle(tooltip).backgroundColor).not.toBe("transparent")
@@ -108,13 +108,13 @@ async function expectConversionInfoInteractions(canvasElement: HTMLElement) {
   await waitFor(() => expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument())
 
   triggers[1].focus()
-  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("not a measured conversion rate")
+  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("not another action")
   await userEvent.keyboard("{Escape}")
   await waitFor(() => expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument())
   await expect(triggers[1]).toHaveFocus()
 
   await userEvent.click(triggers[2])
-  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("not a measured conversion rate")
+  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("starts editing the inquiry form")
   await expect(canvas.getAllByRole("tooltip")).toHaveLength(1)
 
   await userEvent.click(canvas.getByRole("heading", { name: "Conversion funnel (7 days)" }))

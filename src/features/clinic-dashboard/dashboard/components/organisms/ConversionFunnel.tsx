@@ -19,6 +19,10 @@ import type {
   DashboardReportingPeriod,
   DashboardSelectableMetricId,
 } from "../../model/reporting"
+import {
+  reportingJourneyMeasurementDescription,
+  reportingJourneyTransitionDescriptions,
+} from "../../model/reporting-journey-information"
 
 const funnelIcons = {
   inquiryStarters: { component: MessageSquare, name: "message-square" },
@@ -38,6 +42,7 @@ type ConversionFunnelProps = Readonly<{
 
 type FunnelConversionInfoProps = Readonly<{
   connectorId: DashboardSelectableMetricId
+  description: string
   fromLabel: string
   isOpen: boolean
   onOpenChange: (connectorId: DashboardSelectableMetricId, isOpen: boolean) => void
@@ -46,6 +51,7 @@ type FunnelConversionInfoProps = Readonly<{
 
 function FunnelConversionInfo({
   connectorId,
+  description,
   fromLabel,
   isOpen,
   onOpenChange,
@@ -104,7 +110,7 @@ function FunnelConversionInfo({
           id={tooltipId}
           role="tooltip"
         >
-          These are separate measurements. The arrow shows journey order, not a measured conversion rate.
+          {description}
         </span>
       ) : null}
       <ArrowRight
@@ -198,9 +204,14 @@ export function ConversionFunnel({
                   <ChevronRight aria-hidden="true" className="absolute right-0 size-5" data-funnel-chevron />
                 </span>
               </button>
-              {!isFinalStep ? (
+              {!isFinalStep && step.metricId !== "inquiries" ? (
                 <FunnelConversionInfo
                   connectorId={step.metricId}
+                  description={
+                    reportingJourneyTransitionDescriptions[
+                      step.metricId === "views" ? "profileViews" : step.metricId
+                    ]
+                  }
                   fromLabel={step.label}
                   isOpen={isConnectorOpen}
                   onOpenChange={handleConnectorOpenChange}
@@ -211,6 +222,9 @@ export function ConversionFunnel({
           )
         })}
       </ol>
+      <p className="border-t border-[var(--border)] px-5 py-3 text-xs">
+        {reportingJourneyMeasurementDescription}
+      </p>
       <p aria-live="polite" className="sr-only">
         {selectedStage ? `${selectedStage.label} funnel stage selected.` : null}
       </p>
