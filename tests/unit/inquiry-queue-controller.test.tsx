@@ -2103,12 +2103,10 @@ it.each(["unmount", "clinic", "session", "access"])(
   "ignores a delayed mutation after %s loss",
   async (loss) => {
     let finishNote!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["addInternalNote"]>>) => void
-    const loadQueue = vi
-      .fn<InquiryWorkspaceCommands["loadQueue"]>()
-      .mockResolvedValue({
-        ok: false,
-        error: { code: loss === "session" ? "unauthorized" : "access-denied" },
-      })
+    const loadQueue = vi.fn<InquiryWorkspaceCommands["loadQueue"]>().mockResolvedValue({
+      ok: false,
+      error: { code: loss === "session" ? "unauthorized" : "access-denied" },
+    })
     const commands = createCommands({
       loadQueue,
       addInternalNote: () =>
