@@ -5,9 +5,7 @@ import { hasUnsavedInquiryDrafts, type InquiryQueueState } from "./inquiry-queue
 export function selectInquiryQueueViewModel(state: InquiryQueueState): InquiryWorkspaceViewModel {
   const selectedInquiry = state.selectedInquiryId ? state.details[state.selectedInquiryId] : undefined
   const visibleInquiries = filterPatientInquiries(state.inquiries, {
-    handlingStatus: state.handlingStatusFilter,
-    primary: state.lifecycleFilter,
-    query: state.searchQuery,
+    ...state.resultFilters,
   })
   const canReply = selectedInquiry
     ? canReplyToInquiry(selectedInquiry) && selectedInquiry.actions.canReply
@@ -45,6 +43,13 @@ export function selectInquiryQueueViewModel(state: InquiryQueueState): InquiryWo
     hasUnsavedDrafts: hasUnsavedInquiryDrafts(state),
     isMutating: state.isMutating,
     isLoadingQueue: state.isLoadingQueue,
+    queueError: state.queueError,
+    queueOperation: state.queueOperation,
+    hasPreviousResults:
+      state.resultFilters.primary !== state.lifecycleFilter ||
+      state.resultFilters.query.trim() !== state.searchQuery.trim() ||
+      state.resultFilters.handlingStatus.length !== state.handlingStatusFilter.length ||
+      state.resultFilters.handlingStatus.some((status) => !state.handlingStatusFilter.includes(status)),
     lifecycleFilter: state.lifecycleFilter,
     mobileDetailOpen: state.mobilePane === "inquiry",
     mutationError: state.mutationError,

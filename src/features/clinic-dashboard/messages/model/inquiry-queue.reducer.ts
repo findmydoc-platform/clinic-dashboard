@@ -35,6 +35,13 @@ export type InquiryQueueState = Readonly<{
   mutationError?: string
   nextCursor?: string
   searchQuery: string
+  resultFilters: Readonly<{
+    primary: InquiryPrimaryFilter
+    handlingStatus: readonly Exclude<InquiryHandlingStatus, "spam">[]
+    query: string
+  }>
+  queueError?: string
+  queueOperation?: "replace" | "refresh" | "append"
   selectedInquiryId?: string
   statusMessage: string
   unreadCount: number
@@ -57,14 +64,15 @@ export type InquiryQueueAction =
       type: "contactReauthenticationRequired"
     }>
   | Readonly<{ type: "mobileInboxRequested" }>
-  | Readonly<{ type: "queueLoadStarted" }>
-  | Readonly<{ type: "queueLoadFailed" }>
+  | Readonly<{ mode?: "replace" | "refresh" | "append"; type: "queueLoadStarted" }>
+  | Readonly<{ message?: string; type: "queueLoadFailed" }>
   | Readonly<{
       changeCursor: string
       type: "queueUnchanged"
       unreadCount: number
     }>
   | Readonly<{
+      filters?: InquiryQueueState["resultFilters"]
       mode: "append" | "refresh" | "replace"
       snapshot: Extract<PatientInquiryQueueSnapshot, { status: "ready" }>
       type: "queueLoaded"
@@ -121,6 +129,7 @@ export function createInquiryQueueState(snapshot: PatientInquiryQueueSnapshot): 
     mobilePane: "inquiry-list",
     nextCursor: snapshot.status === "ready" ? snapshot.nextCursor : undefined,
     searchQuery: "",
+    resultFilters: { primary: "open", handlingStatus: [], query: "" },
     statusMessage: "",
     unreadCount: snapshot.status === "ready" ? snapshot.unreadCount : 0,
   }
@@ -195,13 +204,23 @@ export function inquiryQueueReducer(state: InquiryQueueState, action: InquiryQue
     case "mobileInboxRequested":
       return { ...state, mobilePane: "inquiry-list" }
     case "queueLoadStarted":
-      return { ...state, isLoadingQueue: true }
+      return {
+        ...state,
+        isLoadingQueue: true,
+        queueError: undefined,
+        queueOperation: action.mode ?? "replace",
+      }
     case "queueLoadFailed":
-      return { ...state, isLoadingQueue: false }
+      return {
+        ...state,
+        isLoadingQueue: false,
+        queueError: action.message ?? "The inquiry service is temporarily unavailable.",
+      }
     case "queueUnchanged":
       return {
         ...state,
         availability: "ready",
+        queueError: undefined,
         firstPageChangeCursor: action.changeCursor,
         isLoadingQueue: false,
         unreadCount: action.unreadCount,
@@ -213,6 +232,8 @@ export function inquiryQueueReducer(state: InquiryQueueState, action: InquiryQue
           availability: "ready",
           firstPageChangeCursor: action.snapshot.changeCursor,
           inquiries: action.snapshot.inquiries,
+          resultFilters: action.filters ?? state.resultFilters,
+          queueError: undefined,
           isLoadingQueue: false,
           nextCursor: action.snapshot.nextCursor,
           unreadCount: action.snapshot.unreadCount,
@@ -263,6 +284,7 @@ export function inquiryQueueReducer(state: InquiryQueueState, action: InquiryQue
         ...state,
         attachments: {},
         availability: "temporarily-unavailable",
+        queueError: undefined,
         conflict: undefined,
         contactReauthentication: undefined,
         detailError: action.message,
@@ -285,6 +307,7 @@ export function inquiryQueueReducer(state: InquiryQueueState, action: InquiryQue
         ...state,
         attachments: {},
         availability: "temporarily-unavailable",
+        queueError: undefined,
         conflict: undefined,
         contactReauthentication: undefined,
         detailError: action.message,

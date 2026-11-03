@@ -121,6 +121,14 @@ export function useInquiryQueueController({
   const isMountedRef = useRef(true)
   const loadedInquiryIdsRef = useRef(new Set(snapshot.inquiries.map(({ id }) => id)))
   const loadedPageCountRef = useRef(1)
+  const queueGenerationRef = useRef(0)
+  const queuePendingRef = useRef(false)
+  const queueForegroundRef = useRef(false)
+  const searchTimeoutRef = useRef<number | undefined>(undefined)
+  const clinicIdRef = useRef(clinicId)
+  useLayoutEffect(() => {
+    clinicIdRef.current = clinicId
+  }, [clinicId])
   const pendingKeysRef = useRef(new Map<string, string>())
   const readyAttachmentDraftsRef = useRef(new Map<string, InquiryAttachmentDraft>())
   const failedAttachmentFilesRef = useRef(new Map<string, File>())
@@ -154,6 +162,7 @@ export function useInquiryQueueController({
     isMountedRef.current = true
     return () => {
       isMountedRef.current = false
+      window.clearTimeout(searchTimeoutRef.current)
     }
   }, [])
 
@@ -290,73 +299,73 @@ export function useInquiryQueueController({
     }
   }, [commands, state])
 
+  const intentRef = useRef({
+    primary: state.lifecycleFilter,
+    handlingStatus: state.handlingStatusFilter,
+    query: state.searchQuery,
+  })
+
   const loadQueuePage = useCallback(
     async (
       input: Readonly<{
         cursor?: string
         foreground?: boolean
         mode: "append" | "refresh" | "replace"
+        filters?: {
+          primary: InquiryPrimaryFilter
+          handlingStatus: readonly Exclude<InquiryHandlingStatus, "spam">[]
+          query: string
+        }
       }> = {
         mode: "refresh",
       },
     ) => {
-      if (input.foreground) dispatch({ type: "queueLoadStarted" })
-      const query = queryFromFilters(state.lifecycleFilter, state.handlingStatusFilter, state.searchQuery)
-      if (input.mode === "refresh" && loadedPageCountRef.current > 1) {
-        const firstPageResult = await commands.loadQueue({
-          ...query,
-          ...(state.firstPageChangeCursor ? { knownChangeCursor: state.firstPageChangeCursor } : {}),
-        })
-        if (!isMountedRef.current || applySessionLoss(firstPageResult)) return firstPageResult
-        if (!firstPageResult.ok && firstPageResult.error.code === "access-denied") {
-          onAccessLostRef.current?.()
-          selectedInquiryIdRef.current = undefined
-          terminalAccessLossRef.current = true
-          pendingKeysRef.current.clear()
-          readyAttachmentDraftsRef.current.clear()
-          failedAttachmentFilesRef.current.clear()
-          uploadGenerationRef.current.clear()
-          dispatch({
-            message: "Your role no longer grants access to patient inquiries.",
-            type: "workspaceAccessLost",
-          })
-          return firstPageResult
-        }
-        if (!firstPageResult.ok || firstPageResult.value.status !== "ready") {
-          if (input.foreground) dispatch({ type: "queueLoadFailed" })
-          return firstPageResult
-        }
-        if (firstPageResult.value.unchanged) {
-          dispatch({
-            changeCursor: firstPageResult.value.changeCursor,
-            type: "queueUnchanged",
-            unreadCount: firstPageResult.value.unreadCount,
-          })
-          return firstPageResult
-        }
-
-        const inquiries = new Map<
-          string,
-          PatientInquiryDetail | PatientInquiryQueueSnapshot["inquiries"][number]
-        >()
-        for (const inquiry of firstPageResult.value.inquiries) inquiries.set(inquiry.id, inquiry)
-        let cursor = firstPageResult.value.nextCursor
-        let latestSnapshot = firstPageResult.value
-        let loadedPages = 1
-        const seenCursors = new Set<string>()
-        const maximumRefreshPages = loadedPageCountRef.current + Math.max(1, loadedInquiryIdsRef.current.size)
-        for (let page = 1; cursor && page < maximumRefreshPages; page += 1) {
-          if (seenCursors.has(cursor)) {
-            if (input.foreground) dispatch({ type: "queueLoadFailed" })
-            return { error: { code: "service-unavailable" }, ok: false } as const
-          }
-          seenCursors.add(cursor)
-          const pageResult = await commands.loadQueue({
+      if (!isMountedRef.current || terminalAccessLossRef.current) return
+      if (!input.foreground && state.queueError && state.queueOperation !== "refresh") return
+      if (
+        queuePendingRef.current &&
+        input.mode !== "replace" &&
+        (!input.foreground || queueForegroundRef.current)
+      )
+        return
+      const filters = input.filters ?? intentRef.current
+      const requestQueryKey = JSON.stringify(
+        queryFromFilters(filters.primary, [...filters.handlingStatus].sort(), filters.query),
+      )
+      const generation = ++queueGenerationRef.current
+      const requestClinic = clinicId
+      const isCurrent = () =>
+        isMountedRef.current &&
+        !terminalAccessLossRef.current &&
+        clinicIdRef.current === requestClinic &&
+        queueGenerationRef.current === generation &&
+        JSON.stringify(
+          queryFromFilters(
+            intentRef.current.primary,
+            [...intentRef.current.handlingStatus].sort(),
+            intentRef.current.query,
+          ),
+        ) === requestQueryKey
+      queuePendingRef.current = true
+      queueForegroundRef.current = Boolean(input.foreground)
+      const loadedIds = new Set(loadedInquiryIdsRef.current)
+      const loadedPageCount = loadedPageCountRef.current
+      dispatch({ mode: input.mode, type: "queueLoadStarted" })
+      const query = queryFromFilters(filters.primary, filters.handlingStatus, filters.query)
+      try {
+        if (input.mode === "refresh" && loadedPageCount > 1) {
+          const firstPageResult = await commands.loadQueue({
             ...query,
-            cursor,
+            ...(state.firstPageChangeCursor ? { knownChangeCursor: state.firstPageChangeCursor } : {}),
           })
-          if (!isMountedRef.current || applySessionLoss(pageResult)) return pageResult
-          if (!pageResult.ok && pageResult.error.code === "access-denied") {
+          if (
+            !isMountedRef.current ||
+            clinicIdRef.current !== requestClinic ||
+            terminalAccessLossRef.current ||
+            applySessionLoss(firstPageResult)
+          )
+            return firstPageResult
+          if (!firstPageResult.ok && firstPageResult.error.code === "access-denied") {
             onAccessLostRef.current?.()
             selectedInquiryIdRef.current = undefined
             terminalAccessLossRef.current = true
@@ -368,92 +377,181 @@ export function useInquiryQueueController({
               message: "Your role no longer grants access to patient inquiries.",
               type: "workspaceAccessLost",
             })
-            return pageResult
+            return firstPageResult
           }
-          if (!pageResult.ok || pageResult.value.status !== "ready" || pageResult.value.unchanged) {
-            if (input.foreground) dispatch({ type: "queueLoadFailed" })
-            return pageResult
+          if (!isCurrent()) return firstPageResult
+          if (!firstPageResult.ok || firstPageResult.value.status !== "ready") {
+            dispatch({ type: "queueLoadFailed" })
+            return firstPageResult
           }
-          latestSnapshot = pageResult.value
-          loadedPages += 1
-          for (const inquiry of pageResult.value.inquiries) inquiries.set(inquiry.id, inquiry)
-          cursor = pageResult.value.nextCursor
-          const hasLoadedPreviousWindow = [...loadedInquiryIdsRef.current].every((id) => inquiries.has(id))
-          if (!cursor || (loadedPages >= loadedPageCountRef.current && hasLoadedPreviousWindow)) {
-            break
+          if (firstPageResult.value.unchanged) {
+            dispatch({
+              changeCursor: firstPageResult.value.changeCursor,
+              type: "queueUnchanged",
+              unreadCount: firstPageResult.value.unreadCount,
+            })
+            return firstPageResult
           }
-        }
-        if (cursor && ![...loadedInquiryIdsRef.current].every((id) => inquiries.has(id))) {
-          if (input.foreground) dispatch({ type: "queueLoadFailed" })
-          return { error: { code: "service-unavailable" }, ok: false } as const
-        }
-        const refreshedSnapshot = {
-          changeCursor: firstPageResult.value.changeCursor,
-          inquiries: [...inquiries.values()],
-          ...(latestSnapshot.nextCursor ? { nextCursor: latestSnapshot.nextCursor } : {}),
-          status: "ready",
-          unchanged: false,
-          unreadCount: firstPageResult.value.unreadCount,
-        } as const
-        loadedPageCountRef.current = Math.max(1, loadedPages)
-        loadedInquiryIdsRef.current = new Set(refreshedSnapshot.inquiries.map(({ id }) => id))
-        dispatch({ mode: "refresh", snapshot: refreshedSnapshot, type: "queueLoaded" })
-        return { ok: true, value: refreshedSnapshot } as const
-      }
 
-      const result = await commands.loadQueue({
-        ...query,
-        ...(input.cursor ? { cursor: input.cursor } : {}),
-        ...(input.mode === "refresh" && state.firstPageChangeCursor
-          ? { knownChangeCursor: state.firstPageChangeCursor }
-          : {}),
-      })
-      if (!isMountedRef.current || applySessionLoss(result)) return result
-      if (!result.ok && result.error.code === "access-denied") {
-        onAccessLostRef.current?.()
-        selectedInquiryIdRef.current = undefined
-        terminalAccessLossRef.current = true
-        pendingKeysRef.current.clear()
-        readyAttachmentDraftsRef.current.clear()
-        failedAttachmentFilesRef.current.clear()
-        uploadGenerationRef.current.clear()
-        dispatch({
-          message: "Your role no longer grants access to patient inquiries.",
-          type: "workspaceAccessLost",
+          const inquiries = new Map<
+            string,
+            PatientInquiryDetail | PatientInquiryQueueSnapshot["inquiries"][number]
+          >()
+          for (const inquiry of firstPageResult.value.inquiries) inquiries.set(inquiry.id, inquiry)
+          let cursor = firstPageResult.value.nextCursor
+          let latestSnapshot = firstPageResult.value
+          let loadedPages = 1
+          const seenCursors = new Set<string>()
+          const maximumRefreshPages = loadedPageCount + Math.max(1, loadedIds.size)
+          for (let page = 1; cursor && page < maximumRefreshPages; page += 1) {
+            if (seenCursors.has(cursor)) {
+              dispatch({ type: "queueLoadFailed" })
+              return { error: { code: "service-unavailable" }, ok: false } as const
+            }
+            seenCursors.add(cursor)
+            const pageResult = await commands.loadQueue({
+              ...query,
+              cursor,
+            })
+            if (
+              !isMountedRef.current ||
+              clinicIdRef.current !== requestClinic ||
+              terminalAccessLossRef.current ||
+              applySessionLoss(pageResult)
+            )
+              return pageResult
+            if (!pageResult.ok && pageResult.error.code === "access-denied") {
+              onAccessLostRef.current?.()
+              selectedInquiryIdRef.current = undefined
+              terminalAccessLossRef.current = true
+              pendingKeysRef.current.clear()
+              readyAttachmentDraftsRef.current.clear()
+              failedAttachmentFilesRef.current.clear()
+              uploadGenerationRef.current.clear()
+              dispatch({
+                message: "Your role no longer grants access to patient inquiries.",
+                type: "workspaceAccessLost",
+              })
+              return pageResult
+            }
+            if (!isCurrent()) return pageResult
+            if (!pageResult.ok || pageResult.value.status !== "ready" || pageResult.value.unchanged) {
+              dispatch({ type: "queueLoadFailed" })
+              return pageResult
+            }
+            latestSnapshot = pageResult.value
+            loadedPages += 1
+            for (const inquiry of pageResult.value.inquiries) inquiries.set(inquiry.id, inquiry)
+            cursor = pageResult.value.nextCursor
+            const hasLoadedPreviousWindow = [...loadedIds].every((id) => inquiries.has(id))
+            if (!cursor || (loadedPages >= loadedPageCount && hasLoadedPreviousWindow)) {
+              break
+            }
+          }
+          if (cursor && ![...loadedIds].every((id) => inquiries.has(id))) {
+            dispatch({ type: "queueLoadFailed" })
+            return { error: { code: "service-unavailable" }, ok: false } as const
+          }
+          const refreshedSnapshot = {
+            changeCursor: firstPageResult.value.changeCursor,
+            inquiries: [...inquiries.values()],
+            ...(latestSnapshot.nextCursor ? { nextCursor: latestSnapshot.nextCursor } : {}),
+            status: "ready",
+            unchanged: false,
+            unreadCount: firstPageResult.value.unreadCount,
+          } as const
+          loadedPageCountRef.current = Math.max(1, loadedPages)
+          loadedInquiryIdsRef.current = new Set(refreshedSnapshot.inquiries.map(({ id }) => id))
+          dispatch({ mode: "refresh", snapshot: refreshedSnapshot, type: "queueLoaded" })
+          return { ok: true, value: refreshedSnapshot } as const
+        }
+
+        const result = await commands.loadQueue({
+          ...query,
+          ...(input.cursor ? { cursor: input.cursor } : {}),
+          ...(input.mode === "refresh" && state.firstPageChangeCursor
+            ? { knownChangeCursor: state.firstPageChangeCursor }
+            : {}),
         })
+        if (
+          !isMountedRef.current ||
+          clinicIdRef.current !== requestClinic ||
+          terminalAccessLossRef.current ||
+          applySessionLoss(result)
+        )
+          return result
+        if (!result.ok && result.error.code === "access-denied") {
+          onAccessLostRef.current?.()
+          selectedInquiryIdRef.current = undefined
+          terminalAccessLossRef.current = true
+          pendingKeysRef.current.clear()
+          readyAttachmentDraftsRef.current.clear()
+          failedAttachmentFilesRef.current.clear()
+          uploadGenerationRef.current.clear()
+          dispatch({
+            message: "Your role no longer grants access to patient inquiries.",
+            type: "workspaceAccessLost",
+          })
+          return result
+        }
+        if (!isCurrent()) return result
+        if (!result.ok || result.value.status !== "ready") {
+          dispatch({ type: "queueLoadFailed" })
+          return result
+        }
+        if (input.mode === "refresh" && result.value.unchanged) {
+          dispatch({
+            changeCursor: result.value.changeCursor,
+            type: "queueUnchanged",
+            unreadCount: result.value.unreadCount,
+          })
+          return result
+        }
+        if (input.mode === "append") {
+          loadedPageCountRef.current += 1
+          for (const inquiry of result.value.inquiries) loadedInquiryIdsRef.current.add(inquiry.id)
+        }
+        if (input.mode !== "append") {
+          loadedPageCountRef.current = 1
+          loadedInquiryIdsRef.current = new Set(result.value.inquiries.map(({ id }) => id))
+        }
+        dispatch({ filters, mode: input.mode, snapshot: result.value, type: "queueLoaded" })
         return result
+      } catch {
+        if (isCurrent()) dispatch({ type: "queueLoadFailed" })
+      } finally {
+        if (isCurrent()) queuePendingRef.current = false
       }
-      if (!result.ok || result.value.status !== "ready") {
-        if (input.foreground) dispatch({ type: "queueLoadFailed" })
-        return result
-      }
-      if (input.mode === "refresh" && result.value.unchanged) {
-        dispatch({
-          changeCursor: result.value.changeCursor,
-          type: "queueUnchanged",
-          unreadCount: result.value.unreadCount,
-        })
-        return result
-      }
-      if (input.mode === "append") {
-        loadedPageCountRef.current += 1
-        for (const inquiry of result.value.inquiries) loadedInquiryIdsRef.current.add(inquiry.id)
-      }
-      if (input.mode === "replace") {
-        loadedPageCountRef.current = 1
-        loadedInquiryIdsRef.current = new Set(result.value.inquiries.map(({ id }) => id))
-      }
-      dispatch({ mode: input.mode, snapshot: result.value, type: "queueLoaded" })
-      return result
     },
     [
+      clinicId,
       applySessionLoss,
       commands,
+      state.queueError,
+      state.queueOperation,
       state.firstPageChangeCursor,
-      state.handlingStatusFilter,
-      state.lifecycleFilter,
-      state.searchQuery,
     ],
+  )
+
+  const changeQueueIntent = useCallback(
+    (filters: typeof intentRef.current, debounce: boolean) => {
+      const previous = intentRef.current
+      const key = (value: typeof filters) =>
+        JSON.stringify(queryFromFilters(value.primary, [...value.handlingStatus].sort(), value.query))
+      if (key(previous) === key(filters)) return
+      intentRef.current = filters
+      ++queueGenerationRef.current
+      queuePendingRef.current = true
+      queueForegroundRef.current = true
+      window.clearTimeout(searchTimeoutRef.current)
+      dispatch({ mode: "replace", type: "queueLoadStarted" })
+      const start = () => {
+        void loadQueuePage({ filters, foreground: true, mode: "replace" })
+      }
+      if (debounce) searchTimeoutRef.current = window.setTimeout(start, 250)
+      else start()
+    },
+    [loadQueuePage],
   )
 
   const updateReadPosition = useCallback(
@@ -545,13 +643,7 @@ export function useInquiryQueueController({
   }, [isActive, model.selectedInquiry, updateReadPosition])
 
   useEffect(() => {
-    const timeout = window.setTimeout(async () => {
-      await loadQueuePage({ foreground: true, mode: "replace" })
-    }, 250)
-    return () => window.clearTimeout(timeout)
-  }, [loadQueuePage])
-
-  useEffect(() => {
+    if (!isActive) return
     let inFlight = false
     const refreshQueueIfVisible = async () => {
       if (inFlight || document.visibilityState !== "visible" || !navigator.onLine) return
@@ -572,7 +664,7 @@ export function useInquiryQueueController({
       window.removeEventListener("online", refreshQueueIfVisible)
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [loadQueuePage])
+  }, [isActive, loadQueuePage])
 
   useEffect(() => {
     const inquiry = model.selectedInquiry
@@ -603,6 +695,17 @@ export function useInquiryQueueController({
     }
   }, [isActive, loadSelectedInquiry, model.selectedInquiry])
 
+  const refreshAfterMutationRef = useRef<() => Promise<unknown>>(async () => undefined)
+  useLayoutEffect(() => {
+    refreshAfterMutationRef.current = async () => {
+      if (queuePendingRef.current) return
+      return loadQueuePage({
+        filters: intentRef.current,
+        mode: model.hasPreviousResults ? "replace" : "refresh",
+      })
+    }
+  }, [loadQueuePage, model.hasPreviousResults])
+
   const runMutation = useCallback(
     async (
       signature: string,
@@ -618,11 +721,18 @@ export function useInquiryQueueController({
       }>,
     ) => {
       if (state.isMutating || terminalAccessLossRef.current) return false
+      const requestClinic = clinicId
       const idempotencyKey = pendingKeysRef.current.get(signature) ?? createIdempotencyKey()
       pendingKeysRef.current.set(signature, idempotencyKey)
       dispatch({ message: startMessage, type: "mutationStarted" })
       const result = await invoke(idempotencyKey)
-      if (!isMountedRef.current || applySessionLoss(result)) return false
+      if (
+        !isMountedRef.current ||
+        clinicIdRef.current !== requestClinic ||
+        terminalAccessLossRef.current ||
+        applySessionLoss(result)
+      )
+        return false
 
       if (result.ok) {
         pendingKeysRef.current.delete(signature)
@@ -634,7 +744,9 @@ export function useInquiryQueueController({
         })
         await afterSuccess?.()
         if (success.clearAttachment) readyAttachmentDraftsRef.current.delete(result.value.inquiry.id)
-        await loadQueuePage({ mode: "refresh" })
+        if (isMountedRef.current && clinicIdRef.current === requestClinic && !terminalAccessLossRef.current) {
+          await refreshAfterMutationRef.current()
+        }
         return true
       }
 
@@ -657,7 +769,7 @@ export function useInquiryQueueController({
     [
       applySessionLoss,
       applyInquiryAccessLoss,
-      loadQueuePage,
+      clinicId,
       loadSelectedInquiry,
       model.selectedInquiry,
       state.isMutating,
@@ -958,22 +1070,48 @@ export function useInquiryQueueController({
         dispatch({ type: "mobileInboxRequested" })
       },
       async onQueueRefresh() {
-        await loadQueuePage({ foreground: true, mode: "refresh" })
+        if (model.queueError && model.queueOperation === "append" && model.nextCursor) {
+          await loadQueuePage({ cursor: model.nextCursor, foreground: true, mode: "append" })
+          return
+        }
+        await loadQueuePage({
+          foreground: true,
+          mode:
+            model.hasPreviousResults || (model.queueOperation === "replace" && model.queueError)
+              ? "replace"
+              : "refresh",
+        })
       },
       async onRefresh() {
-        await loadQueuePage({ foreground: true, mode: "refresh" })
+        await loadQueuePage({
+          foreground: true,
+          mode:
+            model.hasPreviousResults || (model.queueOperation === "replace" && model.queueError)
+              ? "replace"
+              : "refresh",
+        })
         const inquiryId = selected?.id ?? state.selectedInquiryId
         if (inquiryId) {
           await loadSelectedInquiry(inquiryId, selected ? "manual" : "initial")
         }
       },
       onSearchQueryChange(query) {
+        changeQueueIntent({ ...intentRef.current, query }, true)
         dispatch({ query, type: "searchQueryChanged" })
       },
       onStatusFilterChange(statuses) {
+        changeQueueIntent({ ...intentRef.current, handlingStatus: statuses }, false)
         dispatch({ statuses, type: "handlingStatusFilterChanged" })
       },
       onPrimaryFilterChange(filter) {
+        changeQueueIntent(
+          {
+            ...intentRef.current,
+            primary: filter,
+            handlingStatus: filter === "spam" ? [] : intentRef.current.handlingStatus,
+          },
+          false,
+        )
         dispatch({ filter, type: "primaryFilterChanged" })
       },
       async onSend() {
@@ -1063,6 +1201,7 @@ export function useInquiryQueueController({
     discardUnboundReplyAttachment,
     endSession,
     loadSelectedInquiry,
+    changeQueueIntent,
     loadQueuePage,
     model,
     reauthenticateSession,
