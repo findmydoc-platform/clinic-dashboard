@@ -3,23 +3,13 @@ import type { ClinicDashboardReportingPeriodDays } from "./clinic-dashboard-repo
 import type { DashboardProfileProgressState } from "./profile-progress"
 
 export type DashboardJourneyStageId =
-  "impressions" | "profileViews" | "uniqueVisitors" | "contacts" | "inquiries"
+  "impressions" | "profileViews" | "uniqueVisitors" | "inquiryStarters" | "inquiries"
 
-// Presentation-only capabilities. Unsupported journey stages never enter the reporting contract.
-export type DashboardJourneyStage =
-  | (Omit<DashboardOverviewMetric, "id"> & Readonly<{ id: "profileViews" | "inquiries" }>)
-  | Readonly<{
-      id: "impressions" | "uniqueVisitors" | "contacts"
-      label: string
-      availability: "unsupported"
-      value: "Not supported yet"
-      information: string
-      comparison?: never
-      detail?: never
-    }>
+export type DashboardJourneyStage = Omit<DashboardOverviewMetric, "id"> &
+  Readonly<{ id: DashboardJourneyStageId }>
 
 export type DashboardOverviewMetric = Readonly<{
-  id: "profileViews" | "inquiries" | "completion"
+  id: DashboardJourneyStageId | "completion"
   label: string
   value: string
   availability: "available" | "loading" | "unavailable"
@@ -48,27 +38,15 @@ export type DashboardReviewSummary = Readonly<{
   detail: string
 }>
 
-export type DashboardSessionConversionSummary = Readonly<{
-  profileSessions: string
-  convertedSessions: string
-  conversion?: string
-  comparison?: string
-  detail?: string
-  information: string
-}>
-
 export type DashboardOverviewModel = Readonly<{
   clinicPreview: DashboardClinicPreview
-  metrics: readonly (
-    DashboardOverviewMetric | Extract<DashboardJourneyStage, { availability: "unsupported" }>
-  )[]
+  metrics: readonly DashboardOverviewMetric[]
   periodDays: ClinicDashboardReportingPeriodDays
   profileProgress: DashboardProfileProgressState
   reportingStatus: "ready" | "loading" | "temporarily-unavailable"
   journey: readonly DashboardJourneyStage[]
   selectedMetric: DashboardJourneyStage
   reviews: DashboardReviewSummary
-  sessionConversionSummary: DashboardSessionConversionSummary
   timezone: "Europe/Istanbul"
   asOf?: string
 }>

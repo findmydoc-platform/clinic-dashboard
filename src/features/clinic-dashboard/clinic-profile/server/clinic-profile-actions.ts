@@ -1,6 +1,6 @@
 import "server-only"
 
-import type { NextRequest } from "next/server"
+import type { NextRequest, NextResponse } from "next/server"
 import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/auth/server/public"
 import { validateMutationRequest } from "@/lib/security/csrf"
 import { createPrivateJsonResponse as privateJson, readPrivateJson } from "@/lib/security/private-response"
@@ -12,11 +12,15 @@ import {
 } from "./clinic-profile-dto"
 import type {
   ClinicProfileChangeError,
+  ClinicProfileProvider,
   ClinicProfileProviderFactory,
   ClinicProfileReadError,
 } from "./clinic-profile-provider"
 
 const MAX_PROFILE_REQUEST_BODY_BYTES = 64 * 1024
+
+type ProfileOperation = (provider: ClinicProfileProvider) => Promise<NextResponse>
+type PreparedProfileAction = NextResponse | ProfileOperation
 
 function readJson(request: NextRequest) {
   return readPrivateJson(request, MAX_PROFILE_REQUEST_BODY_BYTES, { fatalUtf8: true })
@@ -60,22 +64,42 @@ async function authorizeProfileTarget(
   return access
 }
 
-export async function handleClinicProfileLoad(
+async function handleAuthorizedProfileAction(
   request: NextRequest,
   createProvider: ClinicProfileProviderFactory,
+  capability: "clinic-profile:view" | "clinic-profile:edit",
+  prepare: () => PreparedProfileAction | Promise<PreparedProfileAction>,
 ) {
-  const authorization = await authorizeProfileTarget(request, "clinic-profile:view")
+  const authorization = await authorizeProfileTarget(request, capability)
   if (authorization.status !== "approved") {
     return authorization.applyToResponse(accessErrorResponse(authorization.status))
   }
 
+  const prepared = await prepare()
+  if (typeof prepared !== "function") return authorization.applyToResponse(prepared)
+
   try {
-    const result = await createProvider(authorization.accessToken, authorization.clinicId).loadSnapshot()
-    const response = result.ok ? privateJson(result.value) : readErrorResponse(result.error)
+    const provider = createProvider(authorization.accessToken, authorization.clinicId)
+    const response = await prepared(provider)
     return authorization.applyToResponse(response)
   } catch {
     return authorization.applyToResponse(privateJson({ code: "CLINIC_PROFILE_SERVICE_UNAVAILABLE" }, 503))
   }
+}
+
+export async function handleClinicProfileLoad(
+  request: NextRequest,
+  createProvider: ClinicProfileProviderFactory,
+) {
+  return handleAuthorizedProfileAction(
+    request,
+    createProvider,
+    "clinic-profile:view",
+    () => async (provider) => {
+      const result = await provider.loadSnapshot()
+      return result.ok ? privateJson(result.value) : readErrorResponse(result.error)
+    },
+  )
 }
 
 export async function handleClinicProfileDraftSave(
@@ -84,25 +108,15 @@ export async function handleClinicProfileDraftSave(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const authorization = await authorizeProfileTarget(request, "clinic-profile:edit")
-  if (authorization.status !== "approved") {
-    return authorization.applyToResponse(accessErrorResponse(authorization.status))
-  }
+  return handleAuthorizedProfileAction(request, createProvider, "clinic-profile:edit", async () => {
+    const input = clinicProfileDraftSaveInputSchema.safeParse(await readJson(request))
+    if (!input.success) return privateJson({ code: "INVALID_INPUT" }, 400)
 
-  const input = clinicProfileDraftSaveInputSchema.safeParse(await readJson(request))
-  if (!input.success) {
-    return authorization.applyToResponse(privateJson({ code: "INVALID_INPUT" }, 400))
-  }
-
-  try {
-    const result = await createProvider(authorization.accessToken, authorization.clinicId).saveDraft(
-      input.data,
-    )
-    const response = result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
-    return authorization.applyToResponse(response)
-  } catch {
-    return authorization.applyToResponse(privateJson({ code: "CLINIC_PROFILE_SERVICE_UNAVAILABLE" }, 503))
-  }
+    return async (provider) => {
+      const result = await provider.saveDraft(input.data)
+      return result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
+    }
+  })
 }
 
 export async function handleClinicProfileDraftCreate(
@@ -111,25 +125,15 @@ export async function handleClinicProfileDraftCreate(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const authorization = await authorizeProfileTarget(request, "clinic-profile:edit")
-  if (authorization.status !== "approved") {
-    return authorization.applyToResponse(accessErrorResponse(authorization.status))
-  }
+  return handleAuthorizedProfileAction(request, createProvider, "clinic-profile:edit", async () => {
+    const input = clinicProfileDraftCreateInputSchema.safeParse(await readJson(request))
+    if (!input.success) return privateJson({ code: "INVALID_INPUT" }, 400)
 
-  const input = clinicProfileDraftCreateInputSchema.safeParse(await readJson(request))
-  if (!input.success) {
-    return authorization.applyToResponse(privateJson({ code: "INVALID_INPUT" }, 400))
-  }
-
-  try {
-    const result = await createProvider(authorization.accessToken, authorization.clinicId).createDraft(
-      input.data,
-    )
-    const response = result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
-    return authorization.applyToResponse(response)
-  } catch {
-    return authorization.applyToResponse(privateJson({ code: "CLINIC_PROFILE_SERVICE_UNAVAILABLE" }, 503))
-  }
+    return async (provider) => {
+      const result = await provider.createDraft(input.data)
+      return result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
+    }
+  })
 }
 
 export async function handleClinicProfileDraftDiscard(
@@ -138,25 +142,15 @@ export async function handleClinicProfileDraftDiscard(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const authorization = await authorizeProfileTarget(request, "clinic-profile:edit")
-  if (authorization.status !== "approved") {
-    return authorization.applyToResponse(accessErrorResponse(authorization.status))
-  }
+  return handleAuthorizedProfileAction(request, createProvider, "clinic-profile:edit", async () => {
+    const input = clinicProfileDraftDiscardInputSchema.safeParse(await readJson(request))
+    if (!input.success) return privateJson({ code: "INVALID_INPUT" }, 400)
 
-  const input = clinicProfileDraftDiscardInputSchema.safeParse(await readJson(request))
-  if (!input.success) {
-    return authorization.applyToResponse(privateJson({ code: "INVALID_INPUT" }, 400))
-  }
-
-  try {
-    const result = await createProvider(authorization.accessToken, authorization.clinicId).discardDraft(
-      input.data,
-    )
-    const response = result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
-    return authorization.applyToResponse(response)
-  } catch {
-    return authorization.applyToResponse(privateJson({ code: "CLINIC_PROFILE_SERVICE_UNAVAILABLE" }, 503))
-  }
+    return async (provider) => {
+      const result = await provider.discardDraft(input.data)
+      return result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
+    }
+  })
 }
 
 export async function handleClinicProfilePublish(
@@ -165,23 +159,13 @@ export async function handleClinicProfilePublish(
 ) {
   if (!validateMutationRequest(request)) return privateJson({ code: "REQUEST_REJECTED" }, 403)
 
-  const authorization = await authorizeProfileTarget(request, "clinic-profile:edit")
-  if (authorization.status !== "approved") {
-    return authorization.applyToResponse(accessErrorResponse(authorization.status))
-  }
+  return handleAuthorizedProfileAction(request, createProvider, "clinic-profile:edit", async () => {
+    const input = clinicProfilePublishInputSchema.safeParse(await readJson(request))
+    if (!input.success) return privateJson({ code: "INVALID_INPUT" }, 400)
 
-  const input = clinicProfilePublishInputSchema.safeParse(await readJson(request))
-  if (!input.success) {
-    return authorization.applyToResponse(privateJson({ code: "INVALID_INPUT" }, 400))
-  }
-
-  try {
-    const result = await createProvider(authorization.accessToken, authorization.clinicId).publishDraft(
-      input.data,
-    )
-    const response = result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
-    return authorization.applyToResponse(response)
-  } catch {
-    return authorization.applyToResponse(privateJson({ code: "CLINIC_PROFILE_SERVICE_UNAVAILABLE" }, 503))
-  }
+    return async (provider) => {
+      const result = await provider.publishDraft(input.data)
+      return result.ok ? privateJson(result.value) : changeErrorResponse(result.error)
+    }
+  })
 }

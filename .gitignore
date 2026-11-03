@@ -12,6 +12,7 @@
 !.env.example
 
 # test artifacts
+/.stryker-tmp
 /coverage
 /playwright-report
 /test-results

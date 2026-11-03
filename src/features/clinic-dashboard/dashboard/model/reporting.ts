@@ -4,7 +4,7 @@ export const dashboardSelectableMetricIds = [
   "impressions",
   "views",
   "uniqueVisitors",
-  "contacts",
+  "inquiryStarters",
   "inquiries",
 ] as const
 
@@ -22,7 +22,6 @@ export type DashboardMetric = Readonly<{
 }>
 
 export type DashboardFunnelStep = Readonly<{
-  conversion?: string
   label: string
   metricId: DashboardSelectableMetricId
   value: string
@@ -44,7 +43,7 @@ export type DashboardReportingSnapshot = Readonly<{
   period: DashboardReportingPeriod
   reviewActivity: string
   totals: Readonly<{
-    contacts: number
+    inquiryStarters: number
     impressions: number
     inquiries: number
     profileViews: number
@@ -78,16 +77,12 @@ function formatCount(value: number) {
   return value.toLocaleString("en-US")
 }
 
-function toPercentage(part: number, whole: number) {
-  return `${((part / whole) * 100).toFixed(1)}%`
-}
-
 function getChartPointTotal(points: readonly DashboardChartPoint[]) {
   return points.reduce((total, point) => total + point.value, 0)
 }
 
 const dashboardMetricTotalKeys = {
-  contacts: "contacts",
+  inquiryStarters: "inquiryStarters",
   impressions: "impressions",
   inquiries: "inquiries",
   uniqueVisitors: "uniqueVisitors",
@@ -117,7 +112,12 @@ export function createDashboardReportingSnapshot({
   totals,
 }: DashboardReportingSnapshotInput): DashboardReportingSnapshot {
   const series = {
-    contacts: createDashboardChartSeries(chart.dates, chart.series.contacts, "contacts", period),
+    inquiryStarters: createDashboardChartSeries(
+      chart.dates,
+      chart.series.inquiryStarters,
+      "inquiryStarters",
+      period,
+    ),
     impressions: createDashboardChartSeries(chart.dates, chart.series.impressions, "impressions", period),
     inquiries: createDashboardChartSeries(chart.dates, chart.series.inquiries, "inquiries", period),
     uniqueVisitors: createDashboardChartSeries(
@@ -148,25 +148,21 @@ export function createDashboardReportingSnapshot({
     funnel: [
       { label: "Impressions", metricId: "impressions", value: formatCount(totals.impressions) },
       {
-        conversion: `${toPercentage(totals.profileViews, totals.impressions)} of impressions`,
         label: "Profile views",
         metricId: "views",
         value: formatCount(totals.profileViews),
       },
       {
-        conversion: `${toPercentage(totals.uniqueVisitors, totals.profileViews)} of profile views`,
         label: "Unique visitors",
         metricId: "uniqueVisitors",
         value: formatCount(totals.uniqueVisitors),
       },
       {
-        conversion: `${toPercentage(totals.contacts, totals.uniqueVisitors)} of unique visitors`,
-        label: "Contacts",
-        metricId: "contacts",
-        value: formatCount(totals.contacts),
+        label: "Inquiry starters",
+        metricId: "inquiryStarters",
+        value: formatCount(totals.inquiryStarters),
       },
       {
-        conversion: `${toPercentage(totals.inquiries, totals.contacts)} of contacts`,
         label: "Inquiries",
         metricId: "inquiries",
         value: formatCount(totals.inquiries),
@@ -188,11 +184,11 @@ export function createDashboardReportingSnapshot({
         value: formatCount(totals.profileViews),
       },
       {
-        delta: changes.contacts,
-        id: "contacts",
-        label: "Contacts",
-        note: "Chat conversations",
-        value: formatCount(totals.contacts),
+        delta: changes.inquiryStarters,
+        id: "inquiryStarters",
+        label: "Inquiry starters",
+        note: "Visitors who edit the inquiry form",
+        value: formatCount(totals.inquiryStarters),
       },
       {
         delta: changes.inquiries,

@@ -59,13 +59,19 @@ These observations do not qualify every operation in each domain. Complete crite
 successful build does not prove a deployed, reachable, authorized workflow. Production availability remains unverified;
 these Preview observations establish no Production activation. Live time-series and CSV exports remain unavailable.
 
-The restored dashboard presentation consumes the existing V1 reporting contract through the same providers. Published
-profile progress and tasks remain independent of reporting failures. Five journey cards retain separate metric populations;
-only Profile Views and Inquiries have matching V1 values. The other three explain unsupported measurement capabilities.
-A supplementary session summary uses the returned session counts and rate. Live time-series charts and CSV downloads
-remain unavailable. Notification polling does not refresh reporting. See the
-[restoration plan](./plans/dashboard-visual-reference-restoration.md) for the source mapping and contract gaps. This UI
-validation does not change the environment availability recorded above.
+The Dashboard selects `clinic-dashboard-reporting-v2` through `X-Findmydoc-Reporting-Contract`, independently of
+`clinic-scope-v1`. Website [ADR 029](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/029-adr-tenant-safe-clinic-dashboard-reporting.md)
+defines the reporting architecture. The five selectable cards show Impressions, Profile Views, Unique Visitors,
+Inquiry starters and stored Inquiries. Profile Views is initially selected. Inquiry starters counts recognized
+consent-eligible browsers with an own substantive form edit, once per clinic and period. Automatic or outside-form
+prefill, opening, focus, scrolling and consent alone do not count. Impressions requires actual positive viewport
+visibility in an active document. Every analytics metric requires verified project-specific capture history for its
+current and comparison windows. Unknown history is partial rather than zero. Public profile progress, tasks and
+current reviews remain independent of analytics failures. Unsupported saved Contacts preferences fall back to Profile
+Views. Live time-series charts and CSV downloads remain unavailable. Notification polling does not refresh reporting.
+Operational source verification and external data cleanup remain tracked in
+[#305](https://github.com/findmydoc-platform/clinic-dashboard/issues/305). Source implementation does not change the
+environment availability recorded above.
 
 This document records the durable authentication and Backend for Frontend architecture of the stateless Next.js
 application. It is not an execution plan. The Dashboard owns no database, durable business cache, Supabase service-role

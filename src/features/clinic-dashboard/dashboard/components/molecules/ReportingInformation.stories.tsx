@@ -5,8 +5,8 @@ import { ReportingInformation } from "./ReportingInformation"
 const meta = {
   component: ReportingInformation,
   args: {
-    label: "Session conversion",
-    children: "Only sessions with analytics consent are measured. Each session counts at most once.",
+    label: "Profile views",
+    children: "Only profile views with analytics consent are measured. Repeated views count.",
   },
   tags: ["domain:dashboard", "layer:molecule", "status:stable"],
   title: "Clinic Dashboard/Dashboard/Molecules/Reporting Information",
@@ -18,12 +18,12 @@ export const HoverExplanation: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const page = within(document.body)
-    const trigger = canvas.getByRole("button", { name: "About Session conversion" })
+    const trigger = canvas.getByRole("button", { name: "About Profile views" })
     await userEvent.hover(trigger)
-    await expect(await page.findByRole("dialog", { name: "About Session conversion" })).toBeVisible()
+    await expect(await page.findByRole("dialog", { name: "About Profile views" })).toBeVisible()
     await userEvent.unhover(trigger)
     await waitFor(() =>
-      expect(page.queryByRole("dialog", { name: "About Session conversion" })).not.toBeInTheDocument(),
+      expect(page.queryByRole("dialog", { name: "About Profile views" })).not.toBeInTheDocument(),
     )
   },
 }
@@ -33,16 +33,16 @@ export const KeyboardExplanation: Story = {
     const canvas = within(canvasElement)
     const page = within(document.body)
     await userEvent.tab()
-    await expect(canvas.getByRole("button", { name: "About Session conversion" })).toHaveFocus()
-    await expect(page.getByRole("dialog", { name: "About Session conversion" })).toHaveTextContent(
+    await expect(canvas.getByRole("button", { name: "About Profile views" })).toHaveFocus()
+    await expect(page.getByRole("dialog", { name: "About Profile views" })).toHaveTextContent(
       "analytics consent",
     )
     await userEvent.keyboard("{Enter}")
     await userEvent.keyboard("{Escape}")
     await waitFor(() =>
-      expect(page.queryByRole("dialog", { name: "About Session conversion" })).not.toBeInTheDocument(),
+      expect(page.queryByRole("dialog", { name: "About Profile views" })).not.toBeInTheDocument(),
     )
-    await expect(canvas.getByRole("button", { name: "About Session conversion" })).toHaveFocus()
+    await expect(canvas.getByRole("button", { name: "About Profile views" })).toHaveFocus()
   },
 }
 
@@ -51,15 +51,15 @@ export const NarrowViewport: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const page = within(document.body)
-    await userEvent.click(canvas.getByRole("button", { name: "About Session conversion" }))
-    const popup = page.getByRole("dialog", { name: "About Session conversion" })
+    await userEvent.click(canvas.getByRole("button", { name: "About Profile views" }))
+    const popup = page.getByRole("dialog", { name: "About Profile views" })
     await expect(popup).toBeVisible()
     const bounds = popup.getBoundingClientRect()
     await expect(bounds.left).toBeGreaterThanOrEqual(0)
     await expect(bounds.right).toBeLessThanOrEqual(window.innerWidth)
     await userEvent.click(page.getByRole("button", { name: "Close explanation" }))
     await waitFor(() =>
-      expect(page.queryByRole("dialog", { name: "About Session conversion" })).not.toBeInTheDocument(),
+      expect(page.queryByRole("dialog", { name: "About Profile views" })).not.toBeInTheDocument(),
     )
   },
 }

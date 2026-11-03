@@ -36,9 +36,7 @@ test("confirmed active access loss hides content and waits for an explicit alter
   await expect(page).toHaveURL(/\/clinics\/controlled-clinic/)
   await page.getByRole("button", { name: "Open Second Controlled Clinic" }).click()
   await expect(page).toHaveURL(/\/clinics\/controlled-second-clinic\?section=dashboard$/)
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("109", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 109" })).toBeVisible()
 })
 
 test("decline keeps a dirty lost-clinic draft restricted; confirmation opens a clean inquiry workspace", async ({
@@ -281,8 +279,6 @@ test("a delayed old reporting response cannot restore inaccessible content or en
   await page.getByRole("button", { name: "Discard and open clinic" }).click()
   await expect(page).toHaveURL(/controlled-second-clinic\?section=messages$/)
   await page.getByRole("button", { name: "Dashboard", exact: true }).click()
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("109", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Profile views 109" })).toBeVisible()
   await expect(page.getByText("99999", { exact: true })).toHaveCount(0)
 })

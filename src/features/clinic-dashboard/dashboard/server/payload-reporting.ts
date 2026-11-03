@@ -30,65 +30,54 @@ const periodDaysSchema = z.union(
 const periodSchema = z.object({ days: periodDaysSchema, from: timestampSchema, to: timestampSchema })
 const metricValueSchema = z.object({ state: sourceStateSchema, value: countValueSchema })
 const countMetricSchema = <Source extends "payload" | "posthog">(source: Source) =>
-  z.object({
-    comparison: metricValueSchema.extend({
-      absoluteDelta: z.number().int().nullable(),
-      relativeDeltaPercent: percentageSchema,
-    }),
-    current: metricValueSchema,
-    source: z.literal(source),
-  })
-const conversionWindowSchema = z.object({
-  denominatorSessions: countValueSchema,
-  numeratorSessions: countValueSchema,
-  ratePercent: percentageSchema,
-  state: z.union([sourceStateSchema, z.literal("zero_denominator")]),
-})
-
+  z
+    .object({
+      comparison: metricValueSchema.extend({
+        absoluteDelta: z.number().int().nullable(),
+        relativeDeltaPercent: percentageSchema,
+      }),
+      current: metricValueSchema,
+      source: z.literal(source),
+    })
+    .superRefine((metric, context) => {
+      for (const window of [metric.current, metric.comparison]) {
+        if ((window.state === "available") !== (window.value !== null))
+          context.addIssue({ code: "custom", message: "Count state and value disagree" })
+      }
+      if (metric.current.state !== "available" || metric.comparison.state !== "available") {
+        if (metric.comparison.absoluteDelta !== null || metric.comparison.relativeDeltaPercent !== null)
+          context.addIssue({ code: "custom", message: "Unavailable comparison carries a delta" })
+      }
+      if (metric.comparison.value === 0 && metric.comparison.relativeDeltaPercent !== null)
+        context.addIssue({ code: "custom", message: "Zero comparison has no relative change" })
+    })
 const clinicDashboardReportingSchema = z.object({
   asOf: timestampSchema,
   comparisonPeriod: periodSchema,
-  metrics: z.object({
-    ctaInteractions: z.object({
-      byCtaId: z.object({
-        choose_treatment: countMetricSchema("posthog"),
-        contact: countMetricSchema("posthog"),
-        contact_doctor: countMetricSchema("posthog"),
-      }),
-      source: z.literal("posthog"),
-      total: countMetricSchema("posthog"),
-    }),
-    inquiries: countMetricSchema("payload"),
-    profileCompleteness: z.object({
-      comparison: z.null(),
-      completedAreas: z.number().int().min(0).max(6).nullable(),
-      percent: z.number().min(0).max(100).nullable(),
-      source: z.literal("payload"),
-      state: sourceStateSchema,
-      totalAreas: z.literal(6),
-    }),
-    profileViews: countMetricSchema("posthog"),
-    reviews: z.object({
-      average: z.object({
-        comparison: z.null(),
+  metrics: z
+    .object({
+      inquiries: countMetricSchema("payload"),
+      profileViews: countMetricSchema("posthog"),
+      uniqueVisitors: countMetricSchema("posthog"),
+      impressions: countMetricSchema("posthog"),
+      inquiryStarters: countMetricSchema("posthog"),
+      reviews: z.object({
+        average: z.object({
+          comparison: z.null(),
+          source: z.literal("payload"),
+          state: z.union([sourceStateSchema, z.literal("no_reviews")]),
+          value: z.number().min(1).max(5).nullable(),
+        }),
+        count: z.object({
+          comparison: z.null(),
+          source: z.literal("payload"),
+          state: sourceStateSchema,
+          value: countValueSchema,
+        }),
         source: z.literal("payload"),
-        state: z.union([sourceStateSchema, z.literal("no_reviews")]),
-        value: z.number().min(1).max(5).nullable(),
       }),
-      count: z.object({
-        comparison: z.null(),
-        source: z.literal("payload"),
-        state: sourceStateSchema,
-        value: countValueSchema,
-      }),
-      source: z.literal("payload"),
-    }),
-    sessionConversion: z.object({
-      comparison: conversionWindowSchema.extend({ percentagePointDelta: percentageSchema }),
-      current: conversionWindowSchema,
-      source: z.literal("posthog"),
-    }),
-  }),
+    })
+    .strict(),
   period: periodSchema,
   schemaVersion: z.literal(clinicDashboardReportingSchemaVersion),
   timezone: z.literal("Europe/Istanbul"),
@@ -121,7 +110,8 @@ function hasPrivateReportingHeaders(response: Response) {
     pragma === "no-cache" &&
     response.headers.get("expires") === "0" &&
     varyFields.has("authorization") &&
-    varyFields.has("x-findmydoc-clinic-scope-contract")
+    varyFields.has("x-findmydoc-clinic-scope-contract") &&
+    varyFields.has("x-findmydoc-reporting-contract")
   )
 }
 
@@ -144,6 +134,7 @@ async function requestPayloadJson(
         Accept: "application/json",
         Authorization: `Bearer ${accessToken}`,
         "X-Findmydoc-Clinic-Scope-Contract": "clinic-scope-v1",
+        "X-Findmydoc-Reporting-Contract": clinicDashboardReportingSchemaVersion,
       },
       redirect: "error",
       signal: AbortSignal.timeout(8_000),

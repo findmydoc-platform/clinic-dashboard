@@ -10,7 +10,7 @@ function countMetric<Source extends "payload" | "posthog">(source: Source, value
   return {
     comparison: {
       absoluteDelta: 2,
-      relativeDeltaPercent: 12.5,
+      relativeDeltaPercent: (2 / (value - 2)) * 100,
       state: "available" as const,
       value: value - 2,
     },
@@ -57,49 +57,28 @@ function createControlledReporting(periodDays: ClinicDashboardReportingPeriodDay
       to: period.comparisonTo,
     },
     metrics: {
-      ctaInteractions: {
-        byCtaId: {
-          choose_treatment: countMetric("posthog", 8),
-          contact: countMetric("posthog", 12),
-          contact_doctor: countMetric("posthog", 3),
-        },
-        source: "posthog",
-        total: countMetric("posthog", 23),
-      },
       inquiries: countMetric("payload", 7),
-      profileCompleteness: {
-        comparison: null,
-        completedAreas: 5,
-        percent: 83.3,
-        source: "payload",
-        state: "available",
-        totalAreas: 6,
-      },
       profileViews: countMetric("posthog", period.profileViews),
+      uniqueVisitors: countMetric("posthog", periodDays === 7 ? 50 : periodDays === 90 ? 600 : 200),
+      impressions: {
+        source: "posthog",
+        current: { state: "partial_coverage", value: null },
+        comparison: {
+          state: "partial_coverage",
+          value: null,
+          absoluteDelta: null,
+          relativeDeltaPercent: null,
+        },
+      },
+      inquiryStarters: countMetric("posthog", 12),
       reviews: {
         average: { comparison: null, source: "payload", state: "available", value: 4.8 },
         count: { comparison: null, source: "payload", state: "available", value: 25 },
         source: "payload",
       },
-      sessionConversion: {
-        comparison: {
-          denominatorSessions: 180,
-          numeratorSessions: 6,
-          percentagePointDelta: 1.2,
-          ratePercent: 3.3,
-          state: "available",
-        },
-        current: {
-          denominatorSessions: 200,
-          numeratorSessions: 9,
-          ratePercent: 4.5,
-          state: "available",
-        },
-        source: "posthog",
-      },
     },
     period: { days: periodDays, from: period.from, to: period.to },
-    schemaVersion: "clinic-dashboard-reporting-v1",
+    schemaVersion: "clinic-dashboard-reporting-v2",
     timezone: "Europe/Istanbul",
   }
 }
@@ -117,10 +96,8 @@ export function createControlledClinicDashboardReportingProvider(
             ...reporting,
             metrics: {
               ...reporting.metrics,
-              profileViews: {
-                ...reporting.metrics.profileViews,
-                current: { ...reporting.metrics.profileViews.current, value: periodDays === 7 ? 17 : 109 },
-              },
+              uniqueVisitors: countMetric("posthog", periodDays === 7 ? 12 : 75),
+              profileViews: countMetric("posthog", periodDays === 7 ? 17 : 109),
             },
           },
         }
