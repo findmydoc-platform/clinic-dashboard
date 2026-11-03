@@ -114,7 +114,7 @@ function StatusFilters({
         <Button
           aria-label={`Filter by status. ${label}`}
           className="w-full justify-between font-normal"
-          disabled={model.lifecycleFilter === "spam" || model.isLoadingQueue}
+          disabled={model.lifecycleFilter === "spam" || model.availability === "temporarily-unavailable"}
           variant="outline"
         >
           <span className="truncate">{label}</span>
@@ -177,7 +177,7 @@ function QueueFilters({
                 ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                 : "text-[var(--foreground)] hover:bg-[var(--surface)]",
             )}
-            disabled={model.availability === "temporarily-unavailable" || model.isLoadingQueue}
+            disabled={model.availability === "temporarily-unavailable"}
             key={filter}
             onClick={() => actions.onPrimaryFilterChange(filter)}
             type="button"
@@ -237,6 +237,26 @@ function QueuePane({
             ? "1 inquiry shown."
             : `${model.visibleInquiries.length} inquiries shown.`}
         </p>
+        {model.isLoadingQueue && model.queueOperation === "replace" ? (
+          <div className="border-b border-[var(--border)] p-4 text-sm text-[var(--foreground)]" role="status">
+            <p className="font-bold">Updating results…</p>
+            {model.hasPreviousResults && model.visibleInquiries.length > 0 ? (
+              <p className="mt-1">Showing previous results until the update finishes.</p>
+            ) : null}
+          </div>
+        ) : null}
+        {model.queueError ? (
+          <div className="border-b border-[var(--border)] p-4 text-sm text-[var(--foreground)]" role="alert">
+            <p className="font-bold">Results could not be updated.</p>
+            <p className="mt-1">{model.queueError}</p>
+            {model.hasPreviousResults ? (
+              <p className="mt-1">Previous results may not match the selected filters.</p>
+            ) : null}
+            <Button className="mt-3" onClick={() => void actions.onQueueRefresh()} variant="outline">
+              Try again
+            </Button>
+          </div>
+        ) : null}
         {model.availability === "temporarily-unavailable" ? (
           <div className="px-5 py-12 text-center" role="alert">
             <CircleAlert aria-hidden="true" className="mx-auto size-7 text-[var(--destructive)]" />
@@ -248,7 +268,7 @@ function QueuePane({
               <RefreshCw aria-hidden="true" className="size-4" /> Try again
             </Button>
           </div>
-        ) : model.visibleInquiries.length === 0 && !model.isLoadingQueue ? (
+        ) : model.visibleInquiries.length === 0 && !model.isLoadingQueue && !model.queueError ? (
           <div className="px-5 py-12 text-center">
             <p className="text-sm font-bold text-[var(--secondary)]">No inquiries match these filters.</p>
             <p className="mt-1 text-sm text-[var(--foreground)]">Adjust the search or filters to continue.</p>
@@ -269,15 +289,27 @@ function QueuePane({
             ))}
           </ul>
         )}
-        {model.isLoadingQueue ? (
+        {model.isLoadingQueue && model.visibleInquiries.length === 0 ? (
+          <div aria-label="Loading inquiries" className="divide-y divide-[var(--border)]" role="status">
+            {[0, 1, 2].map((row) => (
+              <div aria-hidden="true" className="space-y-3 p-5" key={row}>
+                <div className="h-4 w-1/2 rounded bg-[var(--surface)]" />
+                <div className="h-3 w-3/4 rounded bg-[var(--surface)]" />
+                <div className="h-3 w-2/3 rounded bg-[var(--surface)]" />
+              </div>
+            ))}
+            <span className="sr-only">Loading inquiries…</span>
+          </div>
+        ) : model.isLoadingQueue && model.queueOperation !== "replace" ? (
           <p
             aria-live="polite"
             className="flex items-center justify-center gap-2 p-5 text-sm text-[var(--foreground)]"
             role="status"
           >
-            <RefreshCw aria-hidden="true" className="size-4 animate-spin" /> Loading inquiries…
+            <RefreshCw aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />{" "}
+            Loading inquiries…
           </p>
-        ) : model.nextCursor ? (
+        ) : !model.isLoadingQueue && !model.hasPreviousResults && !model.queueError && model.nextCursor ? (
           <div className="p-4">
             <Button className="w-full" onClick={() => void actions.onLoadMore()} variant="outline">
               Load more

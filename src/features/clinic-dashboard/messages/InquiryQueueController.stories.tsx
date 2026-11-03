@@ -277,3 +277,54 @@ export const AvailableMessageAnchorUsesNormalDetail: Story = {
     await expect(args.commands!.loadDetail).toHaveBeenCalledOnce()
   },
 }
+
+export const FilteringKeepsPreviousResults: Story = {
+  args: { commands: { ...commands, loadQueue: () => new Promise(() => {}) } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const closed = canvas.getByRole("button", { name: "closed" })
+    closed.focus()
+    await userEvent.keyboard(" ")
+    await expect(closed).toHaveFocus()
+    await expect(closed).toHaveAttribute("aria-pressed", "true")
+    await expect(canvas.getByText("Updating results…")).toBeVisible()
+    await expect(canvas.getByText("Showing previous results until the update finishes.")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: /Lukas Weber/ })).toBeVisible()
+    await expect(canvas.getByRole("button", { name: /Filter by status/ })).toBeEnabled()
+    const search = canvas.getByRole("searchbox", { name: "Search inquiries" })
+    await userEvent.type(search, "attachment")
+    await expect(search).toHaveFocus()
+    await expect(search).toHaveValue("attachment")
+    await expect(canvas.queryByText("No inquiries match these filters.")).not.toBeInTheDocument()
+  },
+}
+
+export const FilterFailureAndRetry: Story = {
+  render: function FilterRetry(args) {
+    const [source] = useState(() => {
+      let attempts = 0
+      return {
+        ...commands,
+        loadQueue: async () =>
+          ++attempts === 1
+            ? { ok: false as const, error: { code: "service-unavailable" as const } }
+            : { ok: true as const, value: { ...inquiryQueueFixture, inquiries: [] } },
+      }
+    })
+    return <InquiryQueue {...args} commands={source} />
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole("button", { name: "closed" }))
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Previous results may not match the selected filters.",
+    )
+    await expect(canvas.getByRole("button", { name: /Lukas Weber/ })).toBeVisible()
+    await expect(canvas.queryByText("No inquiries match these filters.")).not.toBeInTheDocument()
+    const retry = canvas.getByRole("button", { name: "Try again" })
+    retry.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(await canvas.findByText("No inquiries match these filters.")).toBeVisible()
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument()
+  },
+}

@@ -68,6 +68,9 @@ export type InquiryWorkspaceViewModel = Readonly<{
   handlingStatusFilter: readonly Exclude<InquiryHandlingStatus, "spam">[]
   hasPendingReplyDraft: boolean
   hasUnsavedDrafts: boolean
+  hasPreviousResults?: boolean
+  queueError?: string
+  queueOperation?: "replace" | "refresh" | "append"
   isLoadingQueue: boolean
   isMutating: boolean
   lifecycleFilter: InquiryPrimaryFilter

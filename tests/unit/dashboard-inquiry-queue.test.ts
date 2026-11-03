@@ -51,6 +51,12 @@ describe("inquiry queue state", () => {
       "inquiry-2",
     ])
     state = inquiryQueueReducer(state, { filter: "spam", type: "primaryFilterChanged" })
+    state = inquiryQueueReducer(state, {
+      type: "queueLoaded",
+      mode: "replace",
+      filters: { primary: "spam", handlingStatus: [], query: "" },
+      snapshot: createInquirySnapshot([spam]),
+    })
     expect(selectInquiryQueueViewModel(state).visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual([
       "inquiry-spam",
     ])

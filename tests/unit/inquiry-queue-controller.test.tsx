@@ -1318,3 +1318,306 @@ it("retains an actual pending file privately and cleans a late original-clinic u
   expect(captured?.draft).toMatchObject({ files: new Map([[inquiryDetailFixtures.open.id, file]]) })
   await captured?.discard()
 })
+
+describe("inquiry filter intent", () => {
+  it("uses the server snapshot without a foreground request after mount", async () => {
+    vi.useFakeTimers()
+    const loadQueue = vi.fn(createCommands().loadQueue)
+    const hook = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: inquiryQueueFixture,
+      }),
+    )
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+      expect(loadQueue).not.toHaveBeenCalled()
+      expect(hook.result.current.model.isLoadingQueue).toBe(false)
+    } finally {
+      hook.unmount()
+      vi.useRealTimers()
+    }
+  })
+})
+
+it("starts primary filters promptly while retaining the last successful results", async () => {
+  const loadQueue = vi.fn<InquiryWorkspaceCommands["loadQueue"]>(() => new Promise(() => {}))
+  const { result } = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "clinic-1",
+      commands: createCommands({ loadQueue }),
+      snapshot: inquiryQueueFixture,
+    }),
+  )
+  const previous = result.current.model.visibleInquiries
+  act(() => result.current.actions.onPrimaryFilterChange("closed"))
+  expect(loadQueue).toHaveBeenCalledWith(expect.objectContaining({ lifecycle: "closed" }))
+  expect(result.current.model.isLoadingQueue).toBe(true)
+  expect(result.current.model.visibleInquiries).toEqual(previous)
+})
+
+function delayedQueue() {
+  type Result = Awaited<ReturnType<InquiryWorkspaceCommands["loadQueue"]>>
+  const requests: {
+    query: Parameters<InquiryWorkspaceCommands["loadQueue"]>[0]
+    resolve: (value: Result) => void
+    reject: (reason: Error) => void
+  }[] = []
+  const loadQueue = vi.fn<InquiryWorkspaceCommands["loadQueue"]>(
+    (query) => new Promise((resolve, reject) => requests.push({ query, resolve, reject })),
+  )
+  return { loadQueue, requests }
+}
+
+it.each(["changed-cursor", inquiryQueueFixture.changeCursor])(
+  "keeps the latest search when obsolete requests finish, with cursor %s",
+  async (changeCursor) => {
+    vi.useFakeTimers()
+    const { loadQueue, requests } = delayedQueue()
+    const hook = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: inquiryQueueFixture,
+      }),
+    )
+    try {
+      act(() => hook.result.current.actions.onSearchQueryChange("A"))
+      expect(hook.result.current.model.isLoadingQueue).toBe(true)
+      expect(loadQueue).not.toHaveBeenCalled()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(250)
+      })
+      act(() => hook.result.current.actions.onSearchQueryChange("B"))
+      await act(async () => {
+        requests[0].resolve({
+          ok: true,
+          value: { ...inquiryQueueFixture, inquiries: [], changeCursor: "obsolete" },
+        })
+      })
+      expect(hook.result.current.model.isLoadingQueue).toBe(true)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(250)
+      })
+      act(() => hook.result.current.actions.onSearchQueryChange(" B "))
+      act(() => hook.result.current.actions.onPrimaryFilterChange("open"))
+      await act(async () => {
+        requests[1].resolve({
+          ok: true,
+          value: {
+            ...inquiryQueueFixture,
+            inquiries: [summary("B-result", "2026-08-24")],
+            changeCursor,
+            unreadCount: 38,
+          },
+        })
+      })
+      expect(hook.result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual([
+        "B-result",
+      ])
+      expect(hook.result.current.model.totalUnreadCount).toBe(38)
+      expect(hook.result.current.model.isLoadingQueue).toBe(false)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+      expect(loadQueue).toHaveBeenCalledTimes(2)
+    } finally {
+      hook.unmount()
+      vi.useRealTimers()
+    }
+  },
+)
+
+it.each(["success", "failure"])("ignores late search A %s after search B completes", async (outcome) => {
+  vi.useFakeTimers()
+  const { loadQueue, requests } = delayedQueue()
+  const hook = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "clinic-1",
+      commands: createCommands({ loadQueue }),
+      snapshot: inquiryQueueFixture,
+    }),
+  )
+  try {
+    act(() => hook.result.current.actions.onSearchQueryChange("A"))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250)
+    })
+    act(() => hook.result.current.actions.onSearchQueryChange("B"))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250)
+    })
+    await act(async () => {
+      requests[1].resolve({ ok: true, value: { ...inquiryQueueFixture, inquiries: [], changeCursor: "B" } })
+    })
+    await act(async () => {
+      requests[0].resolve(
+        outcome === "success"
+          ? { ok: true, value: inquiryQueueFixture }
+          : { ok: false, error: { code: "service-unavailable" } },
+      )
+    })
+    expect(hook.result.current.model.visibleInquiries).toEqual([])
+    expect(hook.result.current.model.queueError).toBeUndefined()
+    expect(hook.result.current.model.isLoadingQueue).toBe(false)
+  } finally {
+    hook.unmount()
+    vi.useRealTimers()
+  }
+})
+
+it.each(["result", "rejection"])(
+  "retains selected work after %s failure and retries the current filter without cursors",
+  async (failure) => {
+    const { loadQueue, requests } = delayedQueue()
+    const hook = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: { ...inquiryQueueFixture, nextCursor: "old-page" },
+      }),
+    )
+    await act(async () => {
+      await hook.result.current.actions.onInquirySelect(inquiryDetailFixtures.open.id)
+    })
+    act(() => hook.result.current.actions.onDraftChange("Reply work"))
+    await act(async () => {
+      await hook.result.current.actions.onAttachmentSelect(
+        new File(["pdf"], "work.pdf", { type: "application/pdf" }),
+      )
+    })
+    act(() => hook.result.current.actions.onComposerModeChange("note"))
+    act(() => hook.result.current.actions.onDraftChange("Note work"))
+    const previous = hook.result.current.model.visibleInquiries
+    act(() => hook.result.current.actions.onPrimaryFilterChange("closed"))
+    await act(async () => {
+      if (failure === "result") requests[0].resolve({ ok: false, error: { code: "service-unavailable" } })
+      else requests[0].reject(new Error("synthetic rejection"))
+    })
+    expect(hook.result.current.model.isLoadingQueue).toBe(false)
+    expect(hook.result.current.model.queueError).toBeTruthy()
+    expect(hook.result.current.model.visibleInquiries).toEqual(previous)
+    expect(hook.result.current.model.draft).toBe("Note work")
+    expect(hook.result.current.model.selectedInquiry?.id).toBe(inquiryDetailFixtures.open.id)
+    let retry!: Promise<void>
+    act(() => {
+      retry = hook.result.current.actions.onQueueRefresh()
+    })
+    expect(requests[1].query).toEqual({
+      handlingStatus: ["submitted", "in_review", "contacted"],
+      lifecycle: "closed",
+      unreadOnly: false,
+    })
+    await act(async () => {
+      requests[1].resolve({ ok: true, value: { ...inquiryQueueFixture, inquiries: [] } })
+      await retry
+    })
+    expect(hook.result.current.model.queueError).toBeUndefined()
+    expect(hook.result.current.model.visibleInquiries).toEqual([])
+    act(() => hook.result.current.actions.onComposerModeChange("reply"))
+    expect(hook.result.current.model.draft).toBe("Reply work")
+    expect(hook.result.current.model.attachment?.fileName).toBe("work.pdf")
+  },
+)
+
+it.each(["page", "refresh"])("rejects an obsolete %s after a filter change", async (operation) => {
+  const { loadQueue, requests } = delayedQueue()
+  const hook = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "clinic-1",
+      commands: createCommands({ loadQueue }),
+      snapshot: { ...inquiryQueueFixture, nextCursor: "old-page" },
+    }),
+  )
+  let old!: Promise<void>
+  act(() => {
+    old =
+      operation === "page"
+        ? hook.result.current.actions.onLoadMore()
+        : hook.result.current.actions.onQueueRefresh()
+  })
+  act(() => hook.result.current.actions.onStatusFilterChange(["in_review"]))
+  expect(requests).toHaveLength(2)
+  await act(async () => {
+    requests[1].resolve({
+      ok: true,
+      value: { ...inquiryQueueFixture, inquiries: [], nextCursor: undefined, unreadCount: 19 },
+    })
+  })
+  await act(async () => {
+    requests[0].resolve({
+      ok: true,
+      value: { ...inquiryQueueFixture, nextCursor: "obsolete", unreadCount: 91 },
+    })
+    await old
+  })
+  expect(hook.result.current.model.visibleInquiries).toEqual([])
+  expect(hook.result.current.model.nextCursor).toBeUndefined()
+  expect(hook.result.current.model.totalUnreadCount).toBe(19)
+})
+
+it("supersedes a debounced search with an immediate handling filter without duplicate requests", async () => {
+  vi.useFakeTimers()
+  const { loadQueue, requests } = delayedQueue()
+  const hook = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "clinic-1",
+      commands: createCommands({ loadQueue }),
+      snapshot: inquiryQueueFixture,
+    }),
+  )
+  try {
+    act(() => hook.result.current.actions.onSearchQueryChange("notes"))
+    act(() => hook.result.current.actions.onStatusFilterChange(["in_review", "contacted"]))
+    expect(requests[0].query).toEqual({
+      lifecycle: "open",
+      unreadOnly: false,
+      handlingStatus: ["in_review", "contacted"],
+      query: "notes",
+    })
+    act(() => hook.result.current.actions.onStatusFilterChange(["contacted", "in_review"]))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    expect(loadQueue).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      requests[0].resolve({ ok: true, value: { ...inquiryQueueFixture, inquiries: [] } })
+    })
+    expect(hook.result.current.model.isLoadingQueue).toBe(false)
+    expect(hook.result.current.model.visibleInquiries).toEqual([])
+  } finally {
+    hook.unmount()
+    vi.useRealTimers()
+  }
+})
+
+it("refreshes selected detail after a failed filter without reusing the previous result cursor", async () => {
+  const { loadQueue, requests } = delayedQueue()
+  const hook = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "clinic-1",
+      commands: createCommands({ loadQueue }),
+      snapshot: inquiryQueueFixture,
+    }),
+  )
+  await act(async () => {
+    await hook.result.current.actions.onInquirySelect(inquiryDetailFixtures.open.id)
+  })
+  act(() => hook.result.current.actions.onPrimaryFilterChange("closed"))
+  await act(async () => {
+    requests[0].resolve({ ok: false, error: { code: "service-unavailable" } })
+  })
+  let refresh!: Promise<void>
+  act(() => {
+    refresh = hook.result.current.actions.onRefresh()
+  })
+  expect(requests[1].query).not.toHaveProperty("knownChangeCursor")
+  await act(async () => {
+    requests[1].resolve({ ok: true, value: { ...inquiryQueueFixture, inquiries: [] } })
+    await refresh
+  })
+  expect(hook.result.current.model.visibleInquiries).toEqual([])
+})

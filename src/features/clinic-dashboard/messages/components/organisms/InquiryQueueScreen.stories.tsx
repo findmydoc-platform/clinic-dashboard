@@ -274,7 +274,12 @@ export const QueueEmpty: Story = {
 }
 
 export const QueueLoading: Story = {
-  args: { model: { ...baseModel, isLoadingQueue: true, visibleInquiries: [] } },
+  args: { model: { ...baseModel, isLoadingQueue: true, queueOperation: "replace", visibleInquiries: [] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("status", { name: "Loading inquiries" })).toBeVisible()
+    await expect(canvas.queryByText("No inquiries match these filters.")).not.toBeInTheDocument()
+  },
 }
 
 export const QueueUnavailable: Story = {
@@ -550,4 +555,56 @@ export const WideMasterDetail: Story = {
 export const WideDark: Story = {
   args: { model: selectedModel(inquiryDetailFixtures.open) },
   globals: { theme: "dark", viewport: { value: "desktop1440" } },
+}
+
+export const PreviousResultsMobile: Story = {
+  globals: { viewport: { value: "mobile320Short" } },
+  args: {
+    model: {
+      ...baseModel,
+      lifecycleFilter: "closed",
+      hasPreviousResults: true,
+      isLoadingQueue: true,
+      queueOperation: "replace",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Showing previous results until the update finishes.")).toBeVisible()
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+    await expect(canvas.getByRole("searchbox", { name: "Search inquiries" })).toBeEnabled()
+  },
+}
+
+export const PreviousResultsDark: Story = {
+  globals: { theme: "dark" },
+  args: {
+    model: {
+      ...baseModel,
+      lifecycleFilter: "closed",
+      hasPreviousResults: true,
+      isLoadingQueue: true,
+      queueOperation: "replace",
+    },
+  },
+}
+
+export const FailedFilterWithPreviousResults: Story = {
+  args: {
+    model: {
+      ...baseModel,
+      lifecycleFilter: "closed",
+      hasPreviousResults: true,
+      queueError: "The inquiry service is temporarily unavailable.",
+      queueOperation: "replace",
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Previous results may not match the selected filters.",
+    )
+    await userEvent.click(canvas.getByRole("button", { name: "Try again" }))
+    await expect(args.actions.onQueueRefresh).toHaveBeenCalled()
+  },
 }
