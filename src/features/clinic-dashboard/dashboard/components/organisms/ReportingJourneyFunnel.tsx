@@ -9,18 +9,18 @@ import {
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import type {
-  DashboardJourneyStage,
-  DashboardJourneyStageId,
-  DashboardSessionConversionSummary,
-} from "../../model/dashboard-overview"
+import type { DashboardJourneyStage, DashboardJourneyStageId } from "../../model/dashboard-overview"
+import {
+  reportingJourneyMeasurementDescription,
+  reportingJourneyTransitionDescriptions,
+} from "../../model/reporting-journey-information"
 import { ReportingInformation } from "../molecules/ReportingInformation"
 
 const icons = {
   impressions: Eye,
   profileViews: MousePointerClick,
   uniqueVisitors: UserRound,
-  contacts: MessageSquare,
+  inquiryStarters: MessageSquare,
   inquiries: FileCheck2,
 }
 
@@ -30,7 +30,6 @@ type ReportingJourneyFunnelProps = Readonly<{
   selectedId: DashboardJourneyStageId
   onSelect: (id: DashboardJourneyStageId) => void
   periodDays: number
-  session: DashboardSessionConversionSummary
 }>
 
 export function ReportingJourneyFunnel({
@@ -39,7 +38,6 @@ export function ReportingJourneyFunnel({
   selectedId,
   onSelect,
   periodDays,
-  session,
 }: ReportingJourneyFunnelProps) {
   return (
     <Card>
@@ -48,8 +46,7 @@ export function ReportingJourneyFunnel({
           Conversion funnel ({periodDays} days)
         </h2>
         <ReportingInformation label="Journey measurements">
-          The cards show separate measurements. Arrows indicate journey order, not measured conversion between
-          stages. Session conversion uses its own consent-limited population.
+          {reportingJourneyMeasurementDescription}
         </ReportingInformation>
       </div>
       <ol
@@ -96,11 +93,10 @@ export function ReportingJourneyFunnel({
                   <ChevronRight aria-hidden="true" className="absolute right-0 size-5" />
                 </span>
               </button>
-              {nextStage ? (
+              {nextStage && stage.id !== "inquiries" ? (
                 <div className="flex min-h-20 w-full flex-col items-center justify-center px-1 py-1 text-center xl:absolute xl:top-1/2 xl:left-full xl:min-h-0 xl:w-20 xl:-translate-y-1/2 2xl:w-24">
                   <ReportingInformation label={`${stage.label} to ${nextStage.label}`}>
-                    These are separate measurements. The arrow shows journey order, not a measured conversion
-                    rate.
+                    {reportingJourneyTransitionDescriptions[stage.id]}
                   </ReportingInformation>
                   <ArrowRight
                     aria-hidden="true"
@@ -112,27 +108,6 @@ export function ReportingJourneyFunnel({
           )
         })}
       </ol>
-      <div
-        className="border-t border-[var(--border)] px-5 py-3"
-        aria-label="Session conversion summary"
-        role="region"
-      >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span className="font-bold text-[var(--secondary)]">Consent-limited session conversion</span>
-          <span>
-            Profile-view sessions: <strong>{session.profileSessions}</strong>
-          </span>
-          <span>
-            Converted sessions: <strong>{session.convertedSessions}</strong>
-          </span>
-          {session.conversion ? <strong>{session.conversion}</strong> : null}
-          {session.comparison ? <span>{session.comparison}</span> : null}
-          <ReportingInformation label="Session conversion summary">
-            {session.information}
-          </ReportingInformation>
-        </div>
-        {session.detail ? <p className="mt-1 text-xs">{session.detail}</p> : null}
-      </div>
     </Card>
   )
 }

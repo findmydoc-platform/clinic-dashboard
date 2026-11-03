@@ -101,14 +101,13 @@ test("loads controlled reporting through the request-bound BFF when the selected
   await signIn(page)
 
   await expect(page.getByRole("group", { name: "Reporting period" })).toBeVisible()
-  const reportingMetrics = page.getByRole("region", { name: "Dashboard metrics" })
-  await expect(reportingMetrics.getByText("Profile views")).toBeVisible()
-  await expect(reportingMetrics.getByText("284", { exact: true })).toBeVisible()
+  const reportingStages = page.getByRole("list", { name: "Conversion stages" })
+  await expect(reportingStages.getByRole("button", { name: "Profile views 284" })).toBeVisible()
   await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true")
   expect(reportingRequests).toEqual([])
 
   await page.getByRole("button", { name: "90 days" }).click()
-  await expect(reportingMetrics.getByText("902", { exact: true })).toBeVisible()
+  await expect(reportingStages.getByRole("button", { name: "Profile views 902" })).toBeVisible()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
   await expect
     .poll(() => reportingRequests)
@@ -126,7 +125,7 @@ test("retains the selected period and metric through review and notification nav
       reportingRequests.push(url.search)
   })
   await signIn(page)
-  await page.getByRole("button", { name: /Contacts Not supported yet/ }).click()
+  await page.getByRole("button", { name: /Inquiry starters 12/ }).click()
   expect(reportingRequests).toEqual([])
   await page.getByRole("button", { name: /Current clinic location/ }).click()
   await expect(page.getByRole("menuitem")).toHaveCount(1)
@@ -137,7 +136,7 @@ test("retains the selected period and metric through review and notification nav
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
   await page.getByRole("button", { name: "Dashboard", exact: true }).click()
   await expect(page.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("button", { name: /Contacts Not supported yet/ })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: /Inquiry starters 12/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   )
@@ -149,6 +148,12 @@ test("retains the selected period and metric through review and notification nav
 test("keeps published profile information usable when reporting and notifications fail", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await signIn(page)
+  const metrics = page.getByRole("region", { name: "Dashboard metrics" })
+  const completion = metrics.getByRole("progressbar", { name: /^Public profile completion:/ })
+  await expect(completion).toHaveAttribute("aria-valuenow", /^\d+$/)
+  const publishedCompletion = await completion.getAttribute("aria-valuenow")
+  if (publishedCompletion === null) throw new Error("Expected the published profile completion value")
+  await expect(metrics.getByText(`${publishedCompletion}%`, { exact: true })).toBeVisible()
   let failedNotificationRequests = 0
   await page.route("**/api/dashboard/clinics/controlled-clinic/reporting?*", (route) =>
     route.fulfill({
@@ -183,9 +188,12 @@ test("keeps published profile information usable when reporting and notification
   )
   await page.getByRole("button", { name: "Close notifications" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
-  await expect(
-    page.getByRole("region", { name: "Dashboard metrics" }).getByText("83%", { exact: true }),
-  ).toBeVisible()
+  await expect(completion).toHaveAttribute("aria-valuenow", publishedCompletion)
+  await expect(metrics.getByText(`${publishedCompletion}%`, { exact: true })).toBeVisible()
+  await expect(page.getByRole("progressbar", { name: /^Public profile progress:/ })).toHaveAttribute(
+    "aria-valuenow",
+    publishedCompletion,
+  )
   await expect(page.getByRole("list", { name: "Profile tasks" })).toBeVisible()
   await page.getByRole("button", { name: "View reviews" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Reviews" })).toBeVisible()
@@ -196,12 +204,23 @@ test.describe("touch reporting explanations", () => {
 
   test("keeps an explanation open after a tap until it is dismissed", async ({ page }) => {
     await signIn(page)
-    await page.getByRole("button", { name: "About Profile views", exact: true }).tap()
-    const explanation = page.getByRole("dialog", { name: "About Profile views", exact: true })
+    await page.getByRole("button", { name: "About Profile views details", exact: true }).tap()
+    const explanation = page.getByRole("dialog", { name: "About Profile views details", exact: true })
     await expect(explanation).toBeVisible()
-    await expect(explanation).toContainText("Analytics include only sessions with consent.")
+    await expect(explanation).toContainText("Analytics include only visitors with consent.")
     await page.getByRole("button", { name: "Close explanation" }).tap()
     await expect(explanation).not.toBeVisible()
+    await page.getByRole("button", { name: "Unique visitors 200", exact: true }).tap()
+    await expect(page.getByRole("heading", { level: 2, name: "Unique visitors", exact: true })).toBeVisible()
+    await page.getByRole("button", { name: "About Unique visitors details", exact: true }).tap()
+    const visitorsExplanation = page.getByRole("dialog", {
+      name: "About Unique visitors details",
+      exact: true,
+    })
+    await expect(visitorsExplanation).toContainText("Browser or device changes and cleared storage")
+    await page.screenshot({ path: "output/playwright/301-unique-visitors-touch-320.png", fullPage: true })
+    await page.getByRole("button", { name: "Close explanation" }).tap()
+    await expect(visitorsExplanation).not.toBeVisible()
   })
 })
 
@@ -218,8 +237,8 @@ test("captures the restored dashboard without overflow in both themes and viewpo
   await page.setViewportSize({ height: 760, width: 320 })
   await signIn(page)
 
-  const reportingMetrics = page.getByRole("region", { name: "Dashboard metrics" })
-  await expect(reportingMetrics.getByText("284", { exact: true })).toBeVisible()
+  const reportingStages = page.getByRole("list", { name: "Conversion stages" })
+  await expect(reportingStages.getByRole("button", { name: "Profile views 284" })).toBeVisible()
   await expect(page.locator("html")).not.toHaveClass(/dark/)
   await page.locator("nextjs-portal").evaluateAll((portals) => portals.forEach((portal) => portal.remove()))
   await page.screenshot({
@@ -274,7 +293,7 @@ test("captures the restored dashboard without overflow in both themes and viewpo
   )
   await page.getByRole("button", { name: "90 days" }).click()
   await expect(page.getByRole("button", { name: "Retry reporting" })).toBeVisible()
-  await page.getByRole("button", { name: /Unique visitors Not supported yet/ }).click()
+  await page.getByRole("button", { name: "Unique visitors Not available", exact: true }).click()
   for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ height: 900, width })
     for (const theme of ["light", "dark"] as const) {

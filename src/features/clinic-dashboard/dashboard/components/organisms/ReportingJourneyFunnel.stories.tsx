@@ -16,7 +16,6 @@ const meta = {
   component: ReportingJourneyFunnel,
   args: {
     stages: model.journey,
-    session: model.sessionConversionSummary,
     periodDays: 30,
     selectedId: "profileViews",
     controlsId: "detail-panel",
@@ -45,57 +44,27 @@ export const Available: Story = {
       "aria-pressed",
       "true",
     )
-    await expect(canvas.getByRole("region", { name: "Session conversion summary" })).toHaveTextContent(
-      "Profile-view sessions: 200",
-    )
-    await expect(canvas.getByRole("region", { name: "Session conversion summary" })).toHaveTextContent(
-      "Converted sessions: 9",
-    )
-    await userEvent.click(stages.getByRole("button", { name: /Impressions Not supported yet/ }))
+    await expect(canvas.queryByRole("region", { name: "Session conversion summary" })).not.toBeInTheDocument()
+    await expect(canvas.queryByText(/Profile-view sessions|Converted sessions/)).not.toBeInTheDocument()
+    await userEvent.click(stages.getByRole("button", { name: /Impressions Not available/ }))
     await expect(args.onSelect).toHaveBeenCalledWith("impressions")
-    await userEvent.click(canvas.getByRole("button", { name: "About Profile views to Unique visitors" }))
-    const explanation = within(document.body).getByRole("dialog", {
-      name: "About Profile views to Unique visitors",
-    })
-    await expect(explanation).toHaveTextContent("not a measured conversion rate")
-    await userEvent.keyboard("{Escape}")
-    await expect(canvas.getByRole("button", { name: "About Profile views to Unique visitors" })).toHaveFocus()
-  },
-}
-
-export const NoQualifyingSessions: Story = {
-  args: {
-    session: {
-      ...model.sessionConversionSummary,
-      profileSessions: "0",
-      convertedSessions: "0",
-      conversion: undefined,
-      comparison: undefined,
-      detail: "No qualifying profile-view sessions. Conversion is undefined.",
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const summary = within(canvasElement).getByRole("region", { name: "Session conversion summary" })
-    await expect(summary).toHaveTextContent("Conversion is undefined")
-    await expect(summary).not.toHaveTextContent("%")
-  },
-}
-
-export const SourceUnavailable: Story = {
-  args: {
-    session: {
-      ...model.sessionConversionSummary,
-      profileSessions: "Not available",
-      convertedSessions: "Not available",
-      conversion: undefined,
-      comparison: undefined,
-      detail: "Data source unavailable",
-    },
-  },
-  play: async ({ canvasElement }) => {
+    for (const [transition, meaning] of [
+      ["Impressions to Profile views", "interest beyond seeing the listing"],
+      ["Profile views to Unique visitors", "not another action"],
+      ["Unique visitors to Inquiry starters", "starts editing the inquiry form"],
+      ["Inquiry starters to Inquiries", "successfully submitted and saved requests"],
+    ]) {
+      const trigger = canvas.getByRole("button", { name: `About ${transition}` })
+      await userEvent.click(trigger)
+      const explanation = within(document.body).getByRole("dialog", { name: `About ${transition}` })
+      await expect(explanation).toHaveTextContent(meaning)
+      await userEvent.keyboard("{Escape}")
+      await expect(trigger).toHaveFocus()
+    }
+    await userEvent.click(canvas.getByRole("button", { name: "About Journey measurements" }))
     await expect(
-      within(canvasElement).getByRole("region", { name: "Session conversion summary" }),
-    ).toHaveTextContent("Data source unavailable")
-    await expect(within(canvasElement).getByRole("button", { name: /Inquiries 7/ })).toBeVisible()
+      within(document.body).getByRole("dialog", { name: "About Journey measurements" }),
+    ).toHaveTextContent("do not track one linked group of visitors")
+    await userEvent.keyboard("{Escape}")
   },
 }

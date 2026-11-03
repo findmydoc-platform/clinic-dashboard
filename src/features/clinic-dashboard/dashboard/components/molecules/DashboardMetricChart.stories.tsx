@@ -36,18 +36,18 @@ export const KeyboardAndPointerNavigation: Story = {
   },
 }
 
-export const SingularContactValue: Story = {
+export const SingularInquiryStarterValue: Story = {
   args: {
-    description: "Daily contacts total 1. Deterministic demo data; not live analytics.",
+    description: "Daily inquiry starters total 1. Deterministic demo data; not live analytics.",
     points: [{ axisLabel: "Today", dateLabel: "Today", value: 1 }],
-    valueLabels: { plural: "contacts", singular: "contact" },
+    valueLabels: { plural: "inquiry starters", singular: "inquiry starter" },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const point = canvas.getByRole("img", { name: "Today: 1 contact" })
+    const point = canvas.getByRole("img", { name: "Today: 1 inquiry starter" })
 
     await userEvent.hover(point)
-    await expect(canvas.getByRole("tooltip", { name: "Today: 1 contact" })).toBeInTheDocument()
+    await expect(canvas.getByRole("tooltip", { name: "Today: 1 inquiry starter" })).toBeInTheDocument()
   },
 }
 

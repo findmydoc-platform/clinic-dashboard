@@ -52,15 +52,15 @@ describe("dashboard controller", () => {
 
     expect(result.current.model.selectedMetricId).toBe("views")
 
-    act(() => result.current.actions.selectMetric("contacts"))
+    act(() => result.current.actions.selectMetric("inquiryStarters"))
     act(() => result.current.actions.changeReportingPeriod("90 days"))
 
     expect(result.current.model.reportingPeriod).toBe("90 days")
-    expect(result.current.model.selectedMetricId).toBe("contacts")
+    expect(result.current.model.selectedMetricId).toBe("inquiryStarters")
     expect(result.current.model.viewModel?.selectedMetric).toMatchObject({
       comparison: "+4.4% vs. previous 90 days",
-      id: "contacts",
-      title: "Contacts over time",
+      id: "inquiryStarters",
+      title: "Inquiry starters over time",
     })
   })
 

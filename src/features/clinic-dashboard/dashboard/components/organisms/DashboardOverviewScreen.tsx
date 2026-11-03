@@ -34,14 +34,20 @@ export function DashboardOverviewScreen({
   const panelId = useId()
   return (
     <div className="space-y-6">
-      <PageHeading
-        description={`Performance for ${model.clinicPreview.name}: activity and public profile health.`}
-      >
-        Dashboard
-      </PageHeading>
+      <PageHeading>Dashboard</PageHeading>
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {model.metrics.map((metric) => (
-          <ReportingMetricCard key={metric.id} {...metric} />
+        {model.metrics
+          .filter((metric) => metric.id === "completion")
+          .map((metric) => (
+            <ReportingMetricCard key={metric.id} {...metric} />
+          ))}
+        {[1, 2, 3, 4].map((position) => (
+          <Card
+            className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
+            key={position}
+          >
+            Content to be defined
+          </Card>
         ))}
       </section>
       {model.reportingStatus === "temporarily-unavailable" ? (
@@ -69,7 +75,6 @@ export function DashboardOverviewScreen({
             stages={model.journey}
             selectedId={model.selectedMetric.id}
             onSelect={onMetricSelect}
-            session={model.sessionConversionSummary}
             periodDays={model.periodDays}
           />
         </div>
@@ -78,11 +83,7 @@ export function DashboardOverviewScreen({
             <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] p-5">
               <div>
                 <h2 className="text-xl font-bold text-[var(--secondary)]">{model.selectedMetric.label}</h2>
-                {model.selectedMetric.availability !== "unsupported" ? (
-                  <p className="mt-2 text-2xl font-bold text-[var(--primary)]">
-                    {model.selectedMetric.value}
-                  </p>
-                ) : null}
+                <p className="mt-2 text-2xl font-bold text-[var(--primary)]">{model.selectedMetric.value}</p>
                 {model.selectedMetric.comparison ? (
                   <p className="mt-1 text-xs">{model.selectedMetric.comparison}</p>
                 ) : null}
@@ -100,22 +101,13 @@ export function DashboardOverviewScreen({
               className="flex min-h-80 flex-1 flex-col items-center justify-center p-5 text-center"
               role="status"
             >
-              {model.selectedMetric.availability === "unsupported" ? (
-                <>
-                  <h3 className="font-bold text-[var(--secondary)]">Not supported yet</h3>
-                  <p className="mt-2 max-w-xs text-sm">{model.selectedMetric.information}</p>
-                </>
-              ) : (
-                <>
-                  <h3 className="font-bold text-[var(--secondary)]">Time series not available</h3>
-                  <p className="mt-2 max-w-xs text-sm">
-                    {model.selectedMetric.availability === "available"
-                      ? "The selected period's measurement is shown above. "
-                      : ""}
-                    Daily measurements and CSV downloads are not available yet.
-                  </p>
-                </>
-              )}
+              <h3 className="font-bold text-[var(--secondary)]">Time series not available</h3>
+              <p className="mt-2 max-w-xs text-sm">
+                {model.selectedMetric.availability === "available"
+                  ? "The selected period's measurement is shown above. "
+                  : ""}
+                Daily measurements and CSV downloads are not available yet.
+              </p>
             </div>
           </Card>
         </div>

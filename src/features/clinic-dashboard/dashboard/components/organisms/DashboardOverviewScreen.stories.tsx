@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, userEvent, within } from "storybook/test"
+import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { createDashboardOverview } from "../../dashboard-overview.mapper"
 import {
   clinicDashboardReportingFixture,
@@ -15,6 +15,7 @@ import {
 import { useDashboardOverviewController } from "../../hooks/useDashboardOverviewController"
 import { ReportingPeriodControl } from "../molecules/ReportingPeriodControl"
 import { DashboardOverviewScreen } from "./DashboardOverviewScreen"
+import type { ClinicDashboardReporting } from "../../model/clinic-dashboard-reporting"
 
 const previewFixture = {
   status: "available",
@@ -56,8 +57,7 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   const canvas = within(canvasElement)
   await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
-  await expect(metrics.getByText("284", { exact: true })).toBeVisible()
-  await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
+  await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
   await expect(metrics.queryByText("CTA interactions")).not.toBeInTheDocument()
   await expect(metrics.queryByText("Session conversion")).not.toBeInTheDocument()
 
@@ -73,11 +73,40 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   await expect(
     within(canvas.getByRole("list", { name: "Conversion stages" })).getAllByRole("listitem"),
   ).toHaveLength(5)
-  await expect(canvas.getByRole("button", { name: /Impressions Not supported yet/ })).toBeVisible()
+  await expect(canvas.getByRole("button", { name: /Impressions Not available/ })).toBeVisible()
   await expect(canvas.queryByRole("button", { name: /Download/ })).not.toBeInTheDocument()
 }
 
 export const Available: Story = { play: exerciseAvailable }
+
+export const TopKpiScope: Story = {
+  globals: { viewport: { value: "desktop1440" } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const region = canvas.getByRole("region", { name: "Dashboard metrics" })
+    const metrics = within(region)
+    await expect(region.children).toHaveLength(5)
+    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+    await expect(metrics.getByText("Public profile completion")).toBeVisible()
+    await expect(metrics.getByText("67%", { exact: true })).toBeVisible()
+    await expect(metrics.queryAllByRole("button")).toHaveLength(0)
+    for (const placeholder of Array.from(region.children).slice(1)) {
+      await expect(placeholder).toHaveTextContent(/^Content to be defined$/)
+    }
+    await expect(args.onMetricSelect).not.toHaveBeenCalled()
+    await expect(canvas.getByRole("button", { name: /Profile views 284/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    const firstStage = canvas.getByRole("button", { name: /Impressions Not available/ })
+    firstStage.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(firstStage).toHaveFocus()
+    await expect(getComputedStyle(firstStage).outlineWidth).toBe("2px")
+    await expect(args.onMetricSelect).toHaveBeenCalledWith("impressions")
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+  },
+}
 
 export const PartialComparisonExplanation: Story = {
   args: {
@@ -107,25 +136,27 @@ export const PartialComparisonExplanation: Story = {
     }),
   },
   play: async ({ canvasElement }) => {
-    const metrics = within(canvasElement).getByRole("region", { name: "Dashboard metrics" })
-    const canvas = within(metrics)
+    const canvas = within(canvasElement)
     const page = within(document.body)
-    await expect(canvas.getByText("284", { exact: true })).toBeVisible()
-    await userEvent.click(canvas.getByRole("button", { name: "About Profile views" }))
-    await expect(page.getByRole("dialog", { name: "About Profile views" })).toHaveTextContent(
+    await expect(canvas.getByRole("button", { name: /Profile views 284/ })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "About Profile views details" }))
+    await expect(page.getByRole("dialog", { name: "About Profile views details" })).toHaveTextContent(
       "The preceding period does not have complete measurement coverage.",
     )
   },
 }
 
-function SelectionHarness(args: React.ComponentProps<typeof DashboardOverviewScreen>) {
+function SelectionHarness({
+  reporting = clinicDashboardReportingFixture,
+  ...args
+}: React.ComponentProps<typeof DashboardOverviewScreen> & { reporting?: ClinicDashboardReporting }) {
   const controller = useDashboardOverviewController({
-    initialReporting: { status: "ready", reporting: clinicDashboardReportingFixture },
+    initialReporting: { status: "ready", reporting },
     profileProgress: args.model.profileProgress,
     clinicPreview: args.model.clinicPreview,
     loadReporting: async (days) => ({
-      ...clinicDashboardReportingFixture,
-      period: { ...clinicDashboardReportingFixture.period, days },
+      ...reporting,
+      period: { ...reporting.period, days },
     }),
   })
   return (
@@ -147,11 +178,26 @@ export const MetricSelection: Story = {
   render: (args) => <SelectionHarness {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: /Contacts Not supported yet/ }))
-    await expect(canvas.getByRole("heading", { level: 2, name: "Contacts" })).toBeVisible()
-    await expect(canvas.getByRole("status")).toHaveTextContent("Chat conversations are not measured")
+    await userEvent.click(canvas.getByRole("button", { name: /Inquiry starters 12/ }))
+    await expect(canvas.getByRole("heading", { level: 2, name: "Inquiry starters" })).toBeVisible()
+    const starters = canvas.getByRole("button", { name: /Inquiry starters 12/ })
+    starters.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(starters).toHaveFocus()
+    await userEvent.click(canvas.getByRole("button", { name: "About Inquiry starters details" }))
+    const explanation = within(document.body).getByRole("dialog", { name: "About Inquiry starters details" })
+    await expect(explanation).toHaveTextContent("once per clinic and period")
+    await expect(explanation).toHaveTextContent("Unique Visitors")
+    await expect(explanation).toHaveTextContent("invalid, cleared and later submitted input")
+    await expect(explanation.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
+    await waitFor(() => {
+      expect(explanation.getBoundingClientRect().top).toBeGreaterThanOrEqual(0)
+      expect(explanation.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    })
+    await userEvent.keyboard("{Escape}")
+    await expect(canvas.getByRole("button", { name: "About Inquiry starters details" })).toHaveFocus()
     await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
-    await expect(canvas.getByRole("button", { name: /Contacts Not supported yet/ })).toHaveAttribute(
+    await expect(canvas.getByRole("button", { name: /Inquiry starters 12/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     )
@@ -159,12 +205,123 @@ export const MetricSelection: Story = {
   },
 }
 
-export const KpiInformationWithoutSelection: Story = {
+export const UniqueVisitors: Story = {
+  render: (args) => <SelectionHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const visitors = canvas.getByRole("button", { name: /Unique visitors 200/ })
+    visitors.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(visitors).toHaveAttribute("aria-pressed", "true")
+    await expect(canvas.getByRole("heading", { level: 2, name: "Unique visitors" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "About Unique visitors details" }))
+    const dialog = within(document.body).getByRole("dialog", { name: "About Unique visitors details" })
+    await expect(dialog).toHaveTextContent("Browser or device changes and cleared storage")
+    await expect(dialog).toHaveTextContent("same consent-based browser recognition as Inquiry starters")
+    await expect(dialog.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
+    await expect(dialog.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    await userEvent.keyboard("{Escape}")
+    await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
+    await expect(canvas.getByRole("button", { name: /Unique visitors 200/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+  },
+}
+export const UniqueVisitors390: Story = {
+  ...UniqueVisitors,
+  globals: { viewport: { value: "mobile390Tall" } },
+}
+export const UniqueVisitors320: Story = {
+  ...UniqueVisitors,
+  globals: { viewport: { value: "mobile320Short" } },
+}
+export const UniqueVisitorsDark: Story = { ...UniqueVisitors, globals: { theme: "dark" } }
+export const UniqueVisitorsDark390: Story = {
+  ...UniqueVisitors,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const UniqueVisitorsDark320: Story = {
+  ...UniqueVisitors,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+
+const impressionsReporting: ClinicDashboardReporting = {
+  ...clinicDashboardReportingFixture,
+  metrics: {
+    ...clinicDashboardReportingFixture.metrics,
+    impressions: {
+      source: "posthog",
+      current: { state: "available", value: 600 },
+      comparison: { state: "available", value: 500, absoluteDelta: 100, relativeDeltaPercent: 20 },
+    },
+  },
+}
+
+export const Impressions: Story = {
+  render: (args) => <SelectionHarness {...args} reporting={impressionsReporting} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const impressions = canvas.getByRole("button", { name: "Impressions 600" })
+    impressions.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(impressions).toHaveAttribute("aria-pressed", "true")
+    await expect(canvas.getByRole("heading", { level: 2, name: "Impressions" })).toBeVisible()
+    await expect(canvas.getByText("+20% compared with the previous period")).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "About Impressions details" }))
+    const dialog = within(document.body).getByRole("dialog", { name: "About Impressions details" })
+    await expect(dialog).toHaveTextContent("active browser window")
+    await expect(dialog).toHaveTextContent("once per result view")
+    await expect(dialog).toHaveTextContent("No minimum duration or percentage")
+    await expect(dialog).toHaveTextContent("Arrows show order, not conversion rates")
+    await expect(dialog.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
+    await expect(dialog.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    await userEvent.keyboard("{Escape}")
+    await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
+    await expect(impressions).toHaveAttribute("aria-pressed", "true")
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+  },
+}
+export const Impressions390: Story = { ...Impressions, globals: { viewport: { value: "mobile390Tall" } } }
+export const Impressions320: Story = { ...Impressions, globals: { viewport: { value: "mobile320Short" } } }
+export const ImpressionsDark: Story = { ...Impressions, globals: { theme: "dark" } }
+export const ImpressionsDark390: Story = {
+  ...Impressions,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const ImpressionsDark320: Story = {
+  ...Impressions,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+
+export const ImpressionsPartialCoverage: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "impressions",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("heading", { level: 2, name: "Impressions" })).toBeVisible()
+    await expect(canvas.getByText("Incomplete data coverage")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Impressions Not available" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+  },
+}
+
+export const DetailInformationWithoutSelection: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: "About Contacts" }))
-    const dialog = within(document.body).getByRole("dialog", { name: "About Contacts" })
-    await expect(dialog).toHaveTextContent("Chat conversations are not measured")
+    await userEvent.click(canvas.getByRole("button", { name: "About Profile views details" }))
+    const dialog = within(document.body).getByRole("dialog", { name: "About Profile views details" })
+    await expect(dialog).toHaveTextContent("Analytics include only visitors with consent")
     await expect(args.onMetricSelect).not.toHaveBeenCalled()
     await expect(canvas.getByRole("heading", { level: 2, name: "Profile views" })).toBeVisible()
   },
@@ -209,6 +366,7 @@ export const ReportingUnavailable: Story = {
 }
 
 export const ProfileUnavailable: Story = {
+  globals: { viewport: { value: "desktop1440" } },
   args: {
     model: createDashboardOverview({
       reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
@@ -223,8 +381,12 @@ export const ProfileUnavailable: Story = {
     await expect(canvas.queryByRole("list", { name: "Profile tasks" })).not.toBeInTheDocument()
     await expect(canvas.getByRole("heading", { name: "Profile progress unavailable" })).toBeVisible()
     await expect(canvas.getAllByText("284").length).toBeGreaterThan(0)
+    const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
+    await expect(metrics.getByText("Not available", { exact: true })).toBeVisible()
+    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
     await userEvent.click(canvas.getByRole("button", { name: "Retry" }))
     await expect(args.onProfileProgressRetry).toHaveBeenCalledOnce()
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
   },
 }
 
@@ -285,10 +447,10 @@ export const PartialCoverage: Story = {
     }),
   },
   play: async ({ canvasElement }) => {
-    const metrics = within(within(canvasElement).getByRole("region", { name: "Dashboard metrics" }))
-    await expect(metrics.getByText("Incomplete data coverage")).toBeVisible()
-    await expect(metrics.queryByText("284", { exact: true })).not.toBeInTheDocument()
-    await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Incomplete data coverage")).toBeVisible()
+    await expect(canvas.queryByText("284", { exact: true })).not.toBeInTheDocument()
+    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
   },
 }
 export const AnalyticsUnavailable: Story = {
@@ -302,9 +464,173 @@ export const AnalyticsUnavailable: Story = {
     }),
   },
   play: async ({ canvasElement }) => {
-    const metrics = within(within(canvasElement).getByRole("region", { name: "Dashboard metrics" }))
-    await expect(metrics.getByText("Data source unavailable")).toBeVisible()
-    await expect(metrics.getByText("7", { exact: true })).toBeVisible()
-    await expect(metrics.getAllByText("Not supported yet")).toHaveLength(2)
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Data source unavailable")).toBeVisible()
+    await expect(canvas.getByRole("button", { name: /Inquiries 7/ })).toBeVisible()
+    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+  },
+}
+
+export const TopKpiDark1440: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "desktop1440" } },
+}
+export const TopKpi390: Story = { ...TopKpiScope, globals: { viewport: { value: "mobile390Tall" } } }
+export const TopKpiDark390: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const TopKpi320: Story = { ...TopKpiScope, globals: { viewport: { value: "mobile320Short" } } }
+export const TopKpiDark320: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+export const ProfileUnavailableDark1440: Story = {
+  ...ProfileUnavailable,
+  globals: { theme: "dark", viewport: { value: "desktop1440" } },
+}
+export const ProfileUnavailable390: Story = {
+  ...ProfileUnavailable,
+  globals: { viewport: { value: "mobile390Tall" } },
+}
+export const ProfileUnavailableDark390: Story = {
+  ...ProfileUnavailable,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const ProfileUnavailable320: Story = {
+  ...ProfileUnavailable,
+  globals: { viewport: { value: "mobile320Short" } },
+}
+export const ProfileUnavailableDark320: Story = {
+  ...ProfileUnavailable,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+
+export const InquiryStarters390: Story = {
+  ...MetricSelection,
+  globals: { viewport: { value: "mobile390Tall" } },
+}
+export const InquiryStarters320: Story = {
+  ...MetricSelection,
+  globals: { viewport: { value: "mobile320Short" } },
+}
+export const InquiryStartersDark: Story = { ...MetricSelection, globals: { theme: "dark" } }
+export const InquiryStartersDark390: Story = {
+  ...MetricSelection,
+  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
+}
+export const InquiryStartersDark320: Story = {
+  ...MetricSelection,
+  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+
+export const InquiryStartersMissingComparison: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: {
+        status: "ready",
+        reporting: {
+          ...clinicDashboardReportingFixture,
+          metrics: {
+            ...clinicDashboardReportingFixture.metrics,
+            inquiryStarters: {
+              ...clinicDashboardReportingFixture.metrics.inquiryStarters,
+              comparison: {
+                state: "partial_coverage",
+                value: null,
+                absoluteDelta: null,
+                relativeDeltaPercent: null,
+              },
+            },
+          },
+        },
+      },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "inquiryStarters",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Inquiry starters 12" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await userEvent.click(canvas.getByRole("button", { name: "About Inquiry starters details" }))
+    await expect(within(document.body).getByRole("dialog")).toHaveTextContent("Comparison not yet available")
+    await userEvent.keyboard("{Escape}")
+  },
+}
+export const InquiryStartersPartialHistory: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: { status: "ready", reporting: clinicDashboardReportingWithPartialCoverage },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "inquiryStarters",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Inquiry starters Not available" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await expect(canvas.getByText("Incomplete data coverage", { exact: true })).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Inquiries 7" })).toBeVisible()
+  },
+}
+export const InquiryStartersOutage: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: { status: "ready", reporting: clinicDashboardReportingWithSourceUnavailable },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "inquiryStarters",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Data source unavailable", { exact: true })).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Inquiries 7" })).toBeVisible()
+    await expect(canvas.getByRole("heading", { name: "Public profile progress" })).toBeVisible()
+    await expect(canvas.getByText("4.8 / 5")).toBeVisible()
+  },
+}
+export const InquiryStartersMeasuredZero: Story = {
+  args: {
+    model: createDashboardOverview({
+      reporting: {
+        status: "ready",
+        reporting: {
+          ...clinicDashboardReportingFixture,
+          metrics: {
+            ...clinicDashboardReportingFixture.metrics,
+            inquiryStarters: {
+              source: "posthog",
+              current: { state: "available", value: 0 },
+              comparison: { state: "available", value: 0, absoluteDelta: 0, relativeDeltaPercent: null },
+            },
+          },
+        },
+      },
+      periodDays: 30,
+      profileProgress: dashboardProfileProgressReady,
+      clinicPreview: previewFixture,
+      selectedMetricId: "inquiryStarters",
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("button", { name: "Inquiry starters 0" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await expect(
+      canvas.getByText("No change compared with the previous period", { exact: true }),
+    ).toBeVisible()
   },
 }
