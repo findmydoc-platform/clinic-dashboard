@@ -27,11 +27,20 @@ describe("inquiry queue state", () => {
   })
 
   it("keeps server-side full-text matches absent from the queue preview", () => {
-    const searched = inquiryQueueReducer(createInquiryQueueState(createInquirySnapshot()), {
+    let searched = inquiryQueueReducer(createInquiryQueueState(createInquirySnapshot()), {
       query: "attachment-only-term",
       type: "searchQueryChanged",
     })
-    expect(selectInquiryQueueViewModel(searched).visibleInquiries).toHaveLength(1)
+    searched = inquiryQueueReducer(searched, {
+      type: "queueLoaded",
+      mode: "replace",
+      filters: { primary: "open", handlingStatus: [], query: "attachment-only-term" },
+      snapshot: createInquirySnapshot(),
+    })
+    expect(searched.resultFilters.query).toBe("attachment-only-term")
+    expect(selectInquiryQueueViewModel(searched).visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual([
+      "inquiry-1",
+    ])
   })
 
   it("supports multi-select handling filters and a separate spam view", () => {

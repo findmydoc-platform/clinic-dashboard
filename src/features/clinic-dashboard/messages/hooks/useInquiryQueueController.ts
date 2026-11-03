@@ -299,6 +299,12 @@ export function useInquiryQueueController({
     }
   }, [commands, state])
 
+  const intentRef = useRef({
+    primary: state.lifecycleFilter,
+    handlingStatus: state.handlingStatusFilter,
+    query: state.searchQuery,
+  })
+
   const loadQueuePage = useCallback(
     async (
       input: Readonly<{
@@ -314,7 +320,7 @@ export function useInquiryQueueController({
         mode: "refresh",
       },
     ) => {
-      if (terminalAccessLossRef.current) return
+      if (!isMountedRef.current || terminalAccessLossRef.current) return
       if (!input.foreground && state.queueError && state.queueOperation !== "refresh") return
       if (
         queuePendingRef.current &&
@@ -322,22 +328,28 @@ export function useInquiryQueueController({
         (!input.foreground || queueForegroundRef.current)
       )
         return
+      const filters = input.filters ?? intentRef.current
+      const requestQueryKey = JSON.stringify(
+        queryFromFilters(filters.primary, [...filters.handlingStatus].sort(), filters.query),
+      )
       const generation = ++queueGenerationRef.current
       const requestClinic = clinicId
       const isCurrent = () =>
         isMountedRef.current &&
         !terminalAccessLossRef.current &&
         clinicIdRef.current === requestClinic &&
-        queueGenerationRef.current === generation
+        queueGenerationRef.current === generation &&
+        JSON.stringify(
+          queryFromFilters(
+            intentRef.current.primary,
+            [...intentRef.current.handlingStatus].sort(),
+            intentRef.current.query,
+          ),
+        ) === requestQueryKey
       queuePendingRef.current = true
       queueForegroundRef.current = Boolean(input.foreground)
       const loadedIds = new Set(loadedInquiryIdsRef.current)
       const loadedPageCount = loadedPageCountRef.current
-      const filters = input.filters ?? {
-        primary: state.lifecycleFilter,
-        handlingStatus: state.handlingStatusFilter,
-        query: state.searchQuery,
-      }
       dispatch({ mode: input.mode, type: "queueLoadStarted" })
       const query = queryFromFilters(filters.primary, filters.handlingStatus, filters.query)
       try {
@@ -518,17 +530,9 @@ export function useInquiryQueueController({
       state.queueError,
       state.queueOperation,
       state.firstPageChangeCursor,
-      state.handlingStatusFilter,
-      state.lifecycleFilter,
-      state.searchQuery,
     ],
   )
 
-  const intentRef = useRef({
-    primary: state.lifecycleFilter,
-    handlingStatus: state.handlingStatusFilter,
-    query: state.searchQuery,
-  })
   const changeQueueIntent = useCallback(
     (filters: typeof intentRef.current, debounce: boolean) => {
       const previous = intentRef.current
@@ -691,6 +695,17 @@ export function useInquiryQueueController({
     }
   }, [isActive, loadSelectedInquiry, model.selectedInquiry])
 
+  const refreshAfterMutationRef = useRef<() => Promise<unknown>>(async () => undefined)
+  useLayoutEffect(() => {
+    refreshAfterMutationRef.current = async () => {
+      if (queuePendingRef.current) return
+      return loadQueuePage({
+        filters: intentRef.current,
+        mode: model.hasPreviousResults ? "replace" : "refresh",
+      })
+    }
+  }, [loadQueuePage, model.hasPreviousResults])
+
   const runMutation = useCallback(
     async (
       signature: string,
@@ -706,11 +721,18 @@ export function useInquiryQueueController({
       }>,
     ) => {
       if (state.isMutating || terminalAccessLossRef.current) return false
+      const requestClinic = clinicId
       const idempotencyKey = pendingKeysRef.current.get(signature) ?? createIdempotencyKey()
       pendingKeysRef.current.set(signature, idempotencyKey)
       dispatch({ message: startMessage, type: "mutationStarted" })
       const result = await invoke(idempotencyKey)
-      if (!isMountedRef.current || applySessionLoss(result)) return false
+      if (
+        !isMountedRef.current ||
+        clinicIdRef.current !== requestClinic ||
+        terminalAccessLossRef.current ||
+        applySessionLoss(result)
+      )
+        return false
 
       if (result.ok) {
         pendingKeysRef.current.delete(signature)
@@ -722,7 +744,9 @@ export function useInquiryQueueController({
         })
         await afterSuccess?.()
         if (success.clearAttachment) readyAttachmentDraftsRef.current.delete(result.value.inquiry.id)
-        await loadQueuePage({ mode: "refresh" })
+        if (isMountedRef.current && clinicIdRef.current === requestClinic && !terminalAccessLossRef.current) {
+          await refreshAfterMutationRef.current()
+        }
         return true
       }
 
@@ -745,7 +769,7 @@ export function useInquiryQueueController({
     [
       applySessionLoss,
       applyInquiryAccessLoss,
-      loadQueuePage,
+      clinicId,
       loadSelectedInquiry,
       model.selectedInquiry,
       state.isMutating,

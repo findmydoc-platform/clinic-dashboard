@@ -1935,3 +1935,209 @@ it("refreshes selected detail after a failed filter without reusing the previous
   })
   expect(hook.result.current.model.visibleInquiries).toEqual([])
 })
+
+it("refreshes the current closed results and cursor after an older open inquiry mutation finishes", async () => {
+  let finishNote!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["addInternalNote"]>>) => void
+  const { loadQueue, requests } = delayedQueue()
+  const hook = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "clinic-1",
+      commands: createCommands({
+        loadQueue,
+        addInternalNote: () =>
+          new Promise((resolve) => {
+            finishNote = resolve
+          }),
+      }),
+      snapshot: inquiryQueueFixture,
+    }),
+  )
+  await act(() => hook.result.current.actions.onInquirySelect(inquiryDetailFixtures.open.id))
+  act(() => hook.result.current.actions.onComposerModeChange("note"))
+  act(() => hook.result.current.actions.onDraftChange("Internal work"))
+  let mutation!: Promise<void>
+  act(() => {
+    mutation = hook.result.current.actions.onSend()
+  })
+  act(() => hook.result.current.actions.onPrimaryFilterChange("closed"))
+  await act(async () => {
+    requests[0].resolve({
+      ok: true,
+      value: {
+        ...inquiryQueueFixture,
+        inquiries: [closedInquiryFixture],
+        changeCursor: "closed-current",
+        nextCursor: "closed-next",
+      },
+    })
+  })
+  await act(async () => {
+    finishNote({ ok: true, value: { inquiry: inquiryDetailFixtures.open } })
+  })
+  expect(requests[1].query).toMatchObject({ lifecycle: "closed", knownChangeCursor: "closed-current" })
+  await act(async () => {
+    requests[1].resolve({
+      ok: true,
+      value: {
+        ...inquiryQueueFixture,
+        inquiries: [closedInquiryFixture],
+        changeCursor: "closed-refreshed",
+        nextCursor: "closed-next",
+      },
+    })
+    await mutation
+  })
+  expect(hook.result.current.model.lifecycleFilter).toBe("closed")
+  expect(hook.result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual([
+    closedInquiryFixture.id,
+  ])
+  expect(hook.result.current.model.nextCursor).toBe("closed-next")
+  expect(hook.result.current.model.isLoadingQueue).toBe(false)
+  expect(hook.result.current.model.hasPreviousResults).toBe(false)
+})
+
+it("keeps a successful server search match absent from the queue preview visible", async () => {
+  vi.useFakeTimers()
+  const { loadQueue, requests } = delayedQueue()
+  const hook = renderHook(() =>
+    useInquiryQueueController({
+      clinicId: "clinic-1",
+      commands: createCommands({ loadQueue }),
+      snapshot: inquiryQueueFixture,
+    }),
+  )
+  try {
+    act(() => hook.result.current.actions.onSearchQueryChange("attachment-only-term"))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250)
+    })
+    expect(requests[0].query.query).toBe("attachment-only-term")
+    expect(inquiryDetailFixtures.open.lastActivityPreview).not.toContain("attachment-only-term")
+    expect(inquiryDetailFixtures.open.originalRequestPreview).not.toContain("attachment-only-term")
+    await act(async () => {
+      requests[0].resolve({
+        ok: true,
+        value: {
+          ...inquiryQueueFixture,
+          inquiries: [inquiryDetailFixtures.open],
+          changeCursor: "server-search",
+        },
+      })
+    })
+    expect(hook.result.current.model.searchQuery).toBe("attachment-only-term")
+    expect(hook.result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual([
+      inquiryDetailFixtures.open.id,
+    ])
+    expect(hook.result.current.model.hasPreviousResults).toBe(false)
+    expect(hook.result.current.model.isLoadingQueue).toBe(false)
+  } finally {
+    hook.unmount()
+    vi.useRealTimers()
+  }
+})
+
+it.each(["debounce", "request"])(
+  "keeps a pending %s authoritative when an older mutation finishes",
+  async (phase) => {
+    vi.useFakeTimers()
+    let finishNote!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["addInternalNote"]>>) => void
+    const { loadQueue, requests } = delayedQueue()
+    const hook = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({
+          loadQueue,
+          addInternalNote: () =>
+            new Promise((resolve) => {
+              finishNote = resolve
+            }),
+        }),
+        snapshot: inquiryQueueFixture,
+      }),
+    )
+    try {
+      await act(() => hook.result.current.actions.onInquirySelect(inquiryDetailFixtures.open.id))
+      act(() => hook.result.current.actions.onComposerModeChange("note"))
+      act(() => hook.result.current.actions.onDraftChange("Internal work"))
+      let mutation!: Promise<void>
+      act(() => {
+        mutation = hook.result.current.actions.onSend()
+      })
+      act(() => hook.result.current.actions.onSearchQueryChange("current-search"))
+      if (phase === "request")
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(250)
+        })
+      await act(async () => {
+        finishNote({ ok: true, value: { inquiry: inquiryDetailFixtures.open } })
+        await mutation
+      })
+      expect(loadQueue).toHaveBeenCalledTimes(phase === "request" ? 1 : 0)
+      expect(hook.result.current.model.searchQuery).toBe("current-search")
+      expect(hook.result.current.model.isLoadingQueue).toBe(true)
+      expect(hook.result.current.model.queueOperation).toBe("replace")
+      expect(hook.result.current.model.hasPreviousResults).toBe(true)
+      if (phase === "debounce")
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(250)
+        })
+      expect(requests[0].query).toMatchObject({ query: "current-search" })
+      expect(requests[0].query).not.toHaveProperty("knownChangeCursor")
+      await act(async () => {
+        requests[0].resolve({
+          ok: true,
+          value: { ...inquiryQueueFixture, inquiries: [], nextCursor: undefined },
+        })
+      })
+      expect(hook.result.current.model.visibleInquiries).toEqual([])
+      expect(hook.result.current.model.isLoadingQueue).toBe(false)
+      expect(loadQueue).toHaveBeenCalledTimes(1)
+    } finally {
+      hook.unmount()
+      vi.useRealTimers()
+    }
+  },
+)
+
+it.each(["unmount", "clinic", "session", "access"])(
+  "ignores a delayed mutation after %s loss",
+  async (loss) => {
+    let finishNote!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["addInternalNote"]>>) => void
+    const loadQueue = vi
+      .fn<InquiryWorkspaceCommands["loadQueue"]>()
+      .mockResolvedValue({
+        ok: false,
+        error: { code: loss === "session" ? "unauthorized" : "access-denied" },
+      })
+    const commands = createCommands({
+      loadQueue,
+      addInternalNote: () =>
+        new Promise((resolve) => {
+          finishNote = resolve
+        }),
+    })
+    const hook = renderHook(
+      ({ clinicId }) => useInquiryQueueController({ clinicId, commands, snapshot: inquiryQueueFixture }),
+      { initialProps: { clinicId: "clinic-1" } },
+    )
+    await act(() => hook.result.current.actions.onInquirySelect(inquiryDetailFixtures.open.id))
+    act(() => hook.result.current.actions.onComposerModeChange("note"))
+    act(() => hook.result.current.actions.onDraftChange("Internal work"))
+    let mutation!: Promise<void>
+    act(() => {
+      mutation = hook.result.current.actions.onSend()
+    })
+    if (loss === "unmount") hook.unmount()
+    else if (loss === "clinic") hook.rerender({ clinicId: "clinic-2" })
+    else await act(() => hook.result.current.actions.onQueueRefresh())
+    const readsBeforeCompletion = loadQueue.mock.calls.length
+    await act(async () => {
+      finishNote({ ok: true, value: { inquiry: inquiryDetailFixtures.open } })
+      await mutation
+    })
+    expect(loadQueue).toHaveBeenCalledTimes(readsBeforeCompletion)
+    if (loss === "session" || loss === "access")
+      expect(hook.result.current.model.visibleInquiries).toEqual([])
+    hook.unmount()
+  },
+)
