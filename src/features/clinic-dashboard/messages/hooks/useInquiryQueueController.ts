@@ -123,6 +123,7 @@ export function useInquiryQueueController({
   const loadedPageCountRef = useRef(1)
   const queueGenerationRef = useRef(0)
   const queuePendingRef = useRef(false)
+  const queueForegroundRef = useRef(false)
   const searchTimeoutRef = useRef<number | undefined>(undefined)
   const clinicIdRef = useRef(clinicId)
   useLayoutEffect(() => {
@@ -314,7 +315,13 @@ export function useInquiryQueueController({
       },
     ) => {
       if (terminalAccessLossRef.current) return
-      if (queuePendingRef.current && input.mode !== "replace") return
+      if (!input.foreground && state.queueError && state.queueOperation !== "refresh") return
+      if (
+        queuePendingRef.current &&
+        input.mode !== "replace" &&
+        (!input.foreground || queueForegroundRef.current)
+      )
+        return
       const generation = ++queueGenerationRef.current
       const requestClinic = clinicId
       const isCurrent = () =>
@@ -323,15 +330,18 @@ export function useInquiryQueueController({
         clinicIdRef.current === requestClinic &&
         queueGenerationRef.current === generation
       queuePendingRef.current = true
+      queueForegroundRef.current = Boolean(input.foreground)
+      const loadedIds = new Set(loadedInquiryIdsRef.current)
+      const loadedPageCount = loadedPageCountRef.current
       const filters = input.filters ?? {
         primary: state.lifecycleFilter,
         handlingStatus: state.handlingStatusFilter,
         query: state.searchQuery,
       }
-      if (input.foreground) dispatch({ mode: input.mode, type: "queueLoadStarted" })
+      dispatch({ mode: input.mode, type: "queueLoadStarted" })
       const query = queryFromFilters(filters.primary, filters.handlingStatus, filters.query)
       try {
-        if (input.mode === "refresh" && loadedPageCountRef.current > 1) {
+        if (input.mode === "refresh" && loadedPageCount > 1) {
           const firstPageResult = await commands.loadQueue({
             ...query,
             ...(state.firstPageChangeCursor ? { knownChangeCursor: state.firstPageChangeCursor } : {}),
@@ -359,7 +369,7 @@ export function useInquiryQueueController({
           }
           if (!isCurrent()) return firstPageResult
           if (!firstPageResult.ok || firstPageResult.value.status !== "ready") {
-            if (input.foreground) dispatch({ type: "queueLoadFailed" })
+            dispatch({ type: "queueLoadFailed" })
             return firstPageResult
           }
           if (firstPageResult.value.unchanged) {
@@ -380,11 +390,10 @@ export function useInquiryQueueController({
           let latestSnapshot = firstPageResult.value
           let loadedPages = 1
           const seenCursors = new Set<string>()
-          const maximumRefreshPages =
-            loadedPageCountRef.current + Math.max(1, loadedInquiryIdsRef.current.size)
+          const maximumRefreshPages = loadedPageCount + Math.max(1, loadedIds.size)
           for (let page = 1; cursor && page < maximumRefreshPages; page += 1) {
             if (seenCursors.has(cursor)) {
-              if (input.foreground) dispatch({ type: "queueLoadFailed" })
+              dispatch({ type: "queueLoadFailed" })
               return { error: { code: "service-unavailable" }, ok: false } as const
             }
             seenCursors.add(cursor)
@@ -415,20 +424,20 @@ export function useInquiryQueueController({
             }
             if (!isCurrent()) return pageResult
             if (!pageResult.ok || pageResult.value.status !== "ready" || pageResult.value.unchanged) {
-              if (input.foreground) dispatch({ type: "queueLoadFailed" })
+              dispatch({ type: "queueLoadFailed" })
               return pageResult
             }
             latestSnapshot = pageResult.value
             loadedPages += 1
             for (const inquiry of pageResult.value.inquiries) inquiries.set(inquiry.id, inquiry)
             cursor = pageResult.value.nextCursor
-            const hasLoadedPreviousWindow = [...loadedInquiryIdsRef.current].every((id) => inquiries.has(id))
-            if (!cursor || (loadedPages >= loadedPageCountRef.current && hasLoadedPreviousWindow)) {
+            const hasLoadedPreviousWindow = [...loadedIds].every((id) => inquiries.has(id))
+            if (!cursor || (loadedPages >= loadedPageCount && hasLoadedPreviousWindow)) {
               break
             }
           }
-          if (cursor && ![...loadedInquiryIdsRef.current].every((id) => inquiries.has(id))) {
-            if (input.foreground) dispatch({ type: "queueLoadFailed" })
+          if (cursor && ![...loadedIds].every((id) => inquiries.has(id))) {
+            dispatch({ type: "queueLoadFailed" })
             return { error: { code: "service-unavailable" }, ok: false } as const
           }
           const refreshedSnapshot = {
@@ -475,7 +484,7 @@ export function useInquiryQueueController({
         }
         if (!isCurrent()) return result
         if (!result.ok || result.value.status !== "ready") {
-          if (input.foreground) dispatch({ type: "queueLoadFailed" })
+          dispatch({ type: "queueLoadFailed" })
           return result
         }
         if (input.mode === "refresh" && result.value.unchanged) {
@@ -490,7 +499,7 @@ export function useInquiryQueueController({
           loadedPageCountRef.current += 1
           for (const inquiry of result.value.inquiries) loadedInquiryIdsRef.current.add(inquiry.id)
         }
-        if (input.mode === "replace") {
+        if (input.mode !== "append") {
           loadedPageCountRef.current = 1
           loadedInquiryIdsRef.current = new Set(result.value.inquiries.map(({ id }) => id))
         }
@@ -506,6 +515,8 @@ export function useInquiryQueueController({
       clinicId,
       applySessionLoss,
       commands,
+      state.queueError,
+      state.queueOperation,
       state.firstPageChangeCursor,
       state.handlingStatusFilter,
       state.lifecycleFilter,
@@ -527,6 +538,7 @@ export function useInquiryQueueController({
       intentRef.current = filters
       ++queueGenerationRef.current
       queuePendingRef.current = true
+      queueForegroundRef.current = true
       window.clearTimeout(searchTimeoutRef.current)
       dispatch({ mode: "replace", type: "queueLoadStarted" })
       const start = () => {
@@ -627,6 +639,7 @@ export function useInquiryQueueController({
   }, [isActive, model.selectedInquiry, updateReadPosition])
 
   useEffect(() => {
+    if (!isActive) return
     let inFlight = false
     const refreshQueueIfVisible = async () => {
       if (inFlight || document.visibilityState !== "visible" || !navigator.onLine) return
@@ -647,7 +660,7 @@ export function useInquiryQueueController({
       window.removeEventListener("online", refreshQueueIfVisible)
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [loadQueuePage])
+  }, [isActive, loadQueuePage])
 
   useEffect(() => {
     const inquiry = model.selectedInquiry
@@ -1033,6 +1046,10 @@ export function useInquiryQueueController({
         dispatch({ type: "mobileInboxRequested" })
       },
       async onQueueRefresh() {
+        if (model.queueError && model.queueOperation === "append" && model.nextCursor) {
+          await loadQueuePage({ cursor: model.nextCursor, foreground: true, mode: "append" })
+          return
+        }
         await loadQueuePage({
           foreground: true,
           mode:

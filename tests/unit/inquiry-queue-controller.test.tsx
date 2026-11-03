@@ -119,6 +119,320 @@ function createCommands(overrides: Partial<InquiryWorkspaceCommands> = {}): Inqu
 }
 
 describe("Inquiry queue controller", () => {
+  it("retries a failed continuation at its original page without replacing retained entries", async () => {
+    const loadQueue = vi
+      .fn<InquiryWorkspaceCommands["loadQueue"]>()
+      .mockResolvedValueOnce({ ok: false, error: { code: "service-unavailable" } })
+      .mockResolvedValueOnce({
+        ok: true,
+        value: { ...inquiryQueueFixture, inquiries: [summary("next", "2026-10-01")], nextCursor: undefined },
+      })
+    const { result } = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: { ...inquiryQueueFixture, nextCursor: "intended-page" },
+      }),
+    )
+    const initialIds = result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)
+    await act(() => result.current.actions.onLoadMore())
+    expect(result.current.model.queueOperation).toBe("append")
+    expect(result.current.model.queueError).toBeTruthy()
+    expect(result.current.model.isLoadingQueue).toBe(false)
+    await act(() => result.current.actions.onQueueRefresh())
+    expect(loadQueue.mock.calls.map(([query]) => query.cursor)).toEqual(["intended-page", "intended-page"])
+    expect(result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual(
+      expect.arrayContaining([...initialIds, "next"]),
+    )
+    expect(result.current.model.queueError).toBeUndefined()
+  })
+
+  it("pauses queue interval and focus refresh while the section is inactive", async () => {
+    vi.useFakeTimers()
+    const loadQueue = vi
+      .fn<InquiryWorkspaceCommands["loadQueue"]>()
+      .mockResolvedValue({ ok: true, value: inquiryQueueFixture })
+    const commands = createCommands({ loadQueue })
+    const { rerender, unmount } = renderHook(
+      ({ isActive }) =>
+        useInquiryQueueController({
+          clinicId: "clinic-1",
+          commands,
+          snapshot: inquiryQueueFixture,
+          isActive,
+        }),
+      { initialProps: { isActive: false } },
+    )
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000)
+        window.dispatchEvent(new Event("focus"))
+        window.dispatchEvent(new Event("online"))
+        document.dispatchEvent(new Event("visibilitychange"))
+      })
+      expect(loadQueue).not.toHaveBeenCalled()
+      rerender({ isActive: true })
+      await act(async () => {
+        window.dispatchEvent(new Event("focus"))
+      })
+      expect(loadQueue).toHaveBeenCalledOnce()
+    } finally {
+      unmount()
+      vi.useRealTimers()
+    }
+  })
+
+  it("lets foreground refresh supersede a background request and ignores its obsolete failure", async () => {
+    let finishBackground!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["loadQueue"]>>) => void
+    let finishForeground!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["loadQueue"]>>) => void
+    const loadQueue = vi
+      .fn<InquiryWorkspaceCommands["loadQueue"]>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishBackground = resolve
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishForeground = resolve
+          }),
+      )
+    const { result } = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: inquiryQueueFixture,
+      }),
+    )
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"))
+    })
+    let foreground!: Promise<void>
+    act(() => {
+      foreground = result.current.actions.onQueueRefresh()
+    })
+    expect(loadQueue).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      finishBackground({ ok: false, error: { code: "service-unavailable" } })
+    })
+    expect(result.current.model.isLoadingQueue).toBe(true)
+    expect(result.current.model.queueOperation).toBe("refresh")
+    expect(result.current.model.queueError).toBeUndefined()
+    await act(async () => {
+      finishForeground({ ok: true, value: { ...inquiryQueueFixture, unreadCount: 19 } })
+      await foreground
+    })
+    expect(result.current.model.totalUnreadCount).toBe(19)
+    expect(result.current.model.isLoadingQueue).toBe(false)
+  })
+
+  it("claims duplicate same-tick continuation once and retains entries until it completes", async () => {
+    let finish!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["loadQueue"]>>) => void
+    const loadQueue = vi.fn<InquiryWorkspaceCommands["loadQueue"]>(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const { result } = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: { ...inquiryQueueFixture, nextCursor: "next-page" },
+      }),
+    )
+    const initialIds = result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)
+    let first!: Promise<void>
+    let duplicate!: Promise<void>
+    act(() => {
+      first = result.current.actions.onLoadMore()
+      duplicate = result.current.actions.onLoadMore()
+    })
+    expect(loadQueue).toHaveBeenCalledOnce()
+    expect(result.current.model.queueOperation).toBe("append")
+    expect(result.current.model.isLoadingQueue).toBe(true)
+    expect(result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual(initialIds)
+    await act(async () => {
+      finish({
+        ok: true,
+        value: { ...inquiryQueueFixture, inquiries: [summary("next", "2026-10-01")], nextCursor: undefined },
+      })
+      await Promise.all([first, duplicate])
+    })
+    expect(result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual(
+      expect.arrayContaining([...initialIds, "next"]),
+    )
+    expect(result.current.model.visibleInquiries.filter(({ inquiry }) => inquiry.id === "next")).toHaveLength(
+      1,
+    )
+    expect(result.current.model.isLoadingQueue).toBe(false)
+  })
+
+  it("keeps rejected refresh recoverable and retries without losing the loaded queue", async () => {
+    const loadQueue = vi
+      .fn<InquiryWorkspaceCommands["loadQueue"]>()
+      .mockRejectedValueOnce(new Error("synthetic transport failure"))
+      .mockResolvedValueOnce({
+        ok: true,
+        value: { ...inquiryQueueFixture, unchanged: true, unreadCount: 23 },
+      })
+    const { result } = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: inquiryQueueFixture,
+      }),
+    )
+    const ids = result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)
+    await act(() => result.current.actions.onQueueRefresh())
+    expect(result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual(ids)
+    expect(result.current.model.queueOperation).toBe("refresh")
+    expect(result.current.model.queueError).toBeTruthy()
+    expect(result.current.model.isLoadingQueue).toBe(false)
+    await act(() => result.current.actions.onQueueRefresh())
+    expect(result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual(ids)
+    expect(result.current.model.totalUnreadCount).toBe(23)
+    expect(result.current.model.queueError).toBeUndefined()
+  })
+
+  it("suppresses background triggers during foreground work and pending search debounce", async () => {
+    vi.useFakeTimers()
+    let finish!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["loadQueue"]>>) => void
+    const loadQueue = vi.fn<InquiryWorkspaceCommands["loadQueue"]>(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const { result, unmount } = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: inquiryQueueFixture,
+      }),
+    )
+    try {
+      act(() => result.current.actions.onSearchQueryChange("latest"))
+      await act(async () => {
+        window.dispatchEvent(new Event("focus"))
+        window.dispatchEvent(new Event("online"))
+        document.dispatchEvent(new Event("visibilitychange"))
+        await vi.advanceTimersByTimeAsync(249)
+      })
+      expect(loadQueue).not.toHaveBeenCalled()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1)
+      })
+      expect(loadQueue).toHaveBeenCalledOnce()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000)
+        window.dispatchEvent(new Event("focus"))
+        window.dispatchEvent(new Event("online"))
+        document.dispatchEvent(new Event("visibilitychange"))
+      })
+      expect(loadQueue).toHaveBeenCalledOnce()
+      expect(result.current.model.isLoadingQueue).toBe(true)
+      await act(async () => {
+        finish({ ok: true, value: { ...inquiryQueueFixture, inquiries: [], nextCursor: undefined } })
+      })
+      expect(result.current.model.visibleInquiries).toEqual([])
+      expect(result.current.model.isLoadingQueue).toBe(false)
+    } finally {
+      unmount()
+      vi.useRealTimers()
+    }
+  })
+
+  it("rejects an obsolete multipage refresh before traversing another page or changing feedback", async () => {
+    let finishPage!: (value: Awaited<ReturnType<InquiryWorkspaceCommands["loadQueue"]>>) => void
+    const loadQueue = vi
+      .fn<InquiryWorkspaceCommands["loadQueue"]>()
+      .mockResolvedValueOnce({
+        ok: true,
+        value: { ...inquiryQueueFixture, inquiries: [summary("tail", "2026-09-01")], nextCursor: undefined },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        value: {
+          ...inquiryQueueFixture,
+          inquiries: [summary("new", "2026-10-01")],
+          nextCursor: "refresh-page-2",
+        },
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishPage = resolve
+          }),
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        value: {
+          ...inquiryQueueFixture,
+          inquiries: [{ ...summary("current", "2026-10-02"), lifecycle: "closed" as const }],
+          nextCursor: "current-next",
+          unreadCount: 7,
+        },
+      })
+    const { result } = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: { ...inquiryQueueFixture, nextCursor: "initial-next" },
+      }),
+    )
+    await act(() => result.current.actions.onLoadMore())
+    let refresh!: Promise<void>
+    await act(async () => {
+      refresh = result.current.actions.onQueueRefresh()
+    })
+    expect(loadQueue).toHaveBeenCalledTimes(3)
+    await act(async () => {
+      result.current.actions.onPrimaryFilterChange("closed")
+    })
+    await act(async () => {
+      finishPage({
+        ok: true,
+        value: {
+          ...inquiryQueueFixture,
+          inquiries: [summary("obsolete", "2026-10-03")],
+          unreadCount: 99,
+          nextCursor: "obsolete-next",
+        },
+      })
+      await refresh
+    })
+    expect(loadQueue).toHaveBeenCalledTimes(4)
+    expect(result.current.model.visibleInquiries.map(({ inquiry }) => inquiry.id)).toEqual(["current"])
+    expect(result.current.model.nextCursor).toBe("current-next")
+    expect(result.current.model.totalUnreadCount).toBe(7)
+    expect(result.current.model.isLoadingQueue).toBe(false)
+    expect(result.current.model.queueError).toBeUndefined()
+  })
+
+  it("preserves failed continuation recovery when background triggers arrive", async () => {
+    const loadQueue = vi
+      .fn<InquiryWorkspaceCommands["loadQueue"]>()
+      .mockResolvedValue({ ok: false, error: { code: "service-unavailable" } })
+    const { result } = renderHook(() =>
+      useInquiryQueueController({
+        clinicId: "clinic-1",
+        commands: createCommands({ loadQueue }),
+        snapshot: { ...inquiryQueueFixture, nextCursor: "failed-page" },
+      }),
+    )
+    await act(() => result.current.actions.onLoadMore())
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"))
+    })
+    expect(loadQueue).toHaveBeenCalledOnce()
+    expect(result.current.model.queueOperation).toBe("append")
+    await act(() => result.current.actions.onQueueRefresh())
+    expect(loadQueue.mock.calls.map(([query]) => query.cursor)).toEqual(["failed-page", "failed-page"])
+  })
+
   it("does not select the first inquiry automatically", () => {
     const { result } = renderHook(() =>
       useInquiryQueueController({

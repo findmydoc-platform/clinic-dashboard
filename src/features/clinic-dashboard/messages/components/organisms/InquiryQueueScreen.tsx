@@ -202,6 +202,30 @@ function QueuePane({
   inquiryRefs: React.MutableRefObject<Record<string, HTMLButtonElement | null>>
   model: InquiryWorkspaceViewModel
 }>) {
+  const queueFailure = model.queueError ? (
+    <div className="border-b border-[var(--border)] p-4 text-sm text-[var(--foreground)]" role="alert">
+      <p className="font-bold">
+        {model.queueOperation === "append"
+          ? "More inquiries could not be loaded."
+          : "Results could not be updated."}
+      </p>
+      <p className="mt-1">{model.queueError}</p>
+      {model.hasPreviousResults ? (
+        <p className="mt-1">Previous results may not match the selected filters.</p>
+      ) : null}
+      <Button
+        className="mt-3"
+        onClick={() => {
+          headingRef.current?.focus()
+          void actions.onQueueRefresh()
+        }}
+        variant="outline"
+      >
+        Try again
+      </Button>
+    </div>
+  ) : null
+
   return (
     <section
       aria-labelledby="inquiry-list-heading"
@@ -245,18 +269,16 @@ function QueuePane({
             ) : null}
           </div>
         ) : null}
-        {model.queueError ? (
-          <div className="border-b border-[var(--border)] p-4 text-sm text-[var(--foreground)]" role="alert">
-            <p className="font-bold">Results could not be updated.</p>
-            <p className="mt-1">{model.queueError}</p>
-            {model.hasPreviousResults ? (
-              <p className="mt-1">Previous results may not match the selected filters.</p>
-            ) : null}
-            <Button className="mt-3" onClick={() => void actions.onQueueRefresh()} variant="outline">
-              Try again
-            </Button>
-          </div>
+        {model.isLoadingQueue && model.queueOperation === "refresh" ? (
+          <p
+            className="flex items-center gap-2 border-b border-[var(--border)] p-4 text-sm text-[var(--foreground)]"
+            role="status"
+          >
+            <RefreshCw aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+            Refreshing inquiries…
+          </p>
         ) : null}
+        {model.queueOperation !== "append" ? queueFailure : null}
         {model.availability === "temporarily-unavailable" ? (
           <div className="px-5 py-12 text-center" role="alert">
             <CircleAlert aria-hidden="true" className="mx-auto size-7 text-[var(--destructive)]" />
@@ -300,14 +322,14 @@ function QueuePane({
             ))}
             <span className="sr-only">Loading inquiries…</span>
           </div>
-        ) : model.isLoadingQueue && model.queueOperation !== "replace" ? (
+        ) : model.isLoadingQueue && model.queueOperation === "append" ? (
           <p
             aria-live="polite"
             className="flex items-center justify-center gap-2 p-5 text-sm text-[var(--foreground)]"
             role="status"
           >
             <RefreshCw aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />{" "}
-            Loading inquiries…
+            Loading more inquiries…
           </p>
         ) : !model.isLoadingQueue && !model.hasPreviousResults && !model.queueError && model.nextCursor ? (
           <div className="p-4">
@@ -316,6 +338,7 @@ function QueuePane({
             </Button>
           </div>
         ) : null}
+        {model.queueOperation === "append" ? queueFailure : null}
       </div>
     </section>
   )

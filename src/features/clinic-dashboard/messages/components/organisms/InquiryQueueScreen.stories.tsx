@@ -608,3 +608,129 @@ export const FailedFilterWithPreviousResults: Story = {
     await expect(args.actions.onQueueRefresh).toHaveBeenCalled()
   },
 }
+
+export const RefreshRetainsEntries: Story = {
+  args: { model: { ...baseModel, isLoadingQueue: true, queueOperation: "refresh" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Refreshing inquiries…")).toBeVisible()
+    await expect(canvas.getByRole("list", { name: "Inquiries" })).toBeVisible()
+    await expect(canvas.getByRole("searchbox", { name: "Search inquiries" })).toBeEnabled()
+    await expect(canvas.getByRole("button", { name: "closed" })).toBeEnabled()
+  },
+}
+
+export const ContinuationRetainsEntries: Story = {
+  args: {
+    model: {
+      ...baseModel,
+      isLoadingQueue: true,
+      queueOperation: "append",
+      nextCursor: "synthetic-next-page",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Loading more inquiries…")).toBeVisible()
+    await expect(canvas.getByRole("list", { name: "Inquiries" })).toBeVisible()
+    await expect(canvas.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument()
+    await expect(canvas.getByRole("searchbox", { name: "Search inquiries" })).toBeEnabled()
+  },
+}
+
+export const FailedContinuationMobile: Story = {
+  globals: { viewport: { value: "mobile320Short" } },
+  args: {
+    model: {
+      ...baseModel,
+      queueOperation: "append",
+      queueError: "The inquiry service is temporarily unavailable.",
+      nextCursor: "synthetic-next-page",
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("alert")).toHaveTextContent("More inquiries could not be loaded.")
+    await expect(canvas.getByRole("list", { name: "Inquiries" })).toBeVisible()
+    const retry = canvas.getByRole("button", { name: "Try again" })
+    retry.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(args.actions.onQueueRefresh).toHaveBeenCalledOnce()
+    await expect(canvas.getByRole("heading", { name: "Inquiries" })).toHaveFocus()
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(canvasElement.clientWidth)
+  },
+}
+
+export const FailedContinuationDark: Story = {
+  ...FailedContinuationMobile,
+  globals: { theme: "dark" },
+}
+
+export const FailedRefresh: Story = {
+  args: {
+    model: {
+      ...baseModel,
+      queueOperation: "refresh",
+      queueError: "The inquiry service is temporarily unavailable.",
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Results could not be updated.")
+    await expect(canvas.getByRole("list", { name: "Inquiries" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Try again" }))
+    await expect(args.actions.onQueueRefresh).toHaveBeenCalledOnce()
+  },
+}
+
+export const RefreshDark: Story = {
+  ...RefreshRetainsEntries,
+  globals: { theme: "dark" },
+}
+
+export const ContinuationMobile: Story = {
+  ...ContinuationRetainsEntries,
+  globals: { viewport: { value: "mobile320Short" } },
+}
+
+function QueueRecoveryHarness() {
+  const [stage, setStage] = useState<"failed" | "pending" | "ready">("failed")
+  return (
+    <>
+      <InquiryQueueScreen
+        actions={{
+          ...createActions(),
+          onQueueRefresh: async () => {
+            setStage("pending")
+          },
+        }}
+        model={{
+          ...baseModel,
+          queueOperation: "append",
+          isLoadingQueue: stage === "pending",
+          ...(stage === "failed" ? { queueError: "The inquiry service is temporarily unavailable." } : {}),
+          ...(stage !== "ready" ? { nextCursor: "synthetic-next-page" } : {}),
+        }}
+      />
+      {stage === "pending" ? (
+        <button onClick={() => setStage("ready")}>Complete synthetic continuation</button>
+      ) : null}
+    </>
+  )
+}
+
+export const ContinuationRecovery: Story = {
+  render: () => <QueueRecoveryHarness />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    canvas.getByRole("button", { name: "Try again" }).focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(canvas.getByRole("heading", { name: "Inquiries" })).toHaveFocus()
+    await expect(canvas.getByText("Loading more inquiries…")).toBeVisible()
+    await expect(canvas.getByRole("list", { name: "Inquiries" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: "Complete synthetic continuation" }))
+    await expect(canvas.queryByText("Loading more inquiries…")).not.toBeInTheDocument()
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument()
+    await expect(canvas.getByRole("list", { name: "Inquiries" })).toBeVisible()
+  },
+}
