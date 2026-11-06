@@ -131,6 +131,7 @@ describe("Payload patient inquiry provider", () => {
   })
 
   it("opts every inquiry upstream request into the communication contract", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(async () =>
       jsonResponse({ error: { code: "INQUIRY_SERVICE_UNAVAILABLE" } }, 503),
     )
@@ -174,6 +175,7 @@ describe("Payload patient inquiry provider", () => {
       expect(headers.get("authorization")).toBe("Bearer verified-token")
       expect(headers.get("x-findmydoc-clinic-dashboard-contract")).toBe("inquiry-communication-v2")
       expect(headers.get("x-findmydoc-clinic-scope-contract")).toBe("clinic-scope-v1")
+      expect(headers.get("x-vercel-protection-bypass")).toBe("synthetic-target-bypass")
     }
   })
 

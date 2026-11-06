@@ -19,6 +19,7 @@ const environment = {
 describe("notification provider read contract", () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
     resetControlledNotificationProvider()
   })
   it("retains personal first receipts across provider composition without changing another reader", async () => {
@@ -58,6 +59,7 @@ describe("notification provider read contract", () => {
     ).toMatchObject({ ok: true, value: { unreadCount: 3 } })
   })
   it("exposes validated complete summary and feed through both providers", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(
       async (url) =>
         new Response(
@@ -95,6 +97,12 @@ describe("notification provider read contract", () => {
       })
     }
     expect(fetcher).toHaveBeenCalledTimes(2)
+    for (const [, options] of fetcher.mock.calls) {
+      const headers = new Headers(options?.headers)
+      expect(headers.get("authorization")).toBe("Bearer verified-token")
+      expect(headers.get("x-vercel-protection-bypass")).toBe("synthetic-target-bypass")
+      expect(options?.redirect).toBe("error")
+    }
     expect(fetcher.mock.calls.every(([, options]) => !options?.method || options.method === "GET")).toBe(true)
   })
 })

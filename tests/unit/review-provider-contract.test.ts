@@ -296,11 +296,13 @@ describe("review provider contract", () => {
   })
 
   it("removes every historical original text when the current review is removed", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const headers = new Headers(init?.headers)
       expect(headers.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
       expect(headers.get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe("inquiry-communication-v2")
       expect(headers.get("Authorization")).toBe("Bearer access-token")
+      expect(headers.get("x-vercel-protection-bypass")).toBe("synthetic-target-bypass")
       const endpoint = new URL(String(input))
       if (endpoint.pathname === "/api/clinic-dashboard/clinics/clinic-1/reviews/review-1/record") {
         return json({ ...rawReview, publicMeasure: "removed" })

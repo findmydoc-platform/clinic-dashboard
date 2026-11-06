@@ -71,6 +71,22 @@ Supabase, `https://preview.findmydoc.eu`, and the stable Clinic Dashboard origin
 exactly. The environment validator fails closed for missing, insecure, or cross-environment values. Vercel Deployment
 Protection remains an optional additional layer.
 
+Website Preview access requires the Website project's Trusted Sources rule to allow the `clinic-dashboard` caller's
+Preview runtime. Enable OIDC Federation for that caller and verify its effective issuer mode. Server transports use
+the current Function invocation identity, not `VERCEL_OIDC_TOKEN` saved from a build. The only protected target is the
+exact `https://preview.findmydoc.eu` origin, regardless of whether the Dashboard is reached through its stable alias
+or a generated Preview URL.
+
+If runtime OIDC is unavailable, optional server-only `WEBSITE_PREVIEW_PROTECTION_BYPASS` must contain an independently
+revocable automation bypass issued by the Website target project. Set it through the approved environment workflow,
+never through a public variable or repository file. OIDC takes precedence when available. Revoke the fallback at its
+Website owner and remove the Dashboard copy when it is no longer needed.
+
+Release this transport before enabling Website Deployment Protection. A protected Website response must still satisfy
+the existing application bearer or auth-action HMAC contract. Verify protected reachability once from the real Preview
+Dashboard runtime, including bootstrap, an ordinary clinic-scoped provider request, an auth action and private media.
+Source code and isolated transport tests do not establish that the target trust rule or deployed access works.
+
 Server-side exception capture uses `POSTHOG_PROJECT_API_KEY` and `POSTHOG_HOST` as protected deployment configuration;
 neither is a `NEXT_PUBLIC_*` variable. The workflow supplies `DEPLOYMENT_ENVIRONMENT` and a full
 `DEPLOYMENT_COMMIT_SHA` to the build and deployment runtime. Central Production additionally supplies the shared

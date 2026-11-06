@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createPayloadClinicGalleryProvider } from "@/features/clinic-dashboard/clinic-profile/server/payload-clinic-gallery"
 
+const invocationHeaders = vi.hoisted(() => vi.fn<() => Promise<Headers>>())
+vi.mock("next/headers", () => ({ headers: invocationHeaders }))
+
 const constraints = {
   acceptedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/avif"],
   maxConcurrentUploads: 3,
@@ -36,7 +39,15 @@ describe("Clinic gallery Payload adapter", () => {
     vi.unstubAllEnvs()
   })
 
-  it("sends one literal scope header for reads, saves, uploads, discards and private images", async () => {
+  it("sends current deployment identity alongside scope and bearer headers for reads, saves, uploads, discards and images", async () => {
+    vi.stubEnv("VERCEL", "1")
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
+    invocationHeaders.mockResolvedValue(
+      new Headers({
+        "x-vercel-oidc-token": "synthetic-current-invocation",
+        "x-vercel-trusted-oidc-idp-token": "synthetic-foreign-caller",
+      }),
+    )
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse({}, 503))
     const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
     await Promise.all([
@@ -52,18 +63,45 @@ describe("Clinic gallery Payload adapter", () => {
       expect(headers.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
       expect(headers.get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe("inquiry-communication-v2")
       expect(headers.get("Authorization")).toBe("Bearer access-token")
+      expect(headers.get("x-vercel-trusted-oidc-idp-token")).toBe("synthetic-current-invocation")
+      expect(headers.has("x-vercel-protection-bypass")).toBe(false)
+      expect(init?.redirect).toBe("error")
+      expect(init?.signal).toBeInstanceOf(AbortSignal)
     }
+    invocationHeaders.mockResolvedValue(
+      new Headers({ "x-vercel-oidc-token": "synthetic-rotated-invocation" }),
+    )
+    await provider.loadGallery()
+    expect(new Headers(fetcher.mock.calls.at(-1)?.[1]?.headers).get("x-vercel-trusted-oidc-idp-token")).toBe(
+      "synthetic-rotated-invocation",
+    )
   })
 
-  it("loads the focused server-derived gallery contract", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(snapshot))
-    const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
-    await expect(provider.loadGallery()).resolves.toEqual({ ok: true, value: snapshot })
-    const [input, init] = fetcher.mock.calls[0]
-    expect(String(input)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/gallery")
-    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token")
-    expect(init).toMatchObject({ cache: "no-store", redirect: "error" })
-  })
+  it.each([
+    ["https://preview.findmydoc.eu", "synthetic-target-bypass"],
+    ["https://findmydoc.eu", null],
+    ["https://unrelated.example", null],
+  ])(
+    "loads the focused gallery contract with deployment access confined to Preview, target %s",
+    async (origin, bypass) => {
+      vi.stubEnv("PAYLOAD_API_URL", origin)
+      vi.stubEnv("VERCEL", "1")
+      vi.stubEnv("VERCEL_OIDC_TOKEN", "synthetic-stale-build-token")
+      vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
+      invocationHeaders.mockResolvedValue(
+        new Headers({ "x-vercel-trusted-oidc-idp-token": "synthetic-foreign-caller" }),
+      )
+      const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(snapshot))
+      const provider = createPayloadClinicGalleryProvider("access-token", "clinic-1", fetcher)
+      await expect(provider.loadGallery()).resolves.toEqual({ ok: true, value: snapshot })
+      const [input, init] = fetcher.mock.calls[0]
+      expect(String(input)).toBe(`${origin}/api/clinic-dashboard/clinics/clinic-1/gallery`)
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token")
+      expect(new Headers(init?.headers).get("x-vercel-protection-bypass")).toBe(bypass)
+      expect(new Headers(init?.headers).has("x-vercel-trusted-oidc-idp-token")).toBe(false)
+      expect(init).toMatchObject({ cache: "no-store", redirect: "error" })
+    },
+  )
 
   it.each([
     ["upload concurrency", { ...snapshot, constraints: { ...constraints, maxConcurrentUploads: 4 } }],
@@ -137,6 +175,7 @@ describe("Clinic gallery Payload adapter", () => {
   })
 
   it("proxies only clinic-media files from the configured Payload origin", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(
       async () => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/jpeg" } }),
     )
@@ -147,6 +186,9 @@ describe("Clinic gallery Payload adapter", () => {
       ),
     ).resolves.toMatchObject({ ok: true, value: { contentType: "image/jpeg" } })
     expect(new Headers(fetcher.mock.calls[0]?.[1]?.headers).get("authorization")).toBe("Bearer access-token")
+    expect(new Headers(fetcher.mock.calls[0]?.[1]?.headers).get("x-vercel-protection-bypass")).toBe(
+      "synthetic-target-bypass",
+    )
 
     await expect(
       provider.loadImage(

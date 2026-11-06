@@ -356,6 +356,17 @@ For each environment, the client accepts one exact HTTPS Payload origin and conf
 redirects. An origin mismatch, non-HTTPS target, or cross-environment URL fails before the first token-bearing request.
 A redirect response fails without sending the Bearer token to the redirect target.
 
+Domain-provider, bootstrap, auth-action, and media transports can also pass Website Deployment Protection. For the
+exact `https://preview.findmydoc.eu` origin, the server reads the current Function's `x-vercel-oidc-token` from its
+invocation headers and sends it as `x-vercel-trusted-oidc-idp-token`. It never forwards an incoming caller's trusted-source
+identity or reads a build-time OIDC token. Each outgoing request reads the current invocation again.
+
+When no runtime identity is available, optional server-only `WEBSITE_PREVIEW_PROTECTION_BYPASS` supplies a separately
+revocable automation bypass issued by the Website project. Neither credential is attached to Production or another
+origin. Credential-bearing requests reject redirects. Application bearer tokens, auth-action HMAC bytes, clinic-scoped
+media-source validation, request timeouts, and response validation remain independent requirements. Credentials never
+reach browser responses or logs.
+
 The person-scoped bootstrap uses `X-Findmydoc-Clinic-Scope-Contract: clinic-scope-v1` and mirrors that
 version in `schemaVersion`. The server-only contract module also retains the independent inquiry and notification
 negotiation headers. The bootstrap parser accepts only the new shape. Sessions identify a person; each source request

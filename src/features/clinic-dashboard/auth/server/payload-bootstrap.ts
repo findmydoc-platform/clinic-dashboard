@@ -1,5 +1,7 @@
 import "server-only"
 
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
+
 import { isControlledAuthTestMode, isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
 import { readControlledProfileScenario } from "../../controlled-profile-scenario"
 import { CLINIC_DASHBOARD_CONTRACT_HEADER_NAME, clinicDashboardContractHeaders } from "../../payload-contract"
@@ -96,7 +98,7 @@ export async function fetchClinicDashboardBootstrap(
   let response: Response
 
   try {
-    response = await fetcher(endpoint, {
+    response = await withWebsiteDeploymentAccess(fetcher)(endpoint, {
       cache: "no-store",
       headers: {
         Accept: "application/json",

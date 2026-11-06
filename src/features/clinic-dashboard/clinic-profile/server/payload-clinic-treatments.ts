@@ -1,5 +1,7 @@
 import "server-only"
 
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
+
 import { z } from "zod"
 import { validateEnvironment } from "@/lib/env"
 import type {
@@ -112,8 +114,9 @@ function mapOffering(offering: z.infer<typeof offeringSchema>): ClinicTreatmentO
 export function createPayloadClinicTreatmentProvider(
   accessToken: string,
   clinicId: string,
-  fetcher: typeof fetch = fetch,
+  sourceFetch: typeof fetch = fetch,
 ): ClinicTreatmentProvider {
+  const fetcher = withWebsiteDeploymentAccess(sourceFetch)
   const target = endpoint(clinicId)
   return {
     async createTreatment(input: ClinicTreatmentCreateInput) {
