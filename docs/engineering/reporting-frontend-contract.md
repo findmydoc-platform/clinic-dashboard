@@ -21,6 +21,17 @@ workspace entry never supplies this input. The demo uses the existing dashboard 
 profile-views download adapter. Its synthetic location picker is confined to that explicit demo; normal mode lists only the
 authorized clinic.
 
+## Top reporting cards
+
+Normal reporting and the separate demo show public profile completion followed by exactly two static cards labeled
+`Content to be defined`. The placeholders have no metric values, interactive controls, or data sources. Profile completion
+retains its existing calculation, information, loading, and unavailable states.
+
+Below `sm`, the three cards stack with profile completion first. From `sm` to below `xl`, profile completion spans the
+full first row and the placeholders share the second row equally. From `xl`, all three cards occupy equal-width columns.
+The row retains `gap-4` without empty columns or horizontal overflow. This layout does not change the reporting contract
+or funnel stages.
+
 ## CSV exports
 
 Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
