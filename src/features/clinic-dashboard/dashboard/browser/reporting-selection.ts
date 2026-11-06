@@ -15,7 +15,6 @@ const metricIds: readonly DashboardJourneyStageId[] = [
   "impressions",
   "profileViews",
   "uniqueVisitors",
-  "inquiryStarters",
   "inquiries",
 ]
 
@@ -45,16 +44,17 @@ export function parseReportingSelection(
     const value: unknown = JSON.parse(snapshot)
     if (!value || typeof value !== "object") return undefined
     const candidate = value as Record<string, unknown>
+    const metricId = candidate.metricId === "inquiryStarters" ? "profileViews" : candidate.metricId
     if (
       candidate.scope !== scope ||
       typeof candidate.periodDays !== "number" ||
       !isClinicDashboardReportingPeriodDays(candidate.periodDays) ||
-      !metricIds.some((id) => id === candidate.metricId)
+      !metricIds.some((id) => id === metricId)
     )
       return undefined
     return {
       periodDays: candidate.periodDays,
-      metricId: candidate.metricId as DashboardJourneyStageId,
+      metricId: metricId as DashboardJourneyStageId,
     }
   } catch {
     return undefined

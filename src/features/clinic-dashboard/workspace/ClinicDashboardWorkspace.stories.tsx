@@ -34,16 +34,13 @@ export const ReportingDemoInteractions: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByText(/Reporting demo. Sample measurements/)).toBeVisible()
-    await userEvent.click(canvas.getByRole("button", { name: /Inquiry starters 42/ }))
-    await expect(canvas.getByRole("heading", { name: "Inquiry starters over time" })).toBeVisible()
+    await userEvent.click(canvas.getByRole("button", { name: /Inquiries 16/ }))
+    await expect(canvas.getByRole("heading", { name: "Inquiries over time" })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
-    await expect(canvas.getByRole("button", { name: /Inquiry starters 12/ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    )
+    await expect(canvas.getByRole("button", { name: /Inquiries 5/ })).toHaveAttribute("aria-pressed", "true")
     await userEvent.click(canvas.getByRole("button", { name: /Switch clinic location/ }))
     await userEvent.click(within(document.body).getByRole("menuitem", { name: /Charlottenburg/ }))
-    await expect(canvas.getByRole("heading", { name: "Inquiry starters over time" })).toBeVisible()
+    await expect(canvas.getByRole("heading", { name: "Inquiries over time" })).toBeVisible()
     await waitFor(() =>
       expect(canvas.getByRole("button", { name: /Switch clinic location/ })).toHaveTextContent(
         "Charlottenburg",

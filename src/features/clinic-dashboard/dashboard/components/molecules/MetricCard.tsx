@@ -1,19 +1,10 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  BadgeCheck,
-  Eye,
-  FileCheck2,
-  MessageSquare,
-  MousePointerClick,
-} from "lucide-react"
+import { ArrowDown, ArrowUp, BadgeCheck, Eye, FileCheck2, MousePointerClick } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { DashboardMetric } from "../../model/reporting"
 
 const metricIcons = {
   completion: BadgeCheck,
-  inquiryStarters: MessageSquare,
   impressions: Eye,
   inquiries: FileCheck2,
   views: MousePointerClick,

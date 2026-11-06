@@ -159,7 +159,6 @@ export const dashboardProfileTasks = dashboardProfileProgressEmpty.tasks
 
 const reporting = createDashboardReportingSnapshot({
   changes: {
-    inquiryStarters: "-7.7%",
     impressions: "+8.4%",
     inquiries: "+25.0%",
     views: "+10.1%",
@@ -176,7 +175,6 @@ const reporting = createDashboardReportingSnapshot({
       { axisLabel: "Oct 12", dateLabel: "October 12" },
     ],
     series: {
-      inquiryStarters: [1, 1, 2, 2, 2, 2, 2],
       impressions: [568, 613, 657, 646, 712, 745, 739],
       inquiries: [0, 0, 1, 1, 1, 1, 1],
       uniqueVisitors: [66, 71, 76, 75, 83, 86, 86],
@@ -186,7 +184,6 @@ const reporting = createDashboardReportingSnapshot({
   period: "7 days",
   reviewActivity: "1 new review in the last 7 days",
   totals: {
-    inquiryStarters: 12,
     impressions: 4_680,
     inquiries: 5,
     profileViews: 848,
@@ -198,7 +195,6 @@ const reportingSnapshots = {
   "7 days": reporting,
   "30 days": createDashboardReportingSnapshot({
     changes: {
-      inquiryStarters: "-2.1%",
       impressions: "+5.2%",
       inquiries: "+8.4%",
       views: "+12.0%",
@@ -207,7 +203,6 @@ const reportingSnapshots = {
       cadence: "daily",
       dates: [{ dateLabel: "30-day total" }],
       series: {
-        inquiryStarters: [42],
         impressions: [18_420],
         inquiries: [16],
         uniqueVisitors: [2_105],
@@ -217,7 +212,6 @@ const reportingSnapshots = {
     period: "30 days",
     reviewActivity: "5 new reviews in the last 30 days",
     totals: {
-      inquiryStarters: 42,
       impressions: 18_420,
       inquiries: 16,
       profileViews: 3_284,
@@ -226,7 +220,6 @@ const reportingSnapshots = {
   }),
   "90 days": createDashboardReportingSnapshot({
     changes: {
-      inquiryStarters: "+4.4%",
       impressions: "+11.8%",
       inquiries: "+6.7%",
       views: "+9.6%",
@@ -235,7 +228,6 @@ const reportingSnapshots = {
       cadence: "weekly",
       dates: [{ dateLabel: "90-day total" }],
       series: {
-        inquiryStarters: [118],
         impressions: [53_680],
         inquiries: [45],
         uniqueVisitors: [6_006],
@@ -245,7 +237,6 @@ const reportingSnapshots = {
     period: "90 days",
     reviewActivity: "17 new reviews in the last 90 days",
     totals: {
-      inquiryStarters: 118,
       impressions: 53_680,
       inquiries: 45,
       profileViews: 9_410,

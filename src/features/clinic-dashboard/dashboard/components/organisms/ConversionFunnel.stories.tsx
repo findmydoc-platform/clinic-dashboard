@@ -42,9 +42,9 @@ async function expectSevenDayJourney(canvasElement: HTMLElement) {
   await expect(canvas.queryByText("41.7% of contacts")).not.toBeInTheDocument()
   await expect(canvas.getByText("Inquiries")).toBeInTheDocument()
   await expect(canvas.getByRole("list", { name: "Conversion stages" })).toBeInTheDocument()
-  await expect(canvas.getAllByRole("listitem")).toHaveLength(5)
-  await expect(canvasElement.querySelectorAll("[data-funnel-stage]")).toHaveLength(5)
-  await expect(canvas.getAllByRole("button", { name: /About/ })).toHaveLength(4)
+  await expect(canvas.getAllByRole("listitem")).toHaveLength(4)
+  await expect(canvasElement.querySelectorAll("[data-funnel-stage]")).toHaveLength(4)
+  await expect(canvas.getAllByRole("button", { name: /About/ })).toHaveLength(3)
   await expect(canvas.queryByRole("tooltip")).not.toBeInTheDocument()
 }
 
@@ -58,8 +58,8 @@ function getFunnelLayout(canvasElement: HTMLElement) {
   const connectorLines = canvasElement.querySelectorAll("[data-funnel-connector-line]")
   const staticConversions = canvasElement.querySelectorAll("[data-funnel-conversion]")
 
-  if (stages.length !== 5 || connectors.length !== 4 || infoTriggers.length !== 4 || arrows.length !== 4) {
-    throw new Error("Expected five funnel stages and four conversion connectors")
+  if (stages.length !== 4 || connectors.length !== 3 || infoTriggers.length !== 3 || arrows.length !== 3) {
+    throw new Error("Expected four funnel stages and three order connectors")
   }
 
   if (connectorLines.length !== 0 || staticConversions.length !== 0) {
@@ -114,7 +114,9 @@ async function expectConversionInfoInteractions(canvasElement: HTMLElement) {
   await expect(triggers[1]).toHaveFocus()
 
   await userEvent.click(triggers[2])
-  await expect(await canvas.findByRole("tooltip")).toHaveTextContent("starts editing the inquiry form")
+  await expect(await canvas.findByRole("tooltip")).toHaveTextContent(
+    "successfully submitted and saved requests",
+  )
   await expect(canvas.getAllByRole("tooltip")).toHaveLength(1)
 
   await userEvent.click(canvas.getByRole("heading", { name: "Conversion funnel (7 days)" }))

@@ -1,6 +1,6 @@
 export const clinicDashboardReportingPeriodDays = [7, 30, 90] as const
 
-export const clinicDashboardReportingSchemaVersion = "clinic-dashboard-reporting-v2" as const
+export const clinicDashboardReportingSchemaVersion = "clinic-dashboard-reporting-v3" as const
 
 export type ClinicDashboardReportingPeriodDays = (typeof clinicDashboardReportingPeriodDays)[number]
 
@@ -50,7 +50,6 @@ export type ClinicDashboardReporting = Readonly<{
     }>
     uniqueVisitors: ClinicDashboardReportingCountMetric<"posthog">
     impressions: ClinicDashboardReportingCountMetric<"posthog">
-    inquiryStarters: ClinicDashboardReportingCountMetric<"posthog">
   }>
   period: Readonly<{
     days: ClinicDashboardReportingPeriodDays

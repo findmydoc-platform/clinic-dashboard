@@ -7,7 +7,6 @@ import {
   FileCheck2,
   Info,
   type LucideIcon,
-  MessageSquare,
   MousePointerClick,
   UserRound,
 } from "lucide-react"
@@ -25,7 +24,6 @@ import {
 } from "../../model/reporting-journey-information"
 
 const funnelIcons = {
-  inquiryStarters: { component: MessageSquare, name: "message-square" },
   impressions: { component: Eye, name: "eye" },
   inquiries: { component: FileCheck2, name: "file-check" },
   uniqueVisitors: { component: UserRound, name: "user-round" },
@@ -153,7 +151,7 @@ export function ConversionFunnel({
       </div>
       <ol
         aria-label="Conversion stages"
-        className="flex list-none flex-col p-4 xl:grid xl:grid-cols-[repeat(5,minmax(0,1fr))] xl:gap-x-20 xl:p-5 2xl:gap-x-24"
+        className="flex list-none flex-col p-4 xl:grid xl:grid-cols-[repeat(4,minmax(0,1fr))] xl:gap-x-20 xl:p-5 2xl:gap-x-24"
         role="list"
       >
         {steps.map((step, index) => {
