@@ -42,6 +42,7 @@ describe("Dashboard Website protocol wire contract", () => {
   })
 
   it("matches the pinned v1 HMAC example over the exact request bytes", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const response = await GET(request())
     expect(fetch).toHaveBeenCalledWith(
       new URL("https://preview.findmydoc.eu/api/internal/auth-actions/v1/validateAction"),
@@ -50,15 +51,17 @@ describe("Dashboard Website protocol wire contract", () => {
         method: "POST",
         cache: "no-store",
         redirect: "error",
-        headers: {
-          "Content-Type": "application/json",
-          "x-auth-action-timestamp": "2026-10-04T03:00:00.000Z",
-          "x-auth-action-request-id": "11111111-1111-4111-8111-111111111111",
-          "x-auth-action-key-version": "v1",
-          "x-auth-action-signature": "c12cc6f0129116c80030a24ea2dcb0b69d3022d70057a08f270d7e1405f5ed6f", // pragma: allowlist secret - public synthetic fixture
-        },
+        headers: expect.any(Headers),
       }),
     )
+    expect(Object.fromEntries(new Headers(vi.mocked(fetch).mock.calls[0]?.[1]?.headers))).toEqual({
+      "content-type": "application/json",
+      "x-auth-action-timestamp": "2026-10-04T03:00:00.000Z",
+      "x-auth-action-request-id": "11111111-1111-4111-8111-111111111111",
+      "x-auth-action-key-version": "v1",
+      "x-auth-action-signature": "c12cc6f0129116c80030a24ea2dcb0b69d3022d70057a08f270d7e1405f5ed6f", // pragma: allowlist secret - public synthetic fixture
+      "x-vercel-protection-bypass": "synthetic-target-bypass",
+    })
     expect(response.headers.get("referrer-policy")).toBe("no-referrer")
     expect(response.headers.get("cache-control")).toBe("private, no-store")
   })

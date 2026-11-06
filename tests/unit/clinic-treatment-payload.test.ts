@@ -38,6 +38,7 @@ describe("Clinic treatment Payload adapter", () => {
   })
 
   it("loads the focused treatment contract for its original explicit clinic", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(async () =>
       jsonResponse({ catalogue: [treatment], offerings: [offering] }),
     )
@@ -67,6 +68,7 @@ describe("Clinic treatment Payload adapter", () => {
     expect(init).toMatchObject({ cache: "no-store", redirect: "error" })
     expect(new Headers(init?.headers).get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token")
+    expect(new Headers(init?.headers).get("x-vercel-protection-bypass")).toBe("synthetic-target-bypass")
   })
 
   it("creates treatments through the focused contract without caller-controlled active state", async () => {

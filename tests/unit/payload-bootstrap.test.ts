@@ -96,6 +96,7 @@ describe("Payload clinic bootstrap", () => {
   })
 
   it("opts into the inquiry contract at the configured HTTPS bootstrap endpoint", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(async () => jsonResponse(bootstrap))
     await expect(fetchClinicDashboardBootstrap("access-token", fetcher)).resolves.toEqual({
       context: bootstrap,
@@ -106,13 +107,13 @@ describe("Payload clinic bootstrap", () => {
     expect(String(url)).toBe("https://preview.findmydoc.eu/api/clinic-dashboard/bootstrap")
     expect(init).toMatchObject({
       cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        Authorization: "Bearer access-token",
-        "X-Findmydoc-Clinic-Dashboard-Contract": "inquiry-communication-v2",
-      },
       redirect: "error",
     })
+    const headers = new Headers(init?.headers)
+    expect(headers.get("Accept")).toBe("application/json")
+    expect(headers.get("Authorization")).toBe("Bearer access-token")
+    expect(headers.get("X-Findmydoc-Clinic-Dashboard-Contract")).toBe("inquiry-communication-v2")
+    expect(headers.get("x-vercel-protection-bypass")).toBe("synthetic-target-bypass")
   })
 
   it("binds the controlled local acceptance session to the seeded clinic without network bootstrap", async () => {

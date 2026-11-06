@@ -98,6 +98,7 @@ describe("clinic dashboard reporting BFF", () => {
   })
 
   it("forwards only the selected period through the session-bound private boundary", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(async () => privateReportingResponse(reportingFixture))
     vi.stubGlobal("fetch", fetcher)
 
@@ -116,13 +117,13 @@ describe("clinic dashboard reporting BFF", () => {
     const [, upstreamInit] = fetcher.mock.calls[0] ?? []
     expect(upstreamInit).toMatchObject({
       cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        Authorization: "Bearer session-access-token",
-        "X-Findmydoc-Reporting-Contract": "clinic-dashboard-reporting-v3",
-      },
       redirect: "error",
     })
+    const headers = new Headers(upstreamInit?.headers)
+    expect(headers.get("Accept")).toBe("application/json")
+    expect(headers.get("Authorization")).toBe("Bearer session-access-token")
+    expect(headers.get("X-Findmydoc-Reporting-Contract")).toBe("clinic-dashboard-reporting-v3")
+    expect(headers.get("x-vercel-protection-bypass")).toBe("synthetic-target-bypass")
     expect(JSON.stringify(upstreamInit)).not.toContain("server-derived-clinic")
     expect(JSON.stringify(body)).not.toContain("session-access-token")
     expect(accessMocks.resolveClinicDashboardRouteAccess).toHaveBeenCalledWith(

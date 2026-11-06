@@ -64,6 +64,7 @@ describe("Doctor profile Payload adapter", () => {
   })
 
   it("reads image bytes only from the explicit target doctor route", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(
       async () => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/png" } }),
     )
@@ -76,6 +77,9 @@ describe("Doctor profile Payload adapter", () => {
       "https://preview.findmydoc.eu/api/clinic-dashboard/clinics/clinic-1/doctors/doctor-1/image",
     )
     expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ cache: "no-store", redirect: "error" })
+    const headers = new Headers(fetcher.mock.calls[0]?.[1]?.headers)
+    expect(headers.get("authorization")).toBe("Bearer access-token")
+    expect(headers.get("x-vercel-protection-bypass")).toBe("synthetic-target-bypass")
   })
 
   it("loads only the authenticated clinic directory and existing specialty catalogue", async () => {

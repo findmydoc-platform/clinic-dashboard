@@ -1,5 +1,7 @@
 import "server-only"
 
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
+
 import { z } from "zod"
 import { validateEnvironment } from "@/lib/env"
 import {
@@ -149,8 +151,9 @@ async function requestPayloadJson(
 export function createPayloadClinicDashboardReportingProvider(
   accessToken: string,
   clinicId: string,
-  fetcher: typeof fetch = fetch,
+  sourceFetch: typeof fetch = fetch,
 ): ClinicDashboardReportingProvider {
+  const fetcher = withWebsiteDeploymentAccess(sourceFetch)
   return {
     async loadReporting(periodDays): Promise<ClinicDashboardReportingProviderResult> {
       const response = await requestPayloadJson(accessToken, clinicId, periodDays, fetcher)

@@ -49,6 +49,7 @@ describe("Clinic profile Payload provider", () => {
   })
 
   it("binds every operation to one explicit clinic and sends one literal scope contract", async () => {
+    vi.stubEnv("WEBSITE_PREVIEW_PROTECTION_BYPASS", "synthetic-target-bypass") // pragma: allowlist secret
     const fetcher = vi.fn<typeof fetch>(async () => privateJsonResponse({}, 503))
     const provider = createPayloadClinicProfileProvider("access-token", "original-clinic", fetcher)
     await Promise.all([
@@ -75,6 +76,7 @@ describe("Clinic profile Payload provider", () => {
       const headers = new Headers(init?.headers)
       expect(headers.get("X-Findmydoc-Clinic-Scope-Contract")).toBe("clinic-scope-v1")
       expect(headers.get("Authorization")).toBe("Bearer access-token")
+      expect(headers.get("x-vercel-protection-bypass")).toBe("synthetic-target-bypass")
       expect(init?.cache).toBe("no-store")
     }
   })

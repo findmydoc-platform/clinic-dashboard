@@ -1,5 +1,7 @@
 import "server-only"
 
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
+
 import { z } from "zod"
 import { clinicDashboardContractHeaders } from "../../payload-contract"
 import { clinicReviewDetailIdSchema, clinicReviewDetailResponseSchema } from "./review-detail-contract"
@@ -627,6 +629,7 @@ export function createPayloadReviewProvider(
   sourceFetch: typeof fetch = fetch,
 ): ReviewProvider {
   if (!clinicReviewDetailIdSchema.safeParse(clinicId).success) throw new Error("Invalid review clinic target")
+  const websiteFetch = withWebsiteDeploymentAccess(sourceFetch)
   const target = `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}`
   const fetcher: typeof fetch = async (input, init) => {
     const endpoint = new URL(String(input))
@@ -657,7 +660,7 @@ export function createPayloadReviewProvider(
       ...Object.fromEntries([...new Headers(init?.headers)].filter(([name]) => !replacedNames.has(name))),
       ...replacementHeaders,
     }
-    return sourceFetch(endpoint, { ...init, headers })
+    return websiteFetch(endpoint, { ...init, headers })
   }
   return {
     async loadReview(reviewId, signal) {

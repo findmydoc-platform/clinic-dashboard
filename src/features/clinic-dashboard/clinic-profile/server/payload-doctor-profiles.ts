@@ -1,5 +1,7 @@
 import "server-only"
 
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
+
 import { z } from "zod"
 import { validateEnvironment } from "@/lib/env"
 import {
@@ -347,8 +349,9 @@ function sortDoctors(left: DoctorProfile, right: DoctorProfile) {
 export function createPayloadDoctorProfileProvider(
   accessToken: string,
   clinicId: string,
-  fetcher: typeof fetch = fetch,
+  sourceFetch: typeof fetch = fetch,
 ): DoctorProfileProvider {
+  const fetcher = withWebsiteDeploymentAccess(sourceFetch)
   async function loadRawDoctor(doctorId: string) {
     const response = await requestPayloadJson(
       scopedDoctorEndpoint(clinicId, doctorId),

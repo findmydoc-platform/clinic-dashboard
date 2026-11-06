@@ -1,4 +1,6 @@
 import "server-only"
+
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
 import { clinicDashboardContractHeaders } from "../../payload-contract"
 
 import { validateEnvironment } from "@/lib/env"
@@ -111,8 +113,9 @@ function mutationInit(
 export function createPayloadClinicProfileProvider(
   accessToken: string,
   clinicId: string,
-  fetcher: typeof fetch = fetch,
+  sourceFetch: typeof fetch = fetch,
 ): ClinicProfileProvider {
+  const fetcher = withWebsiteDeploymentAccess(sourceFetch)
   if (!/^[A-Za-z0-9_-]{1,128}$/u.test(clinicId)) throw new Error("Invalid profile clinic target")
   const endpoint = `/api/clinic-dashboard/clinics/${encodeURIComponent(clinicId)}/profile`
   const payloadClinicProfilePaths = {

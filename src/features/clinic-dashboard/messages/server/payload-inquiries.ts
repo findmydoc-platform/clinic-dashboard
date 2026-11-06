@@ -1,5 +1,7 @@
 import "server-only"
 
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
+
 import { z } from "zod"
 import { isLocalInquiryAcceptanceMode, validateEnvironment } from "@/lib/env"
 import { clinicDashboardContractHeaders } from "../../payload-contract"
@@ -572,9 +574,10 @@ function withSafeProviderBoundary(provider: PatientInquiryProvider): PatientInqu
 export function createPayloadPatientInquiryProvider(
   accessToken: string,
   clinicId: string,
-  fetcher: typeof fetch = fetch,
+  sourceFetch: typeof fetch = fetch,
   environment: Record<string, string | undefined> = process.env,
 ): PatientInquiryProvider {
+  const fetcher = withWebsiteDeploymentAccess(sourceFetch)
   const runtimeEnvironment = validateEnvironment(environment)
   const targetEndpoint = (pathname: string, runtime: typeof runtimeEnvironment) =>
     endpointFor(

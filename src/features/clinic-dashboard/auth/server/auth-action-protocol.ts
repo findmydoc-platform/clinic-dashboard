@@ -1,5 +1,7 @@
 import "server-only"
 
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
+
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 import { isIP } from "node:net"
 import type { NextRequest } from "next/server"
@@ -138,20 +140,23 @@ async function sendPrepared(request: PreparedRequest) {
         "utf8",
       )
       .digest("hex")
-    const response = await fetch(new URL(`/api/internal/auth-actions/v1/${operation}`, origin), {
-      body,
-      cache: "no-store",
-      method: "POST",
-      redirect: "error",
-      signal: AbortSignal.timeout(10_000),
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-action-timestamp": timestamp,
-        "x-auth-action-request-id": requestId,
-        "x-auth-action-key-version": keyVersion,
-        "x-auth-action-signature": signature,
+    const response = await withWebsiteDeploymentAccess(fetch)(
+      new URL(`/api/internal/auth-actions/v1/${operation}`, origin),
+      {
+        body,
+        cache: "no-store",
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-action-timestamp": timestamp,
+          "x-auth-action-request-id": requestId,
+          "x-auth-action-key-version": keyVersion,
+          "x-auth-action-signature": signature,
+        },
       },
-    })
+    )
     const bodyResult = await readResponse(response)
     const result = successSchema.safeParse(bodyResult)
     if (

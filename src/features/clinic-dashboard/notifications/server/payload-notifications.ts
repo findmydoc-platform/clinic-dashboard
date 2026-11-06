@@ -1,4 +1,6 @@
 import "server-only"
+
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
 import { validateEnvironment } from "@/lib/env"
 import { clinicDashboardContractHeaders } from "../../payload-contract"
 import {
@@ -13,9 +15,10 @@ import type { NotificationProvider } from "./notification-provider"
 export function createPayloadNotificationProvider(
   accessToken: string,
   principalId: string,
-  fetcher: typeof fetch = fetch,
+  sourceFetch: typeof fetch = fetch,
   environment: Record<string, string | undefined> = process.env,
 ): NotificationProvider {
+  const fetcher = withWebsiteDeploymentAccess(sourceFetch)
   if (!accessToken.trim() || !principalId.trim()) throw new Error("Verified personal clinic session required")
   const validated = validateEnvironment(environment)
   return {

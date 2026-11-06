@@ -1,6 +1,8 @@
 import { clinicDashboardContractHeaders } from "../../payload-contract"
 import "server-only"
 
+import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
+
 import { z } from "zod"
 import { validateEnvironment } from "@/lib/env"
 import type {
@@ -83,8 +85,9 @@ async function payloadRequest<T>(
 export function createPayloadClinicGalleryProvider(
   accessToken: string,
   clinicId: string,
-  fetcher: typeof fetch = fetch,
+  sourceFetch: typeof fetch = fetch,
 ): ClinicGalleryProvider {
+  const fetcher = withWebsiteDeploymentAccess(sourceFetch)
   return {
     async discardDrafts(mediaIds) {
       const result = await payloadRequest(
