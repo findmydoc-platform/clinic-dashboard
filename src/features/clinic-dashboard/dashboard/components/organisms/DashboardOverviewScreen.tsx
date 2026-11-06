@@ -35,13 +35,15 @@ export function DashboardOverviewScreen({
   return (
     <div className="space-y-6">
       <PageHeading>Dashboard</PageHeading>
-      <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {model.metrics
           .filter((metric) => metric.id === "completion")
           .map((metric) => (
-            <ReportingMetricCard key={metric.id} {...metric} />
+            <div className="min-w-0 sm:col-span-2 xl:col-span-1" key={metric.id}>
+              <ReportingMetricCard {...metric} />
+            </div>
           ))}
-        {[1, 2, 3, 4].map((position) => (
+        {[1, 2].map((position) => (
           <Card
             className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
             key={position}

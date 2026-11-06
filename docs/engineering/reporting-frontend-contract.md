@@ -21,6 +21,17 @@ workspace entry never supplies this input. The demo uses the existing dashboard 
 profile-views download adapter. Its synthetic location picker is confined to that explicit demo; normal mode lists only the
 authorized clinic.
 
+## Top reporting cards
+
+Normal reporting and the separate demo show public profile completion followed by exactly two static cards labeled
+`Content to be defined`. The placeholders have no metric values, interactive controls, or data sources. Profile completion
+retains its existing calculation, information, loading, and unavailable states.
+
+Below `sm`, the three cards stack with profile completion first. From `sm` to below `xl`, profile completion spans the
+full first row and the placeholders share the second row equally. From `xl`, all three cards occupy equal-width columns.
+The row retains `gap-4` without empty columns or horizontal overflow. This layout does not change the reporting contract
+or funnel stages.
+
 ## CSV exports
 
 Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
@@ -34,7 +45,7 @@ Unique Visitors counts recognized consent-eligible browser visitors among profil
 A retired `inquiryStarters` display preference maps to `profileViews` only after the principal/clinic scope and period
 are validated. Its period is preserved. This legacy input key is not a supported reporting metric. Both the normal
 journey and synthetic demo render four stages and three order connectors. The demo detail summary has four entries.
-The upper profile-completion card and four neutral placeholders are independent of this change.
+The upper profile-completion card and two neutral placeholders are independent of this change.
 
 The V3 producer and consumer switch directly without V2 compatibility. Server and browser reject old schema versions,
 missing required metrics and additional metrics. Existing V2 browser documents can require a reload after delivery.

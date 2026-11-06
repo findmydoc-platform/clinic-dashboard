@@ -57,7 +57,7 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   const canvas = within(canvasElement)
   await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
-  await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+  await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
   await expect(metrics.queryByText("CTA interactions")).not.toBeInTheDocument()
   await expect(metrics.queryByText("Session conversion")).not.toBeInTheDocument()
 
@@ -85,13 +85,44 @@ export const TopKpiScope: Story = {
     const canvas = within(canvasElement)
     const region = canvas.getByRole("region", { name: "Dashboard metrics" })
     const metrics = within(region)
-    await expect(region.children).toHaveLength(5)
-    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+    await expect(region.children).toHaveLength(3)
+    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
     await expect(metrics.getByText("Public profile completion")).toBeVisible()
     await expect(metrics.getByText("67%", { exact: true })).toBeVisible()
     await expect(metrics.queryAllByRole("button")).toHaveLength(0)
     for (const placeholder of Array.from(region.children).slice(1)) {
       await expect(placeholder).toHaveTextContent(/^Content to be defined$/)
+      await expect(
+        placeholder.querySelector(
+          'a[href], button, input, select, textarea, [tabindex], [role="button"], [role="link"]',
+        ),
+      ).toBeNull()
+    }
+    const [completion, first, second] = Array.from(region.children, (card) => card.getBoundingClientRect())
+    const bounds = region.getBoundingClientRect()
+    await expect(region.firstElementChild).toHaveTextContent("Public profile completion")
+    await expect(completion.left).toBeCloseTo(bounds.left, 0)
+    await expect(second.right).toBeCloseTo(bounds.right, 0)
+    await expect(first.width).toBeCloseTo(second.width, 0)
+    await expect(first.height).toBeGreaterThanOrEqual(96)
+    await expect(second.height).toBeGreaterThanOrEqual(96)
+    if (window.innerWidth >= 1280) {
+      await expect(completion.width).toBeCloseTo(first.width, 0)
+      await expect(completion.top).toBeCloseTo(first.top, 0)
+      await expect(first.top).toBeCloseTo(second.top, 0)
+      await expect(first.left).toBeGreaterThanOrEqual(completion.right)
+      await expect(second.left).toBeGreaterThanOrEqual(first.right)
+    } else if (window.innerWidth >= 640) {
+      await expect(completion.width).toBeCloseTo(bounds.width, 0)
+      await expect(first.top).toBeGreaterThanOrEqual(completion.bottom)
+      await expect(first.top).toBeCloseTo(second.top, 0)
+      await expect(first.left).toBeCloseTo(bounds.left, 0)
+      await expect(second.left).toBeGreaterThanOrEqual(first.right)
+    } else {
+      await expect(completion.width).toBeCloseTo(bounds.width, 0)
+      await expect(first.width).toBeCloseTo(bounds.width, 0)
+      await expect(first.top).toBeGreaterThanOrEqual(completion.bottom)
+      await expect(second.top).toBeGreaterThanOrEqual(first.bottom)
     }
     await expect(args.onMetricSelect).not.toHaveBeenCalled()
     await expect(canvas.getByRole("button", { name: /Profile views 284/ })).toHaveAttribute(
@@ -380,7 +411,7 @@ export const ProfileUnavailable: Story = {
     await expect(canvas.getAllByText("284").length).toBeGreaterThan(0)
     const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
     await expect(metrics.getByText("Not available", { exact: true })).toBeVisible()
-    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
     await userEvent.click(canvas.getByRole("button", { name: "Retry" }))
     await expect(args.onProfileProgressRetry).toHaveBeenCalledOnce()
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
@@ -447,7 +478,7 @@ export const PartialCoverage: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText("Incomplete data coverage")).toBeVisible()
     await expect(canvas.queryByText("284", { exact: true })).not.toBeInTheDocument()
-    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
   },
 }
 export const AnalyticsUnavailable: Story = {
@@ -464,7 +495,7 @@ export const AnalyticsUnavailable: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText("Data source unavailable")).toBeVisible()
     await expect(canvas.getByRole("button", { name: /Inquiries 7/ })).toBeVisible()
-    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(4)
+    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
   },
 }
 
@@ -501,4 +532,21 @@ export const ProfileUnavailable320: Story = {
 export const ProfileUnavailableDark320: Story = {
   ...ProfileUnavailable,
   globals: { theme: "dark", viewport: { value: "mobile320Short" } },
+}
+
+export const TopKpiTablet768: Story = {
+  ...TopKpiScope,
+  globals: { viewport: { value: "tablet768" } },
+}
+export const TopKpiDark768: Story = {
+  ...TopKpiScope,
+  globals: { theme: "dark", viewport: { value: "tablet768" } },
+}
+export const TopKpiTablet1279: Story = {
+  ...TopKpiScope,
+  globals: { viewport: { value: "desktop1279" } },
+}
+export const TopKpiDesktop1280: Story = {
+  ...TopKpiScope,
+  globals: { viewport: { value: "desktop1280" } },
 }

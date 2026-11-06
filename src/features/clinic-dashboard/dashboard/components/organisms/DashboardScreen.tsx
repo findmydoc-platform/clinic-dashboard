@@ -26,9 +26,11 @@ export function DashboardScreen({ actions, canDownloadProfileViews, model }: Das
     <div className="space-y-6">
       <PageHeading>Dashboard</PageHeading>
 
-      <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard metric={profileCompletionMetric} />
-        {[1, 2, 3, 4].map((position) => (
+      <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="min-w-0 sm:col-span-2 xl:col-span-1">
+          <MetricCard metric={profileCompletionMetric} />
+        </div>
+        {[1, 2].map((position) => (
           <Card
             className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
             key={position}
