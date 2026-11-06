@@ -23,7 +23,7 @@ function isReportingResponse(value: unknown): value is ClinicDashboardReporting 
   if (!record(value) || !record(value.metrics) || !record(value.period) || !record(value.comparisonPeriod))
     return false
   if (
-    value.schemaVersion !== "clinic-dashboard-reporting-v2" ||
+    value.schemaVersion !== "clinic-dashboard-reporting-v3" ||
     value.timezone !== "Europe/Istanbul" ||
     !isClinicDashboardReportingPeriodDays(Number(value.period.days)) ||
     value.period.days !== value.comparisonPeriod.days
@@ -44,8 +44,8 @@ function isReportingResponse(value: unknown): value is ClinicDashboardReporting 
     value.asOf !== value.period.to
   )
     return false
-  const keys = ["impressions", "profileViews", "uniqueVisitors", "inquiryStarters", "inquiries"]
-  if (Object.keys(value.metrics).length !== 6) return false
+  const keys = ["impressions", "profileViews", "uniqueVisitors", "inquiries"]
+  if (Object.keys(value.metrics).length !== 5) return false
   for (const key of keys) {
     const metric = value.metrics[key]
     if (

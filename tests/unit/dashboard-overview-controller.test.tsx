@@ -27,6 +27,22 @@ const useScopedReporting = (
     loadReporting,
   })
 
+it("restores a retired inquiry-starters selection as profile views in its original period", async () => {
+  window.sessionStorage.setItem(
+    "fmd-dashboard-reporting-selection",
+    JSON.stringify({ scope: "principal:clinic", periodDays: 90, metricId: "inquiryStarters" }),
+  )
+  const loadReporting = vi.fn(async (days: 7 | 30 | 90) => ({
+    ...clinicDashboardReportingFixture,
+    period: { ...clinicDashboardReportingFixture.period, days },
+  }))
+  const hook = renderHook(() => useScopedReporting("principal:clinic", loadReporting))
+  expect(hook.result.current.model.periodDays).toBe(90)
+  expect(hook.result.current.model.selectedMetric.id).toBe("profileViews")
+  await waitFor(() => expect(hook.result.current.model.reportingStatus).toBe("ready"))
+  expect(loadReporting).toHaveBeenCalledExactlyOnceWith(90)
+})
+
 it("restores the tab's selection with fresh matching-period data after remount", async () => {
   const loadReporting = vi.fn(async (days: 7 | 30 | 90) => ({
     ...clinicDashboardReportingFixture,
@@ -128,13 +144,13 @@ it("retains the selected measurement across a reporting period change", async ()
       loadReporting,
     }),
   )
-  act(() => result.current.actions.selectMetric("inquiryStarters"))
+  act(() => result.current.actions.selectMetric("inquiries"))
   expect(loadReporting).not.toHaveBeenCalled()
   await act(async () => {
     await result.current.actions.changePeriodDays(7)
   })
   expect(result.current.model.periodDays).toBe(7)
-  expect(result.current.model.selectedMetric.id).toBe("inquiryStarters")
+  expect(result.current.model.selectedMetric.id).toBe("inquiries")
   expect(result.current.model.profileProgress).toBe(dashboardProfileProgressReady)
   expect(loadReporting).toHaveBeenCalledExactlyOnceWith(7)
 })

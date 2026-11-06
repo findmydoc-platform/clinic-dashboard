@@ -2,8 +2,7 @@ import type { ClinicProfileImageSource } from "@/features/clinic-dashboard/clini
 import type { ClinicDashboardReportingPeriodDays } from "./clinic-dashboard-reporting"
 import type { DashboardProfileProgressState } from "./profile-progress"
 
-export type DashboardJourneyStageId =
-  "impressions" | "profileViews" | "uniqueVisitors" | "inquiryStarters" | "inquiries"
+export type DashboardJourneyStageId = "impressions" | "profileViews" | "uniqueVisitors" | "inquiries"
 
 export type DashboardJourneyStage = Omit<DashboardOverviewMetric, "id"> &
   Readonly<{ id: DashboardJourneyStageId }>

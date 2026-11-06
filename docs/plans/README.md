@@ -32,3 +32,5 @@ Planning records preserve the decision at implementation time. A record that is 
 - [Dashboard Lower Area Prototype Interaction Plan](./dashboard-lower-prototype-interactions.md) — partially superseded for Profile Progress
 - [Review Responses, Appeals, and Publication History](./review-responses-appeals-and-publication-history.md)
 - [Clinic Gallery Management](./clinic-gallery-management.md)
+
+- [Four-stage clinic reporting](./four-stage-clinic-reporting.md)

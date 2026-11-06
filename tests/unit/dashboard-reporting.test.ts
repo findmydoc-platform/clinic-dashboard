@@ -11,25 +11,17 @@ describe("dashboard reporting fixtures", () => {
   it("keeps cumulative reporting values plausible across 7, 30, and 90 days", () => {
     const snapshots = dashboardReportingPeriods.map((period) => dashboardFixture.reporting[period])
 
-    for (const key of [
-      "impressions",
-      "profileViews",
-      "uniqueVisitors",
-      "inquiryStarters",
-      "inquiries",
-    ] as const) {
+    for (const key of ["impressions", "profileViews", "uniqueVisitors", "inquiries"] as const) {
       expect(snapshots[0].totals[key]).toBeLessThan(snapshots[1].totals[key])
       expect(snapshots[1].totals[key]).toBeLessThan(snapshots[2].totals[key])
     }
 
     for (const snapshot of snapshots) {
-      const { inquiryStarters, impressions, inquiries, profileViews, uniqueVisitors } = snapshot.totals
+      const { impressions, inquiries, profileViews, uniqueVisitors } = snapshot.totals
       expect(impressions).toBeGreaterThan(profileViews)
       expect(profileViews).toBeGreaterThan(uniqueVisitors)
-      expect(uniqueVisitors).toBeGreaterThan(inquiryStarters)
-      expect(inquiryStarters).toBeGreaterThan(inquiries)
+      expect(uniqueVisitors).toBeGreaterThan(inquiries)
       const expectedSeriesTotals = {
-        inquiryStarters,
         impressions,
         inquiries,
         uniqueVisitors,
@@ -41,13 +33,8 @@ describe("dashboard reporting fixtures", () => {
           expectedSeriesTotals[metricId],
         )
       }
-      expect(snapshot.funnel.map((step) => "conversion" in step)).toEqual([false, false, false, false, false])
-      expect(snapshot.metrics.map(({ id }) => id)).toEqual([
-        "impressions",
-        "views",
-        "inquiryStarters",
-        "inquiries",
-      ])
+      expect(snapshot.funnel.map((step) => "conversion" in step)).toEqual([false, false, false, false])
+      expect(snapshot.metrics.map(({ id }) => id)).toEqual(["impressions", "views", "inquiries"])
     }
   })
 
@@ -69,12 +56,11 @@ describe("dashboard reporting fixtures", () => {
   it("rejects a chart whose points do not add up to the selected profile views", () => {
     expect(() =>
       createDashboardReportingSnapshot({
-        changes: { inquiryStarters: "0%", impressions: "0%", inquiries: "0%", views: "0%" },
+        changes: { impressions: "0%", inquiries: "0%", views: "0%" },
         chart: {
           cadence: "daily",
           dates: [{ dateLabel: "Today" }],
           series: {
-            inquiryStarters: [2],
             impressions: [100],
             inquiries: [1],
             uniqueVisitors: [3],
@@ -84,7 +70,6 @@ describe("dashboard reporting fixtures", () => {
         period: "7 days",
         reviewActivity: "No new reviews in the last 7 days",
         totals: {
-          inquiryStarters: 2,
           impressions: 100,
           inquiries: 1,
           profileViews: 5,
@@ -97,28 +82,26 @@ describe("dashboard reporting fixtures", () => {
   it("rejects a metric series whose value count does not match its dates", () => {
     expect(() =>
       createDashboardReportingSnapshot({
-        changes: { inquiryStarters: "0%", impressions: "0%", inquiries: "0%", views: "0%" },
+        changes: { impressions: "0%", inquiries: "0%", views: "0%" },
         chart: {
           cadence: "daily",
           dates: [{ dateLabel: "Yesterday" }, { dateLabel: "Today" }],
           series: {
-            inquiryStarters: [2],
             impressions: [40, 60],
             inquiries: [0, 1],
-            uniqueVisitors: [1, 2],
+            uniqueVisitors: [3],
             views: [2, 3],
           },
         },
         period: "7 days",
         reviewActivity: "No new reviews in the last 7 days",
         totals: {
-          inquiryStarters: 2,
           impressions: 100,
           inquiries: 1,
           profileViews: 5,
           uniqueVisitors: 3,
         },
       }),
-    ).toThrow("inquiryStarters chart for 7 days must provide 2 values, received 1")
+    ).toThrow("uniqueVisitors chart for 7 days must provide 2 values, received 1")
   })
 })

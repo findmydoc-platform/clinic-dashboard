@@ -91,8 +91,8 @@ function getMetricPanelLayout(canvasElement: HTMLElement) {
     canvasElement.querySelectorAll<HTMLElement>("[data-dashboard-summary-item]"),
   )
 
-  if (!chart || summaryItems.length !== 5) {
-    throw new Error("Expected the dashboard metric chart and five summary items")
+  if (!chart || summaryItems.length !== 4) {
+    throw new Error("Expected the dashboard metric chart and four summary items")
   }
 
   return { chart, summaryItems }
@@ -312,21 +312,21 @@ export const FunnelControlsChart: Story = {
     await expect(canvas.getByRole("tooltip")).toHaveTextContent("not another action")
     await expect(canvas.queryByText("64.0% of profile views")).not.toBeInTheDocument()
 
-    const inquiryStartersButton = funnel.getByRole("button", { name: "Inquiry starters 12" })
-    inquiryStartersButton.focus()
-    await expect(inquiryStartersButton).toHaveFocus()
+    const inquiriesButton = funnel.getByRole("button", { name: "Inquiries 5" })
+    inquiriesButton.focus()
+    await expect(inquiriesButton).toHaveFocus()
     await userEvent.keyboard("{Enter}")
-    await expect(args.actions.onMetricSelect).toHaveBeenLastCalledWith("inquiryStarters")
-    await expect(canvas.getByRole("heading", { level: 2, name: "Inquiry starters over time" })).toBeVisible()
+    await expect(args.actions.onMetricSelect).toHaveBeenLastCalledWith("inquiries")
+    await expect(canvas.getByRole("heading", { level: 2, name: "Inquiries over time" })).toBeVisible()
 
     await userEvent.click(canvas.getByRole("button", { name: "30 days" }))
     await expect(canvas.getAllByText("67%")).toHaveLength(2)
-    await expect(inquiryStartersButton).toHaveAttribute("aria-pressed", "true")
-    await expect(canvas.getByText("-2.1% vs. previous 30 days")).toBeVisible()
+    await expect(inquiriesButton).toHaveAttribute("aria-pressed", "true")
+    await expect(canvas.getByText("+8.4% vs. previous 30 days")).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "90 days" }))
     await expect(canvas.getAllByText("67%")).toHaveLength(2)
-    await expect(inquiryStartersButton).toHaveAttribute("aria-pressed", "true")
-    await expect(canvas.getByText("+4.4% vs. previous 90 days")).toBeVisible()
+    await expect(inquiriesButton).toHaveAttribute("aria-pressed", "true")
+    await expect(canvas.getByText("+6.7% vs. previous 90 days")).toBeVisible()
   },
 }
 

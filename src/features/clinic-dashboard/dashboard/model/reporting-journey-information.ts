@@ -10,7 +10,6 @@ export const reportingJourneyTransitionDescriptions: Readonly<
     "Your clinic is shown in search results or lists. Opening the clinic profile shows interest beyond seeing the listing.",
   profileViews:
     "One visitor can open the profile more than once. Unique visitors counts each recognizable browser once in the selected period. This is a different way of counting profile visits, not another action.",
-  uniqueVisitors: "Interest becomes contact intent when someone starts editing the inquiry form.",
-  inquiryStarters:
-    "Starting an inquiry does not mean it was sent. The Inquiries total counts successfully submitted and saved requests.",
+  uniqueVisitors:
+    "Unique visitors counts recognizable browsers that viewed your profile. Inquiries counts successfully submitted and saved requests. These totals are measured independently and do not show visitor conversion.",
 }
