@@ -60,7 +60,7 @@ successful build does not prove a deployed, reachable, authorized workflow. Prod
 these Preview observations establish no Production activation. Live time-series and CSV exports remain unavailable.
 
 The Dashboard selects `clinic-dashboard-reporting-v3` through `X-Findmydoc-Reporting-Contract`, independently of
-`clinic-scope-v1`. Website [ADR 039](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/039-adr-four-count-clinic-dashboard-reporting.md)
+`clinic-scope-v1`. Website [ADR 040](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/040-adr-four-count-clinic-dashboard-reporting.md)
 defines the reporting architecture. The four selectable cards show Impressions, Profile views, Unique visitors and stored
 Inquiries. Profile views is initially selected. Form-side inquiry-start tracking remains a Website analytics capability
 and is excluded from this DTO. Impressions requires actual positive viewport

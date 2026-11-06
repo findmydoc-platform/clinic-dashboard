@@ -33,7 +33,7 @@ consent, privacy and submission tests. Verify stage selection, legacy preference
 late clinic responses, zero/coverage/outage states, keyboard and touch. Inspect both views at 320/390/1440 pixels in
 light and dark themes. Run relevant tests, checks, application builds and Dashboard Storybook build.
 
-Website ADR 039 replaces ADR 029. Update current API, analytics and frontend guides without rewriting closed specs.
+Website ADR 040 replaces ADR 029. Update current API, analytics and frontend guides without rewriting closed specs.
 Prepare paired PRs before delivery. The later coordinated platform release deploys Website then Dashboard; the interval
 can interrupt reporting and old browser documents may need a reload. Rollback uses a matching V2 pair. Deployment,
 external PostHog insight changes and historical event deletion are excluded. AI reviewers require separate confirmation.
