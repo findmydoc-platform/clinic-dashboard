@@ -23,7 +23,6 @@ const reportingFixture = {
     profileViews: countMetric("posthog", 284),
     uniqueVisitors: countMetric("posthog", 200),
     impressions: countMetric("posthog", 500),
-    inquiryStarters: countMetric("posthog", 9),
     reviews: {
       average: { comparison: null, source: "payload", state: "available", value: 4.8 },
       count: { comparison: null, source: "payload", state: "available", value: 25 },
@@ -35,7 +34,7 @@ const reportingFixture = {
     from: "2026-08-18T12:00:00.000Z",
     to: "2026-09-17T12:00:00.000Z",
   },
-  schemaVersion: "clinic-dashboard-reporting-v2",
+  schemaVersion: "clinic-dashboard-reporting-v3",
   timezone: "Europe/Istanbul",
 } as const
 
@@ -120,7 +119,7 @@ describe("clinic dashboard reporting BFF", () => {
       headers: {
         Accept: "application/json",
         Authorization: "Bearer session-access-token",
-        "X-Findmydoc-Reporting-Contract": "clinic-dashboard-reporting-v2",
+        "X-Findmydoc-Reporting-Contract": "clinic-dashboard-reporting-v3",
       },
       redirect: "error",
     })
@@ -188,46 +187,6 @@ describe("clinic dashboard reporting BFF", () => {
     expectPrivate(response)
   })
 
-  it.each(["partial_coverage", "source_unavailable"] as const)(
-    "preserves inquiry-starter %s without changing stored inquiries",
-    async (state) => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn<typeof fetch>(async () =>
-          privateReportingResponse({
-            ...reportingFixture,
-            metrics: {
-              ...reportingFixture.metrics,
-              inquiryStarters: {
-                source: "posthog",
-                current: { state, value: null },
-                comparison: {
-                  state: "partial_coverage",
-                  value: null,
-                  absoluteDelta: null,
-                  relativeDeltaPercent: null,
-                },
-              },
-            },
-          }),
-        ),
-      )
-      const response = await handleClinicDashboardReportingLoad(
-        new NextRequest(
-          "http://localhost:3000/api/dashboard/clinics/server-derived-clinic/reporting?periodDays=30",
-        ),
-      )
-      expect(response.status).toBe(200)
-      expect(await response.json()).toMatchObject({
-        metrics: {
-          inquiryStarters: { current: { state, value: null } },
-          inquiries: { current: { state: "available", value: 7 } },
-        },
-      })
-      expectPrivate(response)
-    },
-  )
-
   it("maps invalid or unavailable upstream results to a safe BFF error", async () => {
     vi.stubGlobal(
       "fetch",
@@ -248,6 +207,11 @@ describe("clinic dashboard reporting BFF", () => {
   })
 
   it.each([
+    ["uses the retired V2 version", { ...reportingFixture, schemaVersion: "clinic-dashboard-reporting-v2" }],
+    [
+      "adds an unexpected metric",
+      { ...reportingFixture, metrics: { ...reportingFixture.metrics, unexpected: { source: "posthog" } } },
+    ],
     [
       "omits a required nested metric",
       (() => {

@@ -1,12 +1,4 @@
-import {
-  ArrowRight,
-  ChevronRight,
-  Eye,
-  FileCheck2,
-  MessageSquare,
-  MousePointerClick,
-  UserRound,
-} from "lucide-react"
+import { ArrowRight, ChevronRight, Eye, FileCheck2, MousePointerClick, UserRound } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { DashboardJourneyStage, DashboardJourneyStageId } from "../../model/dashboard-overview"
@@ -20,7 +12,6 @@ const icons = {
   impressions: Eye,
   profileViews: MousePointerClick,
   uniqueVisitors: UserRound,
-  inquiryStarters: MessageSquare,
   inquiries: FileCheck2,
 }
 
@@ -51,7 +42,7 @@ export function ReportingJourneyFunnel({
       </div>
       <ol
         aria-label="Conversion stages"
-        className="flex list-none flex-col p-4 xl:grid xl:grid-cols-[repeat(5,minmax(0,1fr))] xl:gap-x-20 xl:p-5 2xl:gap-x-24"
+        className="flex list-none flex-col p-4 xl:grid xl:grid-cols-[repeat(4,minmax(0,1fr))] xl:gap-x-20 xl:p-5 2xl:gap-x-24"
         role="list"
       >
         {stages.map((stage, index) => {

@@ -70,7 +70,6 @@ function createControlledReporting(periodDays: ClinicDashboardReportingPeriodDay
           relativeDeltaPercent: null,
         },
       },
-      inquiryStarters: countMetric("posthog", 12),
       reviews: {
         average: { comparison: null, source: "payload", state: "available", value: 4.8 },
         count: { comparison: null, source: "payload", state: "available", value: 25 },
@@ -78,7 +77,7 @@ function createControlledReporting(periodDays: ClinicDashboardReportingPeriodDay
       },
     },
     period: { days: periodDays, from: period.from, to: period.to },
-    schemaVersion: "clinic-dashboard-reporting-v2",
+    schemaVersion: "clinic-dashboard-reporting-v3",
     timezone: "Europe/Istanbul",
   }
 }

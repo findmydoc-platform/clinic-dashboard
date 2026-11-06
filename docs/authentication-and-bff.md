@@ -59,16 +59,17 @@ These observations do not qualify every operation in each domain. Complete crite
 successful build does not prove a deployed, reachable, authorized workflow. Production availability remains unverified;
 these Preview observations establish no Production activation. Live time-series and CSV exports remain unavailable.
 
-The Dashboard selects `clinic-dashboard-reporting-v2` through `X-Findmydoc-Reporting-Contract`, independently of
-`clinic-scope-v1`. Website [ADR 029](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/029-adr-tenant-safe-clinic-dashboard-reporting.md)
-defines the reporting architecture. The five selectable cards show Impressions, Profile Views, Unique Visitors,
-Inquiry starters and stored Inquiries. Profile Views is initially selected. Inquiry starters counts recognized
-consent-eligible browsers with an own substantive form edit, once per clinic and period. Automatic or outside-form
-prefill, opening, focus, scrolling and consent alone do not count. Impressions requires actual positive viewport
+The Dashboard selects `clinic-dashboard-reporting-v3` through `X-Findmydoc-Reporting-Contract`, independently of
+`clinic-scope-v1`. Website [ADR 039](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/039-adr-four-count-clinic-dashboard-reporting.md)
+defines the reporting architecture. The four selectable cards show Impressions, Profile views, Unique visitors and stored
+Inquiries. Profile views is initially selected. Form-side inquiry-start tracking remains a Website analytics capability
+and is excluded from this DTO. Impressions requires actual positive viewport
 visibility in an active document. Every analytics metric requires verified project-specific capture history for its
 current and comparison windows. Unknown history is partial rather than zero. Public profile progress, tasks and
 current reviews remain independent of analytics failures. Unsupported saved Contacts preferences fall back to Profile
-Views. Live time-series charts and CSV downloads remain unavailable. Notification polling does not refresh reporting.
+Views. Retired Inquiry starters selections map to Profile views while retaining a valid saved period in the same
+person/clinic scope. V2 responses and additional metrics are rejected. Website and Dashboard switch directly to V3
+without a compatibility window; a mismatched pair can temporarily make reporting unavailable. Live time-series charts and CSV downloads remain unavailable. Notification polling does not refresh reporting.
 Operational source verification and external data cleanup remain tracked in
 [#305](https://github.com/findmydoc-platform/clinic-dashboard/issues/305). Source implementation does not change the
 environment availability recorded above.

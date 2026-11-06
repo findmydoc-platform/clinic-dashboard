@@ -60,7 +60,6 @@ const clinicDashboardReportingSchema = z.object({
       profileViews: countMetricSchema("posthog"),
       uniqueVisitors: countMetricSchema("posthog"),
       impressions: countMetricSchema("posthog"),
-      inquiryStarters: countMetricSchema("posthog"),
       reviews: z.object({
         average: z.object({
           comparison: z.null(),

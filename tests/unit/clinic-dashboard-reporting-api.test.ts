@@ -5,6 +5,22 @@ import { loadClinicDashboardReportingFromBrowser } from "@/features/clinic-dashb
 import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/clinic-dashboard-reporting.fixtures"
 
 describe("clinic dashboard reporting browser adapter", () => {
+  it("loads the reduced V3 reporting contract", async () => {
+    const body = {
+      ...clinicDashboardReportingFixture,
+      schemaVersion: "clinic-dashboard-reporting-v3",
+      metrics: {
+        impressions: clinicDashboardReportingFixture.metrics.impressions,
+        profileViews: clinicDashboardReportingFixture.metrics.profileViews,
+        uniqueVisitors: clinicDashboardReportingFixture.metrics.uniqueVisitors,
+        inquiries: clinicDashboardReportingFixture.metrics.inquiries,
+        reviews: clinicDashboardReportingFixture.metrics.reviews,
+      },
+    }
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(body))
+    await expect(loadClinicDashboardReportingFromBrowser("clinic-1", 30, fetcher)).resolves.toEqual(body)
+  })
+
   it("sends only periodDays to the same-origin BFF", async () => {
     const fetcher = vi.fn<typeof fetch>(
       async () =>
@@ -28,11 +44,22 @@ describe("clinic dashboard reporting browser adapter", () => {
     expect(JSON.stringify(fetcher.mock.calls[0]?.[1])).not.toContain("Authorization")
   })
 
-  it("rejects a V2 response missing the visitor metric", async () => {
+  it("rejects a V3 response missing the visitor metric", async () => {
     const { uniqueVisitors: _visitors, ...metrics } = clinicDashboardReportingFixture.metrics
     const fetcher = vi.fn<typeof fetch>(async () =>
       Response.json({ ...clinicDashboardReportingFixture, metrics }),
     )
+    await expect(loadClinicDashboardReportingFromBrowser("clinic-1", 30, fetcher)).resolves.toBeUndefined()
+  })
+
+  it.each([
+    { ...clinicDashboardReportingFixture, schemaVersion: "clinic-dashboard-reporting-v2" },
+    {
+      ...clinicDashboardReportingFixture,
+      metrics: { ...clinicDashboardReportingFixture.metrics, unexpected: { source: "posthog" } },
+    },
+  ])("rejects an obsolete version or additional metric", async (body) => {
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(body))
     await expect(loadClinicDashboardReportingFromBrowser("clinic-1", 30, fetcher)).resolves.toBeUndefined()
   })
 

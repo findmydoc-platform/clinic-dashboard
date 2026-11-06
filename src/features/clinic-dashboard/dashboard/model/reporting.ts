@@ -1,12 +1,6 @@
 export const dashboardReportingPeriods = ["7 days", "30 days", "90 days"] as const
 
-export const dashboardSelectableMetricIds = [
-  "impressions",
-  "views",
-  "uniqueVisitors",
-  "inquiryStarters",
-  "inquiries",
-] as const
+export const dashboardSelectableMetricIds = ["impressions", "views", "uniqueVisitors", "inquiries"] as const
 
 export type DashboardReportingPeriod = (typeof dashboardReportingPeriods)[number]
 
@@ -43,7 +37,6 @@ export type DashboardReportingSnapshot = Readonly<{
   period: DashboardReportingPeriod
   reviewActivity: string
   totals: Readonly<{
-    inquiryStarters: number
     impressions: number
     inquiries: number
     profileViews: number
@@ -82,7 +75,6 @@ function getChartPointTotal(points: readonly DashboardChartPoint[]) {
 }
 
 const dashboardMetricTotalKeys = {
-  inquiryStarters: "inquiryStarters",
   impressions: "impressions",
   inquiries: "inquiries",
   uniqueVisitors: "uniqueVisitors",
@@ -112,12 +104,6 @@ export function createDashboardReportingSnapshot({
   totals,
 }: DashboardReportingSnapshotInput): DashboardReportingSnapshot {
   const series = {
-    inquiryStarters: createDashboardChartSeries(
-      chart.dates,
-      chart.series.inquiryStarters,
-      "inquiryStarters",
-      period,
-    ),
     impressions: createDashboardChartSeries(chart.dates, chart.series.impressions, "impressions", period),
     inquiries: createDashboardChartSeries(chart.dates, chart.series.inquiries, "inquiries", period),
     uniqueVisitors: createDashboardChartSeries(
@@ -158,11 +144,6 @@ export function createDashboardReportingSnapshot({
         value: formatCount(totals.uniqueVisitors),
       },
       {
-        label: "Inquiry starters",
-        metricId: "inquiryStarters",
-        value: formatCount(totals.inquiryStarters),
-      },
-      {
         label: "Inquiries",
         metricId: "inquiries",
         value: formatCount(totals.inquiries),
@@ -182,13 +163,6 @@ export function createDashboardReportingSnapshot({
         label: "Profile views",
         note: "Opened pages",
         value: formatCount(totals.profileViews),
-      },
-      {
-        delta: changes.inquiryStarters,
-        id: "inquiryStarters",
-        label: "Inquiry starters",
-        note: "Visitors who edit the inquiry form",
-        value: formatCount(totals.inquiryStarters),
       },
       {
         delta: changes.inquiries,

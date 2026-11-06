@@ -16,13 +16,7 @@ import {
 
 describe("dashboard metric selection", () => {
   it("keeps the eligible metric set explicit and excludes profile completion", () => {
-    expect(dashboardSelectableMetricIds).toEqual([
-      "impressions",
-      "views",
-      "uniqueVisitors",
-      "inquiryStarters",
-      "inquiries",
-    ])
+    expect(dashboardSelectableMetricIds).toEqual(["impressions", "views", "uniqueVisitors", "inquiries"])
     expect(dashboardSelectableMetricIds.every(isDashboardSelectableMetricId)).toBe(true)
     expect(isDashboardSelectableMetricId("completion")).toBe(false)
   })

@@ -39,7 +39,7 @@ export const Available: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
     const stages = within(canvas.getByRole("list", { name: "Conversion stages" }))
-    await expect(stages.getAllByRole("listitem")).toHaveLength(5)
+    await expect(stages.getAllByRole("listitem")).toHaveLength(4)
     await expect(stages.getByRole("button", { name: /Profile views 284/ })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -51,8 +51,7 @@ export const Available: Story = {
     for (const [transition, meaning] of [
       ["Impressions to Profile views", "interest beyond seeing the listing"],
       ["Profile views to Unique visitors", "not another action"],
-      ["Unique visitors to Inquiry starters", "starts editing the inquiry form"],
-      ["Inquiry starters to Inquiries", "successfully submitted and saved requests"],
+      ["Unique visitors to Inquiries", "successfully submitted and saved requests"],
     ]) {
       const trigger = canvas.getByRole("button", { name: `About ${transition}` })
       await userEvent.click(trigger)

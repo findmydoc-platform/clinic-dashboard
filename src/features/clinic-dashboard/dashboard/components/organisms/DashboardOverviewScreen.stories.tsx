@@ -72,7 +72,7 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   await expect(args.onReviewsOpen).toHaveBeenCalledOnce()
   await expect(
     within(canvas.getByRole("list", { name: "Conversion stages" })).getAllByRole("listitem"),
-  ).toHaveLength(5)
+  ).toHaveLength(4)
   await expect(canvas.getByRole("button", { name: /Impressions Not available/ })).toBeVisible()
   await expect(canvas.queryByRole("button", { name: /Download/ })).not.toBeInTheDocument()
 }
@@ -178,29 +178,26 @@ export const MetricSelection: Story = {
   render: (args) => <SelectionHarness {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: /Inquiry starters 12/ }))
-    await expect(canvas.getByRole("heading", { level: 2, name: "Inquiry starters" })).toBeVisible()
-    const starters = canvas.getByRole("button", { name: /Inquiry starters 12/ })
-    starters.focus()
+    await userEvent.click(canvas.getByRole("button", { name: /Inquiries 7/ }))
+    await expect(canvas.getByRole("heading", { level: 2, name: "Inquiries" })).toBeVisible()
+    const inquiries = canvas.getByRole("button", { name: /Inquiries 7/ })
+    inquiries.focus()
     await userEvent.keyboard("{Enter}")
-    await expect(starters).toHaveFocus()
-    await userEvent.click(canvas.getByRole("button", { name: "About Inquiry starters details" }))
-    const explanation = within(document.body).getByRole("dialog", { name: "About Inquiry starters details" })
-    await expect(explanation).toHaveTextContent("once per clinic and period")
-    await expect(explanation).toHaveTextContent("Unique Visitors")
-    await expect(explanation).toHaveTextContent("invalid, cleared and later submitted input")
+    await expect(inquiries).toHaveFocus()
+    await userEvent.click(canvas.getByRole("button", { name: "About Inquiries details" }))
+    const explanation = within(document.body).getByRole("dialog", { name: "About Inquiries details" })
+    await expect(explanation).toHaveTextContent("excluding spam")
+    await expect(explanation).toHaveTextContent("Stored inquiries created in the selected period")
+    await expect(explanation).toHaveTextContent("not an inventory of open work")
     await expect(explanation.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
     await waitFor(() => {
       expect(explanation.getBoundingClientRect().top).toBeGreaterThanOrEqual(0)
       expect(explanation.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
     })
     await userEvent.keyboard("{Escape}")
-    await expect(canvas.getByRole("button", { name: "About Inquiry starters details" })).toHaveFocus()
+    await expect(canvas.getByRole("button", { name: "About Inquiries details" })).toHaveFocus()
     await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
-    await expect(canvas.getByRole("button", { name: /Inquiry starters 12/ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    )
+    await expect(canvas.getByRole("button", { name: /Inquiries 7/ })).toHaveAttribute("aria-pressed", "true")
     await expect(canvas.getByRole("heading", { name: "Conversion funnel (7 days)" })).toBeVisible()
   },
 }
@@ -217,7 +214,7 @@ export const UniqueVisitors: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "About Unique visitors details" }))
     const dialog = within(document.body).getByRole("dialog", { name: "About Unique visitors details" })
     await expect(dialog).toHaveTextContent("Browser or device changes and cleared storage")
-    await expect(dialog).toHaveTextContent("same consent-based browser recognition as Inquiry starters")
+    await expect(dialog).toHaveTextContent("consent-based browser recognition")
     await expect(dialog.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
     await expect(dialog.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
     await userEvent.keyboard("{Escape}")
@@ -504,133 +501,4 @@ export const ProfileUnavailable320: Story = {
 export const ProfileUnavailableDark320: Story = {
   ...ProfileUnavailable,
   globals: { theme: "dark", viewport: { value: "mobile320Short" } },
-}
-
-export const InquiryStarters390: Story = {
-  ...MetricSelection,
-  globals: { viewport: { value: "mobile390Tall" } },
-}
-export const InquiryStarters320: Story = {
-  ...MetricSelection,
-  globals: { viewport: { value: "mobile320Short" } },
-}
-export const InquiryStartersDark: Story = { ...MetricSelection, globals: { theme: "dark" } }
-export const InquiryStartersDark390: Story = {
-  ...MetricSelection,
-  globals: { theme: "dark", viewport: { value: "mobile390Tall" } },
-}
-export const InquiryStartersDark320: Story = {
-  ...MetricSelection,
-  globals: { theme: "dark", viewport: { value: "mobile320Short" } },
-}
-
-export const InquiryStartersMissingComparison: Story = {
-  args: {
-    model: createDashboardOverview({
-      reporting: {
-        status: "ready",
-        reporting: {
-          ...clinicDashboardReportingFixture,
-          metrics: {
-            ...clinicDashboardReportingFixture.metrics,
-            inquiryStarters: {
-              ...clinicDashboardReportingFixture.metrics.inquiryStarters,
-              comparison: {
-                state: "partial_coverage",
-                value: null,
-                absoluteDelta: null,
-                relativeDeltaPercent: null,
-              },
-            },
-          },
-        },
-      },
-      periodDays: 30,
-      profileProgress: dashboardProfileProgressReady,
-      clinicPreview: previewFixture,
-      selectedMetricId: "inquiryStarters",
-    }),
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole("button", { name: "Inquiry starters 12" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    )
-    await userEvent.click(canvas.getByRole("button", { name: "About Inquiry starters details" }))
-    await expect(within(document.body).getByRole("dialog")).toHaveTextContent("Comparison not yet available")
-    await userEvent.keyboard("{Escape}")
-  },
-}
-export const InquiryStartersPartialHistory: Story = {
-  args: {
-    model: createDashboardOverview({
-      reporting: { status: "ready", reporting: clinicDashboardReportingWithPartialCoverage },
-      periodDays: 30,
-      profileProgress: dashboardProfileProgressReady,
-      clinicPreview: previewFixture,
-      selectedMetricId: "inquiryStarters",
-    }),
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole("button", { name: "Inquiry starters Not available" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    )
-    await expect(canvas.getByText("Incomplete data coverage", { exact: true })).toBeVisible()
-    await expect(canvas.getByRole("button", { name: "Inquiries 7" })).toBeVisible()
-  },
-}
-export const InquiryStartersOutage: Story = {
-  args: {
-    model: createDashboardOverview({
-      reporting: { status: "ready", reporting: clinicDashboardReportingWithSourceUnavailable },
-      periodDays: 30,
-      profileProgress: dashboardProfileProgressReady,
-      clinicPreview: previewFixture,
-      selectedMetricId: "inquiryStarters",
-    }),
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByText("Data source unavailable", { exact: true })).toBeVisible()
-    await expect(canvas.getByRole("button", { name: "Inquiries 7" })).toBeVisible()
-    await expect(canvas.getByRole("heading", { name: "Public profile progress" })).toBeVisible()
-    await expect(canvas.getByText("4.8 / 5")).toBeVisible()
-  },
-}
-export const InquiryStartersMeasuredZero: Story = {
-  args: {
-    model: createDashboardOverview({
-      reporting: {
-        status: "ready",
-        reporting: {
-          ...clinicDashboardReportingFixture,
-          metrics: {
-            ...clinicDashboardReportingFixture.metrics,
-            inquiryStarters: {
-              source: "posthog",
-              current: { state: "available", value: 0 },
-              comparison: { state: "available", value: 0, absoluteDelta: 0, relativeDeltaPercent: null },
-            },
-          },
-        },
-      },
-      periodDays: 30,
-      profileProgress: dashboardProfileProgressReady,
-      clinicPreview: previewFixture,
-      selectedMetricId: "inquiryStarters",
-    }),
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole("button", { name: "Inquiry starters 0" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    )
-    await expect(
-      canvas.getByText("No change compared with the previous period", { exact: true }),
-    ).toBeVisible()
-  },
 }

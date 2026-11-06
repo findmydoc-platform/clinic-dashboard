@@ -312,18 +312,18 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
   ).toBe(true)
 })
 
-test("keeps the five-card flow and independent Payload facts through an analytics outage", async ({
+test("keeps the four-card flow and independent Payload facts through an analytics outage", async ({
   page,
 }) => {
   await signIn(page)
   await expect(page.locator("[data-clinic-workspace]")).toHaveAttribute("aria-busy", "false")
   const stages = page.getByRole("list", { name: "Conversion stages" })
-  await expect(stages.locator("[data-funnel-stage]")).toHaveCount(5)
+  await expect(stages.locator("[data-funnel-stage]")).toHaveCount(4)
   expect(
     await stages
       .locator("[data-funnel-stage]")
       .evaluateAll((cards) => cards.map((card) => card.getAttribute("data-funnel-stage"))),
-  ).toEqual(["impressions", "profileViews", "uniqueVisitors", "inquiryStarters", "inquiries"])
+  ).toEqual(["impressions", "profileViews", "uniqueVisitors", "inquiries"])
   const metrics = page.getByRole("region", { name: "Dashboard metrics" })
   await expect(metrics.getByText("Public profile completion", { exact: true })).toBeVisible()
   await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(4)
@@ -333,7 +333,6 @@ test("keeps the five-card flow and independent Payload facts through an analytic
     ["impressions", "Impressions"],
     ["profileViews", "Profile views"],
     ["uniqueVisitors", "Unique visitors"],
-    ["inquiryStarters", "Inquiry starters"],
     ["inquiries", "Inquiries"],
   ]) {
     const card = stages.locator(`[data-funnel-stage="${id}"]`)
@@ -365,7 +364,6 @@ test("keeps the five-card flow and independent Payload facts through an analytic
           impressions: unavailable,
           profileViews: unavailable,
           uniqueVisitors: unavailable,
-          inquiryStarters: unavailable,
         },
       }),
     }),
@@ -380,10 +378,10 @@ test("keeps the five-card flow and independent Payload facts through an analytic
   await expect(page.getByRole("heading", { name: "Public profile progress", exact: true })).toBeVisible()
   await expect(page.getByText("4.8 / 5", { exact: true })).toBeVisible()
   await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(4)
-  await page.screenshot({ path: "output/playwright/305-five-card-analytics-outage.png", fullPage: true })
+  await page.screenshot({ path: "output/playwright/305-four-card-analytics-outage.png", fullPage: true })
 })
 
-test("inquiry starters restores legacy preferences and stays usable with keyboard, touch and both themes", async ({
+test("restores retired metric preferences and stays usable with keyboard, touch and both themes", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
@@ -395,24 +393,28 @@ test("inquiry starters restores legacy preferences and stays usable with keyboar
       JSON.stringify({
         scope: "controlled-clinic-staff:controlled-clinic",
         periodDays: 90,
-        metricId: "contacts",
+        metricId: "inquiryStarters",
       }),
     ),
   )
   await page.reload()
   await expect(page.locator('[data-funnel-stage="profileViews"]')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("button", { name: "90 days", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
   await page.getByRole("button", { name: "7 days", exact: true }).click()
   await expect(page.getByRole("button", { name: "Profile views 71", exact: true })).toBeVisible()
-  const starters = page.locator('[data-funnel-stage="inquiryStarters"]')
-  await starters.focus()
+  const visitors = page.locator('[data-funnel-stage="uniqueVisitors"]')
+  await visitors.focus()
   await page.keyboard.press("Enter")
-  await expect(starters).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("heading", { level: 2, name: "Inquiry starters", exact: true })).toBeVisible()
+  await expect(visitors).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("heading", { level: 2, name: "Unique visitors", exact: true })).toBeVisible()
   await page.getByRole("button", { name: "90 days", exact: true }).click()
   await page.getByRole("button", { name: "Reviews", exact: true }).click()
   await page.getByRole("button", { name: "Dashboard", exact: true }).click()
   await page.reload()
-  await expect(starters).toHaveAttribute("aria-pressed", "true")
+  await expect(visitors).toHaveAttribute("aria-pressed", "true")
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
   for (const width of [1440, 390, 320]) {
@@ -425,19 +427,19 @@ test("inquiry starters restores legacy preferences and stays usable with keyboar
         window.scrollTo(0, 0)
       })
       await page.screenshot({
-        path: `output/playwright/302-inquiry-starters-${theme}-${width}.png`,
+        path: `output/playwright/four-stage-reporting-${theme}-${width}.png`,
         fullPage: true,
       })
-      await page.getByRole("button", { name: "About Inquiry starters details", exact: true }).click()
-      const explanation = page.getByRole("dialog", { name: "About Inquiry starters details", exact: true })
+      await page.getByRole("button", { name: "About Unique visitors details", exact: true }).click()
+      const explanation = page.getByRole("dialog", { name: "About Unique visitors details", exact: true })
       await expect(explanation).toContainText("once per clinic and period")
-      await expect(explanation).toContainText("Unique Visitors")
+      await expect(explanation).toContainText("consent-based browser recognition")
       const bounds = await explanation.boundingBox()
       expect(bounds!.x).toBeGreaterThanOrEqual(0)
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
       expect(bounds!.y).toBeGreaterThanOrEqual(0)
       expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(width === 1440 ? 1000 : 760)
-      await page.screenshot({ path: `output/playwright/302-inquiry-starters-info-${theme}-${width}.png` })
+      await page.screenshot({ path: `output/playwright/four-stage-reporting-info-${theme}-${width}.png` })
       await page.keyboard.press("Escape")
       await expect(explanation).not.toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -446,22 +448,19 @@ test("inquiry starters restores legacy preferences and stays usable with keyboar
   expect(errors).toEqual([])
 })
 
-test.describe("inquiry starter touch explanation", () => {
+test.describe("visitor touch explanation", () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 320, height: 500 } })
-  test("selects inquiry starters and dismisses its explanation by touch", async ({ page }, testInfo) => {
+  test("selects unique visitors and dismisses its explanation by touch", async ({ page }, testInfo) => {
     await signIn(page)
-    const starters = page.locator('[data-funnel-stage="inquiryStarters"]')
-    await starters.tap()
-    await expect(starters).toHaveAttribute("aria-pressed", "true")
-    await page.getByRole("button", { name: "About Inquiry starters details", exact: true }).tap()
-    const explanation = page.getByRole("dialog", { name: "About Inquiry starters details", exact: true })
-    await expect(explanation).toContainText("invalid, cleared and later submitted input")
-    const content = explanation.getByText(
-      "Values require complete history; comparison coverage is separate.",
-      {
-        exact: false,
-      },
-    )
+    const visitors = page.locator('[data-funnel-stage="uniqueVisitors"]')
+    await visitors.tap()
+    await expect(visitors).toHaveAttribute("aria-pressed", "true")
+    await page.getByRole("button", { name: "About Unique visitors details", exact: true }).tap()
+    const explanation = page.getByRole("dialog", { name: "About Unique visitors details", exact: true })
+    await expect(explanation).toContainText("Browser or device changes")
+    const content = explanation.getByText("Patient, inquiry and session identifiers are not used.", {
+      exact: false,
+    })
     await expect(content).toBeVisible()
     await expect
       .poll(() =>
@@ -503,7 +502,7 @@ test.describe("inquiry starter touch explanation", () => {
     }
     const contentBounds = await content.boundingBox()
     expect(contentBounds!.y + contentBounds!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height)
-    await page.screenshot({ path: testInfo.outputPath("302-inquiry-starters-touch-320.png") })
+    await page.screenshot({ path: testInfo.outputPath("four-stage-reporting-touch-320.png") })
     await page.getByRole("button", { name: "Close explanation" }).tap()
     await expect(explanation).not.toBeVisible()
   })
