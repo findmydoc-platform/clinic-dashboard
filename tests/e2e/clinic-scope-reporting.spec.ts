@@ -312,7 +312,7 @@ test("unconverted domain routes remain closed and a reporting outage preserves t
   ).toBe(true)
 })
 
-test("keeps the five-card flow and independent Payload facts through an analytics outage", async ({
+test("keeps three overview cards and independent Payload facts through an analytics outage", async ({
   page,
 }) => {
   await signIn(page)
@@ -326,7 +326,7 @@ test("keeps the five-card flow and independent Payload facts through an analytic
   ).toEqual(["impressions", "profileViews", "uniqueVisitors", "inquiryStarters", "inquiries"])
   const metrics = page.getByRole("region", { name: "Dashboard metrics" })
   await expect(metrics.getByText("Public profile completion", { exact: true })).toBeVisible()
-  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(4)
+  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(2)
   await expect(stages.locator('[data-funnel-stage="profileViews"]')).toHaveAttribute("aria-pressed", "true")
 
   for (const [id, label] of [
@@ -379,7 +379,7 @@ test("keeps the five-card flow and independent Payload facts through an analytic
   await expect(page.getByRole("button", { name: "Profile views 71", exact: true })).toHaveCount(0)
   await expect(page.getByRole("heading", { name: "Public profile progress", exact: true })).toBeVisible()
   await expect(page.getByText("4.8 / 5", { exact: true })).toBeVisible()
-  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(4)
+  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(2)
   await page.screenshot({ path: "output/playwright/305-five-card-analytics-outage.png", fullPage: true })
 })
 
