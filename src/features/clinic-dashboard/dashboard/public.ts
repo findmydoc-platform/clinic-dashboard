@@ -38,3 +38,6 @@ export type {
 } from "./model/clinic-dashboard-reporting"
 
 export { loadClinicDashboardReportingFromBrowser } from "./browser/reporting-api"
+
+export { useOpenInquiryInventory } from "./hooks/useOpenInquiryInventory"
+export type { OperationalWorkloadCardState } from "./components/molecules/OperationalWorkloadCard"

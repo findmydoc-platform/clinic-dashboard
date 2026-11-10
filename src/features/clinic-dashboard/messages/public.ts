@@ -18,3 +18,8 @@ export {
 } from "./model/inquiries"
 
 export type { InquiryOpeningRequest, InquiryOpeningResult } from "./model/inquiry-opening"
+
+export { createInquiryOpenInventoryApiCommands } from "./browser/inquiry-open-inventory-api"
+export type { InquiryOpenInventory, InquiryOpenInventoryCommands } from "./model/inquiry-open-inventory"
+
+export type { InquiryListEntryRequest } from "./model/inquiry-opening"

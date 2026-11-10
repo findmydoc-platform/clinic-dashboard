@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { EditorDepartureIntent, EditorDepartureRequest } from "@/lib/editor-departure"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
@@ -11,9 +11,14 @@ import { useInquiryQueueController } from "./hooks/useInquiryQueueController"
 import type { InquiryWorkspaceCommands } from "./model/inquiry-status-commands"
 import type { PatientInquiryQueueSnapshot } from "./model/inquiries"
 
-import type { InquiryOpeningRequest, InquiryOpeningResult } from "./model/inquiry-opening"
+import type {
+  InquiryOpeningRequest,
+  InquiryOpeningResult,
+  InquiryListEntryRequest,
+} from "./model/inquiry-opening"
 
 export type InquiryQueueProps = Readonly<{
+  listEntryRequest?: InquiryListEntryRequest
   openingRequest?: InquiryOpeningRequest
   onOpeningResult?: (result: InquiryOpeningResult) => void
   clinicId: string
@@ -33,6 +38,7 @@ export type InquiryQueueProps = Readonly<{
 export function InquiryQueue({
   commands,
   clinicId,
+  listEntryRequest,
   openingRequest,
   onOpeningResult,
   focusHeading,
@@ -56,6 +62,14 @@ export function InquiryQueue({
     reauthenticateSession: reauthenticateClinicDashboardSession,
     snapshot,
   })
+  const [focusedListEntry, setFocusedListEntry] = useState<string>()
+  const handledListEntry = useRef<string | undefined>(undefined)
+  const enterOpenInventory = controller.enterOpenInventory
+  useLayoutEffect(() => {
+    if (!listEntryRequest || handledListEntry.current === listEntryRequest.requestId) return
+    handledListEntry.current = listEntryRequest.requestId
+    enterOpenInventory()
+  }, [listEntryRequest, enterOpenInventory])
   const [departureOpen, setDepartureOpen] = useState(false)
   const stayButtonRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
@@ -176,10 +190,16 @@ export function InquiryQueue({
     <>
       <InquiryQueueScreen
         actions={controller.actions}
-        focusHeading={focusHeading}
+        focusHeading={
+          focusHeading ||
+          (isActive && Boolean(listEntryRequest && focusedListEntry !== listEntryRequest.requestId))
+        }
         focusInquiryId={focusInquiryId}
         model={controller.model}
-        onFocusHandled={onFocusHandled}
+        onFocusHandled={() => {
+          if (listEntryRequest) setFocusedListEntry(listEntryRequest.requestId)
+          onFocusHandled?.()
+        }}
         openingRequest={
           isActive && loadedOpening?.requestId === openingRequest?.requestId ? loadedOpening : undefined
         }

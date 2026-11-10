@@ -1,6 +1,10 @@
 "use client"
 
 import { useId } from "react"
+import {
+  OperationalWorkloadCard,
+  type OperationalWorkloadCardState,
+} from "../molecules/OperationalWorkloadCard"
 import { PageHeading } from "@/components/ui/page-heading"
 import { Card } from "@/components/ui/card"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
@@ -13,12 +17,22 @@ import { ProfileProgress } from "./ProfileProgress"
 import { ReviewSummary } from "./ReviewSummary"
 
 type DashboardScreenProps = Readonly<{
+  inquiryInventory?: OperationalWorkloadCardState
+  onInquiriesOpen?: () => void
+  onInquiryInventoryRetry?: () => void
   actions: DashboardActions
   canDownloadProfileViews: boolean
   model: DashboardViewModel
 }>
 
-export function DashboardScreen({ actions, canDownloadProfileViews, model }: DashboardScreenProps) {
+export function DashboardScreen({
+  actions,
+  canDownloadProfileViews,
+  model,
+  inquiryInventory = { status: "unavailable" },
+  onInquiriesOpen = () => undefined,
+  onInquiryInventoryRetry = () => undefined,
+}: DashboardScreenProps) {
   const metricPanelId = useId()
   const profileCompletionMetric = createDashboardProfileCompletionMetric(model.profileProgress)
 
@@ -30,14 +44,17 @@ export function DashboardScreen({ actions, canDownloadProfileViews, model }: Das
         <div className="min-w-0 sm:col-span-2 xl:col-span-1">
           <MetricCard metric={profileCompletionMetric} />
         </div>
-        {[1, 2].map((position) => (
-          <Card
-            className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
-            key={position}
-          >
-            Content to be defined
-          </Card>
-        ))}
+        <OperationalWorkloadCard
+          title="Open inquiries"
+          state={inquiryInventory}
+          description="Current open inquiry workload"
+          emptyDescription="No open inquiries"
+          onOpen={onInquiriesOpen}
+          onRetry={onInquiryInventoryRetry}
+        />
+        <Card className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none">
+          Content to be defined
+        </Card>
       </section>
 
       <div

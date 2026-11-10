@@ -551,6 +551,16 @@ export function createControlledPatientInquiryProvider(
           }
         : missing()
     },
+    async loadOpenInventory() {
+      return {
+        ok: true,
+        value: {
+          count: [...state.inquiries.values()].filter(
+            (inquiry) => inquiry.lifecycle === "open" && inquiry.handlingStatus !== "spam",
+          ).length,
+        },
+      }
+    },
     async loadQueue(input) {
       const query = input.query?.toLocaleLowerCase("en")
       const cursorMatch = input.cursor?.match(/^controlled-page:(\d+)$/u)

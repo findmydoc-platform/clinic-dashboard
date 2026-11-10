@@ -4,6 +4,10 @@ import { PageHeading } from "@/components/ui/page-heading"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useId } from "react"
+import {
+  OperationalWorkloadCard,
+  type OperationalWorkloadCardState,
+} from "../molecules/OperationalWorkloadCard"
 import type { DashboardOverviewModel, DashboardJourneyStageId } from "../../model/dashboard-overview"
 import { formatReportingObservationTimestamp } from "../../model/clinic-dashboard-reporting-display"
 import type { DashboardProfileTask } from "../../model/profile-tasks"
@@ -15,6 +19,9 @@ import { ReviewSummary } from "./ReviewSummary"
 import { ReportingJourneyFunnel } from "./ReportingJourneyFunnel"
 
 type DashboardOverviewScreenProps = Readonly<{
+  inquiryInventory?: OperationalWorkloadCardState
+  onInquiriesOpen?: () => void
+  onInquiryInventoryRetry?: () => void
   model: DashboardOverviewModel
   onMetricSelect: (id: DashboardJourneyStageId) => void
   onProfileTaskOpen: (task: DashboardProfileTask) => void
@@ -25,6 +32,9 @@ type DashboardOverviewScreenProps = Readonly<{
 
 export function DashboardOverviewScreen({
   model,
+  inquiryInventory = { status: "unavailable" },
+  onInquiriesOpen = () => undefined,
+  onInquiryInventoryRetry = () => undefined,
   onMetricSelect,
   onProfileTaskOpen,
   onProfileProgressRetry,
@@ -43,14 +53,17 @@ export function DashboardOverviewScreen({
               <ReportingMetricCard {...metric} />
             </div>
           ))}
-        {[1, 2].map((position) => (
-          <Card
-            className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
-            key={position}
-          >
-            Content to be defined
-          </Card>
-        ))}
+        <OperationalWorkloadCard
+          title="Open inquiries"
+          state={inquiryInventory}
+          description="Current open inquiry workload"
+          emptyDescription="No open inquiries"
+          onOpen={onInquiriesOpen}
+          onRetry={onInquiryInventoryRetry}
+        />
+        <Card className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none">
+          Content to be defined
+        </Card>
       </section>
       {model.reportingStatus === "temporarily-unavailable" ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">

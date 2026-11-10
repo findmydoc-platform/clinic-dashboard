@@ -688,3 +688,12 @@ this application. Authorized users share the existing sender account's sending
 allowance, so exhausting that allowance can also affect other mail from that
 account. A distributed limiter remains deferred; this release adds no limiter,
 service, database, or paid feature.
+
+### Current open inquiry inventory
+
+`GET /api/dashboard/clinics/{clinicId}/inquiries/open-inventory` uses the existing inquiry provider and selected-clinic
+session guard. It accepts no query parameters and returns only `{ count: number }`, a validated nonnegative safe
+integer. Payload owns the complete open, non-spam population across submitted, in_review and contacted handling states,
+including legacy queue projections. Queue pagination, reporting windows and personal unread positions do not restrict
+this current inventory. Controlled mode implements the same read against its synthetic source. Responses remain
+private/no-store; invalid upstream results and source failures return sanitized errors without partial counts.

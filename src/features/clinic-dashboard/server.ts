@@ -54,6 +54,7 @@ import {
   handleInquiryMessageSend as handleInquiryMessageSendWithProvider,
   handleInquiryNoteAdd as handleInquiryNoteAddWithProvider,
   handleInquiryQueueLoad as handleInquiryQueueLoadWithProvider,
+  handleInquiryOpenInventoryLoad as handleInquiryOpenInventoryLoadWithProvider,
   handleInquiryReadPositionChange as handleInquiryReadPositionChangeWithProvider,
   handleInquiryStateChange as handleInquiryStateChangeWithProvider,
   type PatientInquiryProviderFactory,
@@ -451,3 +452,7 @@ export async function loadClinicDashboardWorkspaceInput(
 }
 
 export { handleSupportSubmit } from "./support/server/actions"
+
+export function handleInquiryOpenInventoryLoad(request: NextRequest) {
+  return handleInquiryOpenInventoryLoadWithProvider(request, createPatientInquiryProvider)
+}
