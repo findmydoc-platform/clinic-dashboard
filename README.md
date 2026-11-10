@@ -39,6 +39,17 @@ their generated temporary URL when deploy-relevant paths change. A deploy-releva
 
 Run `pnpm check` for code, scripts, dependencies, hooks, or technical configuration changes.
 
+`pnpm typecheck` runs the pinned TypeScript 7.0.2 project compiler directly. `pnpm check` includes this
+command, and CI runs it for static-validation changes even when no application build is selected.
+Next.js 16.4.1 also uses the project-local compiler CLI by default. Type errors continue to fail
+production builds, including errors in the test sources selected by `tsconfig.json`.
+
+Tools that need the JavaScript compiler API use TypeScript 5.9.3. Repository governance scripts and
+the shared source-analysis tests import the pinned `typescript-legacy` alias. The explicit consumer
+list in `.pnpmfile.cjs` gives ESLint, Storybook documentation tooling, and other listed API consumers
+the same compatibility version. It does not replace the root project compiler. Keep the generated
+`pnpm-lock.yaml` with these dependency changes and use `pnpm install --frozen-lockfile` in CI.
+
 Select additional tests according to the affected behavior and risk, following the [test-strategy skill](.codex/skills/test-strategy/SKILL.md) and the frontend architecture's [Test Ownership section](docs/engineering/frontend-architecture.md#test-ownership).
 
 Run `pnpm test:mutation:clinic-access` for the [focused clinic access mutation check](docs/testing/clinic-access-mutation-testing.md). Its production-code range and test selection are defined in `package.json`.
