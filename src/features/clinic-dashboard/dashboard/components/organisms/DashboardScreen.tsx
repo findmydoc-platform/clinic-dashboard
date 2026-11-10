@@ -5,8 +5,8 @@ import {
   OperationalWorkloadCard,
   type OperationalWorkloadCardState,
 } from "../molecules/OperationalWorkloadCard"
+import type { ReviewWorkloadState } from "@/features/clinic-dashboard/reviews/public"
 import { PageHeading } from "@/components/ui/page-heading"
-import { Card } from "@/components/ui/card"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
 import { createDashboardProfileCompletionMetric } from "../../model/profile-progress"
 import { MetricCard } from "../molecules/MetricCard"
@@ -22,6 +22,9 @@ type DashboardScreenProps = Readonly<{
   onInquiryInventoryRetry?: () => void
   actions: DashboardActions
   canDownloadProfileViews: boolean
+  reviewWorkload?: ReviewWorkloadState
+  onReviewWorkloadOpen?: () => void
+  onReviewWorkloadRetry?: () => void
   model: DashboardViewModel
 }>
 
@@ -32,6 +35,9 @@ export function DashboardScreen({
   inquiryInventory = { status: "unavailable" },
   onInquiriesOpen = () => undefined,
   onInquiryInventoryRetry = () => undefined,
+  reviewWorkload,
+  onReviewWorkloadOpen,
+  onReviewWorkloadRetry,
 }: DashboardScreenProps) {
   const metricPanelId = useId()
   const profileCompletionMetric = createDashboardProfileCompletionMetric(model.profileProgress)
@@ -52,9 +58,23 @@ export function DashboardScreen({
           onOpen={onInquiriesOpen}
           onRetry={onInquiryInventoryRetry}
         />
-        <Card className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none">
-          Content to be defined
-        </Card>
+        <OperationalWorkloadCard
+          title="Reviews to answer"
+          state={
+            reviewWorkload?.status === "ready"
+              ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
+              : { status: reviewWorkload?.status ?? "loading" }
+          }
+          description="Public reviews without a submitted clinic response. Opens Published reviews."
+          emptyDescription="No reviews awaiting your response"
+          secondaryText={
+            reviewWorkload?.status === "ready" && reviewWorkload.workload.pendingModerationCount > 0
+              ? `${reviewWorkload.workload.pendingModerationCount} ${reviewWorkload.workload.pendingModerationCount === 1 ? "response" : "responses"} pending moderation`
+              : undefined
+          }
+          onOpen={onReviewWorkloadOpen ?? actions.onReviewsOpen}
+          onRetry={onReviewWorkloadRetry ?? (() => undefined)}
+        />
       </section>
 
       <div

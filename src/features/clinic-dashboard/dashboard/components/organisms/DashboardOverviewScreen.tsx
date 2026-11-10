@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReviewWorkloadState } from "@/features/clinic-dashboard/reviews/public"
 import { PageHeading } from "@/components/ui/page-heading"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -22,6 +23,9 @@ type DashboardOverviewScreenProps = Readonly<{
   inquiryInventory?: OperationalWorkloadCardState
   onInquiriesOpen?: () => void
   onInquiryInventoryRetry?: () => void
+  reviewWorkload?: ReviewWorkloadState
+  onReviewWorkloadOpen?: () => void
+  onReviewWorkloadRetry?: () => void
   model: DashboardOverviewModel
   onMetricSelect: (id: DashboardJourneyStageId) => void
   onProfileTaskOpen: (task: DashboardProfileTask) => void
@@ -35,6 +39,9 @@ export function DashboardOverviewScreen({
   inquiryInventory = { status: "unavailable" },
   onInquiriesOpen = () => undefined,
   onInquiryInventoryRetry = () => undefined,
+  reviewWorkload,
+  onReviewWorkloadOpen,
+  onReviewWorkloadRetry,
   onMetricSelect,
   onProfileTaskOpen,
   onProfileProgressRetry,
@@ -61,9 +68,23 @@ export function DashboardOverviewScreen({
           onOpen={onInquiriesOpen}
           onRetry={onInquiryInventoryRetry}
         />
-        <Card className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none">
-          Content to be defined
-        </Card>
+        <OperationalWorkloadCard
+          title="Reviews to answer"
+          state={
+            reviewWorkload?.status === "ready"
+              ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
+              : { status: reviewWorkload?.status ?? "loading" }
+          }
+          description="Public reviews without a submitted clinic response. Opens Published reviews."
+          emptyDescription="No reviews awaiting your response"
+          secondaryText={
+            reviewWorkload?.status === "ready" && reviewWorkload.workload.pendingModerationCount > 0
+              ? `${reviewWorkload.workload.pendingModerationCount} ${reviewWorkload.workload.pendingModerationCount === 1 ? "response" : "responses"} pending moderation`
+              : undefined
+          }
+          onOpen={onReviewWorkloadOpen ?? onReviewsOpen}
+          onRetry={onReviewWorkloadRetry ?? (() => undefined)}
+        />
       </section>
       {model.reportingStatus === "temporarily-unavailable" ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">

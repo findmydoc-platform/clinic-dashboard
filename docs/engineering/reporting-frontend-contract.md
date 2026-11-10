@@ -23,8 +23,7 @@ authorized clinic.
 
 ## Top reporting cards
 
-Normal reporting and the separate demo show public profile completion followed by Open inquiries and the remaining
-operational slot. Profile completion retains its existing calculation, information, loading, and unavailable states.
+Normal reporting and the separate demo show public profile completion followed by Open inquiries and Reviews to answer. Profile completion retains its existing calculation, information, loading, and unavailable states.
 
 The inquiry domain owns its focused `loadOpenInventory` command. The overview consumes only its validated current
 inventory, independently of period, journey stage, queue search, handling filters and personal unread positions.

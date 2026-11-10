@@ -366,6 +366,14 @@ export function useReviewsController({
 
   return {
     actions,
+    openPublishedReviews: useCallback(() => {
+      const filters = { ...defaultReviewListFilters, visibility: "published" as const }
+      setAppliedFilters(filters)
+      setDraftFilters(filters)
+      setIsMobileOpen(false)
+      setExactReview(undefined)
+      void load(filters, 1, "Published reviews opened.")
+    }, [load]),
     focusReview: useCallback(
       (reviewId: string) => Boolean(snapshot?.page.items.some(({ id }) => id === reviewId)),
       [snapshot],

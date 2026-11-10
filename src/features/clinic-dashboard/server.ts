@@ -67,6 +67,7 @@ import {
   handleReviewDetailLoad as handleReviewDetailLoadWithProvider,
   handleReviewHistoryLoad as handleReviewHistoryLoadWithProvider,
   handleReviewListLoad as handleReviewListLoadWithProvider,
+  handleReviewWorkloadLoad as handleReviewWorkloadLoadWithProvider,
   handleReviewResponseSubmit as handleReviewResponseSubmitWithProvider,
 } from "./reviews/server/actions"
 import type { ReviewProviderFactory } from "./reviews/server/review-provider"
@@ -455,4 +456,8 @@ export { handleSupportSubmit } from "./support/server/actions"
 
 export function handleInquiryOpenInventoryLoad(request: NextRequest) {
   return handleInquiryOpenInventoryLoadWithProvider(request, createPatientInquiryProvider)
+}
+
+export function handleReviewWorkloadLoad(request: NextRequest) {
+  return handleReviewWorkloadLoadWithProvider(request, createReviewProvider)
 }

@@ -69,6 +69,28 @@ describe("review provider contract", () => {
     vi.unstubAllEnvs()
   })
 
+  it("reads a focused private workload result without list filters or raw review content", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      json({ reviewsToAnswerCount: 104, pendingModerationCount: 2 }),
+    )
+    const result = await createPayloadReviewProvider("synthetic-token", "42", fetcher).loadWorkload()
+    expect(result).toEqual({ ok: true, value: { reviewsToAnswerCount: 104, pendingModerationCount: 2 } })
+    const [url, init] = fetcher.mock.calls[0]!
+    expect(new URL(String(url)).pathname).toBe("/api/clinic-dashboard/clinics/42/reviews/workload")
+    expect(new URL(String(url)).search).toBe("")
+    expect(init?.cache).toBe("no-store")
+  })
+
+  it.each([
+    { reviewsToAnswerCount: -1, pendingModerationCount: 2 },
+    { reviewsToAnswerCount: 1.5, pendingModerationCount: 2 },
+    { reviewsToAnswerCount: 1 },
+    { reviewsToAnswerCount: 1, pendingModerationCount: 2, responseText: "Private synthetic response" },
+  ])("rejects incomplete or non-aggregate workload results without a fallback", async (value) => {
+    const provider = createPayloadReviewProvider("synthetic-token", "42", async () => json(value))
+    expect(await provider.loadWorkload()).toEqual({ ok: false, error: "invalid-data" })
+  })
+
   it("keeps response, appeal, publication measure, and withdrawal as independent controlled states", async () => {
     const provider = createControlledReviewProvider()
     const result = await provider.loadReviews(defaultReviewListFilters, 1)

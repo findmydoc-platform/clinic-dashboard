@@ -163,6 +163,7 @@ function isAllowedClinicDashboardServerImport(file) {
     file === "src/app/page.tsx" ||
     file === "src/app/api/notifications/route.ts" ||
     file === "src/app/api/dashboard/clinics/[clinicId]/support/route.ts" ||
+    file === "src/app/api/dashboard/clinics/[clinicId]/reviews/workload/route.ts" ||
     file === "src/app/api/notifications/read/route.ts" ||
     file === "src/app/api/dashboard/clinics/[clinicId]/inquiries/appeal/route.ts" ||
     file === "src/app/api/dashboard/clinics/[clinicId]/inquiries/open-inventory/route.ts" ||

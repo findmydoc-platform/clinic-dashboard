@@ -1,6 +1,7 @@
 "use client"
 
 import { z } from "zod"
+import { reviewWorkloadSchema } from "../model/review-workload"
 import { CLINIC_DASHBOARD_CSRF_HEADER, readBrowserCsrfToken } from "@/lib/security/csrf-contract"
 import type { ReviewSourceCommands } from "../model/review-source-commands"
 import { ReviewSourceCommandError } from "../model/review-source-commands"
@@ -82,6 +83,15 @@ export function createReviewSourceApiCommands(
   }
   const endpoint = `/api/dashboard/clinics/${encodeURIComponent(clinicId)}/reviews`
   return {
+    loadWorkload(signal) {
+      return protect(
+        getJson(
+          `${endpoint}/workload`,
+          reviewWorkloadSchema,
+          signal ? AbortSignal.any([signal, AbortSignal.timeout(8_000)]) : AbortSignal.timeout(8_000),
+        ),
+      )
+    },
     async loadReview(reviewId, signal) {
       const timeout = AbortSignal.timeout(8_000)
       const review = await protect(
