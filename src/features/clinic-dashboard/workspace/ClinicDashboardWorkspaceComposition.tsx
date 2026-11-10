@@ -47,6 +47,7 @@ import {
 } from "@/features/clinic-dashboard/prototype/public"
 import {
   Reviews,
+  useReviewWorkloadController,
   type ReviewOpeningRequest,
   type ReviewOpeningResult,
   type ReviewSourceCommands,
@@ -197,6 +198,7 @@ export function ClinicDashboardWorkspaceComposition({
     | undefined
   >(undefined)
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
+  const reviewWorkload = useReviewWorkloadController({ scope, commands: reviewCommands })
   const scopeRef = useRef(scope)
   const localDepartureGuard = useEditorDepartureGuard()
   const { requestDeparture, setProfileRequest, setReviewRequest, setInquiryRequest, setGalleryRequest } =
@@ -677,6 +679,14 @@ export function ClinicDashboardWorkspaceComposition({
               Reporting demo. Sample measurements, charts and downloads are illustrative.
             </p>
             <DashboardScreen
+              reviewWorkload={reviewWorkload.model}
+              onReviewWorkloadRetry={() => void reviewWorkload.actions.retry()}
+              onReviewWorkloadOpen={() =>
+                requestDeparture("section", () => {
+                  cancelOpening()
+                  actions.navigateToPublishedReviews()
+                })
+              }
               model={demo.model.viewModel}
               canDownloadProfileViews
               actions={{
@@ -690,6 +700,14 @@ export function ClinicDashboardWorkspaceComposition({
           </div>
         ) : (
           <DashboardOverviewScreen
+            reviewWorkload={reviewWorkload.model}
+            onReviewWorkloadRetry={() => void reviewWorkload.actions.retry()}
+            onReviewWorkloadOpen={() =>
+              requestDeparture("section", () => {
+                cancelOpening()
+                actions.navigateToPublishedReviews()
+              })
+            }
             model={dashboard.model}
             onMetricSelect={dashboard.actions.selectMetric}
             onProfileTaskOpen={actions.openProfileTask}

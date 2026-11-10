@@ -22,7 +22,10 @@ export type ReviewsProps = Readonly<{
   snapshot?: ReviewsSourceSnapshot
 }>
 
-export type ReviewFocusTarget = Readonly<{ kind: "heading" }> | Readonly<{ kind: "review"; reviewId: string }>
+export type ReviewFocusTarget =
+  | Readonly<{ kind: "heading" }>
+  | Readonly<{ kind: "published" }>
+  | Readonly<{ kind: "review"; reviewId: string }>
 
 export function Reviews({
   commands,
@@ -74,7 +77,7 @@ export function Reviews({
         status: "cancelled",
       })
   }
-  const { focusReview } = controller
+  const { focusReview, openPublishedReviews } = controller
   const closeReviewDialog = controller.actions.closeReviewDialog
   const dialogKind = controller.model.dialog.kind
   useEffect(() => {
@@ -90,7 +93,8 @@ export function Reviews({
   useEffect(() => {
     if (!focusTarget) return
 
-    if (focusTarget.kind === "heading") {
+    if (focusTarget.kind === "heading" || focusTarget.kind === "published") {
+      if (focusTarget.kind === "published") openPublishedReviews()
       const frame = requestAnimationFrame(() => {
         const heading = rootRef.current?.querySelector<HTMLElement>("[data-reviews-heading]")
         heading?.focus()
@@ -122,7 +126,7 @@ export function Reviews({
     })
 
     return () => cancelAnimationFrame(frame)
-  }, [focusReview, focusTarget, onFocusHandled])
+  }, [focusReview, focusTarget, onFocusHandled, openPublishedReviews])
 
   return (
     <div ref={rootRef}>

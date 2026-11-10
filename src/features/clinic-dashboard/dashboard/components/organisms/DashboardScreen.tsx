@@ -1,6 +1,8 @@
 "use client"
 
 import { useId } from "react"
+import type { ReviewWorkloadState } from "@/features/clinic-dashboard/reviews/public"
+import { OperationalWorkloadCard } from "../molecules/OperationalWorkloadCard"
 import { PageHeading } from "@/components/ui/page-heading"
 import { Card } from "@/components/ui/card"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
@@ -15,10 +17,20 @@ import { ReviewSummary } from "./ReviewSummary"
 type DashboardScreenProps = Readonly<{
   actions: DashboardActions
   canDownloadProfileViews: boolean
+  reviewWorkload?: ReviewWorkloadState
+  onReviewWorkloadOpen?: () => void
+  onReviewWorkloadRetry?: () => void
   model: DashboardViewModel
 }>
 
-export function DashboardScreen({ actions, canDownloadProfileViews, model }: DashboardScreenProps) {
+export function DashboardScreen({
+  actions,
+  canDownloadProfileViews,
+  model,
+  reviewWorkload,
+  onReviewWorkloadOpen,
+  onReviewWorkloadRetry,
+}: DashboardScreenProps) {
   const metricPanelId = useId()
   const profileCompletionMetric = createDashboardProfileCompletionMetric(model.profileProgress)
 
@@ -30,7 +42,7 @@ export function DashboardScreen({ actions, canDownloadProfileViews, model }: Das
         <div className="min-w-0 sm:col-span-2 xl:col-span-1">
           <MetricCard metric={profileCompletionMetric} />
         </div>
-        {[1, 2].map((position) => (
+        {[1].map((position) => (
           <Card
             className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
             key={position}
@@ -38,6 +50,23 @@ export function DashboardScreen({ actions, canDownloadProfileViews, model }: Das
             Content to be defined
           </Card>
         ))}
+        <OperationalWorkloadCard
+          title="Reviews to answer"
+          state={
+            reviewWorkload?.status === "ready"
+              ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
+              : { status: reviewWorkload?.status ?? "loading" }
+          }
+          description="Public reviews without a submitted clinic response. Opens Published reviews."
+          emptyDescription="No reviews awaiting your response"
+          secondaryText={
+            reviewWorkload?.status === "ready" && reviewWorkload.workload.pendingModerationCount > 0
+              ? `${reviewWorkload.workload.pendingModerationCount} ${reviewWorkload.workload.pendingModerationCount === 1 ? "response" : "responses"} pending moderation`
+              : undefined
+          }
+          onOpen={onReviewWorkloadOpen ?? actions.onReviewsOpen}
+          onRetry={onReviewWorkloadRetry ?? (() => undefined)}
+        />
       </section>
 
       <div
