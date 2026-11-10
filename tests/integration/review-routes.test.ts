@@ -15,6 +15,7 @@ import {
   handleReviewHistoryLoad,
   handleReviewDetailLoad,
   handleReviewListLoad,
+  handleReviewWorkloadLoad,
   handleReviewResponseSubmit,
 } from "@/features/clinic-dashboard/server"
 
@@ -64,6 +65,21 @@ describe("review workflow BFF", () => {
   afterEach(() => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
+  })
+
+  it("returns only private current review workload and rejects reporting/list inputs", async () => {
+    const response = await handleReviewWorkloadLoad(
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/reviews/workload"),
+    )
+    expect(response.status).toBe(200)
+    expectPrivate(response)
+    const value = await response.json()
+    expect(Object.keys(value).sort()).toEqual(["pendingModerationCount", "reviewsToAnswerCount"])
+    expect(value).toEqual({ reviewsToAnswerCount: 2, pendingModerationCount: 1 })
+    const invalid = await handleReviewWorkloadLoad(
+      new NextRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/reviews/workload?period=7"),
+    )
+    expect(invalid.status).toBe(400)
   })
 
   it("loads a private clinic review page with strict filters", async () => {

@@ -17,6 +17,9 @@ export type ReviewProviderResult<TValue, TError extends string> =
   Readonly<{ ok: true; value: TValue }> | Readonly<{ error: TError; ok: false }>
 
 export type ReviewProvider = Readonly<{
+  loadWorkload: (
+    signal?: AbortSignal,
+  ) => Promise<ReviewProviderResult<import("../model/review-workload").ReviewWorkload, ReviewReadError>>
   loadReview: (
     reviewId: string,
     signal?: AbortSignal,
