@@ -26,6 +26,7 @@ import {
   useDashboardController,
   ReportingPeriodControl,
   useDashboardOverviewController,
+  useOpenInquiryInventory,
   createDashboardClinicPreview,
   ProfileTaskDialog,
   type ClinicDashboardReportingLoadState,
@@ -35,6 +36,9 @@ import {
 } from "@/features/clinic-dashboard/dashboard/public"
 import {
   InquiryQueue,
+  createInquiryOpenInventoryApiCommands,
+  type InquiryOpenInventoryCommands,
+  type InquiryListEntryRequest,
   type InquiryOpeningRequest,
   type InquiryOpeningResult,
   type InquiryWorkspaceCommands,
@@ -109,6 +113,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   initialNotificationsOpen?: boolean
   initialReporting?: ClinicDashboardReportingLoadState
   loadReporting?: (days: ClinicDashboardReportingPeriodDays) => Promise<ClinicDashboardReporting | undefined>
+  inquiryInventoryCommands?: InquiryOpenInventoryCommands
   inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
   focusReviewId?: string
@@ -161,6 +166,7 @@ export function ClinicDashboardWorkspaceComposition({
   onNotificationOpeningResult,
   onNavigationAway,
   inquiryCommands,
+  inquiryInventoryCommands,
   initialNotifications = { status: "loading" },
   notificationCommands,
   initialNotificationsOpen = false,
@@ -197,6 +203,7 @@ export function ClinicDashboardWorkspaceComposition({
       }>
     | undefined
   >(undefined)
+  const [inquiryListEntry, setInquiryListEntry] = useState<InquiryListEntryRequest>()
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
   const reviewWorkload = useReviewWorkloadController({ scope, commands: reviewCommands })
   const scopeRef = useRef(scope)
@@ -515,6 +522,24 @@ export function ClinicDashboardWorkspaceComposition({
     ],
   )
 
+  const defaultInquiryInventoryCommands = useMemo(
+    () => createInquiryOpenInventoryApiCommands(authenticatedContext.clinic.id),
+    [authenticatedContext.clinic.id],
+  )
+  const inquiryInventory = useOpenInquiryInventory({
+    scope: `${scope}:${selectedLocation.id}`,
+    commands: inquiryInventoryCommands ?? defaultInquiryInventoryCommands,
+    enabled: activeSection === "dashboard",
+    onSessionLost: handleInquirySessionLoss,
+    onAccessLost: onAccessLost ?? handleReviewAccessLoss,
+  })
+  const openInquiryInventory = () =>
+    requestDeparture("section", () => {
+      cancelOpening()
+      setInquiryListEntry({ kind: "open-inventory", requestId: crypto.randomUUID() })
+      actions.navigate("messages")
+    })
+
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
     if (locationId === selectedLocation.id) return
     const nextLocation = getClinicDashboardLocation(clinicLocations, locationId)
@@ -679,6 +704,9 @@ export function ClinicDashboardWorkspaceComposition({
               Reporting demo. Sample measurements, charts and downloads are illustrative.
             </p>
             <DashboardScreen
+              inquiryInventory={inquiryInventory.state}
+              onInquiriesOpen={openInquiryInventory}
+              onInquiryInventoryRetry={() => void inquiryInventory.refresh()}
               reviewWorkload={reviewWorkload.model}
               onReviewWorkloadRetry={() => void reviewWorkload.actions.retry()}
               onReviewWorkloadOpen={() =>
@@ -700,6 +728,9 @@ export function ClinicDashboardWorkspaceComposition({
           </div>
         ) : (
           <DashboardOverviewScreen
+            inquiryInventory={inquiryInventory.state}
+            onInquiriesOpen={openInquiryInventory}
+            onInquiryInventoryRetry={() => void inquiryInventory.refresh()}
             reviewWorkload={reviewWorkload.model}
             onReviewWorkloadRetry={() => void reviewWorkload.actions.retry()}
             onReviewWorkloadOpen={() =>
@@ -724,6 +755,7 @@ export function ClinicDashboardWorkspaceComposition({
       ) : null}
       <div hidden={activeSection !== "messages"}>
         <InquiryQueue
+          listEntryRequest={inquiryListEntry}
           clinicId={authenticatedContext.clinic.id}
           commands={inquiryCommands}
           key={scope}

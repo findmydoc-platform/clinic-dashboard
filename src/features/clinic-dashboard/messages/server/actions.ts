@@ -1,5 +1,7 @@
 import "server-only"
 
+import { isInquiryOpenInventory } from "../model/inquiry-open-inventory"
+
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import {
@@ -231,6 +233,24 @@ function providerFor(
   createProvider: PatientInquiryProviderFactory,
 ) {
   return createProvider(access.accessToken, access.clinicId)
+}
+
+export async function handleInquiryOpenInventoryLoad(
+  request: NextRequest,
+  createProvider: PatientInquiryProviderFactory,
+) {
+  const authorized = await authorize(request, "clinic-inquiries:view")
+  if ("response" in authorized) return authorized.response
+  if (new URL(request.url).searchParams.size !== 0)
+    return authorized.access.applyToResponse(privateJson({ error: { code: "invalid-input" } }, 400))
+  const result = await Promise.resolve()
+    .then(() => providerFor(authorized.access, createProvider).loadOpenInventory())
+    .catch(() => ({ ok: false, error: { code: "service-unavailable" } }) as const)
+  if (result.ok && !isInquiryOpenInventory(result.value))
+    return authorized.access.applyToResponse(privateJson({ error: { code: "service-unavailable" } }, 503))
+  return authorized.access.applyToResponse(
+    providerResponse(result.ok ? result : { ok: false, error: { code: result.error.code } }),
+  )
 }
 
 export async function handleInquiryQueueLoad(

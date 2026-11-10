@@ -1,10 +1,12 @@
 "use client"
 
 import { useId } from "react"
+import {
+  OperationalWorkloadCard,
+  type OperationalWorkloadCardState,
+} from "../molecules/OperationalWorkloadCard"
 import type { ReviewWorkloadState } from "@/features/clinic-dashboard/reviews/public"
-import { OperationalWorkloadCard } from "../molecules/OperationalWorkloadCard"
 import { PageHeading } from "@/components/ui/page-heading"
-import { Card } from "@/components/ui/card"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
 import { createDashboardProfileCompletionMetric } from "../../model/profile-progress"
 import { MetricCard } from "../molecules/MetricCard"
@@ -15,6 +17,9 @@ import { ProfileProgress } from "./ProfileProgress"
 import { ReviewSummary } from "./ReviewSummary"
 
 type DashboardScreenProps = Readonly<{
+  inquiryInventory?: OperationalWorkloadCardState
+  onInquiriesOpen?: () => void
+  onInquiryInventoryRetry?: () => void
   actions: DashboardActions
   canDownloadProfileViews: boolean
   reviewWorkload?: ReviewWorkloadState
@@ -27,6 +32,9 @@ export function DashboardScreen({
   actions,
   canDownloadProfileViews,
   model,
+  inquiryInventory = { status: "unavailable" },
+  onInquiriesOpen = () => undefined,
+  onInquiryInventoryRetry = () => undefined,
   reviewWorkload,
   onReviewWorkloadOpen,
   onReviewWorkloadRetry,
@@ -42,14 +50,14 @@ export function DashboardScreen({
         <div className="min-w-0 sm:col-span-2 xl:col-span-1">
           <MetricCard metric={profileCompletionMetric} />
         </div>
-        {[1].map((position) => (
-          <Card
-            className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
-            key={position}
-          >
-            Content to be defined
-          </Card>
-        ))}
+        <OperationalWorkloadCard
+          title="Open inquiries"
+          state={inquiryInventory}
+          description="Current open inquiry workload"
+          emptyDescription="No open inquiries"
+          onOpen={onInquiriesOpen}
+          onRetry={onInquiryInventoryRetry}
+        />
         <OperationalWorkloadCard
           title="Reviews to answer"
           state={

@@ -13,6 +13,7 @@ export {
   handleInquiryMessageSend,
   handleInquiryNoteAdd,
   handleInquiryQueueLoad,
+  handleInquiryOpenInventoryLoad,
   handleInquiryReadPositionChange,
   handleInquiryStateChange,
 } from "./actions"

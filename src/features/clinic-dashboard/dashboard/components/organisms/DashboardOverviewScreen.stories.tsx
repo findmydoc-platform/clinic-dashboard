@@ -27,6 +27,8 @@ const previewFixture = {
 const meta = {
   component: DashboardOverviewScreen,
   args: {
+    inquiryInventory: { status: "ready", count: 9 },
+    reviewWorkload: { status: "ready", workload: { reviewsToAnswerCount: 4, pendingModerationCount: 2 } },
     model: createDashboardOverview({
       reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
       periodDays: 30,
@@ -57,7 +59,8 @@ async function exerciseAvailable({ args, canvasElement }: Parameters<NonNullable
   const canvas = within(canvasElement)
   await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
-  await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
+  await expect(metrics.getByRole("button", { name: "Open inquiries" })).toBeVisible()
+  await expect(metrics.getByRole("button", { name: "Reviews to answer" })).toBeVisible()
   await expect(metrics.queryByText("CTA interactions")).not.toBeInTheDocument()
   await expect(metrics.queryByText("Session conversion")).not.toBeInTheDocument()
 
@@ -86,18 +89,11 @@ export const TopKpiScope: Story = {
     const region = canvas.getByRole("region", { name: "Dashboard metrics" })
     const metrics = within(region)
     await expect(region.children).toHaveLength(3)
-    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
+    await expect(metrics.getByRole("button", { name: "Open inquiries" })).toBeVisible()
+    await expect(metrics.getByRole("button", { name: "Reviews to answer" })).toBeVisible()
     await expect(metrics.getByText("Public profile completion")).toBeVisible()
     await expect(metrics.getByText("67%", { exact: true })).toBeVisible()
-    await expect(metrics.queryAllByRole("button")).toHaveLength(0)
-    for (const placeholder of Array.from(region.children).slice(1)) {
-      await expect(placeholder).toHaveTextContent(/^Content to be defined$/)
-      await expect(
-        placeholder.querySelector(
-          'a[href], button, input, select, textarea, [tabindex], [role="button"], [role="link"]',
-        ),
-      ).toBeNull()
-    }
+    await expect(metrics.queryAllByRole("button")).toHaveLength(2)
     const [completion, first, second] = Array.from(region.children, (card) => card.getBoundingClientRect())
     const bounds = region.getBoundingClientRect()
     await expect(region.firstElementChild).toHaveTextContent("Public profile completion")
@@ -411,7 +407,8 @@ export const ProfileUnavailable: Story = {
     await expect(canvas.getAllByText("284").length).toBeGreaterThan(0)
     const metrics = within(canvas.getByRole("region", { name: "Dashboard metrics" }))
     await expect(metrics.getByText("Not available", { exact: true })).toBeVisible()
-    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
+    await expect(metrics.getByRole("button", { name: "Open inquiries" })).toBeVisible()
+    await expect(metrics.getByRole("button", { name: "Reviews to answer" })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Retry" }))
     await expect(args.onProfileProgressRetry).toHaveBeenCalledOnce()
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
@@ -478,7 +475,8 @@ export const PartialCoverage: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText("Incomplete data coverage")).toBeVisible()
     await expect(canvas.queryByText("284", { exact: true })).not.toBeInTheDocument()
-    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
+    await expect(canvas.getByRole("button", { name: "Open inquiries" })).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Reviews to answer" })).toBeVisible()
   },
 }
 export const AnalyticsUnavailable: Story = {
@@ -495,7 +493,8 @@ export const AnalyticsUnavailable: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText("Data source unavailable")).toBeVisible()
     await expect(canvas.getByRole("button", { name: /Inquiries 7/ })).toBeVisible()
-    await expect(canvas.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
+    await expect(canvas.getByRole("button", { name: "Open inquiries" })).toBeVisible()
+    await expect(canvas.getByRole("button", { name: "Reviews to answer" })).toBeVisible()
   },
 }
 
