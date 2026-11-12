@@ -1,6 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
-import ts from "typescript"
+import ts from "typescript-legacy"
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"]
 const EXECUTABLE_JAVASCRIPT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"]
