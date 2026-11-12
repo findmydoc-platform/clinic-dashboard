@@ -26,6 +26,7 @@ import {
   type ClinicDashboardReporting,
   type ClinicDashboardReportingPeriodDays,
   type DashboardSnapshot,
+  type DashboardOverviewRefreshClock,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
 import type {
@@ -62,9 +63,11 @@ import {
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
   Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
     authenticatedContext?: AuthenticatedClinicContext
+    onAccessLost?: () => void
     onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
     profileSourceCommands?: ClinicProfileSourceCommands
     reviewCommands?: ReviewSourceCommands
+    overviewRefreshClock?: DashboardOverviewRefreshClock
     inquiryInventoryCommands?: InquiryOpenInventoryCommands
     inquiryCommands?: InquiryWorkspaceCommands
     notificationCommands?: NotificationCommands
@@ -216,9 +219,11 @@ export function ClinicDashboardWorkspaceHarness({
   selectionNotice,
   initialSection,
   onClinicChange,
+  onAccessLost,
   focusInquiryId,
   inquiryCommands,
   inquiryInventoryCommands,
+  overviewRefreshClock,
   reviewCommands: suppliedReviewCommands,
   notificationCommands,
   notificationState,
@@ -246,12 +251,14 @@ export function ClinicDashboardWorkspaceHarness({
         authorizedClinics={authorizedClinics}
         selectionNotice={selectionNotice}
         onClinicChange={onClinicChange}
+        onAccessLost={onAccessLost}
         clinicGalleryCommands={clinicGalleryCommands}
         clinicProfileSourceCommands={profileSourceCommands ?? clinicProfileSourceCommands}
         clinicTreatmentCommands={clinicTreatmentCommands}
         doctorProfileCommands={doctorProfileCommands}
         focusInquiryId={focusInquiryId}
         inquiryCommands={inquiryCommands}
+        overviewRefreshClock={overviewRefreshClock}
         inquiryInventoryCommands={inquiryInventoryCommands ?? syntheticInquiryInventoryCommands}
         initialNotifications={{ status: "ready", response: notificationPageFixture }}
         notificationCommands={notificationCommands ?? notificationCommandsFixture}

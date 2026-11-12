@@ -1,3 +1,4 @@
+import { ReviewSourceCommandError } from "../model/review-source-commands"
 import type { ReviewSourceCommands } from "../model/review-source-commands"
 import type {
   ClinicReviewRecord,
@@ -212,4 +213,8 @@ export function createReviewSourceCommandsFixture(): ReviewSourceCommands {
       return updated
     },
   }
+}
+
+export function createReviewAccessFailureFixture(failure: "unauthorized" | "forbidden") {
+  return new ReviewSourceCommandError(failure, "Synthetic unavailable review access.")
 }

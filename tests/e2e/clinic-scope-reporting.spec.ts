@@ -326,7 +326,8 @@ test("keeps three overview cards and independent Payload facts through an analyt
   ).toEqual(["impressions", "profileViews", "uniqueVisitors", "inquiries"])
   const metrics = page.getByRole("region", { name: "Dashboard metrics" })
   await expect(metrics.getByText("Public profile completion", { exact: true })).toBeVisible()
-  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(2)
+  await expect(metrics.getByRole("button", { name: "Open inquiries", exact: true })).toBeVisible()
+  await expect(metrics.getByRole("button", { name: "Reviews to answer", exact: true })).toBeVisible()
   await expect(stages.locator('[data-funnel-stage="profileViews"]')).toHaveAttribute("aria-pressed", "true")
 
   for (const [id, label] of [
@@ -377,7 +378,8 @@ test("keeps three overview cards and independent Payload facts through an analyt
   await expect(page.getByRole("button", { name: "Profile views 71", exact: true })).toHaveCount(0)
   await expect(page.getByRole("heading", { name: "Public profile progress", exact: true })).toBeVisible()
   await expect(page.getByText("4.8 / 5", { exact: true })).toBeVisible()
-  await expect(metrics.getByText("Content to be defined", { exact: true })).toHaveCount(2)
+  await expect(metrics.getByRole("button", { name: "Open inquiries", exact: true })).toBeVisible()
+  await expect(metrics.getByRole("button", { name: "Reviews to answer", exact: true })).toBeVisible()
   await page.screenshot({ path: "output/playwright/305-four-card-analytics-outage.png", fullPage: true })
 })
 
@@ -507,3 +509,87 @@ test.describe("visitor touch explanation", () => {
     await expect(explanation).not.toBeVisible()
   })
 })
+
+test("binds workload browser reads to the current session and selected clinic", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await setClinicSet(context, baseURL!, "many")
+  const inquiryPath = (clinic: string) => `/api/dashboard/clinics/${clinic}/inquiries/open-inventory`
+  const reviewPath = (clinic: string) => `/api/dashboard/clinics/${clinic}/reviews/workload`
+  const firstInquiry = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === inquiryPath("controlled-clinic"),
+  )
+  const firstReview = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === reviewPath("controlled-clinic"),
+  )
+  await signIn(page)
+  const assertBoundResult = async (
+    inquiryResponse: Awaited<typeof firstInquiry>,
+    reviewResponse: Awaited<typeof firstReview>,
+  ) => {
+    for (const response of [inquiryResponse, reviewResponse]) {
+      expect(response.status()).toBe(200)
+      expect(response.request().method()).toBe("GET")
+      expect(new URL(response.url()).search).toBe("")
+      expect(response.headers()["cache-control"]).toContain("private")
+      expect(response.headers()["cache-control"]).toContain("no-store")
+    }
+    const inquiry = await inquiryResponse.json()
+    const workload = await reviewResponse.json()
+    await expect(
+      page
+        .getByRole("button", { name: "Open inquiries", exact: true })
+        .getByText(String(inquiry.count), { exact: true }),
+    ).toBeVisible()
+    await expect(
+      page
+        .getByRole("button", { name: "Reviews to answer", exact: true })
+        .getByText(String(workload.reviewsToAnswerCount), { exact: true }),
+    ).toBeVisible()
+  }
+  await assertBoundResult(await firstInquiry, await firstReview)
+  const nextInquiry = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === inquiryPath("controlled-second-clinic"),
+  )
+  const nextReview = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === reviewPath("controlled-second-clinic"),
+  )
+  await switchClinic(page, "Second Controlled Clinic")
+  await assertBoundResult(await nextInquiry, await nextReview)
+  for (const path of [inquiryPath("foreign-clinic"), reviewPath("foreign-clinic")]) {
+    const denied = await page.request.get(path)
+    expect(denied.status()).toBe(403)
+    expect(denied.headers()["cache-control"]).toContain("no-store")
+  }
+  await context.clearCookies()
+  for (const path of [inquiryPath("controlled-second-clinic"), reviewPath("controlled-second-clinic")]) {
+    expect((await page.request.get(path)).status()).toBe(401)
+  }
+})
+
+for (const domain of ["inquiry", "review"] as const) {
+  test(`recovers the protected workspace after ${domain} workload access is denied`, async ({ page }) => {
+    await signIn(page)
+    await expect(page.getByRole("button", { name: "Open inquiries", exact: true })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Reviews to answer", exact: true })).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: "Open inquiries", exact: true }),
+    ).toHaveAccessibleDescription(/^\d+/)
+    await expect(
+      page.getByRole("button", { name: "Reviews to answer", exact: true }),
+    ).toHaveAccessibleDescription(/^\d+/)
+    const suffix = domain === "inquiry" ? "inquiries/open-inventory" : "reviews/workload"
+    await page.route(`**/api/dashboard/clinics/controlled-clinic/${suffix}`, (route) =>
+      route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ code: "ACCESS_DENIED" }),
+      }),
+    )
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")))
+    await expect(page.getByRole("heading", { name: "Clinic access has changed" })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Dashboard metrics" })).toHaveCount(0)
+  })
+}
