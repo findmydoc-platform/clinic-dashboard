@@ -39,5 +39,6 @@ export type {
 
 export { loadClinicDashboardReportingFromBrowser } from "./browser/reporting-api"
 
-export { useOpenInquiryInventory } from "./hooks/useOpenInquiryInventory"
+export type { DashboardOverviewRefreshClock } from "./hooks/useDashboardWorkloadController"
+export { useDashboardWorkloadController } from "./hooks/useDashboardWorkloadController"
 export type { OperationalWorkloadCardState } from "./components/molecules/OperationalWorkloadCard"

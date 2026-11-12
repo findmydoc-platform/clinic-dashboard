@@ -69,11 +69,12 @@ export function createReviewSourceApiCommands(
   clinicId: string,
   onAccessFailure?: (failure: "unauthorized" | "forbidden") => void,
 ): ReviewSourceCommands {
-  const protect = async <T>(operation: Promise<T>) => {
+  const protect = async <T>(operation: Promise<T>, signal?: AbortSignal) => {
     try {
       return await operation
     } catch (error) {
       if (
+        !signal?.aborted &&
         error instanceof ReviewSourceCommandError &&
         (error.kind === "unauthorized" || error.kind === "forbidden")
       )
@@ -90,6 +91,7 @@ export function createReviewSourceApiCommands(
           reviewWorkloadSchema,
           signal ? AbortSignal.any([signal, AbortSignal.timeout(8_000)]) : AbortSignal.timeout(8_000),
         ),
+        signal,
       )
     },
     async loadReview(reviewId, signal) {

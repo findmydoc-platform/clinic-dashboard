@@ -24,6 +24,7 @@ it("clears the previous scope immediately and ignores a delayed review workload 
     initialProps: { scope: "principal-a:clinic", commands: oldCommands },
   })
   expect(hook.result.current.model.status).toBe("loading")
+  await waitFor(() => expect(oldCommands.loadWorkload).toHaveBeenCalled())
   hook.rerender({ scope: "principal-b:clinic", commands: newCommands })
   await waitFor(() =>
     expect(hook.result.current.model).toEqual({

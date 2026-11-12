@@ -16,6 +16,7 @@ export function useOpenInquiryInventory({ scope, commands, enabled, onSessionLos
   const [result, setResult] = useState<Readonly<{ scope: string; state: OperationalWorkloadCardState }>>()
   const generation = useRef(0)
   const scopeRef = useRef(scope)
+  const pending = useRef<Readonly<{ scope: string; promise: Promise<void> }> | undefined>(undefined)
   const callbacks = useRef({ onSessionLost, onAccessLost })
   useLayoutEffect(() => {
     callbacks.current = { onSessionLost, onAccessLost }
@@ -23,26 +24,37 @@ export function useOpenInquiryInventory({ scope, commands, enabled, onSessionLos
   useLayoutEffect(() => {
     scopeRef.current = scope
     generation.current += 1
+    pending.current = undefined
     return () => {
       generation.current += 1
+      pending.current = undefined
     }
-  }, [scope])
-  const refresh = useCallback(async () => {
+  }, [scope, commands, enabled])
+  const refresh = useCallback(() => {
+    if (!enabled) return Promise.resolve()
+    if (pending.current?.scope === scope) return pending.current.promise
     const request = ++generation.current
     const current = () => request === generation.current && scopeRef.current === scope
     setResult({ scope, state: { status: "loading" } })
-    const response = await Promise.resolve()
+    const promise = Promise.resolve()
       .then(() => commands.loadOpenInventory())
       .catch(() => ({ ok: false, error: { code: "service-unavailable" } }) as const)
-    if (!current()) return
-    if (!response || !response.ok) {
-      setResult({ scope, state: { status: "unavailable" } })
-      if (response?.error.code === "unauthorized") callbacks.current.onSessionLost?.()
-      if (response?.error.code === "access-denied") callbacks.current.onAccessLost?.()
-      return
-    }
-    setResult({ scope, state: { status: "ready", count: response.value.count } })
-  }, [commands, scope])
+      .then((response) => {
+        if (!current()) return
+        if (!response || !response.ok) {
+          setResult({ scope, state: { status: "unavailable" } })
+          if (response?.error.code === "unauthorized") callbacks.current.onSessionLost?.()
+          if (response?.error.code === "access-denied") callbacks.current.onAccessLost?.()
+          return
+        }
+        setResult({ scope, state: { status: "ready", count: response.value.count } })
+      })
+      .finally(() => {
+        if (current()) pending.current = undefined
+      })
+    pending.current = { scope, promise }
+    return promise
+  }, [commands, scope, enabled])
   useEffect(() => {
     let active = true
     if (enabled)

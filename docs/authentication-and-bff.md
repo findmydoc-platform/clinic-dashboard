@@ -633,6 +633,12 @@ The main figure counts current public approved reviews without any submitted res
 
 Card activation uses the existing protected navigation and opens Published reviews with period, rating and treatment reset to All. Published can include answered reviews. Navigation leaves response drafts, moderation workflows, reporting selection and inquiry read positions unchanged. A genuine zero remains navigable and can still show pending moderation. Loading is semantic and uses the shared reduced-motion-aware skeleton. The explicit Storybook reporting demo uses synthetic commands and destinations with the same card contract.
 
+Both operational cards use overview-owned entry, return, window-focus and 60-second refresh triggers. Periodic reads
+run only while the overview and document are visible. Equivalent pending reads coalesce; context changes and disposal
+invalidate their results. Loading replaces previous values, and one failed domain does not disable the other. Confirmed
+session or clinic-access loss clears both cards before the existing workspace recovery continues. Refresh never submits
+a response, changes inquiry status or updates a personal read position.
+
 ## Clinic-scoped review management
 
 The review browser commands bind list filters, pagination, exact detail, history, response and appeal submission to `/api/dashboard/clinics/:clinicId/reviews`. The BFF resolves the explicit target against fresh personal access and keeps session, origin and CSRF checks. Targetless legacy routes remain denied. The Payload provider uses only the dedicated Website review operations under the matching clinic prefix and negotiates `clinic-scope-v1`; mutation bodies cannot choose a clinic. No additional bootstrap capability names are introduced.

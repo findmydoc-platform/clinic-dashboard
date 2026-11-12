@@ -26,13 +26,14 @@ import {
   useDashboardController,
   ReportingPeriodControl,
   useDashboardOverviewController,
-  useOpenInquiryInventory,
+  useDashboardWorkloadController,
   createDashboardClinicPreview,
   ProfileTaskDialog,
   type ClinicDashboardReportingLoadState,
   type ClinicDashboardReporting,
   type ClinicDashboardReportingPeriodDays,
   type DashboardSnapshot,
+  type DashboardOverviewRefreshClock,
 } from "@/features/clinic-dashboard/dashboard/public"
 import {
   InquiryQueue,
@@ -51,7 +52,6 @@ import {
 } from "@/features/clinic-dashboard/prototype/public"
 import {
   Reviews,
-  useReviewWorkloadController,
   type ReviewOpeningRequest,
   type ReviewOpeningResult,
   type ReviewSourceCommands,
@@ -102,6 +102,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
   departureGuard?: ReturnType<typeof useEditorDepartureGuard>
   onSectionChange?: (section: ClinicDashboardSection) => void
+  overviewRefreshClock?: DashboardOverviewRefreshClock
   onAccessLost?: () => void
   supportCommand: SupportCommand
   clinicGalleryCommands: ClinicGalleryCommands
@@ -151,6 +152,7 @@ export function ClinicDashboardWorkspaceComposition({
   departureGuard,
   onSectionChange,
   onAccessLost,
+  overviewRefreshClock,
   supportCommand,
   clinicGalleryCommands,
   clinicProfileSourceCommands,
@@ -205,7 +207,6 @@ export function ClinicDashboardWorkspaceComposition({
   >(undefined)
   const [inquiryListEntry, setInquiryListEntry] = useState<InquiryListEntryRequest>()
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
-  const reviewWorkload = useReviewWorkloadController({ scope, commands: reviewCommands })
   const scopeRef = useRef(scope)
   const localDepartureGuard = useEditorDepartureGuard()
   const { requestDeparture, setProfileRequest, setReviewRequest, setInquiryRequest, setGalleryRequest } =
@@ -526,12 +527,14 @@ export function ClinicDashboardWorkspaceComposition({
     () => createInquiryOpenInventoryApiCommands(authenticatedContext.clinic.id),
     [authenticatedContext.clinic.id],
   )
-  const inquiryInventory = useOpenInquiryInventory({
+  const { inquiries: inquiryInventory, reviews: reviewWorkload } = useDashboardWorkloadController({
     scope: `${scope}:${selectedLocation.id}`,
-    commands: inquiryInventoryCommands ?? defaultInquiryInventoryCommands,
-    enabled: activeSection === "dashboard",
+    inquiryCommands: inquiryInventoryCommands ?? defaultInquiryInventoryCommands,
+    reviewCommands,
+    refreshClock: overviewRefreshClock,
+    isActive: activeSection === "dashboard",
     onSessionLost: handleInquirySessionLoss,
-    onAccessLost: onAccessLost ?? handleReviewAccessLoss,
+    onAccessLost: onAccessLost ?? (() => handleReviewAccessLoss("forbidden")),
   })
   const openInquiryInventory = () =>
     requestDeparture("section", () => {

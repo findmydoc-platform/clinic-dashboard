@@ -37,6 +37,19 @@ loading and invalidates delayed results, including access-loss callbacks. The in
 detail reads and automatic read intent before the mounted destination becomes active. Drafts and pending attachments
 remain in the destination controller; normal editor departure protections still apply.
 
+The overview controller refreshes both inventories on entry, return from another section and window focus,
+and every 60 seconds while its document and overview are visible. The explicit reporting demo uses the same lifecycle
+with its own synthetic commands. Hidden sections, hidden documents and disposed scopes stop the clock and invalidate
+pending results. Concurrent equivalent reads share the active request; a superseded result cannot restore an older value.
+A narrow injectable clock supports controlled browser journeys without changing the production cadence.
+
+Each refresh replaces the previous count with loading. Review main and pending-moderation counts form one result;
+review failure cannot publish only one count. Either card can fail or retry independently. Focus and timer refreshes
+leave reporting selection, destination searches, filters, drafts and personal inquiry read positions unchanged.
+Confirmed session or access loss clears both workload results and enters the existing protected-workspace recovery.
+The card action keeps its stable title as its accessible name and describes the current number, explanation and pending
+moderation, or its loading/unavailable state, to assistive technology.
+
 Below `sm`, the three cards stack with profile completion first. From `sm` to below `xl`, profile completion spans the
 full first row and the operational slots share the second row equally. From `xl`, all three cards occupy equal-width
 columns. The row retains `gap-4` without empty columns or horizontal overflow.
