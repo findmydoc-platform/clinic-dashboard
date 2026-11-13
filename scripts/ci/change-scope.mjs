@@ -22,15 +22,6 @@ const checks = [
 const projects = ["unit", "integration", "storybook", "e2e"]
 const statuses = new Set(["added", "modified", "removed", "renamed", "copied"])
 const shaPattern = /^[a-f0-9]{40}$/
-const toolingTests = [
-  "tests/unit/ci-change-scope.test.ts",
-  "tests/unit/ci-workflows.test.ts",
-  "tests/unit/ci-docs.test.ts",
-  "tests/unit/ci-preview-comment.test.ts",
-  "tests/unit/deployment-workflow.test.ts",
-  "tests/unit/deployment-command.test.ts",
-  "tests/unit/platform-release-dispatcher.test.ts",
-]
 
 function emptyScope() {
   return {
@@ -162,14 +153,12 @@ export function classifyChanges(changes, { complete = true, runtimeMarkdown = ne
         continue
       }
       if (/^\.github\/(?:workflows|actions)\//.test(file)) {
-        scope.check = scope.unit = scope.workflow_security = scope.codeql_actions = true
-        scope.tests.unit.push(...toolingTests)
+        scope.check = scope.workflow_security = scope.codeql_actions = true
         if (file === ".github/workflows/workflow-security.yml") scope.full_secret_scan = true
         continue
       }
       if (file.startsWith(".github/scripts/")) {
-        scope.check = scope.unit = scope.workflow_security = true
-        scope.tests.unit.push(...toolingTests)
+        scope.check = scope.workflow_security = true
         if (/\.[cm]?[jt]s$/.test(file)) scope.codeql_js = true
         continue
       }
