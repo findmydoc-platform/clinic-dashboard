@@ -9,4 +9,5 @@ export const reviewWorkloadSchema = z
 
 export type ReviewWorkload = z.infer<typeof reviewWorkloadSchema>
 export type ReviewWorkloadState =
-  Readonly<{ status: "loading" | "unavailable" }> | Readonly<{ status: "ready"; workload: ReviewWorkload }>
+  | Readonly<{ status: "loading" | "unavailable" }>
+  | Readonly<{ status: "ready"; workload: ReviewWorkload; refreshState: "idle" | "updating" | "stale" }>

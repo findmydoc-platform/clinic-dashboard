@@ -166,6 +166,7 @@ function HeldRefreshHarness(args: React.ComponentProps<typeof ClinicDashboardWor
     let reviewReads = 0
     let releaseInquiry: (() => void) | undefined
     let failReview: (() => void) | undefined
+    let releaseReviewRetry: (() => void) | undefined
     return {
       inquiryCommands: {
         loadOpenInventory: fn(async () => {
@@ -187,11 +188,18 @@ function HeldRefreshHarness(args: React.ComponentProps<typeof ClinicDashboardWor
                 failReview = () => reject(new Error("Synthetic unavailable source"))
               },
             )
+          if (reviewReads === 3)
+            return new Promise<{ reviewsToAnswerCount: number; pendingModerationCount: number }>(
+              (resolve) => {
+                releaseReviewRetry = () => resolve({ reviewsToAnswerCount: 92, pendingModerationCount: 1 })
+              },
+            )
           return { reviewsToAnswerCount: reviewReads === 1 ? 91 : 92, pendingModerationCount: 2 }
         }),
       },
       releaseInquiry: () => releaseInquiry?.(),
       failReview: () => failReview?.(),
+      releaseReviewRetry: () => releaseReviewRetry?.(),
       assertCoalesced: () => {
         expect(inquiryReads).toBe(2)
         expect(reviewReads).toBe(2)
@@ -212,6 +220,7 @@ function HeldRefreshHarness(args: React.ComponentProps<typeof ClinicDashboardWor
         <button onClick={scenario.assertCoalesced}>Verify equivalent reads coalesced</button>
         <button onClick={scenario.releaseInquiry}>Release superseded inquiry result</button>
         <button onClick={scenario.failReview}>Fail review refresh</button>
+        <button onClick={scenario.releaseReviewRetry}>Release review retry</button>
       </div>
       <ClinicDashboardWorkspaceHarness
         {...args}
@@ -239,28 +248,34 @@ export const IndependentFailureAndSupersededResult: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "7 days" }))
     await userEvent.click(canvas.getByRole("button", { name: /Inquiries 7/ }))
     await userEvent.click(canvas.getByRole("button", { name: "Reactivate twice" }))
-    expect(await canvas.findByRole("status", { name: "Loading Open inquiries" })).toHaveAttribute(
-      "aria-busy",
-      "true",
+    expect(inquiry().getByText("81")).toBeVisible()
+    expect(review().getByText("91")).toBeVisible()
+    expect(review().getByText("2 responses pending moderation")).toBeVisible()
+    expect(canvas.queryByRole("status", { name: "Loading Open inquiries" })).not.toBeInTheDocument()
+    expect(canvas.queryByRole("status", { name: "Loading Reviews to answer" })).not.toBeInTheDocument()
+    expect(canvas.getByRole("button", { name: "Open inquiries" })).toHaveAccessibleDescription(
+      /81.*Current total/,
     )
-    expect(canvas.getByRole("status", { name: "Loading Reviews to answer" })).toBeVisible()
-    expect(canvas.getByRole("button", { name: "Open inquiries" })).toHaveAccessibleDescription(/Loading/)
-    expect(inquiry().queryByText("81")).not.toBeInTheDocument()
-    expect(review().queryByText("91")).not.toBeInTheDocument()
-    const skeleton = canvas
-      .getByRole("status", { name: "Loading Open inquiries" })
-      .querySelector("[aria-hidden=true]")!
-    expect(getComputedStyle(skeleton).animationName).not.toBe("none")
     await userEvent.click(canvas.getByRole("button", { name: "Verify equivalent reads coalesced" }))
     await userEvent.click(canvas.getByRole("button", { name: "Fail review refresh" }))
-    expect(await review().findByText("Unavailable")).toBeVisible()
+    expect(await canvas.findByText("Update failed. Showing previous values.")).toBeVisible()
+    expect(review().getByText("91")).toBeVisible()
     expect(canvas.getByRole("button", { name: "Reviews to answer" })).toHaveAccessibleDescription(
-      /Unavailable/,
+      /91.*Update failed/,
     )
-    expect(canvas.getByRole("status", { name: "Loading Open inquiries" })).toBeVisible()
-    await userEvent.click(canvas.getByRole("button", { name: "Retry Reviews to answer" }))
+    expect(inquiry().getByText("81")).toBeVisible()
+    canvas.getByRole("button", { name: "Retry Reviews to answer" }).focus()
+    await userEvent.keyboard("{Enter}")
+    expect(canvas.getByRole("button", { name: "Reviews to answer" })).toHaveFocus()
+    expect(review().getByText("91")).toBeVisible()
+    expect(review().getByText("2 responses pending moderation")).toBeVisible()
+    expect(canvas.getByText("Update failed. Showing previous values.")).toBeVisible()
+    expect(canvas.queryByRole("status", { name: "Loading Reviews to answer" })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole("button", { name: "Release review retry" }))
     expect(await review().findByText("92")).toBeVisible()
-    expect(canvas.getByRole("status", { name: "Loading Open inquiries" })).toBeVisible()
+    expect(review().getByText("1 response pending moderation")).toBeVisible()
+    expect(canvas.queryByText("Update failed. Showing previous values.")).not.toBeInTheDocument()
+    expect(inquiry().getByText("81")).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Reviews" }))
     await userEvent.click(canvas.getByRole("button", { name: "Dashboard" }))
     expect(await inquiry().findByText("82")).toBeVisible()

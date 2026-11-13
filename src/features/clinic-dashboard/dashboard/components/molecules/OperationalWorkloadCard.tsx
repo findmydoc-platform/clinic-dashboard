@@ -33,6 +33,10 @@ export function OperationalWorkloadCard({
           value: String(state.count),
           detail: state.count === 0 ? emptyDescription : description,
           secondaryText,
+          refreshError:
+            state.refreshState === "stale"
+              ? { message: "Update failed. Showing previous values.", onRetry }
+              : undefined,
         }
       : state.status === "loading"
         ? { status: "loading" }

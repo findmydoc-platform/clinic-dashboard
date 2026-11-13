@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export type DashboardSummaryState =
-  | Readonly<{ status: "ready"; value: string; detail?: string; secondaryText?: string; progress?: number }>
+  | Readonly<{
+      status: "ready"
+      value: string
+      detail?: string
+      secondaryText?: string
+      progress?: number
+      refreshError?: Readonly<{ message: string; onRetry: () => void }>
+    }>
   | Readonly<{ status: "loading"; value?: string; detail?: string }>
   | Readonly<{ status: "unavailable"; value: string; detail?: string; onRetry?: () => void }>
 
@@ -21,6 +28,9 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
   const detailId = useId()
   const secondaryId = useId()
   const actionId = useId()
+  const refreshErrorId = useId()
+  const refreshError = state.status === "ready" ? state.refreshError : undefined
+  const retry = state.status === "unavailable" ? state.onRetry : refreshError?.onRetry
   const content = (
     <>
       <span className="block text-sm leading-5 font-bold text-[var(--secondary)] sm:min-h-10">{title}</span>
@@ -87,6 +97,7 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
     state.detail ? detailId : undefined,
     state.status === "ready" && state.secondaryText ? secondaryId : undefined,
     action.kind === "open" ? actionId : undefined,
+    refreshError ? refreshErrorId : undefined,
   ]
     .filter(Boolean)
     .join(" ")
@@ -111,17 +122,23 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
       ) : (
         <div className="flex flex-1 flex-col items-start p-4">{content}</div>
       )}
-      {state.status === "unavailable" && state.onRetry ? (
+      {retry ? (
         <div className="pointer-events-none relative z-10 px-4 pb-4">
+          {refreshError ? (
+            <p id={refreshErrorId} role="status" className="mb-3 text-xs leading-4">
+              {refreshError.message}
+            </p>
+          ) : null}
           <Button
             className="pointer-events-auto"
             variant="outline"
             aria-label={`Retry ${title}`}
+            aria-describedby={refreshError ? refreshErrorId : undefined}
             onClick={(event) => {
               if (event.currentTarget === event.currentTarget.ownerDocument.activeElement) {
                 mainActionRef.current?.focus()
               }
-              state.onRetry?.()
+              retry()
             }}
           >
             Retry

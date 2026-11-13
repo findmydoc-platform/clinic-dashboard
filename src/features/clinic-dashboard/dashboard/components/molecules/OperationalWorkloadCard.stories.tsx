@@ -6,7 +6,7 @@ const meta = {
   component: OperationalWorkloadCard,
   args: {
     title: "Open inquiries",
-    state: { status: "ready", count: 104 },
+    state: { status: "ready", refreshState: "idle", count: 104 },
     description: "Current open inquiry workload",
     emptyDescription: "No open inquiries",
     onOpen: fn(),
@@ -35,5 +35,38 @@ export const Loading: Story = {
   },
 }
 export const Unavailable: Story = { args: { state: { status: "unavailable" } } }
-export const Empty: Story = { args: { state: { status: "ready", count: 0 } } }
+export const Empty: Story = { args: { state: { status: "ready", refreshState: "idle", count: 0 } } }
 export const Dark: Story = { globals: { theme: "dark" } }
+
+export const Updating: Story = {
+  args: { state: { status: "ready", count: 104, refreshState: "updating" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    expect(canvas.getByText("104")).toBeVisible()
+    expect(canvas.queryByRole("status")).not.toBeInTheDocument()
+  },
+}
+export const Stale: Story = {
+  args: {
+    title: "Reviews to answer",
+    description: "Public reviews without a submitted response",
+    emptyDescription: "No reviews awaiting your response",
+    state: { status: "ready", count: 4, refreshState: "stale" },
+    secondaryText: "2 responses pending moderation",
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const main = canvas.getByRole("button", { name: "Reviews to answer" })
+    expect(within(main).getByText("4")).toBeVisible()
+    expect(within(main).getByText("2 responses pending moderation")).toBeVisible()
+    expect(main).toHaveAccessibleDescription(/4.*Update failed. Showing previous values./)
+    const retry = canvas.getByRole("button", { name: "Retry Reviews to answer" })
+    expect(retry).toHaveAccessibleDescription("Update failed. Showing previous values.")
+    retry.focus()
+    await userEvent.keyboard("{Enter}")
+    expect(args.onRetry).toHaveBeenCalled()
+    expect(args.onOpen).not.toHaveBeenCalled()
+    expect(main).toHaveFocus()
+  },
+}
+export const StaleDark: Story = { ...Stale, globals: { theme: "dark" } }
