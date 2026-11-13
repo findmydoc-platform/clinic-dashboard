@@ -231,7 +231,7 @@ export const IndependentFailureAndSupersededResult: Story = {
     expect(await inquiry().findByText("81")).toBeVisible()
     expect(await review().findByText("91")).toBeVisible()
     expect(canvas.getByRole("button", { name: "Open inquiries" })).toHaveAccessibleDescription(
-      /81.*Current open inquiry workload/,
+      /81.*Current total/,
     )
     expect(canvas.getByRole("button", { name: "Reviews to answer" })).toHaveAccessibleDescription(
       /91.*2 responses pending moderation/,

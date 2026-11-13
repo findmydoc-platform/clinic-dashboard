@@ -19,6 +19,7 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
   const valueId = useId()
   const detailId = useId()
   const secondaryId = useId()
+  const actionId = useId()
   const content = (
     <>
       <span className="block text-sm leading-5 font-bold text-[var(--secondary)] sm:min-h-10">{title}</span>
@@ -70,7 +71,10 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
         </span>
       ) : null}
       {action.kind === "open" ? (
-        <span className="mt-auto flex items-center gap-1 pt-4 text-sm leading-5 font-bold text-[var(--primary)]">
+        <span
+          id={actionId}
+          className="mt-auto flex items-center gap-1 pt-4 text-sm leading-5 font-bold text-[var(--primary)]"
+        >
           {action.label}
           <ChevronRight aria-hidden="true" className="size-4" />
         </span>
@@ -81,6 +85,7 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
     valueId,
     state.detail ? detailId : undefined,
     state.status === "ready" && state.secondaryText ? secondaryId : undefined,
+    action.kind === "open" ? actionId : undefined,
   ]
     .filter(Boolean)
     .join(" ")

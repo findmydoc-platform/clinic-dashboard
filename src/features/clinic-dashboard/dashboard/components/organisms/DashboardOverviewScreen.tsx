@@ -72,21 +72,22 @@ export function DashboardOverviewScreen({
           ))}
         <OperationalWorkloadCard
           title="Open inquiries"
+          actionLabel="View open inquiries"
           state={inquiryInventory}
-          description="Current open inquiry workload"
+          description="Current total"
           emptyDescription="No open inquiries"
           onOpen={onInquiriesOpen}
           onRetry={onInquiryInventoryRetry}
         />
         <OperationalWorkloadCard
           title="Reviews to answer"
-          actionLabel="View reviews"
+          actionLabel="View published reviews"
           state={
             reviewWorkload?.status === "ready"
               ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
               : { status: reviewWorkload?.status ?? "loading" }
           }
-          description="Public reviews without a submitted clinic response. Opens Published reviews."
+          description="Public reviews without a submitted response"
           emptyDescription="No reviews awaiting your response"
           secondaryText={
             reviewWorkload?.status === "ready" && reviewWorkload.workload.pendingModerationCount > 0
