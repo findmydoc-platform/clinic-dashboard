@@ -1,6 +1,6 @@
 "use client"
 
-import { useId } from "react"
+import { useId, useRef } from "react"
 import { ChevronRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ type Action = Readonly<{ kind: "static" }> | Readonly<{ kind: "open"; label: str
 type Props = Readonly<{ title: string; state: DashboardSummaryState; action: Action; className?: string }>
 
 export function DashboardSummaryCard({ title, state, action, className }: Props) {
+  const mainActionRef = useRef<HTMLButtonElement>(null)
   const valueId = useId()
   const detailId = useId()
   const secondaryId = useId()
@@ -98,6 +99,7 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
     >
       {action.kind === "open" ? (
         <button
+          ref={mainActionRef}
           type="button"
           aria-label={title}
           aria-describedby={describedBy}
@@ -115,7 +117,12 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
             className="pointer-events-auto"
             variant="outline"
             aria-label={`Retry ${title}`}
-            onClick={state.onRetry}
+            onClick={(event) => {
+              if (event.currentTarget === event.currentTarget.ownerDocument.activeElement) {
+                mainActionRef.current?.focus()
+              }
+              state.onRetry?.()
+            }}
           >
             Retry
           </Button>

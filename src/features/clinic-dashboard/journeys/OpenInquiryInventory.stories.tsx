@@ -66,7 +66,10 @@ export const FailureAndIndependentRetry: Story = {
       ok: true,
       value: { count: 9 },
     })
-    await userEvent.click(canvas.getByRole("button", { name: "Retry Open inquiries" }))
+    const retry = canvas.getByRole("button", { name: "Retry Open inquiries" })
+    retry.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(canvas.getByRole("button", { name: "Open inquiries" })).toHaveFocus()
     await expect(within(canvas.getByRole("button", { name: "Open inquiries" })).getByText("9")).toBeVisible()
     await expect(canvas.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible()
   },

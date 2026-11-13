@@ -82,11 +82,22 @@ export const FailureAndIndependentRetry: Story = {
     expect(
       within(canvas.getByRole("button", { name: "Reviews to answer" })).getByText("Unavailable"),
     ).toBeVisible()
+    const inquiryCard = canvas.getByRole("button", { name: "Open inquiries" })
+    const inquiryText = inquiryCard.textContent ?? ""
+    retry.focus()
+    await expect(retry).toHaveFocus()
+    await userEvent.keyboard("{Enter}")
+    await expect(canvas.getByRole("button", { name: "Reviews to answer" })).toHaveFocus()
+    const retryAgain = await canvas.findByRole("button", { name: "Retry Reviews to answer" })
+    await expect(inquiryCard).toHaveTextContent(inquiryText)
+    await expect(canvas.getByRole("heading", { name: "Dashboard" })).toBeVisible()
     mocked(args.reviewCommands!.loadWorkload).mockResolvedValueOnce({
       reviewsToAnswerCount: 6,
       pendingModerationCount: 2,
     })
-    await userEvent.click(retry)
+    retryAgain.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(canvas.getByRole("button", { name: "Reviews to answer" })).toHaveFocus()
     expect(await canvas.findByRole("heading", { name: "Dashboard" })).toBeVisible()
     expect(
       await within(canvas.getByRole("button", { name: "Reviews to answer" })).findByText("6"),
