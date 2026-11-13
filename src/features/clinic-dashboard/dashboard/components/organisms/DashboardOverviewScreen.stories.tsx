@@ -100,6 +100,29 @@ export const TopKpiScope: Story = {
     await expect(completion.left).toBeCloseTo(bounds.left, 0)
     await expect(second.right).toBeCloseTo(bounds.right, 0)
     await expect(first.width).toBeCloseTo(second.width, 0)
+    if (window.innerWidth >= 640) {
+      await expect(first.height).toBeCloseTo(second.height, 0)
+      const inquiryTitle = metrics.getByText("Open inquiries", { exact: true }).getBoundingClientRect()
+      const reviewTitle = metrics.getByText("Reviews to answer", { exact: true }).getBoundingClientRect()
+      await expect(inquiryTitle.top).toBeCloseTo(reviewTitle.top, 0)
+      const inquiryValue = within(metrics.getByRole("button", { name: "Open inquiries" }))
+        .getByText("9", { exact: true })
+        .getBoundingClientRect()
+      const reviewValue = within(metrics.getByRole("button", { name: "Reviews to answer" }))
+        .getByText("4", { exact: true })
+        .getBoundingClientRect()
+      await expect(inquiryValue.top).toBeCloseTo(reviewValue.top, 0)
+      if (window.innerWidth >= 1280) {
+        await expect(completion.height).toBeCloseTo(first.height, 0)
+        await expect(
+          metrics.getByText("Public profile completion", { exact: true }).getBoundingClientRect().top,
+        ).toBeCloseTo(inquiryTitle.top, 0)
+        await expect(metrics.getByText("67%", { exact: true }).getBoundingClientRect().top).toBeCloseTo(
+          inquiryValue.top,
+          0,
+        )
+      }
+    }
     await expect(first.height).toBeGreaterThanOrEqual(96)
     await expect(second.height).toBeGreaterThanOrEqual(96)
     if (window.innerWidth >= 1280) {

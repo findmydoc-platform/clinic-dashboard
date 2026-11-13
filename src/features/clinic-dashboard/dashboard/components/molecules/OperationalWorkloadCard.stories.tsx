@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { expect, fn, within } from "storybook/test"
+import { expect, fn, userEvent, within } from "storybook/test"
 import { OperationalWorkloadCard } from "./OperationalWorkloadCard"
 
 const meta = {
@@ -17,7 +17,15 @@ const meta = {
 } satisfies Meta<typeof OperationalWorkloadCard>
 export default meta
 type Story = StoryObj<typeof meta>
-export const Ready: Story = {}
+export const Ready: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const action = canvas.getByRole("button", { name: "Open inquiries" })
+    await expect(within(action).getByText("View inquiries")).toBeVisible()
+    await userEvent.click(action)
+    await expect(args.onOpen).toHaveBeenCalled()
+  },
+}
 export const Loading: Story = {
   args: { state: { status: "loading" } },
   play: async ({ canvasElement }) => {

@@ -12,7 +12,7 @@ import {
 import type { DashboardOverviewModel, DashboardJourneyStageId } from "../../model/dashboard-overview"
 import { formatReportingObservationTimestamp } from "../../model/clinic-dashboard-reporting-display"
 import type { DashboardProfileTask } from "../../model/profile-tasks"
-import { ReportingMetricCard } from "../molecules/ReportingMetricCard"
+import { DashboardSummaryCard } from "../molecules/DashboardSummaryCard"
 import { ReportingInformation } from "../molecules/ReportingInformation"
 import { ProfileProgress } from "./ProfileProgress"
 import { ClinicPreview } from "./ClinicPreview"
@@ -56,9 +56,19 @@ export function DashboardOverviewScreen({
         {model.metrics
           .filter((metric) => metric.id === "completion")
           .map((metric) => (
-            <div className="min-w-0 sm:col-span-2 xl:col-span-1" key={metric.id}>
-              <ReportingMetricCard {...metric} />
-            </div>
+            <DashboardSummaryCard
+              key={metric.id}
+              className="sm:col-span-2 xl:col-span-1"
+              title={metric.label}
+              state={
+                metric.availability === "available"
+                  ? { status: "ready", value: metric.value, detail: metric.detail, progress: metric.progress }
+                  : metric.availability === "loading"
+                    ? { status: "loading", value: metric.value, detail: metric.detail }
+                    : { status: "unavailable", value: metric.value, detail: metric.detail }
+              }
+              action={{ kind: "static" }}
+            />
           ))}
         <OperationalWorkloadCard
           title="Open inquiries"
@@ -70,6 +80,7 @@ export function DashboardOverviewScreen({
         />
         <OperationalWorkloadCard
           title="Reviews to answer"
+          actionLabel="View reviews"
           state={
             reviewWorkload?.status === "ready"
               ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
