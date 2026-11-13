@@ -14,7 +14,7 @@ migrations, so this policy includes no database validation.
 | Existing controlled E2E cases                                                         | Static checks and selected Chromium cases                                          | Skip                                          |
 | Added, removed, or renamed cases; shared fixtures, helpers, setup, test configuration | Full existing validation                                                           | Skip unless deploy-relevant paths also change |
 | Runtime, public assets, application configuration, dependency files                   | Full validation                                                                    | Deploy                                        |
-| Workflow files and local actions                                                      | Static checks, CI contract tests, actionlint, zizmor, Actions CodeQL               | Deploy only for deployment or routing changes |
+| Workflow files and local actions                                                      | Static checks, actionlint, zizmor, Actions CodeQL                                  | Deploy only for deployment or routing changes |
 | Classifier, shared scope action, CI workflow, or CI execution scripts                 | Full validation and workflow audits                                                | Deploy                                        |
 | Unknown paths or incomplete detection                                                 | Full validation and conservative security checks                                   | Deploy                                        |
 
@@ -90,9 +90,10 @@ Unknown inputs select both. Default Setup must be disabled before advanced resul
 
 ## Validation and timing
 
-Run `pnpm check` and the focused CI routing, documentation, workflow, and deployment contract tests. Run actionlint
-and zizmor for workflow changes. Test production classification with nested Markdown, each test class, support files,
-dependencies, workflows, mixed paths, deletes, renames, incomplete API pagination, and missing Git comparison commits.
+Run `pnpm check`, actionlint, and zizmor for workflow changes. Validate workflow behavior and small CI or deployment
+helper scripts through normal workflow execution. Workflow YAML and these helper scripts do not have separate test
+suites. Workflow-only changes do not select application unit tests; existing conservative full-validation rules for
+routing and deployment changes remain in place.
 
 For a completed comparison, pass every workflow run ID for one event, including CodeQL:
 

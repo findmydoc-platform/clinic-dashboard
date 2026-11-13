@@ -24,6 +24,12 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 - Document supported behavior and durable technical decisions in the repository. Keep task plans, investigation reports, execution chronology and cleanup evidence in the relevant issue or pull request; commit such documentation only when the user explicitly requests an exception.
 - This rule does not remove Git history, product audit data, reusable tooling or durable regression tests.
 
+## Workflow validation
+
+- Validate GitHub Actions workflows with the existing workflow linters and normal workflow execution.
+- Do not add or retain separate tests for workflow YAML, including structural assertions or extracted embedded steps.
+- Validate small CI and deployment helper scripts through the workflows that invoke them, rather than separate unit, integration, or contract tests. Keep application and standalone release-engine tests focused on their own behavior.
+
 ## Engineering Method Anchors
 
 - Semantic Anchors: Use [https://llm-coding.github.io/Semantic-Anchors/llms.txt](https://llm-coding.github.io/Semantic-Anchors/llms.txt) to identify established methods; name them without redefining them locally.
