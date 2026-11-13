@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import type { AuthenticatedClinicContext } from "@/features/clinic-dashboard/auth/public"
 import { Toaster } from "@/components/ui/sonner"
 import {
   evaluateClinicProfileCompleteness,
@@ -25,9 +26,13 @@ import {
   type ClinicDashboardReporting,
   type ClinicDashboardReportingPeriodDays,
   type DashboardSnapshot,
+  type DashboardOverviewRefreshClock,
 } from "@/features/clinic-dashboard/dashboard/public"
 import { clinicDashboardReportingFixture } from "@/features/clinic-dashboard/dashboard/testing/public"
-import type { InquiryWorkspaceCommands } from "@/features/clinic-dashboard/messages/public"
+import type {
+  InquiryOpenInventoryCommands,
+  InquiryWorkspaceCommands,
+} from "@/features/clinic-dashboard/messages/public"
 import type { NotificationCommands } from "@/features/clinic-dashboard/notifications/public"
 import { inquiryQueueFixture } from "@/features/clinic-dashboard/messages/testing/public"
 import {
@@ -57,9 +62,13 @@ import {
 
 type ClinicDashboardWorkspaceHarnessProps = Readonly<
   Omit<ClinicDashboardWorkspaceProps, "authenticatedContext" | "initialReporting" | "workspaceInput"> & {
+    authenticatedContext?: AuthenticatedClinicContext
+    onAccessLost?: () => void
     onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
     profileSourceCommands?: ClinicProfileSourceCommands
     reviewCommands?: ReviewSourceCommands
+    overviewRefreshClock?: DashboardOverviewRefreshClock
+    inquiryInventoryCommands?: InquiryOpenInventoryCommands
     inquiryCommands?: InquiryWorkspaceCommands
     notificationCommands?: NotificationCommands
     notificationState?: Readonly<{
@@ -200,13 +209,21 @@ export const clinicDashboardWorkspaceFixture = {
   treatmentSnapshot: clinicTreatmentSnapshotFixture,
 } satisfies ClinicDashboardWorkspaceInput
 
+const syntheticInquiryInventoryCommands: InquiryOpenInventoryCommands = {
+  loadOpenInventory: async () => ({ ok: true, value: { count: 9 } }),
+}
+
 export function ClinicDashboardWorkspaceHarness({
+  authenticatedContext = authenticatedClinicContextFixture,
   authorizedClinics,
   selectionNotice,
   initialSection,
   onClinicChange,
+  onAccessLost,
   focusInquiryId,
   inquiryCommands,
+  inquiryInventoryCommands,
+  overviewRefreshClock,
   reviewCommands: suppliedReviewCommands,
   notificationCommands,
   notificationState,
@@ -230,16 +247,19 @@ export function ClinicDashboardWorkspaceHarness({
     <>
       <ClinicDashboardWorkspaceComposition
         supportCommand={async () => ({ status: "accepted" })}
-        authenticatedContext={authenticatedClinicContextFixture}
+        authenticatedContext={authenticatedContext}
         authorizedClinics={authorizedClinics}
         selectionNotice={selectionNotice}
         onClinicChange={onClinicChange}
+        onAccessLost={onAccessLost}
         clinicGalleryCommands={clinicGalleryCommands}
         clinicProfileSourceCommands={profileSourceCommands ?? clinicProfileSourceCommands}
         clinicTreatmentCommands={clinicTreatmentCommands}
         doctorProfileCommands={doctorProfileCommands}
         focusInquiryId={focusInquiryId}
         inquiryCommands={inquiryCommands}
+        overviewRefreshClock={overviewRefreshClock}
+        inquiryInventoryCommands={inquiryInventoryCommands ?? syntheticInquiryInventoryCommands}
         initialNotifications={{ status: "ready", response: notificationPageFixture }}
         notificationCommands={notificationCommands ?? notificationCommandsFixture}
         initialNotificationsOpen={notificationState?.isOpen}

@@ -23,14 +23,36 @@ authorized clinic.
 
 ## Top reporting cards
 
-Normal reporting and the separate demo show public profile completion followed by exactly two static cards labeled
-`Content to be defined`. The placeholders have no metric values, interactive controls, or data sources. Profile completion
-retains its existing calculation, information, loading, and unavailable states.
+Normal reporting and the separate demo show public profile completion followed by Open inquiries and Reviews to answer. Profile completion retains its existing calculation, information, loading, and unavailable states.
+
+The inquiry domain owns its focused `loadOpenInventory` command. The overview consumes only its validated current
+inventory, independently of period, journey stage, queue search, handling filters and personal unread positions.
+Loading replaces the number with an accessible skeleton; reduced motion disables its animation. Ready empty results
+show `0` and `No open inquiries`. Failure replaces the value with `Unavailable`; Retry reloads only this result.
+Normal-mode failures never select synthetic data. The explicit synthetic workspace injects its own command.
+
+Requests and results belong to the authenticated principal and selected clinic. A scope change immediately projects
+loading and invalidates delayed results, including access-loss callbacks. The inquiry destination owns the
+`open-inventory` list entry: Open, empty search, no handling restrictions and no selected record. It invalidates pending
+detail reads and automatic read intent before the mounted destination becomes active. Drafts and pending attachments
+remain in the destination controller; normal editor departure protections still apply.
+
+The overview controller refreshes both inventories on entry, return from another section and window focus,
+and every 60 seconds while its document and overview are visible. The explicit reporting demo uses the same lifecycle
+with its own synthetic commands. Hidden sections, hidden documents and disposed scopes stop the clock and invalidate
+pending results. Concurrent equivalent reads share the active request; a superseded result cannot restore an older value.
+A narrow injectable clock supports controlled browser journeys without changing the production cadence.
+
+Each refresh replaces the previous count with loading. Review main and pending-moderation counts form one result;
+review failure cannot publish only one count. Either card can fail or retry independently. Focus and timer refreshes
+leave reporting selection, destination searches, filters, drafts and personal inquiry read positions unchanged.
+Confirmed session or access loss clears both workload results and enters the existing protected-workspace recovery.
+The card action keeps its stable title as its accessible name and describes the current number, explanation and pending
+moderation, or its loading/unavailable state, to assistive technology.
 
 Below `sm`, the three cards stack with profile completion first. From `sm` to below `xl`, profile completion spans the
-full first row and the placeholders share the second row equally. From `xl`, all three cards occupy equal-width columns.
-The row retains `gap-4` without empty columns or horizontal overflow. This layout does not change the reporting contract
-or funnel stages.
+full first row and the operational slots share the second row equally. From `xl`, all three cards occupy equal-width
+columns. The row retains `gap-4` without empty columns or horizontal overflow.
 
 ## CSV exports
 
@@ -45,7 +67,7 @@ Unique Visitors counts recognized consent-eligible browser visitors among profil
 A retired `inquiryStarters` display preference maps to `profileViews` only after the principal/clinic scope and period
 are validated. Its period is preserved. This legacy input key is not a supported reporting metric. Both the normal
 journey and synthetic demo render four stages and three order connectors. The demo detail summary has four entries.
-The upper profile-completion card and two neutral placeholders are independent of this change.
+The upper profile-completion card and operational inventories are independent of this reporting contract.
 
 The V3 producer and consumer switch directly without V2 compatibility. Server and browser reject old schema versions,
 missing required metrics and additional metrics. Existing V2 browser documents can require a reload after delivery.

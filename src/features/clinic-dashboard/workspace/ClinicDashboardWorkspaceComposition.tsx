@@ -26,15 +26,20 @@ import {
   useDashboardController,
   ReportingPeriodControl,
   useDashboardOverviewController,
+  useDashboardWorkloadController,
   createDashboardClinicPreview,
   ProfileTaskDialog,
   type ClinicDashboardReportingLoadState,
   type ClinicDashboardReporting,
   type ClinicDashboardReportingPeriodDays,
   type DashboardSnapshot,
+  type DashboardOverviewRefreshClock,
 } from "@/features/clinic-dashboard/dashboard/public"
 import {
   InquiryQueue,
+  createInquiryOpenInventoryApiCommands,
+  type InquiryOpenInventoryCommands,
+  type InquiryListEntryRequest,
   type InquiryOpeningRequest,
   type InquiryOpeningResult,
   type InquiryWorkspaceCommands,
@@ -97,6 +102,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   onClinicChange?: (clinicId: string, section: ClinicDashboardSection) => void
   departureGuard?: ReturnType<typeof useEditorDepartureGuard>
   onSectionChange?: (section: ClinicDashboardSection) => void
+  overviewRefreshClock?: DashboardOverviewRefreshClock
   onAccessLost?: () => void
   supportCommand: SupportCommand
   clinicGalleryCommands: ClinicGalleryCommands
@@ -108,6 +114,7 @@ type ClinicDashboardWorkspaceCompositionProps = Readonly<{
   initialNotificationsOpen?: boolean
   initialReporting?: ClinicDashboardReportingLoadState
   loadReporting?: (days: ClinicDashboardReportingPeriodDays) => Promise<ClinicDashboardReporting | undefined>
+  inquiryInventoryCommands?: InquiryOpenInventoryCommands
   inquiryCommands?: InquiryWorkspaceCommands
   focusInquiryId?: string
   focusReviewId?: string
@@ -145,6 +152,7 @@ export function ClinicDashboardWorkspaceComposition({
   departureGuard,
   onSectionChange,
   onAccessLost,
+  overviewRefreshClock,
   supportCommand,
   clinicGalleryCommands,
   clinicProfileSourceCommands,
@@ -160,6 +168,7 @@ export function ClinicDashboardWorkspaceComposition({
   onNotificationOpeningResult,
   onNavigationAway,
   inquiryCommands,
+  inquiryInventoryCommands,
   initialNotifications = { status: "loading" },
   notificationCommands,
   initialNotificationsOpen = false,
@@ -196,6 +205,7 @@ export function ClinicDashboardWorkspaceComposition({
       }>
     | undefined
   >(undefined)
+  const [inquiryListEntry, setInquiryListEntry] = useState<InquiryListEntryRequest>()
   const scope = `${authenticatedContext.principal.id}:${authenticatedContext.clinic.id}`
   const scopeRef = useRef(scope)
   const localDepartureGuard = useEditorDepartureGuard()
@@ -513,6 +523,26 @@ export function ClinicDashboardWorkspaceComposition({
     ],
   )
 
+  const defaultInquiryInventoryCommands = useMemo(
+    () => createInquiryOpenInventoryApiCommands(authenticatedContext.clinic.id),
+    [authenticatedContext.clinic.id],
+  )
+  const { inquiries: inquiryInventory, reviews: reviewWorkload } = useDashboardWorkloadController({
+    scope: `${scope}:${selectedLocation.id}`,
+    inquiryCommands: inquiryInventoryCommands ?? defaultInquiryInventoryCommands,
+    reviewCommands,
+    refreshClock: overviewRefreshClock,
+    isActive: activeSection === "dashboard",
+    onSessionLost: handleInquirySessionLoss,
+    onAccessLost: onAccessLost ?? (() => handleReviewAccessLoss("forbidden")),
+  })
+  const openInquiryInventory = () =>
+    requestDeparture("section", () => {
+      cancelOpening()
+      setInquiryListEntry({ kind: "open-inventory", requestId: crypto.randomUUID() })
+      actions.navigate("messages")
+    })
+
   const selectLocation = (locationId: ClinicDashboardLocationId) => {
     if (locationId === selectedLocation.id) return
     const nextLocation = getClinicDashboardLocation(clinicLocations, locationId)
@@ -677,6 +707,17 @@ export function ClinicDashboardWorkspaceComposition({
               Reporting demo. Sample measurements, charts and downloads are illustrative.
             </p>
             <DashboardScreen
+              inquiryInventory={inquiryInventory.state}
+              onInquiriesOpen={openInquiryInventory}
+              onInquiryInventoryRetry={() => void inquiryInventory.refresh()}
+              reviewWorkload={reviewWorkload.model}
+              onReviewWorkloadRetry={() => void reviewWorkload.actions.retry()}
+              onReviewWorkloadOpen={() =>
+                requestDeparture("section", () => {
+                  cancelOpening()
+                  actions.navigateToPublishedReviews()
+                })
+              }
               model={demo.model.viewModel}
               canDownloadProfileViews
               actions={{
@@ -690,6 +731,17 @@ export function ClinicDashboardWorkspaceComposition({
           </div>
         ) : (
           <DashboardOverviewScreen
+            inquiryInventory={inquiryInventory.state}
+            onInquiriesOpen={openInquiryInventory}
+            onInquiryInventoryRetry={() => void inquiryInventory.refresh()}
+            reviewWorkload={reviewWorkload.model}
+            onReviewWorkloadRetry={() => void reviewWorkload.actions.retry()}
+            onReviewWorkloadOpen={() =>
+              requestDeparture("section", () => {
+                cancelOpening()
+                actions.navigateToPublishedReviews()
+              })
+            }
             model={dashboard.model}
             onMetricSelect={dashboard.actions.selectMetric}
             onProfileTaskOpen={actions.openProfileTask}
@@ -706,6 +758,7 @@ export function ClinicDashboardWorkspaceComposition({
       ) : null}
       <div hidden={activeSection !== "messages"}>
         <InquiryQueue
+          listEntryRequest={inquiryListEntry}
           clinicId={authenticatedContext.clinic.id}
           commands={inquiryCommands}
           key={scope}

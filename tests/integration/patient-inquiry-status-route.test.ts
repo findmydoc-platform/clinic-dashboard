@@ -9,6 +9,7 @@ import {
   handleInquiryDetailLoad,
   handleInquiryMessageSend,
   handleInquiryQueueLoad,
+  handleInquiryOpenInventoryLoad,
   handleInquiryStateChange,
 } from "@/features/clinic-dashboard/server"
 import { handleClinicDashboardReauthenticate } from "@/features/clinic-dashboard/auth/server/public"
@@ -92,6 +93,49 @@ describe("patient inquiry BFF integration", () => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
     resetControlledPatientInquiryProvider()
+  })
+
+  it("returns the full open inventory privately without list or reporting inputs", async () => {
+    const response = requireResponse(
+      await handleInquiryOpenInventoryLoad(
+        readRequest("http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/open-inventory"),
+      ),
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get("cache-control")).toBe("private, no-store")
+    await expect(response.json()).resolves.toEqual({ count: 2 })
+  })
+
+  it.each(["periodDays=7", "query=Lukas", "lifecycle=closed", "cursor=next"])(
+    "rejects unsupported inventory input %s",
+    async (query) => {
+      const response = requireResponse(
+        await handleInquiryOpenInventoryLoad(
+          readRequest(
+            `http://localhost:3000/api/dashboard/clinics/controlled-clinic/inquiries/open-inventory?${query}`,
+          ),
+        ),
+      )
+      expect(response.status).toBe(400)
+    },
+  )
+
+  it("denies inventory without a session or for a foreign target", async () => {
+    for (const [target, session, status] of [
+      ["controlled-clinic", false, 401],
+      ["foreign", true, 403],
+    ] as const) {
+      const response = requireResponse(
+        await handleInquiryOpenInventoryLoad(
+          readRequest(
+            `http://localhost:3000/api/dashboard/clinics/${target}/inquiries/open-inventory`,
+            session,
+          ),
+        ),
+      )
+      expect(response.status).toBe(status)
+      expect(response.headers.get("cache-control")).toBe("private, no-store")
+    }
   })
 
   it("persists an idempotent reply across request-scoped provider composition", async () => {

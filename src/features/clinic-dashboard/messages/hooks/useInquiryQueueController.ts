@@ -112,6 +112,7 @@ export function useInquiryQueueController({
   protectUnfinishedWork: () => ProtectedEditorWork | void
   model: InquiryWorkspaceViewModel
   openInquiry: (inquiryId: string) => Promise<boolean>
+  enterOpenInventory: () => void
 }> {
   const [state, dispatch] = useReducer(inquiryQueueReducer, snapshot, createInquiryQueueState)
   const onAccessLostRef = useRef(onAccessLost)
@@ -1212,6 +1213,14 @@ export function useInquiryQueueController({
     updateReadPosition,
   ])
 
+  const enterOpenInventory = useCallback(() => {
+    selectedInquiryIdRef.current = undefined
+    automaticReadIntentRef.current = undefined
+    detailRequestGenerationRef.current += 1
+    dispatch({ type: "openInventoryEntered" })
+    changeQueueIntent({ primary: "open", handlingStatus: [], query: "" }, false)
+  }, [changeQueueIntent])
+
   const openInquiry = useCallback(
     async (inquiryId: string) => {
       selectedInquiryIdRef.current = inquiryId
@@ -1227,5 +1236,6 @@ export function useInquiryQueueController({
     protectUnfinishedWork,
     model: { ...model, attachmentAccessPaths },
     openInquiry,
+    enterOpenInventory,
   }
 }

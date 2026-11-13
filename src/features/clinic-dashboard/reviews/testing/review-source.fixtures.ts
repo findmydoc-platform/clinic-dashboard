@@ -1,3 +1,4 @@
+import { ReviewSourceCommandError } from "../model/review-source-commands"
 import type { ReviewSourceCommands } from "../model/review-source-commands"
 import type {
   ClinicReviewRecord,
@@ -161,6 +162,15 @@ export function createReviewSourceCommandsFixture(): ReviewSourceCommands {
     },
   })
   return {
+    async loadWorkload() {
+      return {
+        reviewsToAnswerCount: records.filter(
+          (review) =>
+            review.withdrawalState === "active" && review.publicMeasure !== "removed" && !review.response,
+        ).length,
+        pendingModerationCount: records.filter((review) => review.response?.status === "pending").length,
+      }
+    },
     async loadReview(reviewId) {
       const review = records.find(({ id }) => id === reviewId)
       if (!review) throw new Error("Review unavailable")
@@ -203,4 +213,8 @@ export function createReviewSourceCommandsFixture(): ReviewSourceCommands {
       return updated
     },
   }
+}
+
+export function createReviewAccessFailureFixture(failure: "unauthorized" | "forbidden") {
+  return new ReviewSourceCommandError(failure, "Synthetic unavailable review access.")
 }

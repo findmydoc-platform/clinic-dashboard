@@ -44,3 +44,23 @@ it("reports confirmed access loss before the rejected operation reaches a cleari
     })
   expect(events).toEqual(["forbidden", "controller rejection"])
 })
+
+it("does not start access recovery for a disposed workload read", async () => {
+  let release!: (response: Response) => void
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve
+        }),
+    ),
+  )
+  const recover = vi.fn()
+  const abort = new AbortController()
+  const pending = createReviewSourceApiCommands("old-clinic", recover).loadWorkload(abort.signal)
+  abort.abort()
+  release(Response.json({ code: "ACCESS_DENIED" }, { status: 403 }))
+  await expect(pending).rejects.toMatchObject({ kind: "forbidden" })
+  expect(recover).not.toHaveBeenCalled()
+})

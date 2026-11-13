@@ -5,6 +5,7 @@ import {
   handleInquiryDetailLoad,
   handleInquiryNoteAdd,
   handleInquiryQueueLoad,
+  handleInquiryOpenInventoryLoad,
   handleInquiryStateChange,
 } from "@/features/clinic-dashboard/messages/server/public"
 import type {
@@ -86,6 +87,7 @@ function provider(overrides: Partial<PatientInquiryProvider> = {}): PatientInqui
       ok: true as const,
       value: { changeCursor: "change-1", inquiry: detail, unchanged: false },
     })),
+    loadOpenInventory: vi.fn(async () => ({ ok: true as const, value: { count: 2 } })),
     loadQueue: vi.fn(async () => ({ ok: true as const, value: createInquirySnapshot() })),
     previewAttachment: vi.fn(async () => ({
       ok: true as const,
@@ -126,6 +128,27 @@ describe("inquiry same-origin BFF", () => {
     vi.clearAllMocks()
     vi.unstubAllEnvs()
   })
+
+  it.each([{ count: -1 }, { count: 2.5 }, {}, { count: 2, patient: "private" }])(
+    "rejects invalid inventory provider values %j",
+    async (value) => {
+      const scoped = provider({
+        loadOpenInventory: vi.fn(async () => ({
+          ok: true,
+          value,
+        })) as PatientInquiryProvider["loadOpenInventory"],
+      })
+      const response = requireResponse(
+        await handleInquiryOpenInventoryLoad(
+          new NextRequest("http://localhost:3000/api/dashboard/clinics/clinic-1/inquiries/open-inventory"),
+          () => scoped,
+        ),
+      )
+      expect(response.status).toBe(503)
+      expect(response.headers.get("cache-control")).toBe("private, no-store")
+      await expect(response.json()).resolves.toEqual({ error: { code: "service-unavailable" } })
+    },
+  )
 
   it("keeps tenant scope and upstream contract negotiation server-owned", async () => {
     const scoped = provider()

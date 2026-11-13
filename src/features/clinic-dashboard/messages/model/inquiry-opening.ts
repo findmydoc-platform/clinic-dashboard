@@ -11,3 +11,5 @@ export type InquiryOpeningResult = Readonly<{
   inquiryId: string
   status: "displayed" | "unavailable" | "cancelled"
 }>
+
+export type InquiryListEntryRequest = Readonly<{ kind: "open-inventory"; requestId: string }>

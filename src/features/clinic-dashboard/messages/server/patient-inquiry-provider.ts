@@ -38,6 +38,9 @@ export type PatientInquiryAttachmentDraftUploadFactory = (
 ) => PatientInquiryAttachmentDraftUpload | undefined
 
 export type PatientInquiryProvider = Readonly<{
+  loadOpenInventory: () => Promise<
+    InquiryResult<import("../model/inquiry-open-inventory").InquiryOpenInventory>
+  >
   addInternalNote: (
     input: Readonly<{
       idempotencyKey: string

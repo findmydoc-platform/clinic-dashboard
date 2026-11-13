@@ -1,5 +1,6 @@
 import "server-only"
 
+import { reviewWorkloadSchema } from "../model/review-workload"
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { resolveClinicDashboardRouteAccess } from "@/features/clinic-dashboard/auth/server/public"
@@ -149,5 +150,15 @@ export async function handleReviewDetailLoad(
   return withAccess(request, factory, async (provider) => {
     const result = await provider.loadReview(reviewId.data, request.signal)
     return result.ok ? privateJson(result.value) : changeError(result.error)
+  })
+}
+
+export async function handleReviewWorkloadLoad(request: NextRequest, factory: ReviewProviderFactory) {
+  if (request.nextUrl.searchParams.size > 0) return privateJson({ code: "INVALID_INPUT" }, 400)
+  return withAccess(request, factory, async (provider) => {
+    const result = await provider.loadWorkload(request.signal)
+    if (!result.ok) return readError(result.error)
+    const parsed = reviewWorkloadSchema.safeParse(result.value)
+    return parsed.success ? privateJson(parsed.data) : readError("invalid-data")
   })
 }

@@ -49,6 +49,7 @@ export type InquiryQueueState = Readonly<{
 
 export type InquiryQueueAction =
   | Readonly<{ type: "draftsDiscarded" }>
+  | Readonly<{ type: "openInventoryEntered" }>
   | Readonly<{ filter: InquiryPrimaryFilter; type: "primaryFilterChanged" }>
   | Readonly<{
       statuses: readonly Exclude<InquiryHandlingStatus, "spam">[]
@@ -156,6 +157,17 @@ function updateDraft(drafts: InquiryDrafts, inquiryId: string, mode: InquiryComp
 
 export function inquiryQueueReducer(state: InquiryQueueState, action: InquiryQueueAction): InquiryQueueState {
   switch (action.type) {
+    case "openInventoryEntered":
+      return {
+        ...state,
+        lifecycleFilter: "open",
+        handlingStatusFilter: [],
+        searchQuery: "",
+        selectedInquiryId: undefined,
+        mobilePane: "inquiry-list",
+        detailStatus: "idle",
+        detailError: undefined,
+      }
     case "primaryFilterChanged":
       return action.filter === state.lifecycleFilter
         ? state
