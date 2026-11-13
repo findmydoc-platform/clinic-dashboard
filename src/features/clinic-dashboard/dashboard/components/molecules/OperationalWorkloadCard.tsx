@@ -1,9 +1,9 @@
 "use client"
 
 import { DashboardSummaryCard, type DashboardSummaryState } from "./DashboardSummaryCard"
+import type { OperationalWorkloadCardState } from "../../model/operational-workload"
 
-export type OperationalWorkloadCardState =
-  Readonly<{ status: "loading" | "unavailable" }> | Readonly<{ status: "ready"; count: number }>
+export type { OperationalWorkloadCardState } from "../../model/operational-workload"
 
 type OperationalWorkloadCardProps = Readonly<{
   title: string

@@ -41,4 +41,4 @@ export { loadClinicDashboardReportingFromBrowser } from "./browser/reporting-api
 
 export type { DashboardOverviewRefreshClock } from "./hooks/useDashboardWorkloadController"
 export { useDashboardWorkloadController } from "./hooks/useDashboardWorkloadController"
-export type { OperationalWorkloadCardState } from "./components/molecules/OperationalWorkloadCard"
+export type { OperationalWorkloadCardState } from "./model/operational-workload"

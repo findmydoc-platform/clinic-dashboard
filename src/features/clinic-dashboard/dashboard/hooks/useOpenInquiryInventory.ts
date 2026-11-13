@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { InquiryOpenInventoryCommands } from "@/features/clinic-dashboard/messages/public"
-import type { OperationalWorkloadCardState } from "../components/molecules/OperationalWorkloadCard"
+import type { OperationalWorkloadCardState } from "../model/operational-workload"
 
 type Input = Readonly<{
   scope: string
