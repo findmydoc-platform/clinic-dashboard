@@ -13,12 +13,16 @@ type WorkflowStep = {
 }
 
 type WorkflowJob = {
+  readonly permissions?: Record<string, string>
+  readonly with?: Record<string, string>
+  readonly secrets?: Record<string, string>
   readonly needs?: string | readonly string[]
   readonly steps?: readonly WorkflowStep[]
   readonly uses?: string
 }
 
 type Workflow = {
+  readonly permissions?: Record<string, string>
   readonly jobs: Record<string, WorkflowJob>
 }
 
@@ -124,8 +128,21 @@ describe("deployment workflow contract", () => {
     })
     expect(guardStep.run).toBe("bash ./.github/scripts/deploy/require-platform-release-dispatcher.sh")
     expect(workflow.jobs.deploy?.needs).toBe("verify-dispatcher")
+    expect(workflow.permissions).toEqual({ contents: "read" })
+    expect(workflow.jobs["verify-dispatcher"]?.permissions).toBeUndefined()
+    expect(workflow.jobs.deploy?.permissions).toEqual({ actions: "read", contents: "read" })
+    expect(workflow.jobs.deploy?.with).toEqual({
+      target_sha: "${{ inputs.target_sha }}",
+      platform_version: "${{ inputs.platform_version }}",
+      plan_digest: "${{ inputs.plan_digest }}",
+    })
+    expect(workflow.jobs.deploy?.secrets).toEqual({
+      VERCEL_ORG_ID: "${{ secrets.VERCEL_ORG_ID }}",
+      VERCEL_PROJECT_ID: "${{ secrets.VERCEL_PROJECT_ID }}",
+      VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}",
+    })
     expect(workflow.jobs.deploy?.uses).toBe(
-      "findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@fde486496d8bde13a3c8cad9d23a1cbbe075507d",
+      "findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@a875e9b95cfc43010c847a7cef4dd222695c19a9",
     )
     expect(existsSync(path.join(repositoryRoot, ".github/workflows/deploy-production.yml"))).toBe(false)
   })
