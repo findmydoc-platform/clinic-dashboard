@@ -9,7 +9,7 @@ import type { ReviewWorkloadState } from "@/features/clinic-dashboard/reviews/pu
 import { PageHeading } from "@/components/ui/page-heading"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
 import { createDashboardProfileCompletionMetric } from "../../model/profile-progress"
-import { MetricCard } from "../molecules/MetricCard"
+import { DashboardSummaryCard } from "../molecules/DashboardSummaryCard"
 import { ClinicPreview } from "./ClinicPreview"
 import { ConversionFunnel } from "./ConversionFunnel"
 import { DashboardMetricPanel } from "./DashboardMetricPanel"
@@ -47,9 +47,31 @@ export function DashboardScreen({
       <PageHeading>Dashboard</PageHeading>
 
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="min-w-0 sm:col-span-2 xl:col-span-1">
-          <MetricCard metric={profileCompletionMetric} />
-        </div>
+        <DashboardSummaryCard
+          className="sm:col-span-2 xl:col-span-1"
+          title={profileCompletionMetric.label}
+          state={
+            model.profileProgress.status === "ready"
+              ? {
+                  status: "ready",
+                  value: profileCompletionMetric.value,
+                  progress: model.profileProgress.percent,
+                  detail: `${model.profileProgress.completedAreaCount} of ${model.profileProgress.totalAreaCount} profile areas complete`,
+                }
+              : model.profileProgress.status === "loading"
+                ? {
+                    status: "loading",
+                    value: profileCompletionMetric.value,
+                    detail: profileCompletionMetric.note,
+                  }
+                : {
+                    status: "unavailable",
+                    value: profileCompletionMetric.value,
+                    detail: profileCompletionMetric.note,
+                  }
+          }
+          action={{ kind: "static" }}
+        />
         <OperationalWorkloadCard
           title="Open inquiries"
           state={inquiryInventory}
@@ -60,6 +82,7 @@ export function DashboardScreen({
         />
         <OperationalWorkloadCard
           title="Reviews to answer"
+          actionLabel="View reviews"
           state={
             reviewWorkload?.status === "ready"
               ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
