@@ -100,6 +100,8 @@ function getMetricPanelLayout(canvasElement: HTMLElement) {
 
 export const FullCapabilities: Story = {
   args: {
+    inquiryInventory: { status: "ready", count: 9 },
+    reviewWorkload: { status: "ready", workload: { reviewsToAnswerCount: 4, pendingModerationCount: 2 } },
     actions: {
       onMetricSelect: fn(),
       onProfileProgressRetry: fn(),
@@ -153,24 +155,40 @@ export const TopKpiScope: Story = {
     const region = canvas.getByRole("region", { name: "Dashboard metrics" })
     const metrics = within(region)
     await expect(region.children).toHaveLength(3)
-    await expect(metrics.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
+    await expect(metrics.getByRole("button", { name: "Open inquiries" })).toBeVisible()
+    await expect(metrics.getByRole("button", { name: "Reviews to answer" })).toBeVisible()
     await expect(metrics.getByText("Public profile completion")).toBeVisible()
     await expect(metrics.getByText("67%", { exact: true })).toBeVisible()
-    await expect(metrics.queryAllByRole("button")).toHaveLength(0)
-    for (const placeholder of Array.from(region.children).slice(1)) {
-      await expect(placeholder).toHaveTextContent(/^Content to be defined$/)
-      await expect(
-        placeholder.querySelector(
-          'a[href], button, input, select, textarea, [tabindex], [role="button"], [role="link"]',
-        ),
-      ).toBeNull()
-    }
+    await expect(metrics.queryAllByRole("button")).toHaveLength(2)
     const [completion, first, second] = Array.from(region.children, (card) => card.getBoundingClientRect())
     const bounds = region.getBoundingClientRect()
     await expect(region.firstElementChild).toHaveTextContent("Public profile completion")
     await expect(completion.left).toBeCloseTo(bounds.left, 0)
     await expect(second.right).toBeCloseTo(bounds.right, 0)
     await expect(first.width).toBeCloseTo(second.width, 0)
+    if (window.innerWidth >= 640) {
+      await expect(first.height).toBeCloseTo(second.height, 0)
+      const inquiryTitle = metrics.getByText("Open inquiries", { exact: true }).getBoundingClientRect()
+      const reviewTitle = metrics.getByText("Reviews to answer", { exact: true }).getBoundingClientRect()
+      await expect(inquiryTitle.top).toBeCloseTo(reviewTitle.top, 0)
+      const inquiryValue = within(metrics.getByRole("button", { name: "Open inquiries" }))
+        .getByText("9", { exact: true })
+        .getBoundingClientRect()
+      const reviewValue = within(metrics.getByRole("button", { name: "Reviews to answer" }))
+        .getByText("4", { exact: true })
+        .getBoundingClientRect()
+      await expect(inquiryValue.top).toBeCloseTo(reviewValue.top, 0)
+      if (window.innerWidth >= 1280) {
+        await expect(completion.height).toBeCloseTo(first.height, 0)
+        await expect(
+          metrics.getByText("Public profile completion", { exact: true }).getBoundingClientRect().top,
+        ).toBeCloseTo(inquiryTitle.top, 0)
+        await expect(metrics.getByText("67%", { exact: true }).getBoundingClientRect().top).toBeCloseTo(
+          inquiryValue.top,
+          0,
+        )
+      }
+    }
     await expect(first.height).toBeGreaterThanOrEqual(96)
     await expect(second.height).toBeGreaterThanOrEqual(96)
     if (window.innerWidth >= 1280) {
@@ -281,7 +299,7 @@ export const FunnelControlsChart: Story = {
     const funnel = within(canvas.getByRole("list", { name: "Conversion stages" }))
     const profileViewsButton = funnel.getByRole("button", { name: "Profile views 848" })
 
-    await expect(metricCards.queryAllByRole("button")).toHaveLength(0)
+    await expect(metricCards.queryAllByRole("button")).toHaveLength(2)
     await expect(metricCards.getByText("Public profile completion").closest("button")).toBeNull()
     await expect(metricCards.queryByText("Profile views")).not.toBeInTheDocument()
     await expect(profileViewsButton).toHaveAttribute("aria-pressed", "true")
@@ -375,7 +393,8 @@ export const ProfileProgressError: Story = {
 
     await expect(canvas.getByText("Public profile completion")).toBeVisible()
     await expect(canvas.getAllByText("—")).toHaveLength(2)
-    await expect(metricCards.getAllByText("Content to be defined", { exact: true })).toHaveLength(2)
+    await expect(metricCards.getByRole("button", { name: "Open inquiries" })).toBeVisible()
+    await expect(metricCards.getByRole("button", { name: "Reviews to answer" })).toBeVisible()
     await expect(canvas.getByRole("button", { name: "Profile views 848" })).toBeVisible()
     await userEvent.click(canvas.getByRole("button", { name: "Retry" }))
     await expect(args.actions.onProfileProgressRetry).toHaveBeenCalledOnce()

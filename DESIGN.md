@@ -658,3 +658,9 @@ Accessibility is part of the visual system because trust depends on users being 
 - Don't use hover-only disclosure for essential actions or navigation.
 - Don't use decorative gradient blobs, bokeh, one-off orbs, or generic SaaS hero styling.
 - Don't capitalize the brand as FindMyDoc, Findmydoc, or any other variant unless quoting an external source.
+
+## Dashboard summary cards
+
+Dashboard summary cards use 16px padding and 16px grid gaps. Titles use 14px/20px bold text and reserve 40px from the tablet breakpoint for short two-line labels. Values use 24px/32px bold tabular figures. Details use 14px/20px and secondary status uses 12px/16px. Cards in the same grid row stretch to equal height. The content grows without clipping at larger text sizes.
+
+The dashboard-owned summary molecule accepts a title, presentation state, static or opening action, and grid placement. Progress bars represent actual completion only; absolute workload counts do not imply progress. Opening cards provide a visible footer action and an entire-card target. Retry remains an independent sibling action. Preserve loading, unavailable and empty meanings, accessible descriptions and reduced-motion behavior.

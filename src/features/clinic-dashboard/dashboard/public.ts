@@ -38,3 +38,7 @@ export type {
 } from "./model/clinic-dashboard-reporting"
 
 export { loadClinicDashboardReportingFromBrowser } from "./browser/reporting-api"
+
+export type { DashboardOverviewRefreshClock } from "./hooks/useDashboardWorkloadController"
+export { useDashboardWorkloadController } from "./hooks/useDashboardWorkloadController"
+export type { OperationalWorkloadCardState } from "./model/operational-workload"

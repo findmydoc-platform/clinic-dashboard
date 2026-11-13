@@ -3,6 +3,7 @@ import "server-only"
 import { withWebsiteDeploymentAccess } from "@/lib/website-deployment-access"
 
 import { z } from "zod"
+import { reviewWorkloadSchema } from "../model/review-workload"
 import { clinicDashboardContractHeaders } from "../../payload-contract"
 import { clinicReviewDetailIdSchema, clinicReviewDetailResponseSchema } from "./review-detail-contract"
 import { validateEnvironment } from "@/lib/env"
@@ -636,6 +637,8 @@ export function createPayloadReviewProvider(
     const path = endpoint.pathname
     if (path.startsWith("/api/clinic-dashboard/reviews/")) {
       endpoint.pathname = `${target}/reviews/${path.slice("/api/clinic-dashboard/reviews/".length)}`
+    } else if (path === "/api/reviews/workload") {
+      endpoint.pathname = `${target}/reviews/workload`
     } else if (path === "/api/reviews") {
       endpoint.pathname = `${target}/reviews`
     } else if (/^\/api\/reviews\/[^/]+\/publication-history$/u.test(path)) {
@@ -663,6 +666,16 @@ export function createPayloadReviewProvider(
     return websiteFetch(endpoint, { ...init, headers })
   }
   return {
+    async loadWorkload(signal) {
+      const result = await requestPayloadJson(
+        endpointFor("/api/reviews/workload"),
+        readInit(accessToken, REQUEST_TIMEOUT_MS, signal),
+        fetcher,
+      )
+      if (!result.ok) return { ok: false, error: readError(result) }
+      const parsed = reviewWorkloadSchema.safeParse(result.value)
+      return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: "invalid-data" }
+    },
     async loadReview(reviewId, signal) {
       const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
       const sharedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline

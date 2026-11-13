@@ -27,6 +27,7 @@ export class ReviewSourceCommandError extends Error {
 }
 
 export type ReviewSourceCommands = Readonly<{
+  loadWorkload: (signal?: AbortSignal) => Promise<import("./review-workload").ReviewWorkload>
   loadReview: (reviewId: string, signal?: AbortSignal) => Promise<ClinicReviewRecord>
   loadHistory: (reviewId: string, cursor?: string) => Promise<ReviewHistorySnapshot>
   loadReviews: (filters: ReviewListFilters, page: number) => Promise<ReviewsSourceSnapshot>

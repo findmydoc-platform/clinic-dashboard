@@ -80,6 +80,46 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe("Payload patient inquiry provider", () => {
+  it.each([{ count: -1 }, { count: 1.5 }, {}, { count: 2, patient: "private" }])(
+    "rejects an invalid or open inventory result %j",
+    async (body) => {
+      const provider = createPayloadPatientInquiryProvider(
+        "verified-token",
+        "clinic-1",
+        vi.fn(async () => jsonResponse(body)),
+      )
+      await expect(provider.loadOpenInventory()).resolves.toEqual({
+        ok: false,
+        error: { code: "service-unavailable" },
+      })
+    },
+  )
+
+  it("strips source record details from inventory failures", async () => {
+    const provider = createPayloadPatientInquiryProvider(
+      "verified-token",
+      "clinic-1",
+      vi.fn(async () =>
+        jsonResponse({ error: { code: "INQUIRY_ACCESS_DENIED", current: upstreamDetail() } }, 403),
+      ),
+    )
+    await expect(provider.loadOpenInventory()).resolves.toEqual({
+      ok: false,
+      error: { code: "access-denied" },
+    })
+  })
+
+  it("reads a focused complete inventory bound to its authorized clinic", async () => {
+    const fetcher = vi.fn(async () => jsonResponse({ count: 104 }))
+    const provider = createPayloadPatientInquiryProvider("verified-token", "clinic-1", fetcher)
+    await expect(provider.loadOpenInventory()).resolves.toEqual({ ok: true, value: { count: 104 } })
+    const [url, init] = fetcher.mock.calls[0] as unknown as [URL, RequestInit]
+    expect(url.pathname).toBe("/api/clinic-dashboard/clinics/clinic-1/inquiries/open-inventory")
+    expect(url.search).toBe("")
+    expect(init.cache).toBe("no-store")
+    expect(init.redirect).toBe("error")
+  })
+
   beforeEach(() => {
     vi.stubEnv("CSRF_SIGNING_SECRET", "0123456789abcdef0123456789abcdef")
     vi.stubEnv("DASHBOARD_ORIGIN", "http://localhost:3000")

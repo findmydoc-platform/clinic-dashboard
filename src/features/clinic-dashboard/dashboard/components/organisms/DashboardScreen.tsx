@@ -1,11 +1,15 @@
 "use client"
 
 import { useId } from "react"
+import {
+  OperationalWorkloadCard,
+  type OperationalWorkloadCardState,
+} from "../molecules/OperationalWorkloadCard"
+import type { ReviewWorkloadState } from "@/features/clinic-dashboard/reviews/public"
 import { PageHeading } from "@/components/ui/page-heading"
-import { Card } from "@/components/ui/card"
 import type { DashboardActions, DashboardViewModel } from "../../model/dashboard-view-model"
 import { createDashboardProfileCompletionMetric } from "../../model/profile-progress"
-import { MetricCard } from "../molecules/MetricCard"
+import { DashboardSummaryCard } from "../molecules/DashboardSummaryCard"
 import { ClinicPreview } from "./ClinicPreview"
 import { ConversionFunnel } from "./ConversionFunnel"
 import { DashboardMetricPanel } from "./DashboardMetricPanel"
@@ -13,12 +17,28 @@ import { ProfileProgress } from "./ProfileProgress"
 import { ReviewSummary } from "./ReviewSummary"
 
 type DashboardScreenProps = Readonly<{
+  inquiryInventory?: OperationalWorkloadCardState
+  onInquiriesOpen?: () => void
+  onInquiryInventoryRetry?: () => void
   actions: DashboardActions
   canDownloadProfileViews: boolean
+  reviewWorkload?: ReviewWorkloadState
+  onReviewWorkloadOpen?: () => void
+  onReviewWorkloadRetry?: () => void
   model: DashboardViewModel
 }>
 
-export function DashboardScreen({ actions, canDownloadProfileViews, model }: DashboardScreenProps) {
+export function DashboardScreen({
+  actions,
+  canDownloadProfileViews,
+  model,
+  inquiryInventory = { status: "unavailable" },
+  onInquiriesOpen = () => undefined,
+  onInquiryInventoryRetry = () => undefined,
+  reviewWorkload,
+  onReviewWorkloadOpen,
+  onReviewWorkloadRetry,
+}: DashboardScreenProps) {
   const metricPanelId = useId()
   const profileCompletionMetric = createDashboardProfileCompletionMetric(model.profileProgress)
 
@@ -27,17 +47,58 @@ export function DashboardScreen({ actions, canDownloadProfileViews, model }: Das
       <PageHeading>Dashboard</PageHeading>
 
       <section aria-label="Dashboard metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="min-w-0 sm:col-span-2 xl:col-span-1">
-          <MetricCard metric={profileCompletionMetric} />
-        </div>
-        {[1, 2].map((position) => (
-          <Card
-            className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
-            key={position}
-          >
-            Content to be defined
-          </Card>
-        ))}
+        <DashboardSummaryCard
+          className="sm:col-span-2 xl:col-span-1"
+          title={profileCompletionMetric.label}
+          state={
+            model.profileProgress.status === "ready"
+              ? {
+                  status: "ready",
+                  value: profileCompletionMetric.value,
+                  progress: model.profileProgress.percent,
+                  detail: `${model.profileProgress.completedAreaCount} of ${model.profileProgress.totalAreaCount} profile areas complete`,
+                }
+              : model.profileProgress.status === "loading"
+                ? {
+                    status: "loading",
+                    value: profileCompletionMetric.value,
+                    detail: profileCompletionMetric.note,
+                  }
+                : {
+                    status: "unavailable",
+                    value: profileCompletionMetric.value,
+                    detail: profileCompletionMetric.note,
+                  }
+          }
+          action={{ kind: "static" }}
+        />
+        <OperationalWorkloadCard
+          title="Open inquiries"
+          actionLabel="View open inquiries"
+          state={inquiryInventory}
+          description="Current total"
+          emptyDescription="No open inquiries"
+          onOpen={onInquiriesOpen}
+          onRetry={onInquiryInventoryRetry}
+        />
+        <OperationalWorkloadCard
+          title="Reviews to answer"
+          actionLabel="View published reviews"
+          state={
+            reviewWorkload?.status === "ready"
+              ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
+              : { status: reviewWorkload?.status ?? "loading" }
+          }
+          description="Public reviews without a submitted response"
+          emptyDescription="No reviews awaiting your response"
+          secondaryText={
+            reviewWorkload?.status === "ready" && reviewWorkload.workload.pendingModerationCount > 0
+              ? `${reviewWorkload.workload.pendingModerationCount} ${reviewWorkload.workload.pendingModerationCount === 1 ? "response" : "responses"} pending moderation`
+              : undefined
+          }
+          onOpen={onReviewWorkloadOpen ?? actions.onReviewsOpen}
+          onRetry={onReviewWorkloadRetry ?? (() => undefined)}
+        />
       </section>
 
       <div

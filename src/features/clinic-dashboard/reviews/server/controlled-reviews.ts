@@ -329,6 +329,19 @@ function history(clinicId: string, reviewId: string, cursor?: string): ReviewHis
 
 export function createControlledReviewProvider(clinicId = "clinic-1"): ReviewProvider {
   return {
+    async loadWorkload() {
+      const reviews = controlledState(clinicId).reviews
+      const current = reviews.filter(
+        (review) => review.withdrawalState === "active" && review.publicMeasure !== "removed",
+      )
+      return {
+        ok: true,
+        value: {
+          reviewsToAnswerCount: current.filter((review) => !review.response).length,
+          pendingModerationCount: reviews.filter((review) => review.response?.status === "pending").length,
+        },
+      }
+    },
     async loadReview(reviewId) {
       const review = controlledState(clinicId).reviews.find(({ id }) => id === reviewId)
       return review ? { ok: true, value: structuredClone(review) } : { ok: false, error: "not-found" }

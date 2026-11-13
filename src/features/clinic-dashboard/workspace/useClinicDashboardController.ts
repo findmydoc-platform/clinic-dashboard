@@ -72,6 +72,11 @@ export function useClinicDashboardController({
     setActiveSection("reviews")
   }, [])
 
+  const navigateToPublishedReviews = useCallback(() => {
+    setReviewFocusTarget({ kind: "published" })
+    setActiveSection("reviews")
+  }, [])
+
   const openProfileTask = useCallback(
     (task: DashboardProfileTask) => {
       setProfileTaskDialog({ open: true, sourceTask: initialProfileTask, task })
@@ -130,6 +135,7 @@ export function useClinicDashboardController({
       navigate,
       navigateToProfileTarget,
       navigateToReviews,
+      navigateToPublishedReviews,
       openProfileTask,
       openSupport,
       selectLocation,

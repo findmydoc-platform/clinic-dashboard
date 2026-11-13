@@ -1,13 +1,18 @@
 "use client"
 
+import type { ReviewWorkloadState } from "@/features/clinic-dashboard/reviews/public"
 import { PageHeading } from "@/components/ui/page-heading"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useId } from "react"
+import {
+  OperationalWorkloadCard,
+  type OperationalWorkloadCardState,
+} from "../molecules/OperationalWorkloadCard"
 import type { DashboardOverviewModel, DashboardJourneyStageId } from "../../model/dashboard-overview"
 import { formatReportingObservationTimestamp } from "../../model/clinic-dashboard-reporting-display"
 import type { DashboardProfileTask } from "../../model/profile-tasks"
-import { ReportingMetricCard } from "../molecules/ReportingMetricCard"
+import { DashboardSummaryCard } from "../molecules/DashboardSummaryCard"
 import { ReportingInformation } from "../molecules/ReportingInformation"
 import { ProfileProgress } from "./ProfileProgress"
 import { ClinicPreview } from "./ClinicPreview"
@@ -15,6 +20,12 @@ import { ReviewSummary } from "./ReviewSummary"
 import { ReportingJourneyFunnel } from "./ReportingJourneyFunnel"
 
 type DashboardOverviewScreenProps = Readonly<{
+  inquiryInventory?: OperationalWorkloadCardState
+  onInquiriesOpen?: () => void
+  onInquiryInventoryRetry?: () => void
+  reviewWorkload?: ReviewWorkloadState
+  onReviewWorkloadOpen?: () => void
+  onReviewWorkloadRetry?: () => void
   model: DashboardOverviewModel
   onMetricSelect: (id: DashboardJourneyStageId) => void
   onProfileTaskOpen: (task: DashboardProfileTask) => void
@@ -25,6 +36,12 @@ type DashboardOverviewScreenProps = Readonly<{
 
 export function DashboardOverviewScreen({
   model,
+  inquiryInventory = { status: "unavailable" },
+  onInquiriesOpen = () => undefined,
+  onInquiryInventoryRetry = () => undefined,
+  reviewWorkload,
+  onReviewWorkloadOpen,
+  onReviewWorkloadRetry,
   onMetricSelect,
   onProfileTaskOpen,
   onProfileProgressRetry,
@@ -39,18 +56,47 @@ export function DashboardOverviewScreen({
         {model.metrics
           .filter((metric) => metric.id === "completion")
           .map((metric) => (
-            <div className="min-w-0 sm:col-span-2 xl:col-span-1" key={metric.id}>
-              <ReportingMetricCard {...metric} />
-            </div>
+            <DashboardSummaryCard
+              key={metric.id}
+              className="sm:col-span-2 xl:col-span-1"
+              title={metric.label}
+              state={
+                metric.availability === "available"
+                  ? { status: "ready", value: metric.value, detail: metric.detail, progress: metric.progress }
+                  : metric.availability === "loading"
+                    ? { status: "loading", value: metric.value, detail: metric.detail }
+                    : { status: "unavailable", value: metric.value, detail: metric.detail }
+              }
+              action={{ kind: "static" }}
+            />
           ))}
-        {[1, 2].map((position) => (
-          <Card
-            className="flex min-h-24 min-w-0 items-center justify-center p-4 text-sm shadow-none"
-            key={position}
-          >
-            Content to be defined
-          </Card>
-        ))}
+        <OperationalWorkloadCard
+          title="Open inquiries"
+          actionLabel="View open inquiries"
+          state={inquiryInventory}
+          description="Current total"
+          emptyDescription="No open inquiries"
+          onOpen={onInquiriesOpen}
+          onRetry={onInquiryInventoryRetry}
+        />
+        <OperationalWorkloadCard
+          title="Reviews to answer"
+          actionLabel="View published reviews"
+          state={
+            reviewWorkload?.status === "ready"
+              ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
+              : { status: reviewWorkload?.status ?? "loading" }
+          }
+          description="Public reviews without a submitted response"
+          emptyDescription="No reviews awaiting your response"
+          secondaryText={
+            reviewWorkload?.status === "ready" && reviewWorkload.workload.pendingModerationCount > 0
+              ? `${reviewWorkload.workload.pendingModerationCount} ${reviewWorkload.workload.pendingModerationCount === 1 ? "response" : "responses"} pending moderation`
+              : undefined
+          }
+          onOpen={onReviewWorkloadOpen ?? onReviewsOpen}
+          onRetry={onReviewWorkloadRetry ?? (() => undefined)}
+        />
       </section>
       {model.reportingStatus === "temporarily-unavailable" ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">

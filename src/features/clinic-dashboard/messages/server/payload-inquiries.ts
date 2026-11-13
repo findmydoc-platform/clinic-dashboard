@@ -564,6 +564,7 @@ function withSafeProviderBoundary(provider: PatientInquiryProvider): PatientInqu
     finalizeAttachmentDraft: (input) => safelyInvokeProvider(() => provider.finalizeAttachmentDraft(input)),
     loadDetail: (input) => safelyInvokeProvider(() => provider.loadDetail(input)),
     loadQueue: (input) => safelyInvokeProvider(() => provider.loadQueue(input)),
+    loadOpenInventory: () => safelyInvokeProvider(() => provider.loadOpenInventory()),
     previewAttachment: (input) => safelyInvokeProvider(() => provider.previewAttachment(input)),
     revealContact: (input) => safelyInvokeProvider(() => provider.revealContact(input)),
     sendExternalMessage: (input) => safelyInvokeProvider(() => provider.sendExternalMessage(input)),
@@ -751,6 +752,29 @@ export function createPayloadPatientInquiryProvider(
         z.object({ finalized: z.boolean() }),
       ),
     loadDetail,
+    async loadOpenInventory() {
+      const response = await requestPayload(
+        targetEndpoint("/api/clinic-dashboard/inquiries/open-inventory", runtimeEnvironment),
+        {
+          cache: "no-store",
+          headers: requestHeaders(accessToken),
+          redirect: "error",
+          signal: AbortSignal.timeout(8_000),
+        },
+        fetcher,
+      )
+      if (!response.ok) {
+        const failure = mapError(response)
+        return { ok: false, error: { code: failure.ok ? "service-unavailable" : failure.error.code } }
+      }
+      const parsed = z
+        .object({ count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) })
+        .strict()
+        .safeParse(response.body)
+      return parsed.success
+        ? { ok: true, value: parsed.data }
+        : { ok: false, error: { code: "service-unavailable" } }
+    },
     async loadQueue(input) {
       const endpoint = targetEndpoint("/api/clinic-dashboard/inquiries", runtimeEnvironment)
       endpoint.searchParams.set("lifecycle", input.lifecycle)

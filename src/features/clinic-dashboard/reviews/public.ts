@@ -19,3 +19,6 @@ export type {
 } from "./model/review-source"
 
 export type { ReviewOpeningRequest, ReviewOpeningResult } from "./model/review-opening"
+
+export { useReviewWorkloadController } from "./hooks/useReviewWorkloadController"
+export type { ReviewWorkload, ReviewWorkloadState } from "./model/review-workload"

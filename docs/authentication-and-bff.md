@@ -625,6 +625,20 @@ The additive `X-Findmydoc-Clinic-Notifications-Contract: clinic-notifications-v1
 
 Preview capture has remained active since `2026-10-20T12:18:38.493Z`; the 2026-10-21 checks did not change its controls. The paired Preview produced all ten event types across seven source families through ordinary source workflows. The personal history returned pages of 25 and 7 entries, and the center rendered 32 rows without duplicates. First read timestamps remained stable, and the same signed continuation remained valid after a clinic switch. A bounded synthetic Preview retention check excluded expired occurrences from the feed and count, and an expired read acknowledgment created no receipt. The regular five-minute Preview scheduler physically deleted two expired test occurrences and their receipt at `2026-10-21T09:55:36Z`, while retaining a live control occurrence. The test fixtures were cleaned up. The center also opened an inquiry notification from another authorized clinic, switched to its attributed clinic, and displayed the exact closed inquiry. These are dated Preview observations; the remaining criteria stay tracked in #210 and #239. Production capture was verified active at `2026-10-22T19:09:12.975Z`. The v0.50.2 observations on 2026-10-23 include negative authorization checks and original-link invitation resumption through the password form. Full Production notification-feed and group-access acceptance remains open in #211 and #240.
 
+## Current review workload
+
+The overview's Reviews to answer card reads `GET /api/dashboard/clinics/:clinicId/reviews/workload` through the existing reviews provider and central Controlled/Payload composition. The Website producer owns the complete authorized inventory. The closed response contains only nonnegative integer `reviewsToAnswerCount` and `pendingModerationCount`; browser and upstream reads are private and `no-store`. Query parameters are rejected. Invalid or incomplete results make the entire review card unavailable, with an independent retry and no synthetic fallback.
+
+The main figure counts current public approved reviews without any submitted response workflow. Pending, approved, rejected and blocked responses all exclude a review. Pending moderation counts each current response workflow once, including a pending revision beside a published reply. Both figures are independent of the reporting period and loaded list page. Scope changes clear the visible result and cancel or discard late reads. Existing session and access recovery applies.
+
+Card activation uses the existing protected navigation and opens Published reviews with period, rating and treatment reset to All. Published can include answered reviews. Navigation leaves response drafts, moderation workflows, reporting selection and inquiry read positions unchanged. A genuine zero remains navigable and can still show pending moderation. Loading is semantic and uses the shared reduced-motion-aware skeleton. The explicit Storybook reporting demo uses synthetic commands and destinations with the same card contract.
+
+Both operational cards use overview-owned entry, return, window-focus and 60-second refresh triggers. Periodic reads
+run only while the overview and document are visible. Equivalent pending reads coalesce; context changes and disposal
+invalidate their results. Loading replaces previous values, and one failed domain does not disable the other. Confirmed
+session or clinic-access loss clears both cards before the existing workspace recovery continues. Refresh never submits
+a response, changes inquiry status or updates a personal read position.
+
 ## Clinic-scoped review management
 
 The review browser commands bind list filters, pagination, exact detail, history, response and appeal submission to `/api/dashboard/clinics/:clinicId/reviews`. The BFF resolves the explicit target against fresh personal access and keeps session, origin and CSRF checks. Targetless legacy routes remain denied. The Payload provider uses only the dedicated Website review operations under the matching clinic prefix and negotiates `clinic-scope-v1`; mutation bodies cannot choose a clinic. No additional bootstrap capability names are introduced.
@@ -688,3 +702,12 @@ this application. Authorized users share the existing sender account's sending
 allowance, so exhausting that allowance can also affect other mail from that
 account. A distributed limiter remains deferred; this release adds no limiter,
 service, database, or paid feature.
+
+### Current open inquiry inventory
+
+`GET /api/dashboard/clinics/{clinicId}/inquiries/open-inventory` uses the existing inquiry provider and selected-clinic
+session guard. It accepts no query parameters and returns only `{ count: number }`, a validated nonnegative safe
+integer. Payload owns the complete open, non-spam population across submitted, in_review and contacted handling states,
+including legacy queue projections. Queue pagination, reporting windows and personal unread positions do not restrict
+this current inventory. Controlled mode implements the same read against its synthetic source. Responses remain
+private/no-store; invalid upstream results and source failures return sanitized errors without partial counts.
