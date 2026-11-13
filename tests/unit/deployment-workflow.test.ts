@@ -142,7 +142,7 @@ describe("deployment workflow contract", () => {
       VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}",
     })
     expect(workflow.jobs.deploy?.uses).toBe(
-      "findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@a875e9b95cfc43010c847a7cef4dd222695c19a9",
+      "findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@94e2b31219a4826b966f9c7f2fa7216a4b1a13ca",
     )
     expect(existsSync(path.join(repositoryRoot, ".github/workflows/deploy-production.yml"))).toBe(false)
   })

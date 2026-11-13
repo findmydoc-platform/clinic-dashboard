@@ -45,7 +45,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-    uses: findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@a875e9b95cfc43010c847a7cef4dd222695c19a9
+    uses: findmydoc-platform/platform-release/.github/workflows/reusable-deploy-dashboard.yml@94e2b31219a4826b966f9c7f2fa7216a4b1a13ca
     with:
       target_sha: ${{ inputs.target_sha }}
       platform_version: ${{ inputs.platform_version }}
