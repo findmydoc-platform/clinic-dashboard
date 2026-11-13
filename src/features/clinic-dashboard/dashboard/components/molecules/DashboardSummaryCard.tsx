@@ -1,6 +1,6 @@
 "use client"
 
-import { useId, useRef } from "react"
+import { useCallback, useId, useRef } from "react"
 import { ChevronRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,14 @@ type Props = Readonly<{ title: string; state: DashboardSummaryState; action: Act
 
 export function DashboardSummaryCard({ title, state, action, className }: Props) {
   const mainActionRef = useRef<HTMLButtonElement>(null)
+  const retryRef = useCallback((button: HTMLButtonElement | null) => {
+    if (!button) return
+    return () => {
+      if (button === button.ownerDocument.activeElement) {
+        mainActionRef.current?.focus()
+      }
+    }
+  }, [])
   const valueId = useId()
   const detailId = useId()
   const secondaryId = useId()
@@ -130,6 +138,7 @@ export function DashboardSummaryCard({ title, state, action, className }: Props)
             </p>
           ) : null}
           <Button
+            ref={retryRef}
             className="pointer-events-auto"
             variant="outline"
             aria-label={`Retry ${title}`}

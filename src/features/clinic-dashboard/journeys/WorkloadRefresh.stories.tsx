@@ -66,6 +66,50 @@ export const ReturnAndWindowReactivation: Story = {
   },
 }
 
+export const AutomaticRecoveryPreservesKeyboardFocus: Story = {
+  args: {
+    prototypeMode: "presentation",
+    overviewRefreshClock: {
+      schedule: fn<(refresh: () => void, intervalMs: number) => () => void>(() => () => {}),
+    },
+    inquiryInventoryCommands: {
+      loadOpenInventory: fn(async () => ({ ok: true as const, value: { count: 41 } })),
+    },
+    reviewCommands: {
+      ...createReviewSourceCommandsFixture(),
+      loadWorkload: fn(async () => ({ reviewsToAnswerCount: 51, pendingModerationCount: 2 })),
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const review = canvas.getByRole("button", { name: "Reviews to answer" })
+    const inquiries = canvas.getByRole("button", { name: "Open inquiries" })
+    expect(await within(review).findByText("51")).toBeVisible()
+    const refresh = mocked(args.overviewRefreshClock!.schedule).mock.calls.at(-1)![0]
+    const loadWorkload = mocked(args.reviewCommands!.loadWorkload)
+    loadWorkload.mockRejectedValue(new Error("Synthetic refresh failure"))
+    refresh()
+    const retry = await canvas.findByRole("button", { name: "Retry Reviews to answer" })
+    review.focus()
+    await userEvent.tab()
+    expect(retry).toHaveFocus()
+    loadWorkload.mockResolvedValue({ reviewsToAnswerCount: 52, pendingModerationCount: 1 })
+    refresh()
+    expect(await within(review).findByText("52")).toBeVisible()
+    expect(canvas.queryByRole("button", { name: "Retry Reviews to answer" })).not.toBeInTheDocument()
+    expect(review).toHaveFocus()
+
+    loadWorkload.mockRejectedValue(new Error("Synthetic refresh failure"))
+    refresh()
+    expect(await canvas.findByRole("button", { name: "Retry Reviews to answer" })).toBeVisible()
+    inquiries.focus()
+    loadWorkload.mockResolvedValue({ reviewsToAnswerCount: 53, pendingModerationCount: 0 })
+    refresh()
+    expect(await within(review).findByText("53")).toBeVisible()
+    expect(inquiries).toHaveFocus()
+  },
+}
+
 function MinuteRefreshHarness(args: React.ComponentProps<typeof ClinicDashboardWorkspaceHarness>) {
   const [scenario] = useState(() => {
     let timer: { tick: () => void; interval: number; next: number } | undefined
