@@ -36,22 +36,38 @@ export function useReviewWorkloadController({ scope, commands, enabled = true, o
     if (activeRead.current) return activeRead.current.promise
     const abort = new AbortController()
     const current = ++generation.current
-    setResult({ scope, state: { status: "loading" } })
+    setResult((previous) => ({
+      scope,
+      state:
+        previous?.scope === scope && previous.state.status === "ready"
+          ? {
+              ...previous.state,
+              refreshState: previous.state.refreshState === "stale" ? "stale" : "updating",
+            }
+          : { status: "loading" },
+    }))
     const promise = Promise.resolve()
       .then(() => commands.loadWorkload(abort.signal))
       .then(
         (workload) => {
           if (abort.signal.aborted || current !== generation.current) return
-          setResult({ scope, state: { status: "ready", workload } })
+          setResult({ scope, state: { status: "ready", workload, refreshState: "idle" } })
         },
         (error: unknown) => {
           if (abort.signal.aborted || current !== generation.current) return
-          setResult({ scope, state: { status: "unavailable" } })
-          if (
+          const accessFailure =
             error instanceof ReviewSourceCommandError &&
             (error.kind === "unauthorized" || error.kind === "forbidden")
-          )
-            callbacks.current?.(error.kind)
+              ? error.kind
+              : undefined
+          setResult((previous) => ({
+            scope,
+            state:
+              !accessFailure && previous?.scope === scope && previous.state.status === "ready"
+                ? { ...previous.state, refreshState: "stale" }
+                : { status: "unavailable" },
+          }))
+          if (accessFailure) callbacks.current?.(accessFailure)
         },
       )
       .finally(() => {

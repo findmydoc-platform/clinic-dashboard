@@ -35,19 +35,36 @@ export function useOpenInquiryInventory({ scope, commands, enabled, onSessionLos
     if (pending.current?.scope === scope) return pending.current.promise
     const request = ++generation.current
     const current = () => request === generation.current && scopeRef.current === scope
-    setResult({ scope, state: { status: "loading" } })
+    setResult((previous) => ({
+      scope,
+      state:
+        previous?.scope === scope && previous.state.status === "ready"
+          ? {
+              ...previous.state,
+              refreshState: previous.state.refreshState === "stale" ? "stale" : "updating",
+            }
+          : { status: "loading" },
+    }))
     const promise = Promise.resolve()
       .then(() => commands.loadOpenInventory())
       .catch(() => ({ ok: false, error: { code: "service-unavailable" } }) as const)
       .then((response) => {
         if (!current()) return
         if (!response || !response.ok) {
-          setResult({ scope, state: { status: "unavailable" } })
+          const accessFailure =
+            response?.error.code === "unauthorized" || response?.error.code === "access-denied"
+          setResult((previous) => ({
+            scope,
+            state:
+              !accessFailure && previous?.scope === scope && previous.state.status === "ready"
+                ? { ...previous.state, refreshState: "stale" }
+                : { status: "unavailable" },
+          }))
           if (response?.error.code === "unauthorized") callbacks.current.onSessionLost?.()
           if (response?.error.code === "access-denied") callbacks.current.onAccessLost?.()
           return
         }
-        setResult({ scope, state: { status: "ready", count: response.value.count } })
+        setResult({ scope, state: { status: "ready", count: response.value.count, refreshState: "idle" } })
       })
       .finally(() => {
         if (current()) pending.current = undefined

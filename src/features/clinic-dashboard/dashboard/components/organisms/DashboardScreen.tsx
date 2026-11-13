@@ -86,7 +86,11 @@ export function DashboardScreen({
           actionLabel="View published reviews"
           state={
             reviewWorkload?.status === "ready"
-              ? { status: "ready", count: reviewWorkload.workload.reviewsToAnswerCount }
+              ? {
+                  status: "ready",
+                  count: reviewWorkload.workload.reviewsToAnswerCount,
+                  refreshState: reviewWorkload.refreshState,
+                }
               : { status: reviewWorkload?.status ?? "loading" }
           }
           description="Public reviews without a submitted response"

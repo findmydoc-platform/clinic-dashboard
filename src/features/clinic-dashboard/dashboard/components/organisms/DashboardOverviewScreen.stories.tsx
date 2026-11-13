@@ -27,8 +27,12 @@ const previewFixture = {
 const meta = {
   component: DashboardOverviewScreen,
   args: {
-    inquiryInventory: { status: "ready", count: 9 },
-    reviewWorkload: { status: "ready", workload: { reviewsToAnswerCount: 4, pendingModerationCount: 2 } },
+    inquiryInventory: { status: "ready", refreshState: "idle", count: 9 },
+    reviewWorkload: {
+      status: "ready",
+      refreshState: "idle",
+      workload: { reviewsToAnswerCount: 4, pendingModerationCount: 2 },
+    },
     model: createDashboardOverview({
       reporting: { status: "ready", reporting: clinicDashboardReportingFixture },
       periodDays: 30,

@@ -635,8 +635,12 @@ Card activation uses the existing protected navigation and opens Published revie
 
 Both operational cards use overview-owned entry, return, window-focus and 60-second refresh triggers. Periodic reads
 run only while the overview and document are visible. Equivalent pending reads coalesce; context changes and disposal
-invalidate their results. Loading replaces previous values, and one failed domain does not disable the other. Confirmed
-session or clinic-access loss clears both cards before the existing workspace recovery continues. Refresh never submits
+invalidate their results. Initial loading shows a skeleton. Same-scope background reads retain the complete last
+successful snapshot without a loading indicator; success replaces its values and detail together. A transient failure
+retains those values with "Update failed. Showing previous values." and an independent Retry. The stale notice stays
+visible through retry and clears on success. One failed domain does not disable the other. A user or clinic change
+never retains another scope's values. Confirmed session or clinic-access loss clears both cards before the existing
+workspace recovery continues. Refresh never submits
 a response, changes inquiry status or updates a personal read position.
 
 ## Clinic-scoped review management
