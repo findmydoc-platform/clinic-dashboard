@@ -35,7 +35,7 @@ jobs:
 
       - name: Workflow lint
         if: steps.scope.outputs.workflow_security != 'false'
-        uses: reviewdog/action-actionlint@48e36f54d8da326b83ab061aee2cc5e01b5ca46f # v1.80.6
+        uses: reviewdog/action-actionlint@7abf25e1607ec65838b73d0484ff31f8e9499d80 # v1.81.2
         with:
           reporter: github-check
           filter_mode: nofilter
@@ -43,13 +43,13 @@ jobs:
 
       - name: Workflow security audit
         if: steps.scope.outputs.workflow_security != 'false'
-        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           advanced-security: "false"
           annotations: "true"
           persona: regular
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
