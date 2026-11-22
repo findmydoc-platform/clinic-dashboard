@@ -20,63 +20,25 @@
 
 ## Runtime Status and Scope
 
-At checked Dashboard revision `f9e147701a34a44e267c8dc4de4088afb68d877f` (2026-10-21), server-side Supabase
-sessions, Payload bootstrap, and the domain-provider composition are implemented in code. The [composition](../src/features/clinic-dashboard/data-provider-composition.ts)
-selects a Payload adapter for each domain in normal mode. The [workspace loader](../src/features/clinic-dashboard/server.ts)
-still starts with demo presentation data and overlays available source-backed results. Controlled providers supply
-synthetic data only in local/test mode; [environment validation](../src/lib/env.ts) rejects that mode in Preview and
-Production. Local inquiry acceptance is a narrow exception that uses a loopback Payload adapter with controlled auth.
+Normal mode selects Payload domain providers in the [server composition](../src/features/clinic-dashboard/data-provider-composition.ts).
+The [workspace loader](../src/features/clinic-dashboard/server.ts) combines source-backed results with presentation
+fixtures. [Environment validation](../src/lib/env.ts) restricts Controlled providers to local and test use. The
+[local inquiry acceptance lane](testing/inquiry-communication-adoption.md) uses a loopback Payload adapter with
+controlled authentication.
 
-| Capability | Controlled or fixture behavior                                 | Normal-mode source wiring                                                                                                  | Preview availability                              | Production availability |
-| ---------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------- |
-| Doctors    | Controlled provider; demo presentation remains                 | [Payload doctor provider](../src/features/clinic-dashboard/clinic-profile/server/payload-doctor-profiles.ts) selected      | Observed: owned create/delete                     | Open: not verified      |
-| Gallery    | Controlled provider; demo presentation remains                 | [Payload gallery provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-gallery.ts) selected      | Observed: draft upload/discard                    | Open: not verified      |
-| Inquiries  | Controlled provider; local acceptance can use loopback Payload | [Payload inquiry provider](../src/features/clinic-dashboard/messages/server/payload-inquiries.ts) selected                 | Observed: message, reply, moderation              | Open: not verified      |
-| Profile    | Controlled provider; demo presentation remains                 | [Payload profile provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-profile.ts) selected      | Observed: draft keep/save/discard                 | Open: not verified      |
-| Reporting  | Controlled provider; source-backed dashboard presentation      | [Payload reporting provider](../src/features/clinic-dashboard/dashboard/server/payload-reporting.ts) selected              | Observed: scoped read and late-response rejection | Open: not verified      |
-| Reviews    | Controlled provider; demo presentation remains                 | [Payload review provider](../src/features/clinic-dashboard/reviews/server/payload-reviews.ts) selected                     | Observed: lifecycle and exact detail              | Open: not verified      |
-| Treatments | Controlled provider; demo presentation remains                 | [Payload treatment provider](../src/features/clinic-dashboard/clinic-profile/server/payload-clinic-treatments.ts) selected | Observed: scoped read/write/restore               | Open: not verified      |
+Use the deployment record to identify the running revision, then verify the capability against the authorized runtime
+in that environment. Source wiring, successful builds, fixtures, and Preview results cannot establish a Production
+capability. [Dashboard PR #243](https://github.com/findmydoc-platform/clinic-dashboard/pull/243) and
+[Website PR #2186](https://github.com/findmydoc-platform/website/pull/2186) record the paired source rollout. The
+[pinned October 2026 verification record](https://github.com/findmydoc-platform/clinic-dashboard/blob/39d0e06ab100fbac472bf7aad2e837e8620ea1da/docs/authentication-and-bff.md#runtime-status-and-scope)
+lists the tested capabilities and their evidence limits.
 
-The Preview observations below apply to Dashboard revision `f9e147701a34a44e267c8dc4de4088afb68d877f`, deployment
-`dpl_7tcdiSUPxvEqKnxpYPxtoVuRWb8b`, paired with Website revision `28db137360dc0384a81c7fdb1c471e0136fa15f4`,
-deployment `dpl_D2iN7fTraevpy7vZSH6QU3Ym4W81`, on 2026-10-21. The paired implementation merged in
-[Dashboard #243](https://github.com/findmydoc-platform/clinic-dashboard/pull/243) and
-[Website #2186](https://github.com/findmydoc-platform/website/pull/2186).
-
-Authorized Preview workspaces loaded through the source-backed providers. Bounded checks covered group and local
-clinic selection, independent and unassigned personas, foreign-clinic denial, profile draft keep/save/discard, gallery
-draft upload/discard, and rejection of a late reporting response after a clinic switch. Doctor checks covered an owned
-inactive create, update and delete, with a denied wrong-clinic update. Inquiry checks covered patient messages, clinic replies, moderation, restoration and appeal.
-Review checks covered publication, responses, appeals, withdrawal, removal and exact detail opening. Treatment checks
-covered a clinic-scoped price change, native readback and restoration. A live denied profile save entered protected
-access-loss recovery without a reload; staying retained the restriction, and explicit discard opened an authorized
-alternative in the same section. Profile publication and gallery item state stayed unchanged after draft checks.
-These observations do not qualify every operation in each domain. Complete criteria and remaining evidence belong to
-[Preview notifications #210](https://github.com/findmydoc-platform/clinic-dashboard/issues/210) and
-[Preview group access #239](https://github.com/findmydoc-platform/clinic-dashboard/issues/239).
-
-"Open" means checked evidence does not establish that environment's capability availability. A selected adapter or a
-successful build does not prove a deployed, reachable, authorized workflow. Production availability remains unverified;
-these Preview observations establish no Production activation. Live time-series and CSV exports remain unavailable.
-
-The Dashboard selects `clinic-dashboard-reporting-v3` through `X-Findmydoc-Reporting-Contract`, independently of
-`clinic-scope-v1`. Website [ADR 040](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/040-adr-four-count-clinic-dashboard-reporting.md)
-defines the reporting architecture. The four selectable cards show Impressions, Profile views, Unique visitors and stored
-Inquiries. Profile views is initially selected. Form-side inquiry-start tracking remains a Website analytics capability
-and is excluded from this DTO. Impressions requires actual positive viewport
-visibility in an active document. Every analytics metric requires verified project-specific capture history for its
-current and comparison windows. Unknown history is partial rather than zero. Public profile progress, tasks and
-current reviews remain independent of analytics failures. Unsupported saved Contacts preferences fall back to Profile
-Views. Retired Inquiry starters selections map to Profile views while retaining a valid saved period in the same
-person/clinic scope. V2 responses and additional metrics are rejected. Website and Dashboard switch directly to V3
-without a compatibility window; a mismatched pair can temporarily make reporting unavailable. Live time-series charts and CSV downloads remain unavailable. Notification polling does not refresh reporting.
-Operational source verification and external data cleanup remain tracked in
-[#305](https://github.com/findmydoc-platform/clinic-dashboard/issues/305). Source implementation does not change the
-environment availability recorded above.
-
-This document records the durable authentication and Backend for Frontend architecture of the stateless Next.js
-application. It is not an execution plan. The Dashboard owns no database, durable business cache, Supabase service-role
-key, browser-readable auth token, or generic Payload proxy.
+- Notifications acceptance: [Preview #210](https://github.com/findmydoc-platform/clinic-dashboard/issues/210) and
+  [Production #211](https://github.com/findmydoc-platform/clinic-dashboard/issues/211).
+- Group access acceptance: [Preview #239](https://github.com/findmydoc-platform/clinic-dashboard/issues/239) and
+  [Production #240](https://github.com/findmydoc-platform/clinic-dashboard/issues/240).
+- Reporting verification and cleanup: [#305](https://github.com/findmydoc-platform/clinic-dashboard/issues/305).
+  See the [reporting frontend contract](engineering/reporting-frontend-contract.md) for Dashboard behavior.
 
 ## Target Request Shape
 
@@ -367,34 +329,12 @@ origin. Credential-bearing requests reject redirects. Application bearer tokens,
 media-source validation, request timeouts, and response validation remain independent requirements. Credentials never
 reach browser responses or logs.
 
-The person-scoped bootstrap uses `X-Findmydoc-Clinic-Scope-Contract: clinic-scope-v1` and mirrors that
-version in `schemaVersion`. The server-only contract module also retains the independent inquiry and notification
-negotiation headers. The bootstrap parser accepts only the new shape. Sessions identify a person; each source request
-rechecks current authorization.
-
-```ts
-type ClinicDashboardCapability =
-  | "clinic-profile:view"
-  | "clinic-profile:edit"
-  | "clinic-gallery:view"
-  | "clinic-gallery:edit"
-  | "clinic-treatments:view"
-  | "clinic-treatments:edit"
-  | "clinic-inquiries:view"
-  | "clinic-inquiries:edit"
-
-type ClinicDashboardBootstrapDTO = {
-  schemaVersion: "clinic-scope-v1"
-  principal: { id: string; displayName: string; email: string }
-  status: "approved"
-  clinics: { id: string; name: string; capabilities: ClinicDashboardCapability[] }[]
-}
-```
-
-Website derives eligible clinics from current assignments, sorts by display name and then stable ID, and returns an
-empty array when an otherwise eligible person has no authorized clinics. Each clinic's capabilities use the independent,
-unique subsets of the closed union above. Reporting, doctors and reviews gain no invented bootstrap capabilities.
-Their source operation authorization remains separate.
+The person-scoped bootstrap negotiates `clinic-scope-v1` using `X-Findmydoc-Clinic-Scope-Contract`. See the
+[Website provider contract](https://github.com/findmydoc-platform/website/blob/main/docs/integrations/clinic-dashboard-api.md)
+for the DTO and [the Dashboard parser](../src/features/clinic-dashboard/auth/model/auth.ts)
+for the consumer validation. Website orders eligible clinics by display name and stable ID and can return an empty
+eligible list. Reporting, doctors, and reviews use their source operation authorization without additional bootstrap
+capabilities. Sessions identify a person. Each source request rechecks current authorization.
 
 The initial page reads the fresh bootstrap and validates the host-only `fmd-clinic-preference` cookie against the current
 principal and authorized list. The cookie stores only a principal ID and clinic ID; it contains no session or draft data,
@@ -617,13 +557,13 @@ The architecture remains valid only while the following properties hold:
 
 ### Notification foundation
 
-Review publication, withdrawal and removal occurrences use the same closed notification contract. The review domain owns ordinary exact loading through GET `/api/dashboard/clinics/:clinicId/reviews/:id`; its Payload provider validates the Website's minimized `{ data }` response and loads only normal currently authorized workflows within one shared eight-second budget. Closed literal cases are identical in both repositories. A selected review appears in a separate detail panel while its filter selection remains unchanged. Fresh authorized detail replaces the matching retained list card, and an unavailable target removes it. Older list responses cannot restore hidden content. Summary and pagination totals require a normal refresh after such a replacement. Native scalar treatment relationships are resolved through the same closed exact review contract for list cards, summary and filter options, with deduplicated reads in batches of at most ten under one eight-second budget. Each opening has a distinct request identity, and the review domain confirms only the committed visible exact detail and semantic focus. Notifications then marks the original represented member IDs separately. Failed, cancelled, unavailable or obsolete openings create no automatic receipt. Current hidden text and author fields never fall back to versions or notification history. Withdrawn and removed cards omit the approval badge so their current visibility remains clear. Response and appeal actions still follow the ordinary Website approved-status and owning-clinic rules. The dated Preview observations below cover review occurrence capture and exact detail opening; the full acceptance criteria remain tracked in #210 and #239. Production review-notification qualification remains open.
-
-Normal-mode notification reads use the authorized Website contract through the personal domain provider and GET `/api/notifications`. The feed spans the current person’s eligible clinics and is independent of the active Dashboard clinic. Each occurrence or complete message group carries one strict `clinic: { id, name }` attribution with the current clinic name; groups never cross a clinic or inquiry. Website applies current visibility and expiry before grouping, ordering, pagination and the complete unread count. Signed continuations bind to the person, view and version rather than the active clinic. Switching clinics remounts the center, clears loaded rows and count, aborts obsolete reads, and reloads that personal feed. An exact opening for another currently authorized clinic uses the shared clinic transition and ordinary exact destination. Current authorization and the existing departure guard still apply; explicit marking is available for visible entries from every eligible clinic. SSR loads the complete personal unread summary. Each visible, online tab polls every 30 seconds: the closed center reads the summary, while an open center reloads its selected view through the previously loaded extent. Opening, view switching, visibility and connectivity recovery, and confirmed marking request immediate reads. A complete refresh has one eight-second budget and replaces loaded rows only after every page succeeds. The client schedules long expiry waits in browser-safe chunks without changing any absolute deadline. It hides individual members at their 90-day deadlines, requests the full count at `nextUnreadCountChangeAt`, and never displays an expired count as zero. Transient failures retain visibly stale, unexpired permitted rows and retry after 5, 10, 20, then 30 seconds while honoring Retry-After; known access loss clears the scope. Reads are private, session-bound and byte-bounded. No demo fallback or browser read-ID persistence remains in the live workspace.
-
-The additive `X-Findmydoc-Clinic-Notifications-Contract: clinic-notifications-v1` request header is negotiated together with `X-Findmydoc-Clinic-Scope-Contract: clinic-scope-v1`; it leaves the inquiry domain protocol unchanged. Support negotiation is distinct from capture activation. The complete approved source catalogue, authorized reads, personal message groups, exact inquiry and review opening, individual and displayed-entry marking, cursor history, and local refresh recovery are implemented. POST `/api/notifications/read` forwards a fixed complete selection through the guarded BFF; the Website owns atomic receipts and first read timestamps. A fixed selection may span clinics. The source rechecks current eligibility under the authorization barriers and preserves personal receipts across reassignment and return. Receipt decision time, first read timestamps and unknown write outcomes retain their existing semantics. The UI distinguishes confirmed marking, proven non-commit, unknown write outcome and failed refresh after confirmation.
-
-Preview capture has remained active since `2026-10-20T12:18:38.493Z`; the 2026-10-21 checks did not change its controls. The paired Preview produced all ten event types across seven source families through ordinary source workflows. The personal history returned pages of 25 and 7 entries, and the center rendered 32 rows without duplicates. First read timestamps remained stable, and the same signed continuation remained valid after a clinic switch. A bounded synthetic Preview retention check excluded expired occurrences from the feed and count, and an expired read acknowledgment created no receipt. The regular five-minute Preview scheduler physically deleted two expired test occurrences and their receipt at `2026-10-21T09:55:36Z`, while retaining a live control occurrence. The test fixtures were cleaned up. The center also opened an inquiry notification from another authorized clinic, switched to its attributed clinic, and displayed the exact closed inquiry. These are dated Preview observations; the remaining criteria stay tracked in #210 and #239. Production capture was verified active at `2026-10-22T19:09:12.975Z`. The v0.50.2 observations on 2026-10-23 include negative authorization checks and original-link invitation resumption through the password form. Full Production notification-feed and group-access acceptance remains open in #211 and #240.
+The personal notification BFF remains private and session-bound. Its separate notification negotiation header
+`X-Findmydoc-Clinic-Notifications-Contract: clinic-notifications-v1` accompanies `clinic-scope-v1` and leaves the
+inquiry protocol independent. Protocol support and event capture activation require separate checks.
+The [notification frontend contract](engineering/notification-frontend-contract.md) owns center behavior and the
+boundary between an exact destination display and a personal acknowledgment. Website owns source authorization,
+expiry, grouping, counts, cursor validation and atomic receipts. See the [runtime status guide](#runtime-status-and-scope)
+for acceptance history and remaining verification.
 
 ## Current review workload
 
@@ -685,9 +625,8 @@ configuration, never browser bundles or source. Missing configuration fails clos
 Other product and authentication email paths are unchanged.
 
 The SMTP attempt has a 20-second total deadline; the browser bounds its response
-wait at 25 seconds. The synthetic Vercel infrastructure sample on 2026-10-24
-measured SMTP acceptance in 1.188–2.824 seconds and HTTP completion in
-1.404–4.158 seconds. These observations are not a delivery or response-time SLA.
+wait at 25 seconds.
+The [delivery PR](https://github.com/findmydoc-platform/clinic-dashboard/pull/272) records the original provider validation.
 The route reports success only after the final SMTP response accepts the sole
 recipient. SMTP rejection or pre-submission failure is a confirmed failure;
 connection loss or timeout after submission is unknown. HTTP loss also remains

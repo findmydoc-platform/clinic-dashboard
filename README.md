@@ -1,23 +1,6 @@
 # findmydoc Clinic Dashboard
 
-Standalone Next.js clinic staff workspace. Start with the [Clinic Dashboard architecture](ARCHITECTURE.md) for the local overview and guides.
-
-For the cross-application system view, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) (private repository; GitHub access required). If access is unavailable, use the local documents below and state that the shared view could not be checked. This repository documents Dashboard-specific implementation details.
-
-The source at revision `919f28e2` implements server-side Supabase sessions and the Payload bootstrap for approved staff and clinic identity. Its normal-mode server composition selects Payload providers for doctors, gallery, inquiries, profile, reporting, reviews, and treatments; presentation fixtures still supply parts of the workspace. See the [per-capability source and rollout status](docs/authentication-and-bff.md#runtime-status-and-scope) before describing a capability as available in Preview or Production. The Dashboard has no direct database connection, service-role credential, or browser Supabase client.
-
-## Preview app shell
-
-- Next.js App Router, React, TypeScript, Node 24, pnpm 10, and Tailwind CSS 4
-- Atomic Design, shadcn/ui primitives, DM Sans, and Storybook
-- Vitest, Storybook browser tests, Playwright smoke coverage, and production builds
-- Required GitHub Actions checks and Vercel preview deployments
-- `noindex` metadata, `robots.txt`, and Vercel `X-Robots-Tag` headers
-- Host-bound, `HttpOnly` Supabase session cookies with server-only login, refresh, callback, and logout
-- Real staff and clinic identity from `GET /api/clinic-dashboard/bootstrap`
-- In-app navigation between Dashboard, Messages, Reviews, and Clinic profile without route reloads
-- `presentation` mode at `/` and complete `visual-reference` coverage in Storybook
-- Template source: `findmydoc-platform/findmydoc-codex-web-template@140506999206dd2d9cade862e218e9b489eebad4`
+The Dashboard owns the clinic staff interface, server-side sessions, and the Backend for Frontend. Start with the [architecture](ARCHITECTURE.md) for the request path, owner contracts, and links to shared platform architecture.
 
 ## Local Development
 
@@ -27,28 +10,13 @@ The source at revision `919f28e2` implements server-side Supabase sessions and t
 4. Start the application with `pnpm dev`.
 5. Open `http://localhost:3000`.
 
-Required server-only variables are `SUPABASE_URL`, `EXPECTED_SUPABASE_PROJECT_REF`, `SUPABASE_PUBLISHABLE_KEY`, `PAYLOAD_API_URL`, `DASHBOARD_ORIGIN`, and a `CSRF_SIGNING_SECRET` containing at least 32 random bytes. `SUPABASE_URL` must resolve exactly to the expected project reference. Do not add `NEXT_PUBLIC_*` authentication variables, a Supabase service-role key, or database credentials. Automated browser tests use a controlled local-only auth mode that the environment validator rejects in deployed environments.
-
-Vercel Preview deployments additionally use the automatically provided server-only `VERCEL_URL`. The application
-accepts it only when it identifies the current `clinic-dashboard-*-findmydoc.vercel.app` deployment. Pull requests keep
-their generated temporary URL when deploy-relevant paths change. A deploy-relevant merge to `main` creates a separate Preview deployment and points
-`https://clinics.preview.findmydoc.eu` to it. Supabase Staging must allow both Preview host forms as documented in
-`docs/SETUP.md`; Production remains exact-origin only.
+See the [environment contract](docs/authentication-and-bff.md#environment-contract) for environment pairing and [deployment setup](docs/SETUP.md) for Preview origins and Supabase redirect configuration.
 
 ## Validation
 
 Run `pnpm check` for code, scripts, dependencies, hooks, or technical configuration changes.
 
-`pnpm typecheck` runs the pinned TypeScript 7.0.2 project compiler directly. `pnpm check` includes this
-command, and CI runs it for static-validation changes even when no application build is selected.
-Next.js 16.4.1 also uses the project-local compiler CLI by default. Type errors continue to fail
-production builds, including errors in the test sources selected by `tsconfig.json`.
-
-Tools that need the JavaScript compiler API use TypeScript 5.9.3. Repository governance scripts and
-the shared source-analysis tests import the pinned `typescript-legacy` alias. The explicit consumer
-list in `.pnpmfile.cjs` gives ESLint, Storybook documentation tooling, and other listed API consumers
-the same compatibility version. It does not replace the root project compiler. Keep the generated
-`pnpm-lock.yaml` with these dependency changes and use `pnpm install --frozen-lockfile` in CI.
+`pnpm typecheck` uses the project compiler pinned in [package.json](package.json). Tools that require the JavaScript compiler API use the `typescript-legacy` alias. See [.pnpmfile.cjs](.pnpmfile.cjs) for the compatibility overrides. Keep [pnpm-lock.yaml](pnpm-lock.yaml) with dependency changes.
 
 Select additional tests according to the affected behavior and risk, following the [test-strategy skill](.codex/skills/test-strategy/SKILL.md) and the frontend architecture's [Test Ownership section](docs/engineering/frontend-architecture.md#test-ownership).
 
@@ -72,4 +40,4 @@ Deploy-relevant PRs receive temporary Preview deployments, and deploy-relevant m
 Manual Main Preview runs force a deployment. Production deployments run only through the central platform release.
 The component deployment workflow accepts only the platform release GitHub App as both dispatcher and rerun actor.
 
-See `docs/SETUP.md` for the verified GitHub/Vercel setup and the pending `clinics.findmydoc.eu` DNS step.
+See [deployment setup](docs/SETUP.md) for GitHub and Vercel settings and domain verification.

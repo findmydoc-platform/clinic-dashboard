@@ -14,8 +14,7 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 - Keep clinic business reads and changes behind the authorized domain-specific BFF providers. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
 - Write code, code comments, repository documentation, and user-facing UI copy in English.
 - Before handoff, follow `README.md#validation`. The pre-commit hook formats staged files; do not run `pnpm format` manually.
-- For deployment, follow [Delivery](README.md#delivery).
-- Treat GitHub checks as advisory while the repository remains private on the current Free plan.
+- Follow [Delivery](README.md#delivery) for deployment and required GitHub checks.
 - Never place Vercel tokens, real auth secrets, clinic data, or private endpoints in repository content or logs. Configurable passwords belong in environment variables.
 - Follow `docs/engineering/frontend-architecture.md` for frontend ownership, terminology, imports, props, Storybook, and test boundaries.
 
@@ -47,7 +46,7 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 
 ## Platform Architecture
 
-Start Dashboard-only work with the [Dashboard architecture](ARCHITECTURE.md) and follow its links to the owning sources. For cross-application work, read the relevant [shared arc42 chapter](https://github.com/findmydoc-platform/platform-architecture#read-the-architecture) first. The Dashboard owns its session, BFF, and frontend.
+For Dashboard architecture questions and changes, start with the [Dashboard architecture](ARCHITECTURE.md) and follow its links to the owning sources. For cross-application work, read the relevant [shared arc42 chapter](https://github.com/findmydoc-platform/platform-architecture#read-the-architecture) first. The Dashboard owns its session, BFF, and frontend.
 
 If a change may affect another repository or a shared architecture claim, follow the [platform maintenance guide](https://github.com/findmydoc-platform/platform-architecture/blob/main/MAINTENANCE.md) for companion updates and evidence. Refactors that preserve shared relationships stay local. If you cannot access the shared repository, use the local entry and report which shared sources you could not verify.
 

@@ -24,7 +24,8 @@ For endpoint shapes, DTOs, and Payload authorization, use the
 [Website-owned provider contract](https://github.com/findmydoc-platform/website/blob/main/docs/integrations/clinic-dashboard-api.md).
 
 The [frontend architecture](docs/engineering/frontend-architecture.md) explains which routes, workspace components,
-and features own composition, business behavior, and presentation. It also covers Atomic Design and Storybook.
+and features own composition, business behavior, and presentation. It also covers Atomic Design and Storybook. The
+[design system](DESIGN.md) owns visual rules and component states.
 
 ## Deployment and runtime evidence
 
@@ -32,9 +33,9 @@ The [environment contract](docs/authentication-and-bff.md#environment-contract) 
 Staging and Website Preview, and Production with its own Supabase project and Website Production. See
 [deployment setup](docs/SETUP.md) and [delivery](README.md#delivery) for GitHub Actions and Vercel.
 
-The [runtime status](docs/authentication-and-bff.md#runtime-status-and-scope) records provider wiring in source and
-dated Preview or Production observations by capability. The environment contract describes the intended configuration.
-Use delivery evidence to identify the deployed revision and runtime evidence to confirm availability in that environment.
+The [runtime status guide](docs/authentication-and-bff.md#runtime-status-and-scope) points to the provider composition
+and the Preview and Production acceptance issues. Use deployment records to identify the running revision and acceptance
+evidence to confirm availability in that environment.
 
 ## Cross-cutting constraints
 
@@ -54,3 +55,11 @@ Website revalidation for mutations that affect public pages.
   the role of Atomic Design.
 - [Dashboard ADR 0003](docs/adr/0003-domain-data-provider-composition.md) records how the server selects Payload or
   controlled test providers.
+
+## Verification
+
+- [CI path routing](docs/engineering/ci-path-routing.md) explains when docs, application tests, and deployments run.
+- [Cross-app inquiry acceptance](docs/testing/inquiry-communication-adoption.md) explains how to run the local synthetic
+  Website and Dashboard test lane.
+- [Focused clinic access mutation testing](docs/testing/clinic-access-mutation-testing.md) explains how to test the
+  Dashboard's clinic-access resolver.

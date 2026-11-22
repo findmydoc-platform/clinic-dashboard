@@ -27,8 +27,9 @@ Normal reporting and the separate demo show public profile completion followed b
 
 The inquiry domain owns its focused `loadOpenInventory` command. The overview consumes only its validated current
 inventory, independently of period, journey stage, queue search, handling filters and personal unread positions.
-Loading replaces the number with an accessible skeleton; reduced motion disables its animation. Ready empty results
-show `0` and `No open inquiries`. Failure replaces the value with `Unavailable`; Retry reloads only this result.
+Initial loading displays an accessible skeleton with reduced-motion support. An empty authorized inventory shows
+`0` and `No open inquiries`. Failure without a successful snapshot shows `Unavailable`. Retry reloads only this
+result.
 Normal-mode failures never select synthetic data. The explicit synthetic workspace injects its own command.
 
 Requests and results belong to the authenticated principal and selected clinic. A scope change immediately projects
@@ -43,9 +44,11 @@ with its own synthetic commands. Hidden sections, hidden documents and disposed 
 pending results. Concurrent equivalent reads share the active request; a superseded result cannot restore an older value.
 A narrow injectable clock supports controlled browser journeys without changing the production cadence.
 
-Each refresh replaces the previous count with loading. Review main and pending-moderation counts form one result;
-review failure cannot publish only one count. Either card can fail or retry independently. Focus and timer refreshes
-leave reporting selection, destination searches, filters, drafts and personal inquiry read positions unchanged.
+Initial requests show loading. Same-scope background refresh keeps the last successful counts and card detail visible.
+A transient failure keeps these values and shows "Update failed. Showing previous values." with an independent Retry.
+The notice stays until a successful read. The main and pending-moderation review counts update as one result. Focus
+and timer refreshes leave reporting selection, destination searches, filters, drafts and personal inquiry read
+positions unchanged.
 Confirmed session or access loss clears both workload results and enters the existing protected-workspace recovery.
 The card action keeps its stable title as its accessible name and describes the current number, explanation and pending
 moderation, or its loading/unavailable state, to assistive technology.

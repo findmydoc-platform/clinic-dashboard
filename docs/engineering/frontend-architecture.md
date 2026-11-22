@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-This document is the implementation authority for Clinic Dashboard frontend structure. [ADR 0002](../adr/0002-feature-first-atomic-architecture.md) owns feature-first UI structure, [ADR 0003](../adr/0003-domain-data-provider-composition.md) owns live-domain provider composition, and their implementation plans own migration order.
+This document is the implementation authority for Clinic Dashboard frontend structure. [ADR 0002](../adr/0002-feature-first-atomic-architecture.md) owns feature-first UI structure, [ADR 0003](../adr/0003-domain-data-provider-composition.md) owns live-domain provider composition.
 
 ## Domain contracts
 
@@ -26,169 +26,13 @@ This document is the implementation authority for Clinic Dashboard frontend stru
 
 ## Target Structure
 
-Create a folder only when its first concrete responsibility is migrated.
+App Router entry points compose the workspace through the public client and server entries. Each business area owns
+its UI, model, controller, and provider as needed. Use the [application routes](../../src/app), [workspace composition](../../src/features/clinic-dashboard/workspace),
+[feature modules](../../src/features/clinic-dashboard), and [shared UI registry](../../src/components/ui) for the current
+layout. Add a directory when it has a concrete responsibility.
 
-```text
-src/
-  app/
-    page.tsx
-
-  components/
-    ui/
-      <domain-neutral-control>.tsx
-    brand/
-      BrandMark.tsx
-
-  providers/
-    ThemeProvider.tsx
-
-  features/
-    clinic-dashboard/
-      data-provider-composition.ts
-      public.ts
-      server.ts
-      workspace-provider.ts
-
-      demo/
-        commands.ts
-        dataset.ts
-        loader.ts
-        notifications.ts
-        organization.ts
-        reporting.ts
-        assets/
-          locations/
-          people/
-        locations/
-          <location-id>/
-            dashboard.ts
-            messages.ts
-            profile.ts
-            reviews.ts
-
-      workspace/
-        ClinicDashboardWorkspace.tsx
-        ClinicDashboardShell.tsx
-        useClinicDashboardController.ts
-        browser-session.ts
-        components/
-          molecules/
-            ClinicDashboardNavigation.tsx
-        model/
-          workspace-input.ts
-
-      prototype/
-        components/
-          molecules/
-            PrototypeModeSwitch.tsx
-        demo-interaction-policy.ts
-        prototype-mode.ts
-
-      dashboard/
-        public.ts
-        dashboard-view-model.mapper.ts
-        components/
-          molecules/
-          organisms/
-        hooks/
-          useDashboardController.ts
-        model/
-        server/
-          public.ts
-        testing/
-
-      messages/
-        public.ts
-        Messages.tsx
-        InquiryQueueController.tsx
-        browser/
-          inquiry-status-api.ts
-        components/
-          molecules/
-            ConversationActionsMenu.tsx
-            ConversationListItem.tsx
-            InquiryListItem.tsx
-            InquiryStatusMenu.tsx
-            MessageComposer.tsx
-          organisms/
-            InquiryQueueScreen.tsx
-            MessagesScreen.tsx
-            PatientInquiryProfileDialog.tsx
-        hooks/
-          useInquiryQueueController.ts
-          useMessagesController.ts
-        model/
-          inquiries.ts
-          inquiry-queue.reducer.ts
-          inquiry-queue.selectors.ts
-          inquiry-status-commands.ts
-          message-commands.ts
-          messages.ts
-          messages.reducer.ts
-          messages.selectors.ts
-        server/
-          actions.ts
-          controlled-inquiries.ts
-          patient-inquiry-provider.ts
-          payload-inquiries.ts
-          public.ts
-        testing/
-          messages.fixtures.ts
-
-      reviews/
-        public.ts
-        Reviews.tsx
-        browser/
-          review-source-api.ts
-        components/
-          molecules/
-          organisms/
-            ReviewAppealDialog.tsx
-            ReviewHistoryDialog.tsx
-            ReviewResponseDialog.tsx
-        hooks/
-          useReviewsController.ts
-        model/
-          review-source.ts
-          review-source-commands.ts
-          review-source-schema.ts
-        server/
-          actions.ts
-          controlled-reviews.ts
-          payload-reviews.ts
-          review-provider.ts
-        testing/
-
-      clinic-profile/
-        public.ts
-        ClinicProfile.tsx
-        components/
-          molecules/
-          organisms/
-        hooks/
-          useClinicProfileSourceController.ts
-        model/
-        server/
-          public.ts
-        testing/
-
-      support/
-        public.ts
-        components/
-          organisms/
-        hooks/
-        model/
-        testing/
-
-      journeys/
-        FoundationPreview.stories.tsx
-
-  storybook/
-    StorybookTheme.tsx
-    viewports.ts
-```
-
-Do not create generic `shared`, `common`, `misc`, `helpers`, `services`, or `repositories` folders. Domain-neutral UI already has an owner under `components`; future external capabilities receive a named adapter only when approved.
+Keep domain-neutral UI in the shared UI registry. Business code stays with its named feature. External capabilities
+receive a named adapter when approved.
 
 ## Import Matrix
 
