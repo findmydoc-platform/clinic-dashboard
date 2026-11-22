@@ -25,6 +25,14 @@ authorized clinics.
 
 Normal reporting and the separate demo show public profile completion followed by Open inquiries and Reviews to answer. Profile completion retains its existing calculation, information, loading, and unavailable states.
 
+The published clinic name, description, and treatments help patients identify the clinic and judge whether it offers the
+care they need. The address and opening hours help them plan a visit. Supported languages help them assess whether they
+can communicate in their preferred language, and representative images show what to expect before making contact. The
+percentage is a product index of published profile completeness. Its six equal weights and completion thresholds are
+product rules. Claims about medical quality or higher inquiry rates require separate evidence.
+[Product requirements](https://github.com/findmydoc-platform/clinic-dashboard/issues/104) and
+[archived healthcare evidence](https://github.com/findmydoc-platform/clinic-dashboard/blob/e5445c3418f63d00090338c6537cbe06379dcf57/docs/research/clinic-profile-completeness-healthcare-evidence.md#bottom-line).
+
 The inquiry domain owns its focused `loadOpenInventory` command. The overview consumes only its validated current
 inventory, independently of period, journey stage, queue search, handling filters and personal unread positions.
 Initial loading displays an accessible skeleton with reduced-motion support. An empty authorized inventory shows

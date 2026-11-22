@@ -37,6 +37,10 @@ The [runtime status guide](docs/authentication-and-bff.md#runtime-status-and-sco
 and the Preview and Production acceptance issues. Use deployment records to identify the running revision and acceptance
 evidence to confirm availability in that environment.
 
+For a failure that spans the Dashboard and Website, use the
+[cross-application first checks](https://github.com/findmydoc-platform/platform-architecture/blob/main/07_deployment_view.md#first-checks-for-a-cross-application-failure)
+to identify both deployments and find where the request stopped.
+
 ## Cross-cutting constraints
 
 The [public route registry](src/lib/security/public-routes.ts) defines which routes allow unauthenticated access.
