@@ -559,7 +559,8 @@ The architecture remains valid only while the following properties hold:
 
 The personal notification BFF remains private and session-bound. Its separate notification negotiation header
 `X-Findmydoc-Clinic-Notifications-Contract: clinic-notifications-v1` accompanies `clinic-scope-v1` and leaves the
-inquiry protocol independent. Protocol support and event capture activation require separate checks.
+inquiry protocol independent. Protocol support and [Website capture activation](https://github.com/findmydoc-platform/website/blob/main/docs/architecture/clinic-notifications-v1.md#hosted-capture-operation)
+require separate checks.
 The [notification frontend contract](engineering/notification-frontend-contract.md) owns center behavior and the
 boundary between an exact destination display and a personal acknowledgment. Website owns source authorization,
 expiry, grouping, counts, cursor validation and atomic receipts. See the [runtime status guide](#runtime-status-and-scope)

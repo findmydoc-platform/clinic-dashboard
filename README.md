@@ -2,6 +2,8 @@
 
 The Dashboard owns the clinic staff interface, server-side sessions, and the Backend for Frontend. Start with the [architecture](ARCHITECTURE.md) for the request path, owner contracts, and links to shared platform architecture.
 
+For consequential changes, use the [shared Engineering Spec template](https://github.com/findmydoc-platform/platform-architecture/blob/main/templates/engineering-spec.md) in the lead issue (private repository, GitHub access required).
+
 ## Local Development
 
 1. Use Node 24 and pnpm 10.

@@ -15,11 +15,11 @@ hydration restores a matching preference and loads fresh data for a different pe
 Unavailable storage leaves the current document's reporting controls usable. Isolated Storybook compositions do not
 enable preference persistence. Published profile progress remains the server's atomic
 projection; the presentation mapper uses it for both the KPI and task card. Notification refresh and failure are independent
-of reporting. The V3 runtime does not consume historical demo reporting snapshots or fabricate time series. The separate
+of reporting. Live V3 has aggregate counts and comparisons. Live time series are unavailable. The separate
 Workspace VisualReference story explicitly supplies a reporting-demo snapshot through the controlled harness. The normal
 workspace entry never supplies this input. The demo uses the existing dashboard controller, screen, period control and
 profile-views download adapter. Its synthetic location picker is confined to that explicit demo; normal mode lists only the
-authorized clinic.
+authorized clinics.
 
 ## Top reporting cards
 
@@ -59,7 +59,8 @@ columns. The row retains `gap-4` without empty columns or horizontal overflow.
 
 ## CSV exports
 
-Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
+Live reporting has no CSV export. The explicit Workspace VisualReference demo can export its synthetic profile-view
+data through the Dashboard serializer and the shared `downloadTextFile` browser adapter. Reviews has no export.
 
 ## Four-count content contract
 
@@ -74,3 +75,5 @@ The upper profile-completion card and operational inventories are independent of
 
 The V3 producer and consumer switch directly without V2 compatibility. Server and browser reject old schema versions,
 missing required metrics and additional metrics. Existing V2 browser documents can require a reload after delivery.
+See the [Website ADR 040 consequences](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/040-adr-four-count-clinic-dashboard-reporting.md#consequences)
+for deployment order and paired rollback.

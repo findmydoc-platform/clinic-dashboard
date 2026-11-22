@@ -114,21 +114,17 @@ stable alias, and verifies that the alias resolves to the deployment created by 
 the external DNS record. Until that record points to Vercel, the generated deployment URL remains the verification
 surface.
 
-## Supabase Staging Redirect Contract
+## Supabase Auth consumer origins
 
-The Staging Auth redirect allowlist preserves its existing entries and includes:
+The Dashboard uses Staging Auth in Preview. The Preview redirect allowlist includes:
 
 - `https://clinic-dashboard-*-findmydoc.vercel.app/**`
 - `https://clinics.preview.findmydoc.eu/**`
 
-Update hosted Staging Auth through a field-limited Management API `GET`/`PATCH` of `uri_allow_list`, then re-read the
-field and compare the normalized result. Never store or print the Management API credential, project reference, full
-Auth configuration, or unrelated settings. Production Auth, Site URL, and email templates are not part of this
-contract. The invite and recovery templates must continue to use `RedirectTo`.
-
-This repository documents the Dashboard consumer contract but does not own an incomplete `supabase/config.toml` or a
-privileged configuration script. Shared executable Supabase desired state belongs in the operations configuration
-layer.
+The Production Dashboard uses `https://clinics.findmydoc.eu` and exact Auth callback redirects. Ops owns hosted Auth
+routing and native mail suppression. Use the [Ops Supabase Auth runbook](https://github.com/findmydoc-platform/ops/blob/9991351/docs/supabase-auth-config.md)
+for configuration and reconciliation (private repository, GitHub access required). The Website and Lettermint own
+transactional email delivery.
 
 The dedicated team-scoped Vercel token is handed to GitHub through the clipboard or standard input. Never paste it into issues, pull requests, shell arguments, files, or logs.
 
