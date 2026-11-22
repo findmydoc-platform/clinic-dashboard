@@ -1,6 +1,6 @@
 # findmydoc Clinic Dashboard
 
-Standalone Next.js clinic staff workspace.
+Standalone Next.js clinic staff workspace. Start with the [Clinic Dashboard architecture](ARCHITECTURE.md) for the local overview and guides.
 
 For the cross-application system view, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) (private repository; GitHub access required). If access is unavailable, use the local documents below and state that the shared view could not be checked. This repository documents Dashboard-specific implementation details.
 
