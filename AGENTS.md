@@ -47,7 +47,9 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 
 ## Platform Architecture
 
-For questions spanning Clinic Dashboard and Website, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) when GitHub access is available. If access is unavailable, use the local application documentation and state that the shared architecture could not be checked. This repository remains authoritative for its BFF, session, and frontend implementation. Follow links to the relevant local documentation before changing code.
+Start Dashboard-only work with the [Dashboard architecture](ARCHITECTURE.md) and follow its links to the owning sources. For cross-application work, read the relevant [shared arc42 chapter](https://github.com/findmydoc-platform/platform-architecture#read-the-architecture) first. The Dashboard owns its session, BFF, and frontend.
+
+If a change may affect another repository or a shared architecture claim, follow the [platform maintenance guide](https://github.com/findmydoc-platform/platform-architecture/blob/main/MAINTENANCE.md) for companion updates and evidence. Refactors that preserve shared relationships stay local. If you cannot access the shared repository, use the local entry and report which shared sources you could not verify.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
