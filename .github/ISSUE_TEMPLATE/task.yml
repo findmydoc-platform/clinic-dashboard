@@ -4,6 +4,9 @@ title: "[Task]: "
 labels:
   - chore
 body:
+  - type: markdown
+    attributes:
+      value: If this ticket implements an agreed Engineering Spec, link its lead issue.
   - type: textarea
     id: context
     attributes:
