@@ -1,6 +1,6 @@
 ---
 name: project-planning
-description: Create a decision-complete plan before a major change.
+description: Plan consequential changes, including changes to externally consumed contracts.
 ---
 
 # Project Planning

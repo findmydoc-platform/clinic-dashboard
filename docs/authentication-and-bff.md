@@ -85,8 +85,8 @@ Storybook.
   compatible `Pragma` and `Expires` headers where required.
 - Supabase and request-specific state are created per request. No module-level user client or session cache exists.
 - Browser application code receives neither access nor refresh token and creates no Supabase browser client.
-- One failed authenticated request may trigger one controlled refresh and retry. A second authentication failure clears
-  invalid cookies and enters the login state; upstream availability errors do not clear the session.
+- A Payload `401` may trigger one controlled refresh and retry. A second `401` or a returned Supabase refresh error
+  clears the local session and enters the login state. A Payload bootstrap `403` or `503` preserves the session.
 
 ## Authentication Routes
 
@@ -463,17 +463,28 @@ An eligible staff member without an available clinic receives `200` with `clinic
 Every upstream bootstrap response is private and carries `Cache-Control: private, no-store`, `Pragma: no-cache`,
 `Expires: 0`, and `Vary: Authorization`. The Dashboard response must retain equivalent private no-store behavior.
 
-| Condition                                                                   | BFF behavior                                                                                                    | Required UI state                                               |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| No session or invalid session after one refresh                             | Return `401`, clear invalid cookies.                                                                            | Login required; preserve only a validated relative destination. |
-| Valid identity without a matching clinic principal                          | Return `401`; do not provision staff.                                                                           | Account unavailable without exposing internal identity details. |
-| Pending or rejected staff, forbidden target clinic, or forbidden capability | Return `403`; preserve session.                                                                                 | Access pending, denied, or unavailable as a controlled state.   |
-| Invalid or expired TokenHash link                                           | Clear incomplete auth state and return a sanitized auth error.                                                  | Login screen with a retry action.                               |
-| Invalid input                                                               | Return `400` with a stable safe error code.                                                                     | Field or command error without raw upstream details.            |
-| Business conflict                                                           | Return `409` with a stable safe error code.                                                                     | Refresh or resolve the changed state.                           |
-| Payload unavailable or timed out                                            | Return `502` or `504`; preserve session.                                                                        | Temporary service error with retry.                             |
-| Supabase returns a refresh error                                            | The current resolver signs out locally. Temporary and invalid-session refresh errors are not distinguished yet. | Login state for this resolver result.                           |
-| Origin or CSRF rejection                                                    | Return `403` without an upstream call.                                                                          | Generic rejected-request state; no sensitive detail.            |
+The route determines the browser-facing status:
+
+- `GET /api/dashboard/bootstrap` returns the context with `200`, an unauthorized error with `401`, or an access-denied
+  error with `403`. Unavailable or timed-out Payload bootstrap reads return `503 CLINIC_DASHBOARD_TEMPORARILY_UNAVAILABLE`.
+- After successful Supabase sign-in, `POST /api/auth/login` maps a Payload `403` to `200` with `redirectTo: "/access"`
+  and a Payload `503` to `200` with `redirectTo: "/access?state=temporarily-unavailable"`. Both preserve the session.
+  The browser follows the destination in the JSON response.
+- Capability routes use their own error contracts. The [review routes](../src/features/clinic-dashboard/reviews/server/actions.ts) are one example where `502`
+  and `504` apply.
+
+Other BFF boundary cases:
+
+| Condition                                                                    | BFF behavior                                                                                                    | Required UI state                                               |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| No session or invalid session after one refresh                              | Return `401`, clear invalid cookies.                                                                            | Login required; preserve only a validated relative destination. |
+| Valid identity without a matching clinic principal                           | Return `401`; do not provision staff.                                                                           | Account unavailable without exposing internal identity details. |
+| Ineligible staff or forbidden clinic or capability on a protected data route | Return `403`; preserve session.                                                                                 | Access pending, denied, or unavailable as a controlled state.   |
+| Invalid or expired TokenHash link                                            | Clear incomplete auth state and return a sanitized auth error.                                                  | Login screen with a retry action.                               |
+| Invalid input                                                                | Return `400` with a stable safe error code.                                                                     | Field or command error without raw upstream details.            |
+| Business conflict                                                            | Return `409` with a stable safe error code.                                                                     | Refresh or resolve the changed state.                           |
+| Supabase returns a refresh error                                             | The current resolver signs out locally. Temporary and invalid-session refresh errors are not distinguished yet. | Login state for this resolver result.                           |
+| Origin or CSRF rejection                                                     | Return `403` without an upstream call.                                                                          | Generic rejected-request state; no sensitive detail.            |
 
 All protected pages require explicit loading, empty, forbidden, expired-session, and upstream-unavailable states.
 

@@ -50,10 +50,13 @@ sequenceDiagram
     participant Website as Website via Dashboard BFF
 
     Staff->>Feed: Open a notification
-    Feed->>Workspace: Request exact target with captured member IDs
+    Feed->>Feed: Capture member IDs locally
+    Feed->>Workspace: Request exact target
     Workspace->>Workspace: Check current principal, target access and departure guard
-    alt Opening is declined or target access is absent
-        Workspace-->>Feed: Cancel opening
+    alt Target is invalid or unauthorized
+        Workspace-->>Feed: Report unavailable without marking
+    else Departure guard declines
+        Workspace-->>Feed: Cancel without marking
     else Opening is accepted
         opt Target clinic differs from the current clinic
             Workspace->>Workspace: Switch to the authorized target clinic
