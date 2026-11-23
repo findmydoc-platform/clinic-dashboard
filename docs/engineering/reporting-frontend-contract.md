@@ -31,7 +31,7 @@ can communicate in their preferred language, and representative images show what
 percentage is a product index of published profile completeness. Its six equal weights and completion thresholds are
 product rules. Claims about medical quality or higher inquiry rates require separate evidence.
 [Product requirements](https://github.com/findmydoc-platform/clinic-dashboard/issues/104) and
-[archived healthcare evidence](https://github.com/findmydoc-platform/clinic-dashboard/blob/e5445c3418f63d00090338c6537cbe06379dcf57/docs/research/clinic-profile-completeness-healthcare-evidence.md#bottom-line).
+[archived healthcare evidence](https://github.com/findmydoc-platform/clinic-dashboard/blob/e5445c3418f63d00090338c6537cbe06379dcf57/docs/research/clinic-profile-completeness-healthcare-evidence.md#bottom-line). Evidence from other listing markets helps frame questions about images. It cannot establish image-count, ranking, or conversion rules for findmydoc clinics. [Transfer limits](https://github.com/findmydoc-platform/clinic-dashboard/blob/e5445c3418f63d00090338c6537cbe06379dcf57/docs/research/visual-listing-evidence-transferability.md).
 
 The inquiry domain owns its focused `loadOpenInventory` command. The overview consumes only its validated current
 inventory, independently of period, journey stage, queue search, handling filters and personal unread positions.

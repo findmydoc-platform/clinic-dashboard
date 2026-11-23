@@ -12,6 +12,8 @@ repository is unavailable, and record which shared sources you could not check.
 
 ## Building blocks and runtime
 
+See the [Dashboard container diagram](https://github.com/findmydoc-platform/platform-architecture/blob/main/05_building_block_view.md#clinic-dashboard-containers) for the browser, Dashboard server, and external systems.
+
 The Next.js App Router composes the protected workspace on the server. React Server Components call the server-only
 data layer directly. Browser actions call capability-specific Route Handlers on the Dashboard origin. The BFF sends
 the current user access token to Payload through domain providers. Payload checks current staff and clinic access
@@ -25,7 +27,7 @@ For endpoint shapes, DTOs, and Payload authorization, use the
 
 The [frontend architecture](docs/engineering/frontend-architecture.md) explains which routes, workspace components,
 and features own composition, business behavior, and presentation. It also covers Atomic Design and Storybook. The
-[design system](DESIGN.md) owns visual rules and component states.
+[design system](DESIGN.md) owns visual rules and component states. The [notification opening sequence](docs/engineering/notification-frontend-contract.md#opening-a-notification-across-clinics) shows how the workspace changes clinics and confirms display before marking a notification read.
 
 ## Deployment and runtime evidence
 

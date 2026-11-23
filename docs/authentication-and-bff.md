@@ -441,7 +441,7 @@ The provider checks configured origin and exact target path before fetching; the
 before returning bytes. A foreign token, media ID, or target cannot transfer ownership. All responses remain private
 and `no-store`; browser code receives no Bearer token or direct upstream media URL.
 
-Gallery stays under the existing **Clinic profile** navigation item. While the profile domain is closed, an internal
+Gallery stays under the existing **Clinic profile** navigation item. Its separate editor gives gallery and profile drafts their own save and cancel boundaries. [Gallery editor decision](https://github.com/findmydoc-platform/clinic-dashboard/pull/116#what-changed) While the profile domain is closed, an internal
 `ClinicGalleryWorkspace` composes the existing gallery and manager without activating profile, doctor, or treatment
 operations. Unsaved changes and active uploads register with the shared departure guard. Workspace remounting drops
 old responses; a late upload uses its original clinic commands for draft cleanup. Controlled browser checks prove
@@ -455,23 +455,25 @@ upstream details:
 | Payload bootstrap response                            | Meaning                                                                             | Dashboard behavior                                                                                            |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `401` with `CLINIC_DASHBOARD_UNAUTHORIZED`            | Missing or invalid Bearer token, wrong principal type, or no matching clinic staff. | Attempt one controlled session refresh; persistent failure clears invalid cookies and enters the login state. |
-| `403` with `CLINIC_DASHBOARD_ACCESS_DENIED`           | Clinic staff is not approved or has no current clinic assignment.                   | Preserve the session and render the appropriate access state without clinic data.                             |
+| `403` with `CLINIC_DASHBOARD_ACCESS_DENIED`           | Clinic staff is ineligible for Dashboard access.                                    | Preserve the session and render the appropriate access state without clinic data.                             |
 | `503` with `CLINIC_DASHBOARD_TEMPORARILY_UNAVAILABLE` | Supabase or Payload is temporarily unavailable.                                     | Preserve the session and render a retryable service state rather than logging the user out.                   |
+
+An eligible staff member without an available clinic receives `200` with `clinics: []`. The Dashboard preserves the session and shows a restricted workspace.
 
 Every upstream bootstrap response is private and carries `Cache-Control: private, no-store`, `Pragma: no-cache`,
 `Expires: 0`, and `Vary: Authorization`. The Dashboard response must retain equivalent private no-store behavior.
 
-| Condition                                                          | BFF behavior                                                               | Required UI state                                               |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| No session or invalid session after one refresh                    | Return `401`, clear invalid cookies.                                       | Login required; preserve only a validated relative destination. |
-| Valid identity without a matching clinic principal                 | Return `401`; do not provision staff.                                      | Account unavailable without exposing internal identity details. |
-| Pending or rejected staff, missing clinic, or forbidden capability | Return `403`; preserve session.                                            | Access pending, denied, or unavailable as a controlled state.   |
-| Invalid or expired TokenHash link                                  | Clear incomplete auth state and return a sanitized auth error.             | Login screen with a retry action.                               |
-| Invalid input                                                      | Return `400` with a stable safe error code.                                | Field or command error without raw upstream details.            |
-| Business conflict                                                  | Return `409` with a stable safe error code.                                | Refresh or resolve the changed state.                           |
-| Payload unavailable or timed out                                   | Return `502` or `504`; preserve session.                                   | Temporary service error with retry.                             |
-| Supabase unavailable during refresh                                | Return a temporary upstream error; preserve cookies unless proven invalid. | Temporary authentication-service error, not logout.             |
-| Origin or CSRF rejection                                           | Return `403` without an upstream call.                                     | Generic rejected-request state; no sensitive detail.            |
+| Condition                                                                   | BFF behavior                                                                                                    | Required UI state                                               |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| No session or invalid session after one refresh                             | Return `401`, clear invalid cookies.                                                                            | Login required; preserve only a validated relative destination. |
+| Valid identity without a matching clinic principal                          | Return `401`; do not provision staff.                                                                           | Account unavailable without exposing internal identity details. |
+| Pending or rejected staff, forbidden target clinic, or forbidden capability | Return `403`; preserve session.                                                                                 | Access pending, denied, or unavailable as a controlled state.   |
+| Invalid or expired TokenHash link                                           | Clear incomplete auth state and return a sanitized auth error.                                                  | Login screen with a retry action.                               |
+| Invalid input                                                               | Return `400` with a stable safe error code.                                                                     | Field or command error without raw upstream details.            |
+| Business conflict                                                           | Return `409` with a stable safe error code.                                                                     | Refresh or resolve the changed state.                           |
+| Payload unavailable or timed out                                            | Return `502` or `504`; preserve session.                                                                        | Temporary service error with retry.                             |
+| Supabase returns a refresh error                                            | The current resolver signs out locally. Temporary and invalid-session refresh errors are not distinguished yet. | Login state for this resolver result.                           |
+| Origin or CSRF rejection                                                    | Return `403` without an upstream call.                                                                          | Generic rejected-request state; no sensitive detail.            |
 
 All protected pages require explicit loading, empty, forbidden, expired-session, and upstream-unavailable states.
 

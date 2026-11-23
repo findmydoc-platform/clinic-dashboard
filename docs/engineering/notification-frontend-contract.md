@@ -33,6 +33,46 @@ exact-detail heading fallback. Only the matching current detail after DOM commit
 display. Notifications then sends its separate personal marking command with the original selection.
 Reads and failed or superseded openings create no receipt. Marking uncertainty leaves the displayed detail open.
 
+A fresh authorized review detail can reveal a redaction, withdrawal, or removal after the list was loaded. It replaces
+the matching card, and older list responses cannot restore hidden content. A confirmed `not-found` removes the card.
+A transient detail failure leaves the list intact. A loss of review access clears the review list and closes the
+dialog. Refresh the ordinary authorized list to update affected counts and pagination.
+[Review visibility decision](https://github.com/findmydoc-platform/clinic-dashboard/pull/215#points-to-review)
+
+### Opening a notification across clinics
+
+```mermaid
+sequenceDiagram
+    actor Staff as Clinic staff
+    participant Feed as Notifications
+    participant Workspace as Workspace
+    participant Detail as Messages or Reviews
+    participant Website as Website via Dashboard BFF
+
+    Staff->>Feed: Open a notification
+    Feed->>Workspace: Request exact target with captured member IDs
+    Workspace->>Workspace: Check current principal, target access and departure guard
+    alt Opening is declined or target access is absent
+        Workspace-->>Feed: Cancel opening
+    else Opening is accepted
+        opt Target clinic differs from the current clinic
+            Workspace->>Workspace: Switch to the authorized target clinic
+        end
+        Workspace->>Detail: Open the captured target
+        Detail->>Website: Load authorized exact detail
+        Website-->>Detail: Current detail or controlled failure
+        alt Current matching detail is displayed and focused
+            Detail-->>Workspace: Confirm display
+            Workspace-->>Feed: Confirm the same opening
+            Feed->>Website: Send a separate personal marking command
+        else Detail fails, access changes or navigation supersedes opening
+            Workspace-->>Feed: End without marking
+        end
+    end
+```
+
+### Feed refresh and expiry
+
 Each visible, online authenticated tab starts an independent notification read every 30 seconds. A closed center reads the full summary; an open center reloads its selected view through the previously loaded oldest item within one eight-second cycle. The controller publishes the replacement only after all requested pages succeed. It keeps the current view and scroll position while updating, coalesces overlapping triggers, and drops superseded generations and pagination responses. Opening, switching views, visibility and connectivity recovery, and confirmed personal marking request an immediate read. Transient failures retain visibly stale, unexpired permitted rows and retry after 5, 10, 20, then 30 seconds, subject to a longer Retry-After. Authorization loss clears the affected rows and count; incompatible responses stop automatic reads. A failed read after confirmed marking preserves that confirmed outcome. No read failure retries a write.
 
 The browser hides each loaded member at its individual `expiresAt`, updates message-group membership and ordering, and requests a complete count at `nextUnreadCountChangeAt`. It hides a count whose deadline has passed until a successful authoritative read supplies a current count. Long waits use browser-safe timer chunks while preserving the absolute expiry. These client timers complement Website authorization and expiry enforcement; a browser refresh cannot extend retention or restore inaccessible content. The notification BFF logs a classified, identifier-free read failure and duration even when its upstream transport fails; Website records successful and failed source reads in its existing structured diagnostics.
