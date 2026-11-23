@@ -1,84 +1,71 @@
-# Architecture
+# Clinic Dashboard architecture
 
-For the cross-application boundary, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) when access is available. If access is unavailable, use this local guide and state that the shared view could not be checked. This file describes Dashboard-owned implementation; see the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) for the distinction between code wiring and rollout evidence.
+## Context and scope
 
-The canonical application and API decision is
-[Website ADR 026](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/026-adr-standalone-clinic-dashboard-bff-architecture.md).
-The detailed repository contract lives in
-[the local authentication and BFF architecture](docs/authentication-and-bff.md).
+The Clinic Dashboard is the standalone workspace for clinic staff. It owns the staff interface, server-side sessions,
+and the Backend for Frontend (BFF). Supabase issues sessions. The Website's Payload application owns clinic staff
+authorization, business data, and the API the Dashboard consumes. Platform staff use Payload Admin.
 
-## Application Shape
+The [shared platform arc42](https://github.com/findmydoc-platform/platform-architecture#read-the-architecture) covers the
+cross-application context and responsibilities. GitHub access is required. Start with the local guides below if that
+repository is unavailable, and record which shared sources you could not check.
 
-The application uses the Next.js App Router and React Server Components by default. The protected root page remains a
-server boundary; its fixture-backed app controller is a client component because navigation and dialogs are
-intentionally local UI state.
+## Building blocks and runtime
 
-Atomic Design defines the UI boundary:
+See the [Dashboard container diagram](https://github.com/findmydoc-platform/platform-architecture/blob/main/05_building_block_view.md#clinic-dashboard-containers) for the browser, Dashboard server, and external systems.
 
-- Atoms are visual primitives.
-- Molecules compose atoms without route or data ownership.
-- Organisms assemble product surfaces.
-- Templates own layout.
-- Route files own page composition and server-side access decisions.
+The Next.js App Router composes the protected workspace on the server. React Server Components call the server-only
+data layer directly. Browser actions call capability-specific Route Handlers on the Dashboard origin. The BFF sends
+the current user access token to Payload through domain providers. Payload checks current staff and clinic access
+on each request. The Dashboard keeps credentials server-side and owns no business database or durable business cache.
 
-The application is a Backend for Frontend (BFF). React Server Components read through a server-only Payload access
-layer. Browser-initiated reads and mutations use capability-specific Route Handlers on this application's origin.
-Server Components call the access layer directly rather than making internal HTTP requests to those handlers. No route
-acts as a generic Payload proxy.
+The [authentication and BFF guide](docs/authentication-and-bff.md) owns the Dashboard request path, session lifecycle,
+and security boundaries. Start at the [session and cookie contract](docs/authentication-and-bff.md#session-and-cookie-contract)
+or [initial page recovery](docs/authentication-and-bff.md#initial-page-recovery-and-writable-requests) for authentication.
+For endpoint shapes, DTOs, and Payload authorization, use the
+[Website-owned provider contract](https://github.com/findmydoc-platform/website/blob/main/docs/integrations/clinic-dashboard-api.md).
 
-## Current Access Boundary
+The [frontend architecture](docs/engineering/frontend-architecture.md) explains which routes, workspace components,
+and features own composition, business behavior, and presentation. It also covers Atomic Design and Storybook. The
+[design system](DESIGN.md) owns visual rules and component states. The [notification opening sequence](docs/engineering/notification-frontend-contract.md#opening-a-notification-across-clinics) shows how the workspace changes clinics and confirms display before marking a notification read.
 
-The unauthenticated route set is defined by [`src/lib/security/public-routes.ts`](src/lib/security/public-routes.ts). The protected dashboard route `/` uses the implemented server-side Supabase session and Payload bootstrap, rather than the former temporary password guard. Session cookies are host-bound and `HttpOnly`; login, callback confirmation, refresh, and logout run through the Dashboard BFF. Browser application code receives no token, creates no Supabase browser client, and makes no request to Payload. The application disables indexing. These code facts do not establish Preview or Production auth-flow verification.
+## Deployment and runtime evidence
 
-Payload remains the current authorization boundary. The Dashboard server sends the user's access token to Payload as a
-Bearer token; Payload resolves current `clinicStaff` approval, clinic assignment, and permissions for every request.
-Authorization is enforced at the Payload data boundary, not only in Next.js proxy or Route Handler logic.
+The [environment contract](docs/authentication-and-bff.md#environment-contract) pairs local and Preview with Supabase
+Staging and Website Preview, and Production with its own Supabase project and Website Production. See
+[deployment setup](docs/SETUP.md) and [delivery](README.md#delivery) for GitHub Actions and Vercel.
 
-Authenticated state-changing Route Handlers use one central mutation guard. It validates the exact origin and a
-stateless HMAC-signed CSRF token bound to the current Supabase session. Staging and Production store the CSRF token in a
-host-only `__Host-` cookie. Payload requires no CSRF-specific change.
+The [runtime status guide](docs/authentication-and-bff.md#runtime-status-and-scope) points to the provider composition
+and the Preview and Production acceptance issues. Use deployment records to identify the running revision and acceptance
+evidence to confirm availability in that environment.
 
-## Data Boundary
+For a failure that spans the Dashboard and Website, use the
+[cross-application first checks](https://github.com/findmydoc-platform/platform-architecture/blob/main/07_deployment_view.md#first-checks-for-a-cross-application-failure)
+to identify both deployments and find where the request stopped.
 
-The Dashboard has no business-data persistence. Its demo workspace still provides deterministic presentation content,
-while the server composition overlays source-backed domain results in normal mode. Storybook keeps the visual reference.
-Payload remains the source of truth and the only application with database access. The Clinic Dashboard receives no
-direct database access, no Supabase service-role key, and no durable business cache.
+## Cross-cutting constraints
 
-The Dashboard server uses Payload REST resources and focused custom endpoints with typed DTOs. A self-and-capability
-bootstrap returns only the current principal, clinic, approval state, and allowed capabilities required by the UI. The
-Dashboard never treats request-provided clinic, role, or actor data as authoritative.
+The [public route registry](src/lib/security/public-routes.ts) defines which routes allow unauthenticated access.
+The application opts out of indexing through [page metadata](src/app/layout.tsx), [robots.txt](src/app/robots.ts),
+and [response headers](vercel.json). Session cookies are host-bound and `HttpOnly`. The
+[mutation guard](docs/authentication-and-bff.md#csrf-and-origin-contract) checks the origin and session-bound CSRF token.
+The [cache contract](docs/authentication-and-bff.md#cache-contract) keeps authenticated reads private and preserves
+Website revalidation for mutations that affect public pages.
 
-## Environment Boundary
+## Architecture decisions
 
-Local development and pull-request previews use Supabase Staging and the website Preview API. Production uses the
-production Supabase project and production Payload API. The existing Vercel preview URLs remain unchanged; Supabase
-Staging uses a project-specific wildcard restricted to `/auth/callback`, while production allows only
-`https://clinics.findmydoc.eu/auth/callback`.
+- [Platform ADR 026](https://github.com/findmydoc-platform/platform-architecture/blob/main/decisions/026-adr-standalone-clinic-dashboard-bff-architecture.md)
+  records why the Dashboard is standalone and how the BFF keeps the Payload boundary server-side.
+- [Dashboard ADR 0001](docs/adr/0001-design-sync.md) records the design synchronization decision.
+- [Dashboard ADR 0002](docs/adr/0002-feature-first-atomic-architecture.md) records feature-first frontend ownership and
+  the role of Atomic Design.
+- [Dashboard ADR 0003](docs/adr/0003-domain-data-provider-composition.md) records how the server selects Payload or
+  controlled test providers.
 
-The Payload client accepts exactly `https://preview.findmydoc.eu` in Local and Preview and exactly
-`https://findmydoc.eu` in Production. It requires HTTPS and treats redirects as errors so an authenticated request never
-replays its Bearer token to another origin.
+## Verification
 
-Callback origins come from validated environment configuration or trusted Vercel metadata, not an unchecked `Host`
-header. Post-authentication destinations are validated relative Dashboard paths.
-
-## Cache Boundary
-
-Authentication, session, principal, clinic, capability, and authenticated Dashboard reads are private live data. BFF
-responses use private, no-store semantics. ISR, public shared caches, durable Dashboard caches, and Vercel Data Cache
-entries are excluded. Request-local deduplication is allowed.
-
-Authorized Payload mutations can still change data rendered on the public website. Those writes retain the existing
-website revalidation contract for affected public surfaces; the private BFF response neither replaces nor suppresses
-that invalidation.
-
-## Prototype Visibility Boundary
-
-The app exposes only `visual-reference` and `presentation` variants. `/` always renders `presentation`; Storybook renders
-both. Visibility configuration is not authorization, has no user-facing toggle, and must be removed gate by gate when a
-server-authorized capability replaces it.
-
-## Delivery Boundary
-
-GitHub Actions owns validation and Vercel delivery. [Setup guidance](docs/SETUP.md) records the deployment configuration; the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) keeps per-domain Preview and Production availability separate from code wiring.
+- [CI path routing](docs/engineering/ci-path-routing.md) explains when docs, application tests, and deployments run.
+- [Cross-app inquiry acceptance](docs/testing/inquiry-communication-adoption.md) explains how to run the local synthetic
+  Website and Dashboard test lane.
+- [Focused clinic access mutation testing](docs/testing/clinic-access-mutation-testing.md) explains how to test the
+  Dashboard's clinic-access resolver.

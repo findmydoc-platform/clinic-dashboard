@@ -4,7 +4,9 @@
 
 Read `.codex/project-profile.toml` before implementation work. Bootstrap decisions are complete.
 
-The application uses server-side Supabase sessions and the authorized Payload bootstrap for clinic identity. Its normal-mode server composition selects domain-specific Payload providers while some presentation content remains demo data; see the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) before describing a domain as live in an environment. Payload is the source of truth for identity and authorization; do not add direct database access or service-role credentials to this application.
+Supabase issues the sessions the Dashboard uses server-side. Payload maps the authenticated account to a clinic staff record and decides which clinics that person can access. Do not add direct database access or service-role credentials to this application.
+
+In normal mode, the server selects domain-specific Payload providers. Some presentation content remains demo data. See the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) before describing a domain as live in an environment.
 
 ## Fixed Standards
 
@@ -14,8 +16,7 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 - Keep clinic business reads and changes behind the authorized domain-specific BFF providers. Production delivery is active; do not change deployment configuration during UI architecture work unless explicitly approved.
 - Write code, code comments, repository documentation, and user-facing UI copy in English.
 - Before handoff, follow `README.md#validation`. The pre-commit hook formats staged files; do not run `pnpm format` manually.
-- For deployment, follow [Delivery](README.md#delivery).
-- Treat GitHub checks as advisory while the repository remains private on the current Free plan.
+- Follow [Delivery](README.md#delivery) for deployment and required GitHub checks.
 - Never place Vercel tokens, real auth secrets, clinic data, or private endpoints in repository content or logs. Configurable passwords belong in environment variables.
 - Follow `docs/engineering/frontend-architecture.md` for frontend ownership, terminology, imports, props, Storybook, and test boundaries.
 
@@ -47,7 +48,9 @@ The application uses server-side Supabase sessions and the authorized Payload bo
 
 ## Platform Architecture
 
-For questions spanning Clinic Dashboard and Website, start with the [shared platform architecture](https://github.com/findmydoc-platform/platform-architecture) when GitHub access is available. If access is unavailable, use the local application documentation and state that the shared architecture could not be checked. This repository remains authoritative for its BFF, session, and frontend implementation. Follow links to the relevant local documentation before changing code.
+For Dashboard architecture questions and changes, start with the [Dashboard architecture](ARCHITECTURE.md) and follow its links to the owning sources. For cross-application work, read the relevant [shared arc42 chapter](https://github.com/findmydoc-platform/platform-architecture#read-the-architecture) first. The Dashboard owns its session, BFF, and frontend.
+
+If a change may affect another repository or a shared architecture claim, follow the [platform maintenance guide](https://github.com/findmydoc-platform/platform-architecture/blob/main/MAINTENANCE.md) for companion updates and evidence. Refactors that preserve shared relationships stay local. If you cannot access the shared repository, use the local entry and report which shared sources you could not verify.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

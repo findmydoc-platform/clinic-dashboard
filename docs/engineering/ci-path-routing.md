@@ -102,6 +102,4 @@ pnpm ci:timings <run-id> <run-id>
 ```
 
 The report separates elapsed time from first run creation to final job completion and summed job durations. The
-latter measures runner workload, not billable minutes. Include skipped jobs and record retry attempts. The baseline
-for PR #278 is 600 seconds elapsed and 829 summed job-seconds, including CodeQL. A reduction is only claimed
-after a real documentation PR and Main push have been observed.
+latter measures runner workload, not billable minutes. Include skipped jobs and record retry attempts. Use an actual documentation pull request and its subsequent push to `main` when measuring the documentation lane.

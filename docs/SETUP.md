@@ -1,6 +1,6 @@
 # Repository and Deployment Setup
 
-This document records the foundation setup for `findmydoc-platform/clinic-dashboard`.
+Use this runbook to configure GitHub Actions, Vercel, and Supabase Auth for the Clinic Dashboard.
 
 ## GitHub
 
@@ -24,10 +24,6 @@ Available but advisory:
 
 - The production ruleset does not require an approving review; the team can merge after the required automated checks
   pass.
-
-Generated `pnpm-lock.yaml` is excluded from Prettier. Frozen-lockfile installation remains the consistency check.
-
-Node types are pinned to `24.13.6`, the newest available declaration minor that does not exceed the Node 24.14 runtime contract. Dependabot ignores `@types/node` versions at or above `24.15.0`; update this boundary together with a runtime minor or major upgrade.
 
 ## Repository Actions Configuration
 
@@ -108,9 +104,6 @@ Developers must therefore not add secrets, access credentials, patient data, med
 exception messages. The exception applies only to diagnosis output, not to business-event properties. Treat any real
 exposure as a telemetry privacy defect and use it to define and enforce the capture boundary.
 
-The deployment-boundary test uses a controlled Vercel stub to verify the build and runtime metadata passed to the CLI.
-It does not replace validation of a real Preview deployment.
-
 Vercel provides server-only `VERCEL_URL` for the current deployment. Preview requests may use that origin only when the
 hostname matches `clinic-dashboard-*-findmydoc.vercel.app`, and the browser `Origin` must equal the request URL origin.
 The exact stable Main Preview origin is `https://clinics.preview.findmydoc.eu`. Do not add a manual `NEXT_PUBLIC_*`
@@ -121,31 +114,23 @@ stable alias, and verifies that the alias resolves to the deployment created by 
 the external DNS record. Until that record points to Vercel, the generated deployment URL remains the verification
 surface.
 
-## Supabase Staging Redirect Contract
+## Supabase Auth consumer origins
 
-The Staging Auth redirect allowlist preserves its existing entries and includes:
+The Dashboard uses Staging Auth in Preview. The Preview redirect allowlist includes:
 
 - `https://clinic-dashboard-*-findmydoc.vercel.app/**`
 - `https://clinics.preview.findmydoc.eu/**`
 
-Update hosted Staging Auth through a field-limited Management API `GET`/`PATCH` of `uri_allow_list`, then re-read the
-field and compare the normalized result. Never store or print the Management API credential, project reference, full
-Auth configuration, or unrelated settings. Production Auth, Site URL, and email templates are not part of this
-contract. The invite and recovery templates must continue to use `RedirectTo`.
-
-This repository documents the Dashboard consumer contract but does not own an incomplete `supabase/config.toml` or a
-privileged configuration script. Shared executable Supabase desired state belongs in the operations configuration
-layer.
-
-Keep the legacy `DASHBOARD_PASSWORD` Vercel values until the trusted preview proves login, reload, logout, invite, and recovery. Remove those unused values only as the final cutover cleanup; the application no longer reads them.
+The Production Dashboard uses `https://clinics.findmydoc.eu` and exact Auth callback redirects. Ops owns hosted Auth
+routing and native mail suppression. Use the [Ops Supabase Auth runbook](https://github.com/findmydoc-platform/ops/blob/9991351/docs/supabase-auth-config.md)
+for configuration and reconciliation (private repository, GitHub access required). The Website and Lettermint own
+transactional email delivery.
 
 The dedicated team-scoped Vercel token is handed to GitHub through the clipboard or standard input. Never paste it into issues, pull requests, shell arguments, files, or logs.
 
 ## Production Domain
 
-The intended production domain is `clinics.findmydoc.eu`.
-
-Production aliasing and DNS remain intentionally pending. Create the externally managed DNS record required by Vercel and verify the domain before treating `clinics.findmydoc.eu` as live. Production deployments may use the Vercel production URL until that separate DNS step is complete.
+The Production origin is `https://clinics.findmydoc.eu`. Verify that the external DNS record resolves to the assigned Production deployment when configuring the domain. Use the central release records to identify the deployed revision.
 
 ## Acceptance
 
@@ -153,7 +138,7 @@ Before handoff:
 
 1. Follow the [repository validation policy](../README.md#validation).
 2. Confirm all six required pull-request checks have valid results, including skips, and code-scanning rules are satisfied.
-3. Confirm the Vercel preview URL is public and data-less.
+3. Confirm the Preview URL reaches the Dashboard login and requires a verified session for staff pages.
 4. Confirm pull requests retain generated temporary Preview URLs.
 5. Confirm the Main Preview workflow deploys only `main` and moves `clinics.preview.findmydoc.eu` to that exact Preview.
 6. Confirm the central platform release is the only production path and uses its frozen SHA and shared version.

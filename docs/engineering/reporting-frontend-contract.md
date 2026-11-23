@@ -15,20 +15,29 @@ hydration restores a matching preference and loads fresh data for a different pe
 Unavailable storage leaves the current document's reporting controls usable. Isolated Storybook compositions do not
 enable preference persistence. Published profile progress remains the server's atomic
 projection; the presentation mapper uses it for both the KPI and task card. Notification refresh and failure are independent
-of reporting. The V3 runtime does not consume historical demo reporting snapshots or fabricate time series. The separate
+of reporting. Live V3 has aggregate counts and comparisons. Live time series are unavailable. The separate
 Workspace VisualReference story explicitly supplies a reporting-demo snapshot through the controlled harness. The normal
 workspace entry never supplies this input. The demo uses the existing dashboard controller, screen, period control and
 profile-views download adapter. Its synthetic location picker is confined to that explicit demo; normal mode lists only the
-authorized clinic.
+authorized clinics.
 
 ## Top reporting cards
 
 Normal reporting and the separate demo show public profile completion followed by Open inquiries and Reviews to answer. Profile completion retains its existing calculation, information, loading, and unavailable states.
 
+The published clinic name, description, and treatments help patients identify the clinic and judge whether it offers the
+care they need. The address and opening hours help them plan a visit. Supported languages help them assess whether they
+can communicate in their preferred language, and representative images show what to expect before making contact. The
+percentage is a product index of published profile completeness. Its six equal weights and completion thresholds are
+product rules. Claims about medical quality or higher inquiry rates require separate evidence.
+[Product requirements](https://github.com/findmydoc-platform/clinic-dashboard/issues/104) and
+[archived healthcare evidence](https://github.com/findmydoc-platform/clinic-dashboard/blob/e5445c3418f63d00090338c6537cbe06379dcf57/docs/research/clinic-profile-completeness-healthcare-evidence.md#bottom-line). Evidence from other listing markets helps frame questions about images. It cannot establish image-count, ranking, or conversion rules for findmydoc clinics. [Transfer limits](https://github.com/findmydoc-platform/clinic-dashboard/blob/e5445c3418f63d00090338c6537cbe06379dcf57/docs/research/visual-listing-evidence-transferability.md).
+
 The inquiry domain owns its focused `loadOpenInventory` command. The overview consumes only its validated current
 inventory, independently of period, journey stage, queue search, handling filters and personal unread positions.
-Loading replaces the number with an accessible skeleton; reduced motion disables its animation. Ready empty results
-show `0` and `No open inquiries`. Failure replaces the value with `Unavailable`; Retry reloads only this result.
+Initial loading displays an accessible skeleton with reduced-motion support. An empty authorized inventory shows
+`0` and `No open inquiries`. Failure without a successful snapshot shows `Unavailable`. Retry reloads only this
+result.
 Normal-mode failures never select synthetic data. The explicit synthetic workspace injects its own command.
 
 Requests and results belong to the authenticated principal and selected clinic. A scope change immediately projects
@@ -43,9 +52,11 @@ with its own synthetic commands. Hidden sections, hidden documents and disposed 
 pending results. Concurrent equivalent reads share the active request; a superseded result cannot restore an older value.
 A narrow injectable clock supports controlled browser journeys without changing the production cadence.
 
-Each refresh replaces the previous count with loading. Review main and pending-moderation counts form one result;
-review failure cannot publish only one count. Either card can fail or retry independently. Focus and timer refreshes
-leave reporting selection, destination searches, filters, drafts and personal inquiry read positions unchanged.
+Initial requests show loading. Same-scope background refresh keeps the last successful counts and card detail visible.
+A transient failure keeps these values and shows "Update failed. Showing previous values." with an independent Retry.
+The notice stays until a successful read. The main and pending-moderation review counts update as one result. Focus
+and timer refreshes leave reporting selection, destination searches, filters, drafts and personal inquiry read
+positions unchanged.
 Confirmed session or access loss clears both workload results and enters the existing protected-workspace recovery.
 The card action keeps its stable title as its accessible name and describes the current number, explanation and pending
 moderation, or its loading/unavailable state, to assistive technology.
@@ -56,7 +67,8 @@ columns. The row retains `gap-4` without empty columns or horizontal overflow.
 
 ## CSV exports
 
-Dashboard owns the aggregate profile-views CSV serializer and calls the domain-neutral `downloadTextFile` browser adapter. Reviews exposes no download or export capability.
+Live reporting has no CSV export. The explicit Workspace VisualReference demo can export its synthetic profile-view
+data through the Dashboard serializer and the shared `downloadTextFile` browser adapter. Reviews has no export.
 
 ## Four-count content contract
 
@@ -71,3 +83,5 @@ The upper profile-completion card and operational inventories are independent of
 
 The V3 producer and consumer switch directly without V2 compatibility. Server and browser reject old schema versions,
 missing required metrics and additional metrics. Existing V2 browser documents can require a reload after delivery.
+See the [Website ADR 040 consequences](https://github.com/findmydoc-platform/website/blob/main/docs/adrs/040-adr-four-count-clinic-dashboard-reporting.md#consequences)
+for deployment order and paired rollback.

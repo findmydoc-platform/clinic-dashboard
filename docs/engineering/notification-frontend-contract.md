@@ -1,6 +1,8 @@
 # Notification frontend contract
 
-See [Frontend Architecture](./frontend-architecture.md) for shared rules.
+See [Frontend Architecture](./frontend-architecture.md) for shared rules. The
+[approved compact feed and state mockups](../plans/assets/clinic-notification-center/README.md)
+record the original visual direction. Current visual tokens and component states belong to the [design system](../../DESIGN.md).
 
 ## Notification foundation
 
@@ -14,7 +16,65 @@ POST `/api/notifications/read` accepts only the complete `notificationIds` selec
 
 The entry menu fixes its complete member IDs when marking starts. Confirmed marking requests a current feed and complete count. A failed following refresh preserves confirmed marking and labels retained data as outdated. Proven non-commit and unknown submitted-write outcomes have separate feedback. Checking status repeats a read; manually repeating a write retains the original IDs and honors Retry-After. Writes never retry automatically. The shared dropdown accepts a local portal container so row menus remain inside the mobile modal dialog.
 
-The workspace mounts the notification facade with a principal-and-clinic key so a scope change discards previous data and cancels requests before reloading the authorized personal feed. This reset does not bind the feed cursor or personal receipts to that selected clinic. Cross-clinic exact opening belongs to Dashboard #238; until it lands the workspace reports those targets unavailable, allowing explicit marking without loading a different clinic through the active clinic route. Reads never create receipts. Entry-level personal marking, displayed-entry bulk marking, and exact inquiry and review opening are implemented. Each notification opening freezes its represented IDs and passes a unique request identity through Workspace. Workspace owns cross-feature routing and obtains inquiry, review and profile editor continuations before changing context. Messages owns the normal authorized exact detail load and reports display only after the current detail DOM commits and semantic focus succeeds. Reopening the same inquiry performs another authorized read. Cached details, headings, failed loads and superseded requests never confirm display. Notifications then invokes its separate personal marking command with the original selection; subsequent marking uncertainty does not undo destination display. Optional message anchors resolve only against the ordinary detail timeline, with exact-detail heading fallback. Principal/clinic changes, navigation away and replaced requests invalidate outstanding completion. Reviews loads an ordinary authorized exact record independently of its list filters and pagination. Its current detail and normal response/appeal IDs supply the available anchors; unavailable anchors fall back to the exact-detail heading without another read. A shared eight-second deadline bounds the detail and current workflow reads. The detail controller discards cancelled or superseded results and reports successful opening only after the exact current record is visible and focused. The previous demo panel and session-storage acknowledgements have been removed from the live workspace.
+The shared clinic layout owns the notification controller across clinic-page remounts. A principal or clinic change
+clears the current feed and count, cancels old reads, and invalidates outstanding marking results before reloading
+the authorized personal feed. Feed cursors and receipts are personal.
+
+An accepted exact opening can survive the clinic change to its captured, currently authorized destination for the
+same principal and navigation generation. The notification controller freezes the entry's member IDs. Workspace
+uses the shared inquiry, review, and profile editor departure guard before navigating. A declined guard, principal change, loss of target
+access, unrelated navigation, or replacement opening cancels the pending completion.
+[Exact clinic navigation browser cases](../../tests/e2e/exact-clinic-navigation.spec.ts)
+
+Messages and Reviews load the ordinary authorized exact detail, independently of list filters and pagination.
+Reopening the same inquiry performs another authorized read. Review detail and its current workflow reads share
+an eight-second deadline. Optional anchors use the loaded timeline or response and appeal record IDs, with an
+exact-detail heading fallback. Only the matching current detail after DOM commit and semantic focus confirms
+display. Notifications then sends its separate personal marking command with the original selection.
+Reads and failed or superseded openings create no receipt. Marking uncertainty leaves the displayed detail open.
+
+A fresh authorized review detail can reveal a redaction, withdrawal, or removal after the list was loaded. It replaces
+the matching card, and older list responses cannot restore hidden content. A confirmed `not-found` removes the card.
+A transient detail failure leaves the list intact. A loss of review access clears the review list and closes the
+dialog. Refresh the ordinary authorized list to update affected counts and pagination.
+[Review visibility decision](https://github.com/findmydoc-platform/clinic-dashboard/pull/215#points-to-review)
+
+### Opening a notification across clinics
+
+```mermaid
+sequenceDiagram
+    actor Staff as Clinic staff
+    participant Feed as Notifications
+    participant Workspace as Workspace
+    participant Detail as Messages or Reviews
+    participant Website as Website via Dashboard BFF
+
+    Staff->>Feed: Open a notification
+    Feed->>Feed: Capture member IDs locally
+    Feed->>Workspace: Request exact target
+    Workspace->>Workspace: Check current principal, target access and departure guard
+    alt Target is invalid or unauthorized
+        Workspace-->>Feed: Report unavailable without marking
+    else Departure guard declines
+        Workspace-->>Feed: Cancel without marking
+    else Opening is accepted
+        opt Target clinic differs from the current clinic
+            Workspace->>Workspace: Switch to the authorized target clinic
+        end
+        Workspace->>Detail: Open the captured target
+        Detail->>Website: Load authorized exact detail
+        Website-->>Detail: Current detail or controlled failure
+        alt Current matching detail is displayed and focused
+            Detail-->>Workspace: Confirm display
+            Workspace-->>Feed: Confirm the same opening
+            Feed->>Website: Send a separate personal marking command
+        else Detail fails, access changes or navigation supersedes opening
+            Workspace-->>Feed: End without marking
+        end
+    end
+```
+
+### Feed refresh and expiry
 
 Each visible, online authenticated tab starts an independent notification read every 30 seconds. A closed center reads the full summary; an open center reloads its selected view through the previously loaded oldest item within one eight-second cycle. The controller publishes the replacement only after all requested pages succeed. It keeps the current view and scroll position while updating, coalesces overlapping triggers, and drops superseded generations and pagination responses. Opening, switching views, visibility and connectivity recovery, and confirmed personal marking request an immediate read. Transient failures retain visibly stale, unexpired permitted rows and retry after 5, 10, 20, then 30 seconds, subject to a longer Retry-After. Authorization loss clears the affected rows and count; incompatible responses stop automatic reads. A failed read after confirmed marking preserves that confirmed outcome. No read failure retries a write.
 
