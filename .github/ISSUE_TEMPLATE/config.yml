@@ -3,3 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/findmydoc-platform
     about: Use GitHub Private Vulnerability Reporting or the internal security contact. Do not disclose vulnerabilities publicly.
+  - name: Engineering Spec (findmydoc team)
+    url: https://github.com/findmydoc-platform/platform-architecture/blob/main/templates/engineering-spec.md
+    about: Use the internal template in one lead issue for consequential changes before opening implementation tickets.

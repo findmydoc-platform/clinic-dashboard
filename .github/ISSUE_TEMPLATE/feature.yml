@@ -4,6 +4,9 @@ title: "[Feature]: "
 labels:
   - enhancement
 body:
+  - type: markdown
+    attributes:
+      value: If this ticket implements an agreed Engineering Spec, link its lead issue.
   - type: textarea
     id: problem
     attributes:
