@@ -4,7 +4,9 @@
 
 Read `.codex/project-profile.toml` before implementation work. Bootstrap decisions are complete.
 
-The application uses server-side Supabase sessions and the authorized Payload bootstrap for clinic identity. Its normal-mode server composition selects domain-specific Payload providers while some presentation content remains demo data; see the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) before describing a domain as live in an environment. Payload is the source of truth for identity and authorization; do not add direct database access or service-role credentials to this application.
+Supabase issues the sessions the Dashboard uses server-side. Payload maps the authenticated account to a clinic staff record and decides which clinics that person can access. Do not add direct database access or service-role credentials to this application.
+
+In normal mode, the server selects domain-specific Payload providers. Some presentation content remains demo data. See the [capability status](docs/authentication-and-bff.md#runtime-status-and-scope) before describing a domain as live in an environment.
 
 ## Fixed Standards
 
